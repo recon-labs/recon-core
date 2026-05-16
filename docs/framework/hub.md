@@ -1,0 +1,86 @@
+# Recon Hub
+
+## Purpose
+
+Recon Hub is the future discovery and metadata layer for Recon packages, adapters, policies, templates, and examples.
+
+## Why Hub matters
+
+A framework becomes stronger when users can discover and reuse community standards.
+
+Recon Hub should help users find:
+
+- adapters,
+- check packs,
+- sampling policies,
+- tolerance policies,
+- evidence templates,
+- domain packages,
+- examples.
+
+## First implementation
+
+Hub does not need to be a full app initially.
+
+A first version can be a repo:
+
+```text
+recon-hub-index/
+  packages/
+  adapters/
+  schemas/
+```
+
+Submissions can happen by pull request.
+
+## Metadata example
+
+```yaml
+name: recon-labs/recon-checks-cdc
+type: check_pack
+description: Standard CDC reconciliation checks and policies.
+repository: https://github.com/recon-labs/recon-checks-cdc
+compatibility:
+  recon_core: ">=0.1.0,<0.2.0"
+resources:
+  - check_packs
+  - sample_policies
+trust_level: official
+```
+
+## Trust levels
+
+Possible levels:
+
+- official,
+- trusted,
+- community,
+- experimental.
+
+## Package categories
+
+- adapter,
+- check pack,
+- sample policy,
+- tolerance policy,
+- evidence template,
+- example project,
+- domain package.
+
+## Relationship to `recon deps`
+
+Future `recon deps` may use Hub metadata to install packages.
+
+## Relationship to adapters
+
+Adapters may be listed in Hub but installed through Python packaging.
+
+Example:
+
+```bash
+pip install recon-snowflake
+```
+
+## Design principle
+
+Recon Hub should help Recon become a community standard, but it should not block the core CLI.
