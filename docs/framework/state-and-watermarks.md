@@ -10,28 +10,13 @@ State is essential for continuous CDC reconciliation, incremental validation, pr
 
 State is information persisted across Recon runs.
 
-Examples:
-
-- last successful watermark,
-- previous failed keys,
-- sample keys,
-- run history,
-- check results,
-- evidence references.
+Examples include last successful watermark, previous failed keys, sample keys, run history, check results, and evidence references.
 
 ## Watermark
 
 A watermark tracks incremental progress.
 
-Common types:
-
-- timestamp,
-- monotonically increasing id,
-- CDC offset,
-- batch id,
-- ingestion time.
-
-Example:
+Common types include timestamp, monotonically increasing id, CDC offset, batch id, load id, and ingestion time.
 
 ```text
 last_successful_watermark = 2026-05-16T10:00:00Z
@@ -48,11 +33,25 @@ to: current_watermark
 
 Lookback helps catch late-arriving records.
 
+## Bootstrap behavior
+
+First-run behavior must be explicit.
+
+Options may include requiring a start watermark, running a full initial comparison, using a configured bootstrap window, or failing until configured.
+
+Recon should not silently start from “forever ago” unless configured.
+
 ## State update rule
 
 A watermark should advance only after successful validation for the relevant contract and policy.
 
 If checks fail, preserve the previous successful watermark unless configured otherwise.
+
+## Late-arriving data
+
+CDC data can arrive late.
+
+Lookback overlap should be supported so records near the prior watermark are revalidated.
 
 ## Previous failures
 
@@ -66,21 +65,15 @@ When sampling is random or generated from one side, sample keys should be persis
 
 This ensures source and target compare the same records.
 
+## CDC state
+
+CDC checks may need state for last successful source timestamp, last successful target timestamp, last batch/load id, last CDC offset, previous delete checks, and previous failed keys.
+
 ## Local vs remote state
 
-### Local file state
+Local file state is useful for development and should live in gitignored `state/`.
 
-Useful for development.
-
-```text
-state/
-```
-
-Should be gitignored.
-
-### Database state
-
-Useful for production.
+Database state is useful for production.
 
 Possible tables:
 
@@ -89,28 +82,6 @@ Possible tables:
 - `recon_failure_details`,
 - `recon_sample_keys`,
 - `recon_watermarks`.
-
-## Suggested state tables
-
-### `recon_runs`
-
-Run metadata.
-
-### `recon_check_results`
-
-Per-check status and values.
-
-### `recon_failure_details`
-
-Mismatched row/key details.
-
-### `recon_watermarks`
-
-Last successful watermark values.
-
-### `recon_sample_keys`
-
-Persisted sample keys.
 
 ## State vs evidence
 

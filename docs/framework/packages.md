@@ -8,40 +8,13 @@ A Recon package is a reusable bundle of framework resources. It is different fro
 
 ## Adapter packages vs Recon packages
 
-### Adapter packages
+Adapter packages are Python packages installed with pip, such as `recon-snowflake`. They provide connectivity and dialect behavior.
 
-Python packages installed with pip:
-
-```bash
-pip install recon-snowflake
-```
-
-They provide connectivity and dialect behavior.
-
-### Recon resource packages
-
-Installed by a future `recon deps` command.
-
-They provide:
-
-- check packs,
-- sampling policies,
-- tolerance policies,
-- macros,
-- evidence templates,
-- examples.
+Recon resource packages are installed by a future `recon deps` command. They provide check packs, sampling policies, tolerance policies, schema policies, macros, evidence templates, and examples.
 
 ## Why packages matter
 
-Packages let the community share reconciliation standards.
-
-Examples:
-
-- CDC check pack,
-- finance tolerance policies,
-- medallion checks,
-- migration validation pack,
-- evidence templates.
+Packages let the community share reconciliation standards such as CDC check packs, finance tolerance policies, medallion checks, migration validation packs, evidence templates, and schema ignore templates for common CDC tools.
 
 ## packages.yml
 
@@ -75,6 +48,10 @@ recon-checks-cdc/
     cdc_equivalence.yml
   sample_policies/
     latest_changed_records.yml
+  tolerances/
+    default_cdc.yml
+  schema_policies/
+    common_cdc_metadata.yml
   macros/
     normalize_timestamp.sql
   docs/
@@ -83,40 +60,19 @@ recon-checks-cdc/
 
 ## Official packages
 
-Possible official packages:
-
-- `recon-checks-cdc`,
-- `recon-checks-migration`,
-- `recon-checks-medallion`,
-- `recon-policies-sampling`,
-- `recon-policies-tolerances`,
-- `recon-evidence-templates`.
+Possible official packages include `recon-checks-cdc`, `recon-checks-migration`, `recon-checks-medallion`, `recon-policies-sampling`, `recon-policies-tolerances`, and `recon-evidence-templates`.
 
 ## Community packages
 
-Community packages may include domain-specific standards.
-
-Examples:
-
-- healthcare claims,
-- ERP ledger checks,
-- insurance policy validation.
+Community packages may include domain-specific standards such as healthcare claims, ERP ledger checks, insurance policy validation, or CDC metadata ignore policies for specific ingestion vendors.
 
 ## Design rule
 
 Packages should share reusable logic, not private project mappings.
 
-Good:
+Good package content includes generic CDC check packs, standard sampling policies, evidence templates, and schema ignore policies for known technical metadata columns.
 
-- generic CDC check pack,
-- standard sampling policy,
-- evidence template.
-
-Bad:
-
-- private table names,
-- credentials,
-- customer data.
+Bad package content includes private table names, credentials, and customer data.
 
 ## Design principle
 

@@ -8,24 +8,9 @@ This document defines Recon Labs’ intended multi-repo strategy.
 
 ## Current decision
 
-Start with:
+Start with `recon-core`.
 
-```text
-recon-core
-```
-
-This repo contains:
-
-- CLI,
-- framework concepts,
-- core docs,
-- contract model,
-- check engine,
-- result model,
-- evidence generation,
-- base adapter interface,
-- early examples,
-- foundational ADRs.
+This repo contains CLI, framework concepts, core docs, contract model, check engine, result model, evidence generation, base adapter interface, early examples, and foundational ADRs.
 
 ## Long-term repo categories
 
@@ -82,22 +67,11 @@ recon-hub-index
 
 ## Why not one repo forever
 
-One repo forever creates:
-
-- unnecessary dependencies,
-- adapter release coupling,
-- CI complexity,
-- core bloat,
-- harder community ownership.
+One repo forever creates unnecessary dependencies, adapter release coupling, CI complexity, core bloat, and harder community ownership.
 
 ## Why not many repos immediately
 
-Many repos too early create:
-
-- coordination overhead,
-- unstable interfaces,
-- empty repos,
-- release complexity.
+Many repos too early create coordination overhead, unstable interfaces, empty repos, and release complexity.
 
 ## Rollout
 
@@ -109,15 +83,9 @@ Many repos too early create:
 
 ## Source of truth
 
-`recon-core` remains the source of truth for:
+`recon-core` remains the source of truth for product definition, framework concepts, contract syntax, validation rules, ADRs, base interfaces, package rules, and adapter rules.
 
-- product definition,
-- framework concepts,
-- contract syntax,
-- ADRs,
-- base interfaces,
-- package rules,
-- adapter rules.
+Other repos should reference `recon-core` rather than redefining the product model.
 
 ## Design principle
 

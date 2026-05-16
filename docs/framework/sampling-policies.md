@@ -12,12 +12,44 @@ Sampling is a **policy**, not a single test option.
 
 The same sampling strategy should be reusable across contracts.
 
-Example:
+## Sampling levels
+
+Recon should support sampling at multiple levels.
+
+### Contract-level default
 
 ```yaml
 sampling:
-  policy: latest_changed_records
+  default_policy: stable_hash_5_percent
 ```
+
+### Check-level override
+
+```yaml
+checks:
+  - type: row_diff
+    sampling: stable_hash_5_percent
+```
+
+### Check-pack override
+
+```yaml
+checks:
+  use:
+    - name: recon_core.cdc_equivalence
+      sampling: latest_changed_records
+```
+
+### Full-data override
+
+```yaml
+checks:
+  - type: sum_diff
+    column: revenue
+    sampling: full
+```
+
+Per-check overrides should win over contract defaults.
 
 ## Recommended location
 
@@ -27,6 +59,12 @@ sample_policies/
   latest_changed_records.yml
   previous_failures.yml
 ```
+
+## Full data
+
+`full` means no sampling filter is applied.
+
+It is useful for row counts, aggregate totals, schema checks, and some key coverage checks.
 
 ## Deterministic hash
 
@@ -40,13 +78,9 @@ keys:
   inherit: contract.keys
 ```
 
-Use cases:
+Hash functions differ across databases. Recon must not assume hashes are portable across systems.
 
-- repeatable baseline validation,
-- debugging,
-- large recurring checks.
-
-Warning: database hash functions differ. Recon must not assume hashes are portable across systems. Safer approaches include persisted sample keys or numeric key modulo when valid.
+Safe approaches include persisted sample keys, sampling from source and applying keys to target, numeric modulo when valid, or adapter-declared portable hashing.
 
 ## Incremental window
 
@@ -61,17 +95,12 @@ watermark:
 lookback: 2 hours
 ```
 
-Use cases:
-
-- CDC validation,
-- scheduled source-to-target checks,
-- near-real-time sync monitoring.
-
 Important behavior:
 
 - use last successful watermark,
-- include overlap for late-arriving records,
-- advance watermark only after successful validation.
+- include lookback overlap for late-arriving records,
+- advance watermark only after successful validation,
+- require explicit bootstrap behavior for first run.
 
 ## Persisted random sample
 
@@ -84,7 +113,7 @@ count: 10000
 persist_keys: true
 ```
 
-Random samples must persist keys.
+Random samples must persist keys. Random source and random target samples are not comparable unless the same keys are used.
 
 ## Previous failures
 
@@ -95,8 +124,6 @@ name: previous_failures
 type: previous_failures
 lookback_runs: 5
 ```
-
-This supports analyst-engineer fix loops and regression prevention.
 
 ## Stratified sample
 
@@ -142,33 +169,26 @@ sampling:
 
 Recon should design for this even if v0.1 supports one policy.
 
-## Evidence
+## Sampling and uniqueness
 
-Sampling evidence should include:
+Sampling does not remove uniqueness requirements.
 
-- policy name,
-- mode,
-- size,
-- selected keys when appropriate,
-- run id,
-- timestamp window,
-- watermark,
-- lookback,
-- compiled SQL or selection query.
+Any row-level value check still requires unique `grain.keys` in both source and target after sampling/windowing.
+
+If duplicates are found in the sampled/windowed data, row-level checks should be blocked.
+
+## Sampling and evidence
+
+Sampling evidence should include policy name, mode, size, selected keys when appropriate, run id, timestamp window, watermark, lookback, compiled SQL or selection query, and whether the check ran full or sampled.
+
+Reports must clearly state whether results are full-data or sampled.
 
 ## MVP recommendation
 
-v0.1 should support:
+v0.1 should support full-data mode, deterministic hash or numeric modulo, incremental window design, and sample evidence model.
 
-- deterministic hash or numeric modulo,
-- incremental window design,
-- sample evidence model.
-
-v0.2 should add:
-
-- persisted random,
-- previous failures.
+v0.2 should add persisted random and previous failures.
 
 ## Design principle
 
-Sampling makes Recon useful for continuous validation, not only one-time comparisons.
+Sampling makes Recon useful for continuous validation, not only one-time comparisons. It must be explicit, reproducible, and visible in compiled artifacts.

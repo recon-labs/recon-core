@@ -4,94 +4,41 @@
 
 This document defines evidence in Recon.
 
-Evidence is a first-class output. Recon should not only return pass/fail; it should show what was checked, how it was checked, and what differed.
-
-## Why evidence matters
-
-Reconciliation is often tied to:
-
-- CDC reliability,
-- migration cutover,
-- analyst QA,
-- audit review,
-- engineering fixes,
-- sign-off workflows.
-
-Teams need artifacts they can review, attach to tickets, and rerun after fixes.
+Evidence is a first-class output. Recon should not only return pass/fail; it should show what was checked, how it was checked, what assumptions were used, and what differed.
 
 ## Evidence types
 
 ### Terminal summary
 
-Concise CLI output:
+Concise CLI output.
+
+### Manifest
+
+Machine-oriented parsed project graph:
 
 ```text
-PASS row_count_diff
-PASS missing_keys
-FAIL sum_diff revenue: source=100000.00 target=99950.00 diff=-50.00
+target/manifest.json
 ```
 
-### JSON run result
+The manifest supports tooling, selectors, docs, compile, run, and CI workflows.
 
-Machine-readable artifact:
+### Compiled contracts
+
+Human-readable resolved contracts:
 
 ```text
-target/run_results.json
+target/compiled_contracts/customer_revenue.yml
 ```
 
-Useful for CI, Airflow, integrations, and dashboards.
+### Compiled checks
 
-### Failure details
-
-Structured mismatch records:
+Human-readable execution plan:
 
 ```text
-target/failures/customer_revenue__row_diff.csv
+target/compiled_checks/customer_revenue.yml
 ```
 
-Fields may include:
-
-- run id,
-- contract name,
-- check name,
-- key values,
-- column name,
-- source value,
-- target value,
-- diff value,
-- tolerance,
-- severity.
-
-### HTML report
-
-Human-readable report:
-
-```text
-reports/customer_revenue.html
-```
-
-Should include:
-
-- run summary,
-- contract metadata,
-- source/target,
-- checks,
-- sampling,
-- tolerances,
-- failures,
-- evidence links.
-
-### Result tables
-
-Production teams may persist results:
-
-```text
-recon_runs
-recon_check_results
-recon_failure_details
-recon_sample_keys
-recon_watermarks
-```
+These should show check-pack expansion, metric expansion, columns used, sampling used, tolerances used, schema ignores, CDC mode, and delete behavior.
 
 ### Compiled SQL
 
@@ -101,39 +48,61 @@ Generated SQL should be available for debugging:
 target/compiled_sql/
 ```
 
+### JSON run result
+
+Machine-readable run outcome:
+
+```text
+target/run_results.json
+```
+
+### Failure details
+
+Structured mismatch records:
+
+```text
+target/failures/customer_revenue__row_diff.csv
+```
+
+Fields may include run id, contract name, check name, key values, column name, source value, target value, normalized values, diff value, tolerance, and severity.
+
+### HTML report
+
+Human-readable report:
+
+```text
+reports/customer_revenue.html
+```
+
+It should include run summary, contract metadata, source/target, checks, sampling, tolerances, null/normalization rules, schema ignore rules, CDC mode, failures, and evidence links.
+
+### Result tables
+
+Production teams may persist results in tables such as `recon_runs`, `recon_check_results`, `recon_failure_details`, `recon_sample_keys`, and `recon_watermarks`.
+
 ### Sample keys
 
 When sampling is used, selected keys should be persisted where needed.
 
 ## Evidence levels
 
-Possible levels:
+Possible levels are `summary`, `detailed`, and `debug`.
 
-- `summary`,
-- `detailed`,
-- `debug`.
+## Full versus sampled evidence
 
-## Contract example
+Reports must clearly state whether each check ran on full data, deterministic sample, incremental window, random persisted sample, or previous failure set.
 
-```yaml
-evidence:
-  level: detailed
-  store_failures: true
-  max_failure_rows: 1000
-  report: html
-```
+Sampled evidence should never imply full-data equivalence.
 
 ## Sensitive data
 
 Failure details can contain sensitive values.
 
-Recon should eventually support:
+Recon should eventually support redaction, masking, hash-only keys, row limits, disabling failure export, and sensitive column policies.
 
-- redaction,
-- masking,
-- hash-only keys,
-- row limits,
-- disabling failure export.
+## Failure row limits
+
+If failure rows exceed configured limits, evidence should clearly say results were truncated.
 
 ## Exit codes
 
@@ -143,19 +112,10 @@ Warnings may be configurable.
 
 ## MVP recommendation
 
-v0.1 should produce:
+v0.1 should produce terminal summary, manifest, compiled checks/contracts where feasible, JSON run result, basic HTML report, and limited failure details.
 
-- terminal summary,
-- JSON run result,
-- basic HTML report,
-- limited failure details.
-
-v0.2 should add:
-
-- compiled SQL artifacts,
-- result table writer,
-- sample key persistence.
+v0.2 should add richer compiled SQL artifacts, result table writer, sample key persistence, and richer reports.
 
 ## Design principle
 
-Evidence is part of the product, not a log side effect.
+Evidence is part of the product, not a log side effect. Evidence should make assumptions, scope, and generated behavior visible.

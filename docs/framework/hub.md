@@ -8,15 +8,7 @@ Recon Hub is the future discovery and metadata layer for Recon packages, adapter
 
 A framework becomes stronger when users can discover and reuse community standards.
 
-Recon Hub should help users find:
-
-- adapters,
-- check packs,
-- sampling policies,
-- tolerance policies,
-- evidence templates,
-- domain packages,
-- examples.
+Recon Hub should help users find adapters, check packs, sampling policies, tolerance policies, schema policies, evidence templates, domain packages, and examples.
 
 ## First implementation
 
@@ -45,6 +37,8 @@ compatibility:
 resources:
   - check_packs
   - sample_policies
+  - tolerance_policies
+  - schema_policies
 trust_level: official
 ```
 
@@ -59,13 +53,7 @@ Possible levels:
 
 ## Package categories
 
-- adapter,
-- check pack,
-- sample policy,
-- tolerance policy,
-- evidence template,
-- example project,
-- domain package.
+Package categories may include adapter, check pack, sample policy, tolerance policy, schema policy, evidence template, example project, and domain package.
 
 ## Relationship to `recon deps`
 
@@ -74,8 +62,6 @@ Future `recon deps` may use Hub metadata to install packages.
 ## Relationship to adapters
 
 Adapters may be listed in Hub but installed through Python packaging.
-
-Example:
 
 ```bash
 pip install recon-snowflake

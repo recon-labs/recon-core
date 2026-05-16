@@ -8,56 +8,19 @@ Adapters allow Recon Core to work with different databases, warehouses, document
 
 ## Definition
 
-An adapter handles system-specific behavior:
-
-- connection,
-- SQL dialect,
-- identifier quoting,
-- metadata queries,
-- limit syntax,
-- timestamp syntax,
-- numeric casting,
-- hashing syntax,
-- temporary objects,
-- capability declaration.
+An adapter handles connection, SQL dialect, identifier quoting, metadata queries, limit syntax, timestamp syntax, numeric casting, hashing syntax, temporary objects, schema introspection, and capability declaration.
 
 ## Core vs adapter responsibilities
 
-### recon-core owns
+`recon-core` owns CLI, project loading, contract parsing, check planning, result model, evidence generation, base adapter interface, extension mechanism, and framework-level validation rules.
 
-- CLI,
-- project loading,
-- contract parsing,
-- check planning,
-- result model,
-- evidence generation,
-- base adapter interface,
-- extension mechanism.
-
-### adapters own
-
-- connection implementation,
-- SQL compilation details,
-- metadata access,
-- dialect-specific functions,
-- capability reporting,
-- adapter-specific tests.
+Adapters own connection implementation, SQL compilation details, metadata access, dialect-specific functions, capability reporting, and adapter-specific tests.
 
 ## Initial strategy
 
 Early `recon-core` may include minimal internal adapters to prove the engine.
 
-Long term, adapters should split into packages:
-
-- `recon-postgres`,
-- `recon-mysql`,
-- `recon-snowflake`,
-- `recon-sqlserver`,
-- `recon-bigquery`,
-- `recon-mongodb`,
-- `recon-databricks`,
-- `recon-redshift`,
-- `recon-oracle`.
+Long term, adapters should split into packages such as `recon-postgres`, `recon-mysql`, `recon-snowflake`, `recon-sqlserver`, `recon-bigquery`, `recon-mongodb`, `recon-databricks`, `recon-redshift`, and `recon-oracle`.
 
 ## Interface concepts
 
@@ -79,20 +42,15 @@ This is not final API.
 
 ## Capabilities
 
-Adapters should declare capabilities:
-
-```yaml
-capabilities:
-  relations: true
-  queries: true
-  temp_tables: true
-  metadata_columns: true
-  hash_expression: true
-  timestamp_diff: true
-  json_path: false
-```
+Adapters should declare capabilities such as relation support, query support, temp tables, metadata columns, hash expression, timestamp diff, precision/scale metadata, and JSON path support.
 
 Capabilities allow Recon to fail early when a check cannot run.
+
+## Capability validation
+
+If an adapter cannot run a requested check, Recon should fail during compile/validation when possible.
+
+If metadata is unavailable, the compiled plan should mark validation as deferred.
 
 ## Hashing warning
 
@@ -100,20 +58,19 @@ Hash functions differ across databases.
 
 Recon should not assume `hash()` in one system equals `hash()` in another.
 
-Portable hashing or persisted sample keys may be required.
+Safe approaches include persisted sample keys, sampling from source and applying keys to target, numeric modulo when valid, or adapter-declared portable hashing.
+
+## Type and schema metadata
+
+Adapters should expose normalized metadata where possible: column name, logical type, physical type, nullable, precision, scale, and timezone behavior when known.
+
+This supports schema checks and validation.
 
 ## Semi-structured adapters
 
 MongoDB and similar systems are important later.
 
-They require concepts like:
-
-- document projection,
-- nested fields,
-- arrays,
-- ObjectId handling,
-- schema drift,
-- CDC operation metadata.
+They require document projection, nested fields, arrays, ObjectId handling, schema drift, and CDC operation metadata.
 
 Recon should compare canonical projections, not raw documents blindly.
 
@@ -130,8 +87,9 @@ Purpose:
 - adapter compliance tests,
 - SQL compilation tests,
 - metadata tests,
-- capability validation.
+- capability validation,
+- check compatibility tests.
 
 ## Design principle
 
-Recon Core should be adapter-aware but not adapter-bloated. Core defines the contract; adapters handle systems.
+Recon Core should be adapter-aware but not adapter-bloated. Core defines the framework contract; adapters handle system-specific behavior.

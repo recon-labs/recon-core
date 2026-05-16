@@ -17,6 +17,10 @@ recon_project/
   connections/
     profiles.yml.example
 
+  endpoints/
+    sources.yml
+    targets.yml
+
   contracts/
     customer/
       customer_revenue.yml
@@ -36,6 +40,10 @@ recon_project/
   tolerances/
     default.yml
     finance.yml
+
+  schema_policies/
+    default.yml
+    cdc_metadata.yml
 
   macros/
     sql/
@@ -65,6 +73,12 @@ contract-paths:
 sample-policy-paths:
   - sample_policies
 
+tolerance-policy-paths:
+  - tolerances
+
+schema-policy-paths:
+  - schema_policies
+
 check-pack-paths:
   - check_packs
 
@@ -83,36 +97,32 @@ Future dependency file for Recon packages.
 
 Named selectors for running groups of contracts.
 
-```yaml
-selectors:
-  - name: cdc_gold
-    definition:
-      tags:
-        - cdc
-        - gold
-```
-
 ## `connections/`
 
 Contains connection examples.
 
-Commit:
+Commit `connections/profiles.yml.example`.
 
-```text
-connections/profiles.yml.example
+Ignore `connections/profiles.yml`.
+
+## `endpoints/`
+
+Optional reusable named source/target endpoints.
+
+```yaml
+endpoints:
+  - name: legacy_customer_revenue
+    connection: redshift_legacy
+    relation: qa.v_customer_revenue_compare
 ```
 
-Ignore:
-
-```text
-connections/profiles.yml
-```
+Contracts may reference endpoints later.
 
 ## `contracts/`
 
 Contains equivalence contracts.
 
-Contracts are the main user-authored resource.
+One contract per file and multiple contracts per file should both be supported.
 
 ## `check_packs/`
 
@@ -126,7 +136,13 @@ Sampling should not be repeated in every contract.
 
 ## `tolerances/`
 
-Reusable tolerance definitions.
+Reusable tolerance and normalization definitions.
+
+## `schema_policies/`
+
+Reusable schema comparison policies.
+
+Useful for ignoring known CDC/ingestion metadata columns.
 
 ## `macros/`
 
@@ -138,7 +154,19 @@ Generated human reports. Should be gitignored.
 
 ## `target/`
 
-Generated machine artifacts. Should be gitignored.
+Generated machine and human-readable compiled artifacts. Should be gitignored.
+
+Possible contents:
+
+```text
+target/manifest.json
+target/compiled_contracts/
+target/compiled_checks/
+target/compiled_sql/
+target/run_results.json
+target/failures/
+target/sample_keys/
+```
 
 ## `state/`
 

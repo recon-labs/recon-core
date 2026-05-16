@@ -6,76 +6,27 @@ This document defines Recon’s core product object: the **equivalence contract*
 
 An equivalence contract tells Recon:
 
-> Compare this source output to this target output at this grain, using these checks, tolerances, sampling rules, and evidence settings.
+> Compare this source output to this target output at this grain, using these checks, tolerances, sampling rules, schema rules, CDC rules, and evidence settings.
 
 ## Why contracts
 
-A test usually checks one condition. A contract defines the whole comparison agreement between two outputs:
+A test usually checks one condition. A contract defines the whole comparison agreement between two outputs: what is being compared, how rows match, which values matter, what differences are acceptable, how much data to compare, what schema differences are allowed, how CDC behavior should be interpreted, and what evidence to capture.
 
-- what is being compared,
-- how rows match,
-- which values matter,
-- what differences are acceptable,
-- how much data to compare,
-- what evidence to capture.
+## Contract layers
 
-## Important semantic distinction
+The contract has related but different layers:
 
-The contract has three related but different layers:
-
-1. **Column definitions** describe comparable fields and their comparison rules.
-2. **Checks** define what operations actually run.
-3. **Sampling policies** define which records a check runs against.
+1. **Source/target** define the comparable outputs.
+2. **Grain** defines row identity.
+3. **Columns** define eligible comparison fields and comparison rules.
+4. **Metrics** define named aggregate comparisons to run.
+5. **Checks/check packs** define execution intent.
+6. **Sampling** defines which records each check sees.
+7. **Tolerances/normalization** define acceptable value differences.
+8. **Schema policy** defines structural comparison rules.
+9. **Evidence** defines generated artifacts.
 
 These should not be confused.
-
-Example:
-
-```yaml
-columns:
-  numeric:
-    - name: revenue
-      tolerance: 0.01
-```
-
-This does **not** automatically run a check by itself.
-
-It means:
-
-> `revenue` is a numeric comparable column, and when a check compares this column, use `0.01` tolerance unless overridden.
-
-Then:
-
-```yaml
-checks:
-  use:
-    - recon_core.aggregate_equivalence
-```
-
-means:
-
-> Run the checks included in the aggregate equivalence pack.
-
-If that check pack includes `sum_diff` for numeric columns, it may use the `revenue` column definition.
-
-So:
-
-```yaml
-columns:
-  numeric:
-    - name: revenue
-      tolerance: 0.01
-```
-
-is metadata/rule declaration.
-
-```yaml
-checks:
-  use:
-    - recon_core.aggregate_equivalence
-```
-
-is execution instruction.
 
 ## Minimal example
 
@@ -116,12 +67,66 @@ evidence:
   store_failures: true
 ```
 
-In this example:
+In this example, `basic_equivalence` may run row count, missing keys, extra keys, and duplicate key checks. `aggregate_equivalence` may run aggregate checks for eligible numeric columns. `revenue` is available to those checks as a numeric comparable column with `0.01` tolerance. `stable_hash_5_percent` is the default sampling policy unless a check overrides it.
 
-- `basic_equivalence` may run row count, missing keys, extra keys, and duplicate key checks.
-- `aggregate_equivalence` may run aggregate checks such as `sum_diff` for numeric columns.
-- `revenue` is available to those checks as a numeric comparable column with `0.01` tolerance.
-- `stable_hash_5_percent` is the default sampling policy unless a check overrides it.
+## Columns do not run checks
+
+This declares comparison metadata:
+
+```yaml
+columns:
+  numeric:
+    - name: revenue
+      tolerance: 0.01
+```
+
+It does **not** automatically run a revenue check.
+
+It means `revenue` is a numeric comparable column, and when a compatible check uses it, use `0.01` tolerance unless overridden.
+
+This runs checks:
+
+```yaml
+checks:
+  use:
+    - recon_core.aggregate_equivalence
+```
+
+or:
+
+```yaml
+checks:
+  - name: revenue_sum
+    type: sum_diff
+    column: revenue
+```
+
+## Metrics do run aggregate checks
+
+Metrics are named aggregate comparisons. They compile into checks.
+
+```yaml
+metrics:
+  - name: revenue_by_month
+    type: sum
+    column: revenue
+    group_by:
+      - month
+    tolerance: 0.01
+```
+
+This should compile into an aggregate check such as:
+
+```yaml
+compiled_checks:
+  - name: revenue_by_month
+    type: grouped_aggregate_diff
+    metric: sum
+    column: revenue
+    group_by:
+      - month
+    tolerance: 0.01
+```
 
 ## Source and target
 
@@ -133,7 +138,7 @@ source:
   relation: recon.v_orders_compare
 ```
 
-But they must also support custom queries:
+They must also support custom queries:
 
 ```yaml
 target:
@@ -148,13 +153,9 @@ target:
       on fo.customer_sk = dc.customer_sk
 ```
 
-Custom queries are required when:
+Custom queries are required when source and target schemas differ, target uses generated surrogate keys, comparison requires joins, canonical outputs must be created dynamically, migration/refactor logic needs explicit filters, or source and target need different normalization steps.
 
-- source and target schemas differ,
-- target uses generated surrogate keys,
-- comparison requires joins,
-- canonical outputs must be created dynamically,
-- migration/refactor logic needs explicit filters.
+Exactly one of `relation` or `query` should be provided for each endpoint.
 
 ## Relation-first, query-capable
 
@@ -162,29 +163,7 @@ The recommended production pattern is to compare existing source and target comp
 
 This keeps business mapping visible and independently testable.
 
-However, query support is part of the product direction because real reconciliation often needs flexibility.
-
-Recon should support both patterns:
-
-```yaml
-source:
-  relation: recon.v_customer_compare
-
-target:
-  relation: recon.v_customer_compare
-```
-
-and:
-
-```yaml
-source:
-  query: |
-    select ...
-
-target:
-  query: |
-    select ...
-```
+Query support remains part of the product direction because real reconciliation often needs flexibility.
 
 ## Grain and keys
 
@@ -204,11 +183,13 @@ Guidelines:
 - avoid comparing generated surrogate keys unless explicitly intended,
 - require keys for row-level checks.
 
+`grain.keys` are a uniqueness claim. Recon must validate uniqueness before row-level checks.
+
+If keys are duplicated in source or target, row-level value checks should be blocked. Aggregate checks may still run.
+
 ## Columns
 
-Columns define value comparison rules.
-
-They do not necessarily define which checks run.
+Columns define value comparison rules and eligible comparison surface.
 
 ```yaml
 columns:
@@ -225,20 +206,26 @@ columns:
       tolerance: 5 seconds
 ```
 
-Column definitions may include:
+Defined columns are the only columns eligible for value and aggregate inference.
 
-- type/category,
-- tolerance,
-- normalization,
-- null handling,
-- inclusion/exclusion behavior,
-- default check eligibility.
+Recon should never silently compare all columns. If users want all columns, they must request it explicitly:
+
+```yaml
+columns:
+  include: "*"
+```
+
+or:
+
+```yaml
+checks:
+  - type: row_diff
+    columns: "*"
+```
 
 ## Column-level check eligibility
 
 A column may optionally specify which checks it participates in.
-
-Example:
 
 ```yaml
 columns:
@@ -250,17 +237,11 @@ columns:
         - sampled_value_match
 ```
 
-This means `revenue` can be used by those checks.
-
 This is useful when a numeric column should be included in aggregate checks but excluded from row-level value comparison, or vice versa.
 
 ## Metrics
 
-Some reconciliation is metric-based rather than row-value based.
-
 Metrics are explicit aggregate comparisons.
-
-Example:
 
 ```yaml
 metrics:
@@ -274,19 +255,7 @@ metrics:
     column: customer_id
 ```
 
-Grouped metric example:
-
-```yaml
-metrics:
-  - name: revenue_by_month
-    type: sum
-    column: revenue
-    group_by:
-      - month
-    tolerance: 0.01
-```
-
-Use `metrics` when the contract should explicitly state aggregate comparisons rather than relying on a check pack to infer them from column metadata.
+Use metrics when the aggregate itself is business-important and should appear by name in evidence.
 
 ## Checks
 
@@ -302,11 +271,8 @@ or explicitly:
 
 ```yaml
 checks:
-  - type: row_count_diff
-    severity: error
-
-  - type: sum_diff
-    name: revenue_sum
+  - name: revenue_sum
+    type: sum_diff
     column: revenue
     tolerance: 0.01
     severity: error
@@ -317,8 +283,6 @@ Check packs are preferred for standardization. Explicit checks are preferred whe
 ## Check packs and column metadata
 
 A check pack may use column metadata to decide which checks to run.
-
-Example:
 
 ```yaml
 columns:
@@ -337,9 +301,38 @@ Possible interpretation:
 - it creates a `sum_diff` check for `revenue`,
 - it uses tolerance `0.01`.
 
-This behavior must be documented by each check pack.
+This behavior must be documented by each check pack. Check-pack expansion must be visible in compiled artifacts.
 
-Check packs should not silently run surprising checks. Their expansion should be visible in compiled artifacts.
+## Empty check-pack expansion
+
+If a check pack requires columns or metrics and none are available, the default should be an error, not a silent no-op.
+
+```yaml
+columns:
+  exact:
+    - status
+
+checks:
+  use:
+    - recon_core.aggregate_equivalence
+```
+
+Default behavior:
+
+```text
+ERROR: aggregate_equivalence requires numeric columns or explicit metrics.
+```
+
+A later escape hatch may allow:
+
+```yaml
+checks:
+  use:
+    - name: recon_core.aggregate_equivalence
+      on_empty: warn
+```
+
+Default should remain strict.
 
 ## Explicit check configuration
 
@@ -360,8 +353,6 @@ checks:
     sampling: stable_hash_5_percent
 ```
 
-This makes behavior unambiguous.
-
 ## Sampling
 
 Sampling can be defined as a contract default:
@@ -371,7 +362,7 @@ sampling:
   default_policy: stable_hash_5_percent
 ```
 
-But individual checks should be able to override sampling:
+Individual checks should be able to override sampling:
 
 ```yaml
 checks:
@@ -385,9 +376,7 @@ checks:
     sampling: stable_hash_5_percent
 ```
 
-This matters because different checks have different cost and meaning.
-
-For example:
+Different checks need different scopes:
 
 - `row_count_diff` may run on full data,
 - `sum_diff` may run on full data,
@@ -395,58 +384,15 @@ For example:
 - CDC checks may run on an incremental window,
 - previous-failure checks may run only on failed keys.
 
-## Sampling levels
+Sampling does not remove the uniqueness requirement for row-level value comparison.
 
-Recon should support sampling at multiple levels.
-
-### Contract-level default
-
-```yaml
-sampling:
-  default_policy: stable_hash_5_percent
-```
-
-### Check-level override
-
-```yaml
-checks:
-  - type: row_diff
-    sampling: stable_hash_5_percent
-```
-
-### Check-pack default
-
-A check pack may define default sampling behavior.
-
-Example:
-
-```yaml
-checks:
-  use:
-    - name: recon_core.cdc_equivalence
-      sampling: latest_changed_records
-```
-
-### Full-data override
-
-Some checks should explicitly use full data:
-
-```yaml
-checks:
-  - type: sum_diff
-    column: revenue
-    sampling: full
-```
-
-## Tolerances
+## Tolerances and normalization
 
 Contracts may reference a tolerance policy:
 
 ```yaml
 tolerance_policy: finance
 ```
-
-or define local overrides.
 
 Column-level tolerance:
 
@@ -466,13 +412,70 @@ checks:
     tolerance: 0.001
 ```
 
-Precedence should be explicit. A recommended order:
+Recommended precedence:
 
 1. check-level override,
 2. column-level setting,
-3. contract tolerance policy,
-4. project default tolerance policy,
+3. contract-level policy,
+4. project-level default,
 5. framework default.
+
+Null and empty-string behavior should be explicit. Default should be strict: `NULL != ''`.
+
+```yaml
+nulls:
+  empty_string_equals_null: true
+```
+
+This is important for pipelines where systems such as SQL Server, AWS DMS, file formats, and Snowflake may handle empty strings differently.
+
+## Schema policy
+
+Contracts may define schema behavior.
+
+```yaml
+schema:
+  ignore_target_columns:
+    - _dms_operation
+    - _dms_timestamp
+    - _loaded_at
+  ignore_patterns:
+    - "_metadata_*"
+```
+
+Schema checks should be strict by default, but support explicit ignored columns and patterns for CDC or ingestion metadata.
+
+## CDC policy
+
+CDC contracts should define the CDC mode when CDC-specific checks are used.
+
+```yaml
+cdc:
+  mode: upsert
+  timestamp_column: updated_at
+```
+
+Soft delete example:
+
+```yaml
+cdc:
+  delete_mode: soft_delete
+  source_deleted_column: is_deleted
+  target_deleted_column: is_deleted
+```
+
+Operation-column example:
+
+```yaml
+cdc:
+  mode: append_only_events
+  operation_column: operation
+  insert_value: I
+  update_value: U
+  delete_value: D
+```
+
+CDC check packs must not assume one CDC shape.
 
 ## Evidence
 
@@ -486,9 +489,7 @@ evidence:
   report: html
 ```
 
-Evidence settings may apply globally, but checks may need overrides later.
-
-Example:
+Checks may override evidence later.
 
 ```yaml
 checks:
@@ -513,8 +514,6 @@ tags:
   - critical
 ```
 
-These help with filtering, routing, and reporting.
-
 ## Severity
 
 Checks may define severity:
@@ -530,40 +529,48 @@ checks:
 
 Expected behavior:
 
-- `error` failures cause non-zero exit.
-- `warn` failures are reported but may not fail the run.
+- `error` failures cause non-zero exit,
+- `warn` failures are reported but may not fail the run,
 - `info` checks produce evidence only.
 
 ## Validation rules
 
 Recon should validate contracts before execution:
 
-- `name` required,
-- source and target required,
+- `name` is required,
+- contract names are unique in a project,
+- source and target are required,
 - exactly one of `relation` or `query` per endpoint,
-- keys required for row-level checks,
-- referenced sample policy exists,
-- referenced check pack exists,
+- row-level checks require `grain.keys`,
+- row-level checks require unique keys after filtering/sampling/windowing,
+- checks must be compatible with column types,
+- metrics must be compatible with referenced columns,
+- referenced sample policies exist,
+- referenced check packs exist,
 - tolerance syntax is valid,
+- schema ignore rules are explicit,
 - adapter capabilities are sufficient.
 
 ## Compiled contract
 
-Recon should eventually compile contracts into an explicit execution plan.
+Recon should compile authored contracts into an explicit execution plan.
 
 The compiled plan should show:
 
 - which check packs expanded,
+- which metrics compiled into checks,
 - which atomic checks will run,
 - which columns each check uses,
 - which sampling policy each check uses,
-- which tolerances each check uses,
+- which tolerances and null rules each check uses,
+- which schema ignore rules apply,
+- which CDC mode/delete behavior applies,
 - which evidence will be captured.
 
-This prevents ambiguity between `columns`, `checks`, and `sampling`.
+This prevents ambiguity between columns, metrics, checks, sampling, tolerances, schema policies, and CDC rules.
 
 ## Design principle
 
 Contracts should be readable and declarative, but execution should be explicit after compilation.
 
-Users define the equivalence agreement. Recon compiles it into checks and produces evidence.
+Users define the equivalence agreement. Recon validates unsafe assumptions, compiles explicit checks, runs them, and produces evidence.
