@@ -1,0 +1,343 @@
+# MVP Specification
+
+## MVP goal
+
+The MVP should prove that Recon can be a real Reconciliation as Code framework, not just a table diff script.
+
+The first usable version should support a small but coherent workflow:
+
+```text
+define contract
+parse project
+compile explicit checks
+run checks
+produce evidence
+```
+
+The MVP should be strict, transparent, and extensible.
+
+## MVP user story
+
+A data engineer has source and target compare views. They want to prove that the target matches the source at a declared grain.
+
+They create a Recon project, define an equivalence contract, run Recon from the CLI, inspect the compiled checks, and review evidence.
+
+## Included scope
+
+### CLI
+
+Required commands:
+
+```bash
+recon --version
+recon parse
+recon compile
+recon run
+```
+
+Recommended early command:
+
+```bash
+recon init
+```
+
+`recon run` may parse and compile automatically when needed.
+
+### Project config
+
+Support:
+
+```text
+recon_project.yml
+contracts/
+sample_policies/
+tolerances/
+schema_policies/
+target/
+reports/
+```
+
+### Contracts
+
+Support one contract per file first.
+
+Support multiple contracts per file if the parser design is simple enough and does not delay the MVP.
+
+Required contract fields:
+
+- `version`,
+- `name`,
+- `source`,
+- `target`,
+- `checks`.
+
+Required for row-level checks:
+
+- `grain.keys`.
+
+Supported source/target definitions:
+
+- `connection`,
+- `relation`.
+
+Query-based source/target should be designed in the schema and docs, but implementation can follow after relation-based execution is stable.
+
+### Columns
+
+Support explicitly declared columns.
+
+Required rule:
+
+> Recon must not silently compare all columns.
+
+If no columns are defined, only checks that do not need columns can run.
+
+### Metrics
+
+Support explicit aggregate metrics.
+
+Example:
+
+```yaml
+metrics:
+  - name: total_revenue
+    type: sum
+    column: revenue
+    tolerance: 0.01
+```
+
+Metrics compile into aggregate checks.
+
+### Checks
+
+Required atomic checks:
+
+- `row_count_diff`,
+- `missing_keys`,
+- `extra_keys`,
+- `duplicate_source_keys`,
+- `duplicate_target_keys`,
+- `sum_diff`,
+- basic explicit metric checks.
+
+Recommended if feasible:
+
+- `exact_value_match`,
+- `numeric_tolerance_match`.
+
+### Check packs
+
+Required built-in check pack:
+
+```text
+recon_core.basic_equivalence
+```
+
+Recommended if feasible:
+
+```text
+recon_core.aggregate_equivalence
+```
+
+CDC check pack can be documented and designed in MVP docs, but implementation can begin after basic and aggregate checks are stable.
+
+### Sampling
+
+Required modes:
+
+- `full`,
+- deterministic sample design.
+
+Recommended implementation:
+
+- numeric modulo sampling when compatible,
+- deterministic hash only when adapter behavior is safe.
+
+Persisted random and previous failures should be designed but can be implemented later.
+
+### Tolerances
+
+Required:
+
+- numeric absolute tolerance at metric/check/column level.
+
+Recommended:
+
+- explicit null comparison default,
+- `NULL != ''` unless configured.
+
+### Schema policies
+
+Required design:
+
+- ignored target/source columns,
+- ignored patterns,
+- precision/scale compatibility as a schema concept.
+
+Implementation can start with config parsing and simple column presence checks.
+
+### Parse
+
+`recon parse` should:
+
+- read project files,
+- validate YAML,
+- validate basic schema,
+- load contracts,
+- detect duplicate contract names,
+- validate referenced local resources where supported,
+- write `target/manifest.json`.
+
+### Compile
+
+`recon compile` should:
+
+- resolve defaults,
+- expand check packs,
+- compile metrics into checks,
+- resolve sampling,
+- resolve tolerance precedence,
+- generate compiled contracts/checks,
+- generate SQL/check queries where possible,
+- write artifacts under `target/`.
+
+Required compiled artifacts:
+
+```text
+target/manifest.json
+target/compiled_contracts/
+target/compiled_checks/
+```
+
+Recommended compiled artifact:
+
+```text
+target/compiled_sql/
+```
+
+### Run
+
+`recon run` should:
+
+- parse and compile if needed,
+- execute compiled checks,
+- write run results,
+- write failure details where configured,
+- return non-zero on error-severity failures.
+
+Required run artifact:
+
+```text
+target/run_results.json
+```
+
+Recommended report:
+
+```text
+reports/*.html
+```
+
+## Adapter scope
+
+The MVP needs enough adapter support to prove the framework.
+
+Recommended strategy:
+
+- define the adapter interface in `recon-core`,
+- implement one lightweight SQL adapter for local/dev testing,
+- implement one practical adapter path first, likely Postgres or DuckDB for local repeatability,
+- keep Snowflake/Postgres production adapters as early follow-up packages or experimental modules.
+
+The MVP should avoid making `recon-core` depend on every database driver.
+
+## Strict validation rules
+
+The MVP must enforce these rules:
+
+- no silent all-column comparison,
+- row-level checks require `grain.keys`,
+- row-level checks require unique source and target keys,
+- metrics cause aggregate checks,
+- columns do not cause checks by themselves,
+- empty check-pack expansion is an error,
+- check/column type incompatibility is an error,
+- random sampling without persisted keys is invalid,
+- hash sampling cannot assume cross-database equality,
+- schema ignores must be explicit,
+- CDC mode/delete behavior must be explicit for CDC checks.
+
+## Out of MVP scope
+
+The MVP should not include:
+
+- cloud UI,
+- hosted evidence vault,
+- automatic data repair,
+- full adapter ecosystem,
+- MDM/fuzzy matching,
+- complex package registry,
+- full Recon Hub,
+- advanced CDC operation semantics,
+- SCD2 support,
+- previous-failure state backend,
+- persisted random sampling,
+- advanced permissions/secrets management.
+
+## MVP example
+
+```yaml
+version: 1
+
+name: customer_revenue
+
+source:
+  connection: legacy
+  relation: qa.v_customer_revenue_compare
+
+target:
+  connection: warehouse
+  relation: qa.v_customer_revenue_compare
+
+grain:
+  keys:
+    - customer_id
+    - month
+
+columns:
+  numeric:
+    - name: revenue
+      tolerance: 0.01
+
+metrics:
+  - name: revenue_by_month
+    type: sum
+    column: revenue
+    group_by:
+      - month
+    tolerance: 0.01
+
+checks:
+  use:
+    - recon_core.basic_equivalence
+    - recon_core.aggregate_equivalence
+
+sampling:
+  default_policy: full
+
+evidence:
+  level: detailed
+  store_failures: true
+```
+
+## MVP acceptance criteria
+
+The MVP is acceptable when:
+
+- contracts can be parsed and validated,
+- check packs compile into explicit checks,
+- metrics compile into aggregate checks,
+- row-level checks block on duplicate keys,
+- compiled artifacts are readable,
+- run results are machine-readable,
+- users can understand why each check passed, failed, warned, errored, or skipped,
+- documentation matches implementation behavior.
