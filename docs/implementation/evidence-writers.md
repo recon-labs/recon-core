@@ -1,0 +1,103 @@
+# Evidence Writers
+
+## Purpose
+
+Evidence writers produce artifacts that explain what Recon checked, what assumptions were used, and what happened.
+
+## Evidence writer responsibilities
+
+Evidence writers should handle:
+
+- terminal summaries,
+- JSON run results,
+- failure detail files,
+- compiled artifact references,
+- HTML reports,
+- state references,
+- sample key references.
+
+## Writer boundaries
+
+Check implementations should return structured data and artifact requests.
+
+Evidence writers should handle file formats and paths.
+
+Avoid writing files directly from deep check logic unless the check is explicitly producing a generated SQL file through the artifact layer.
+
+## Failure detail writer
+
+Failure detail output should support:
+
+- CSV initially,
+- JSONL later,
+- row limits,
+- optional disabling,
+- masking/redaction hooks later.
+
+Suggested path:
+
+```text
+target/failures/{contract_name}__{check_name}.csv
+```
+
+## HTML report writer
+
+The HTML report should summarize:
+
+- run status,
+- contract status,
+- check results,
+- sampling scope,
+- tolerances,
+- null rules,
+- schema ignores,
+- CDC mode,
+- failure links,
+- warnings and errors.
+
+A simple static HTML report is enough at first.
+
+## Terminal summary writer
+
+Terminal output should be concise and readable.
+
+Example:
+
+```text
+Compiled 8 checks for 2 contracts
+PASS customer_revenue.row_count_diff
+FAIL customer_revenue.revenue_by_month
+```
+
+## Sensitive data handling
+
+Evidence may contain sensitive values.
+
+Initial protections:
+
+- limit failure rows,
+- allow failure detail export to be disabled,
+- clearly document generated evidence paths.
+
+Future protections:
+
+- masking,
+- redaction,
+- hash-only keys,
+- sensitive column policies.
+
+## Full versus sampled
+
+Every report should show whether each check ran on:
+
+- full data,
+- deterministic sample,
+- incremental window,
+- persisted random sample,
+- previous failure set.
+
+Sampled evidence should not imply full-data equivalence.
+
+## Design principle
+
+Evidence should make Recon trustworthy by showing assumptions, scope, and generated behavior.
