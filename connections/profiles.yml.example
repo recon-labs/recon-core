@@ -1,0 +1,52 @@
+# Example Recon connection profiles.
+# Copy this file to connections/profiles.yml for local use.
+# Do not commit real profiles or secrets.
+
+dev:
+  target: local
+  connections:
+    local:
+      type: duckdb
+      path: ./target/dev.duckdb
+
+    source_postgres:
+      type: postgres
+      host: "{{ env_var('SOURCE_POSTGRES_HOST') }}"
+      port: "{{ env_var('SOURCE_POSTGRES_PORT', '5432') }}"
+      database: "{{ env_var('SOURCE_POSTGRES_DATABASE') }}"
+      user: "{{ env_var('SOURCE_POSTGRES_USER') }}"
+      password: "{{ env_var('SOURCE_POSTGRES_PASSWORD') }}"
+      schema: public
+
+    target_postgres:
+      type: postgres
+      host: "{{ env_var('TARGET_POSTGRES_HOST') }}"
+      port: "{{ env_var('TARGET_POSTGRES_PORT', '5432') }}"
+      database: "{{ env_var('TARGET_POSTGRES_DATABASE') }}"
+      user: "{{ env_var('TARGET_POSTGRES_USER') }}"
+      password: "{{ env_var('TARGET_POSTGRES_PASSWORD') }}"
+      schema: public
+
+    source_mysql:
+      type: mysql
+      host: "{{ env_var('SOURCE_MYSQL_HOST') }}"
+      port: "{{ env_var('SOURCE_MYSQL_PORT', '3306') }}"
+      database: "{{ env_var('SOURCE_MYSQL_DATABASE') }}"
+      user: "{{ env_var('SOURCE_MYSQL_USER') }}"
+      password: "{{ env_var('SOURCE_MYSQL_PASSWORD') }}"
+
+    snowflake:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA') }}"
+
+    bigquery:
+      type: bigquery
+      project: "{{ env_var('BIGQUERY_PROJECT') }}"
+      dataset: "{{ env_var('BIGQUERY_DATASET') }}"
+      credentials_path: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"

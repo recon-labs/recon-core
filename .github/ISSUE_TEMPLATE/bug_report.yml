@@ -1,0 +1,101 @@
+name: Bug report
+description: Report a reproducible problem in Recon Core.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Please remove secrets, credentials, private data, and production evidence before submitting.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the problem clearly.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect Recon to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What did Recon do instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal reproduction.
+      placeholder: |
+        1. Create this contract...
+        2. Run this command...
+        3. See this output...
+    validations:
+      required: true
+
+  - type: textarea
+    id: contract
+    attributes:
+      label: Minimal contract or config
+      description: Paste the smallest safe example. Remove secrets and private data.
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command output
+      description: Paste the relevant command and output.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Recon Core version
+      placeholder: "0.1.0"
+    validations:
+      required: false
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.2"
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS, Linux, Windows"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checklist
+      options:
+        - label: I removed credentials, tokens, private keys, and secrets.
+          required: true
+        - label: I removed or anonymized customer data and production evidence.
+          required: true
+        - label: I searched existing issues before opening this one.
+          required: true

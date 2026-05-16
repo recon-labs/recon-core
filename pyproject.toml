@@ -1,0 +1,117 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "recon-core"
+version = "0.0.0"
+description = "Open-source Reconciliation as Code framework for source-target data equivalence."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Recon Labs" }
+]
+keywords = [
+  "data",
+  "reconciliation",
+  "data-engineering",
+  "cdc",
+  "validation",
+  "warehouse",
+  "cli"
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Database",
+  "Topic :: Software Development :: Quality Assurance"
+]
+dependencies = [
+  "click>=8.1",
+  "pydantic>=2.8",
+  "pyyaml>=6.0",
+  "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.8",
+  "mypy>=1.10",
+  "pre-commit>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/recon-labs/recon-core"
+Repository = "https://github.com/recon-labs/recon-core"
+Issues = "https://github.com/recon-labs/recon-core/issues"
+
+[project.scripts]
+recon = "recon_core.cli.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/recon_core"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "UP",
+  "N",
+  "C4",
+  "SIM",
+]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+  "yaml.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = ["recon_core"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 0

@@ -1,0 +1,83 @@
+name: Design question
+description: Discuss a product, framework, architecture, or implementation decision.
+title: "design: "
+labels:
+  - design
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for design questions that may affect contract syntax, validation behavior, artifacts, adapters, packages, or evidence.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Design question
+      description: What decision or uncertainty should be discussed?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Product scope
+        - Equivalence contracts
+        - Parse / compile / run
+        - Validation rules
+        - Checks
+        - Check packs
+        - Sampling
+        - Tolerances and normalization
+        - Schema policies
+        - CDC behavior
+        - Evidence and artifacts
+        - Adapter interface
+        - Package ecosystem
+        - Repository strategy
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Explain the use case, constraint, or tradeoff.
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Options considered
+      description: List possible directions and tradeoffs.
+      placeholder: |
+        Option A:
+        Option B:
+        Recommendation:
+    validations:
+      required: false
+
+  - type: textarea
+    id: docs
+    attributes:
+      label: Related docs or decisions
+      description: Link relevant docs, ADRs, issues, or PRs.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: decision
+    attributes:
+      label: Decision impact
+      options:
+        - label: This may require an ADR or update to an existing ADR.
+          required: false
+        - label: This may affect public contract syntax.
+          required: false
+        - label: This may affect generated artifacts or evidence.
+          required: false
+        - label: This may affect adapter or package interfaces.
+          required: false

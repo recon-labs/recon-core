@@ -1,0 +1,75 @@
+name: Feature request
+description: Suggest a new capability for Recon Core.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an improvement. Please frame the request around source-target reconciliation, contracts, checks, evidence, adapters, or the developer workflow.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem would this solve?
+      placeholder: Describe the user pain or workflow gap.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should Recon do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: Show the desired CLI behavior, contract YAML, artifact, or output if relevant.
+      render: yaml
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Contracts
+        - Checks
+        - Check packs
+        - Sampling
+        - Tolerances and normalization
+        - Schema policies
+        - CDC behavior
+        - Evidence
+        - CLI
+        - Adapters
+        - Packages
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or other designs did you consider?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope checklist
+      options:
+        - label: This feature is related to source-target data equivalence.
+          required: true
+        - label: This feature does not require Recon to become an ingestion tool, CDC movement tool, or generic data quality platform.
+          required: true
