@@ -21,6 +21,7 @@ Primary goal:
 Core capabilities:
 
 - CLI foundation,
+- core commands: `recon init`, `recon parse`, `recon compile`, and `recon run`,
 - project loading,
 - contract parsing,
 - basic validation,
@@ -80,6 +81,8 @@ Capabilities:
 - schema policy files,
 - improved compiled SQL artifacts,
 - basic HTML report,
+- `recon list` for manifest-backed resource discovery,
+- `recon clean` for safely removing generated artifacts,
 - selectors by tag/name,
 - improved error and warning model.
 
@@ -121,6 +124,7 @@ Capabilities:
 - persisted random samples,
 - richer result tables,
 - richer evidence reports,
+- `recon debug` for project, profile, adapter, and connection diagnostics,
 - Airflow-friendly CLI behavior,
 - adapter interface stabilization,
 - adapter compliance tests.
@@ -153,7 +157,7 @@ Capabilities:
 - local check pack packages,
 - sample/tolerance/schema policy packages,
 - richer selectors,
-- documentation generation.
+- documentation generation command.
 
 Ecosystem:
 
@@ -192,6 +196,8 @@ Expected capabilities:
 
 Possible later capabilities:
 
+- `recon build` as a convenience wrapper after parse, compile, and run behavior stabilizes,
+- retry/resume commands after state and run result semantics stabilize,
 - Recon Hub,
 - GitHub Action,
 - Airflow provider/operator,

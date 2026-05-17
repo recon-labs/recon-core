@@ -22,6 +22,24 @@ recon clean
 recon deps
 ```
 
+Supporting commands should be added only when their backing subsystem exists. They should not be registered as successful no-op commands.
+
+Recommended command timing:
+
+```text
+0.1  recon init
+0.1  recon parse
+0.1  recon compile
+0.1  recon run
+0.2  recon list, after manifest metadata and selectors exist
+0.2  recon clean, after generated artifact paths are resolved safely
+0.3  recon debug, after profiles, adapter registry, and connection checks exist
+0.4  recon deps, after package resource loading and packages.yml exist
+0.4  documentation generation command, after project docs metadata is useful
+```
+
+Future convenience commands such as `recon build` or `recon retry` should be considered only after the parse, compile, run, artifact, and state models are stable.
+
 ## CLI responsibilities
 
 The CLI should:
