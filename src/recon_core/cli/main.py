@@ -3,12 +3,24 @@
 import click
 
 from recon_core import get_version
+from recon_core.services import (
+    CompileService,
+    ExitCategory,
+    InitService,
+    ParseService,
+    RunService,
+    ServiceResult,
+    exit_code_for,
+)
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 
-def _not_implemented(command_name: str) -> None:
-    raise click.ClickException(f"recon {command_name} is not implemented yet.")
+def _handle_result(result: ServiceResult) -> None:
+    if result.message:
+        click.echo(result.message)
+    if result.exit_category is not ExitCategory.SUCCESS:
+        raise click.exceptions.Exit(exit_code_for(result.exit_category))
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
@@ -20,22 +32,22 @@ def main() -> None:
 @main.command()
 def init() -> None:
     """Create a starter Recon project."""
-    _not_implemented("init")
+    _handle_result(InitService().execute())
 
 
 @main.command()
 def parse() -> None:
     """Parse project files and write a manifest."""
-    _not_implemented("parse")
+    _handle_result(ParseService().execute())
 
 
 @main.command(name="compile")
 def compile_command() -> None:
     """Compile contracts into explicit execution artifacts."""
-    _not_implemented("compile")
+    _handle_result(CompileService().execute())
 
 
 @main.command()
 def run() -> None:
     """Run compiled reconciliation checks."""
-    _not_implemented("run")
+    _handle_result(RunService().execute())
