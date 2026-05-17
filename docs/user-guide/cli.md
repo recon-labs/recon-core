@@ -32,12 +32,20 @@ Expected output:
 
 ```text
 recon_project.yml
+.gitignore
 connections/profiles.yml.example
 contracts/
 sample_policies/
 tolerances/
 schema_policies/
+target/
+reports/
+state/
 ```
+
+`recon init` should not overwrite an existing path unless an explicit overwrite option is added later.
+
+`PROJECT_NAME` must be a single directory name. It must not be an absolute path, a nested path, or contain path traversal.
 
 ## `recon parse`
 
@@ -98,6 +106,24 @@ Expected behavior:
 - zero when all error-severity checks pass,
 - non-zero when error-severity checks fail or execution cannot continue,
 - configurable behavior for warnings later.
+
+Recommended exit code categories:
+
+```text
+0  success
+1  check failure with error severity
+2  parse, validation, or compile error
+3  execution or runtime error
+4  configuration error
+```
+
+When a command fails, Recon should print concise diagnostic output:
+
+```text
+Error: <message>
+Code: <diagnostic code>
+Hint: <fix when available>
+```
 
 ## Selectors
 

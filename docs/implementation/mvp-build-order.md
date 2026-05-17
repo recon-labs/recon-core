@@ -179,6 +179,11 @@ Do not block MVP on:
 
 - full Hub,
 - package installer,
+- `recon deps`,
+- `recon debug`,
+- `recon list`,
+- `recon clean`,
+- documentation generation command,
 - many adapters,
 - hosted UI,
 - persisted random sample,

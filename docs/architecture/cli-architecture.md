@@ -22,6 +22,24 @@ recon clean
 recon deps
 ```
 
+Supporting commands should be added only when their backing subsystem exists. They should not be registered as successful no-op commands.
+
+Recommended command timing:
+
+```text
+0.1  recon init
+0.1  recon parse
+0.1  recon compile
+0.1  recon run
+0.2  recon list, after manifest metadata and selectors exist
+0.2  recon clean, after generated artifact paths are resolved safely
+0.3  recon debug, after profiles, adapter registry, and connection checks exist
+0.4  recon deps, after package resource loading and packages.yml exist
+0.4  documentation generation command, after project docs metadata is useful
+```
+
+Future convenience commands such as `recon build` or `recon retry` should be considered only after the parse, compile, run, artifact, and state models are stable.
+
 ## CLI responsibilities
 
 The CLI should:
@@ -60,14 +78,20 @@ Expected output:
 
 ```text
 recon_project.yml
+.gitignore
 connections/profiles.yml.example
 contracts/
 sample_policies/
 tolerances/
 schema_policies/
+target/
+reports/
+state/
 ```
 
 The generated project should include safe placeholder examples and no secrets.
+It should not overwrite an existing path unless explicit overwrite behavior is added later.
+The project name should be validated as a single directory name before paths are created. Absolute paths, nested paths, path separators, and path traversal should return a configuration error.
 
 ## `recon parse`
 
@@ -122,6 +146,17 @@ Exact values can be adjusted, but categories should remain clear.
 ## Terminal output
 
 Terminal output should be concise.
+
+Successful service results should print a concise success message to standard output when there is one. Failed service results should print concise diagnostic output to standard error:
+
+```text
+Error: <message>
+Code: <diagnostic code>
+Path: <path when available>
+Hint: <hint when available>
+```
+
+CLI rendering should use structured service results and diagnostics. Command handlers should not assemble ad hoc framework errors.
 
 Example:
 
