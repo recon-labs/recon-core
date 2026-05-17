@@ -17,10 +17,24 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 
 def _handle_result(result: ServiceResult) -> None:
-    if result.message:
-        click.echo(result.message)
-    if result.exit_category is not ExitCategory.SUCCESS:
-        raise click.exceptions.Exit(exit_code_for(result.exit_category))
+    if result.exit_category is ExitCategory.SUCCESS:
+        if result.message:
+            click.echo(result.message)
+        return
+
+    _render_error(result)
+    raise click.exceptions.Exit(exit_code_for(result.exit_category))
+
+
+def _render_error(result: ServiceResult) -> None:
+    message = result.message or "Command failed."
+    click.echo(f"Error: {message}", err=True)
+    for diagnostic in result.diagnostics:
+        click.echo(f"Code: {diagnostic.code}", err=True)
+        if diagnostic.path:
+            click.echo(f"Path: {diagnostic.path}", err=True)
+        if diagnostic.hint:
+            click.echo(f"Hint: {diagnostic.hint}", err=True)
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)

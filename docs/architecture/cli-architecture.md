@@ -146,6 +146,17 @@ Exact values can be adjusted, but categories should remain clear.
 
 Terminal output should be concise.
 
+Successful service results should print a concise success message to standard output when there is one. Failed service results should print concise diagnostic output to standard error:
+
+```text
+Error: <message>
+Code: <diagnostic code>
+Path: <path when available>
+Hint: <hint when available>
+```
+
+CLI rendering should use structured service results and diagnostics. Command handlers should not assemble ad hoc framework errors.
+
 Example:
 
 ```text

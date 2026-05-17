@@ -25,8 +25,10 @@ def test_cli_help_lists_core_commands() -> None:
 def test_placeholder_commands_fail_clearly(command: str) -> None:
     result = CliRunner().invoke(main, [command])
 
-    assert result.exit_code != 0
-    assert f"recon {command} is not implemented yet." in result.output
+    assert result.exit_code == 3
+    assert f"Error: recon {command} is not implemented yet." in result.output
+    assert "Code: RC_RUNTIME_NOT_IMPLEMENTED" in result.output
+    assert "Hint: Implement " in result.output
 
 
 @pytest.mark.parametrize(
@@ -67,6 +69,7 @@ def test_init_command_creates_project() -> None:
         assert result.exit_code == 0
         assert "Created Recon project at" in result.output
         assert "ecommerce_recon" in result.output
+        assert "Error:" not in result.output
 
 
 def test_init_command_requires_project_name() -> None:
@@ -74,3 +77,20 @@ def test_init_command_requires_project_name() -> None:
 
     assert result.exit_code != 0
     assert "Missing argument 'PROJECT_NAME'" in result.output
+
+
+def test_init_command_existing_path_reports_configuration_error() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ["init", "ecommerce_recon"])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ["init", "ecommerce_recon"])
+
+        assert result.exit_code == 4
+        assert "Error: Path already exists:" in result.output
+        assert "Code: RC_CONFIG_INIT_PATH_EXISTS" in result.output
+        assert "Path: " in result.output
+        assert "ecommerce_recon" in result.output
+        assert "Hint: Choose a new project name or remove the existing path." in result.output
