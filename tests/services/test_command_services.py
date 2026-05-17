@@ -1,21 +1,20 @@
 import pytest
 
 from recon_core.diagnostics import DiagnosticSeverity
-from recon_core.services import CompileService, InitService, ParseService, RunService
+from recon_core.services import CompileService, ParseService, RunService
 from recon_core.services.results import ExitCategory
 
 
 @pytest.mark.parametrize(
     ("service_cls", "command_name"),
     [
-        (InitService, "init"),
         (ParseService, "parse"),
         (CompileService, "compile"),
         (RunService, "run"),
     ],
 )
 def test_command_service_stubs_return_structured_not_implemented_result(
-    service_cls: type[InitService | ParseService | CompileService | RunService],
+    service_cls: type[ParseService | CompileService | RunService],
     command_name: str,
 ) -> None:
     result = service_cls().execute()

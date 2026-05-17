@@ -19,6 +19,7 @@ Expected starter structure:
 
 ```text
 recon_project.yml
+.gitignore
 connections/
   profiles.yml.example
 contracts/
@@ -27,6 +28,7 @@ tolerances/
 schema_policies/
 target/
 reports/
+state/
 ```
 
 ## Configure connections

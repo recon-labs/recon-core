@@ -78,14 +78,19 @@ Expected output:
 
 ```text
 recon_project.yml
+.gitignore
 connections/profiles.yml.example
 contracts/
 sample_policies/
 tolerances/
 schema_policies/
+target/
+reports/
+state/
 ```
 
 The generated project should include safe placeholder examples and no secrets.
+It should not overwrite an existing path unless explicit overwrite behavior is added later.
 
 ## `recon parse`
 

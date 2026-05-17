@@ -30,9 +30,10 @@ def main() -> None:
 
 
 @main.command()
-def init() -> None:
+@click.argument("project_name")
+def init(project_name: str) -> None:
     """Create a starter Recon project."""
-    _handle_result(InitService().execute())
+    _handle_result(InitService(project_name=project_name).execute())
 
 
 @main.command()
