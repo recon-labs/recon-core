@@ -54,6 +54,10 @@ class InitService:
     base_dir: Path = field(default_factory=Path.cwd)
 
     def execute(self) -> ServiceResult:
+        invalid_name_result = _validate_project_name(self.project_name)
+        if invalid_name_result is not None:
+            return invalid_name_result
+
         project_dir = self.base_dir / self.project_name
         if project_dir.exists():
             message = f"Path already exists: {project_dir}"
@@ -108,3 +112,32 @@ def _render_project_config(project_name: str) -> str:
     }
 
     return cast(str, yaml.safe_dump(project_config, sort_keys=False))
+
+
+def _validate_project_name(project_name: str) -> ServiceResult | None:
+    if _is_safe_project_name(project_name):
+        return None
+
+    message = f"Invalid project name: {project_name}"
+    return ServiceResult(
+        exit_category=ExitCategory.CONFIGURATION_ERROR,
+        message=message,
+        diagnostics=(
+            Diagnostic(
+                code="RC_CONFIG_INIT_INVALID_PROJECT_NAME",
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                resource_type="project",
+                resource_name=project_name,
+                hint="Use a single directory name without path separators.",
+            ),
+        ),
+    )
+
+
+def _is_safe_project_name(project_name: str) -> bool:
+    if project_name in {"", ".", ".."}:
+        return False
+    if "/" in project_name or "\\" in project_name:
+        return False
+    return not Path(project_name).is_absolute()

@@ -73,3 +73,34 @@ def test_init_service_does_not_overwrite_existing_path(tmp_path: Path) -> None:
     assert result.message == f"Path already exists: {project_dir}"
     assert len(result.diagnostics) == 1
     assert result.diagnostics[0].code == "RC_CONFIG_INIT_PATH_EXISTS"
+
+
+@pytest.mark.parametrize("project_name", ["../outside", "nested/project", r"nested\project"])
+def test_init_service_rejects_project_names_that_are_paths(
+    tmp_path: Path, project_name: str
+) -> None:
+    base_dir = tmp_path / "base"
+    base_dir.mkdir()
+
+    result = InitService(project_name=project_name, base_dir=base_dir).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == f"Invalid project name: {project_name}"
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0].code == "RC_CONFIG_INIT_INVALID_PROJECT_NAME"
+    assert not (base_dir / project_name).exists()
+    assert not (tmp_path / "outside").exists()
+
+
+def test_init_service_rejects_absolute_project_path(tmp_path: Path) -> None:
+    base_dir = tmp_path / "base"
+    base_dir.mkdir()
+    project_name = str(tmp_path / "outside_absolute")
+
+    result = InitService(project_name=project_name, base_dir=base_dir).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == f"Invalid project name: {project_name}"
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0].code == "RC_CONFIG_INIT_INVALID_PROJECT_NAME"
+    assert not (tmp_path / "outside_absolute").exists()

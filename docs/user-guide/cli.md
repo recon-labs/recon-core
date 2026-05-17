@@ -45,6 +45,8 @@ state/
 
 `recon init` should not overwrite an existing path unless an explicit overwrite option is added later.
 
+`PROJECT_NAME` must be a single directory name. It must not be an absolute path, a nested path, or contain path traversal.
+
 ## `recon parse`
 
 Validates project structure and writes a manifest.

@@ -94,3 +94,15 @@ def test_init_command_existing_path_reports_configuration_error() -> None:
         assert "Path: " in result.output
         assert "ecommerce_recon" in result.output
         assert "Hint: Choose a new project name or remove the existing path." in result.output
+
+
+def test_init_command_rejects_path_like_project_name() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ["init", "../outside"])
+
+        assert result.exit_code == 4
+        assert "Error: Invalid project name: ../outside" in result.output
+        assert "Code: RC_CONFIG_INIT_INVALID_PROJECT_NAME" in result.output
+        assert "Hint: Use a single directory name without path separators." in result.output
