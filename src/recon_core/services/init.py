@@ -2,32 +2,12 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
+
+import yaml
 
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services.results import ExitCategory, ServiceResult
-
-PROJECT_CONFIG_TEMPLATE = """name: {project_name}
-version: 0.1.0
-config-version: 1
-
-profile: dev
-
-contract-paths:
-  - contracts
-
-sample-policy-paths:
-  - sample_policies
-
-tolerance-policy-paths:
-  - tolerances
-
-schema-policy-paths:
-  - schema_policies
-
-target-path: target
-report-path: reports
-state-path: state
-"""
 
 PROFILES_EXAMPLE_TEMPLATE = """# Example Recon connection profiles.
 # Copy this file to connections/profiles.yml for local use.
@@ -97,7 +77,7 @@ class InitService:
 
         self._write_text(
             project_dir / "recon_project.yml",
-            PROJECT_CONFIG_TEMPLATE.format(project_name=self.project_name),
+            _render_project_config(self.project_name),
         )
         self._write_text(
             project_dir / "connections" / "profiles.yml.example",
@@ -110,3 +90,21 @@ class InitService:
     @staticmethod
     def _write_text(path: Path, content: str) -> None:
         path.write_text(content, encoding="utf-8")
+
+
+def _render_project_config(project_name: str) -> str:
+    project_config: dict[str, object] = {
+        "name": project_name,
+        "version": "0.1.0",
+        "config-version": 1,
+        "profile": "dev",
+        "contract-paths": ["contracts"],
+        "sample-policy-paths": ["sample_policies"],
+        "tolerance-policy-paths": ["tolerances"],
+        "schema-policy-paths": ["schema_policies"],
+        "target-path": "target",
+        "report-path": "reports",
+        "state-path": "state",
+    }
+
+    return cast(str, yaml.safe_dump(project_config, sort_keys=False))

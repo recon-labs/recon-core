@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+import yaml
+
 from recon_core.services import InitService
 from recon_core.services.results import ExitCategory
 
@@ -31,13 +34,24 @@ def test_init_service_writes_project_config(tmp_path: Path) -> None:
     InitService(project_name="ecommerce_recon", base_dir=tmp_path).execute()
 
     content = (tmp_path / "ecommerce_recon" / "recon_project.yml").read_text()
+    config = yaml.safe_load(content)
 
-    assert "name: ecommerce_recon\n" in content
-    assert "config-version: 1\n" in content
-    assert "contract-paths:\n  - contracts\n" in content
-    assert "target-path: target\n" in content
-    assert "report-path: reports\n" in content
-    assert "state-path: state\n" in content
+    assert config["name"] == "ecommerce_recon"
+    assert config["config-version"] == 1
+    assert config["contract-paths"] == ["contracts"]
+    assert config["target-path"] == "target"
+    assert config["report-path"] == "reports"
+    assert config["state-path"] == "state"
+
+
+@pytest.mark.parametrize("project_name", ["yes", "null", "123", "#foo", "name: value"])
+def test_init_service_writes_project_name_as_yaml_string(tmp_path: Path, project_name: str) -> None:
+    InitService(project_name=project_name, base_dir=tmp_path).execute()
+
+    content = (tmp_path / project_name / "recon_project.yml").read_text()
+    config = yaml.safe_load(content)
+
+    assert config["name"] == project_name
 
 
 def test_init_service_writes_secret_safe_profiles_example(tmp_path: Path) -> None:
