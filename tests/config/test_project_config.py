@@ -125,6 +125,30 @@ name: finance_recon
     assert "Duplicate YAML key" in diagnostic.message
 
 
+def test_load_project_config_reports_unhashable_yaml_mapping_key(tmp_path: Path) -> None:
+    project_file = write_project_config(
+        tmp_path,
+        """
+? [name, alias]
+: ecommerce_recon
+""".lstrip(),
+    )
+
+    result = load_project_config(project_file)
+
+    assert not result.succeeded
+    assert result.config is None
+    assert len(result.diagnostics) == 1
+
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_CONFIG_INVALID_PROJECT_YAML"
+    assert diagnostic.severity is DiagnosticSeverity.ERROR
+    assert diagnostic.path == str(project_file)
+    assert diagnostic.line is not None
+    assert diagnostic.column is not None
+    assert "Unsupported YAML mapping key" in diagnostic.message
+
+
 def test_load_project_config_reports_non_mapping_yaml(tmp_path: Path) -> None:
     project_file = write_project_config(tmp_path, "- ecommerce_recon\n")
 

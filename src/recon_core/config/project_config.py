@@ -126,6 +126,16 @@ def _construct_mapping_without_duplicate_keys(
 
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=deep)
+        try:
+            hash(key)
+        except TypeError as error:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"Unsupported YAML mapping key: {key}",
+                key_node.start_mark,
+            ) from error
+
         if key in mapping:
             mark = key_node.start_mark
             raise yaml.constructor.ConstructorError(
