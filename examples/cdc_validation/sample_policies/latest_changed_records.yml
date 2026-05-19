@@ -1,0 +1,6 @@
+name: latest_changed_records
+type: incremental_window
+timestamp_column: updated_at
+watermark:
+  source: recon_state
+lookback: 2 hours

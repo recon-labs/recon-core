@@ -54,7 +54,7 @@ recon --version
 Expected command:
 
 ```bash
-recon init
+recon init ecommerce_recon
 ```
 
 The command should create a starter Recon project with contracts, policies, profiles examples, and generated artifact folders ignored.

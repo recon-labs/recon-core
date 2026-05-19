@@ -1,0 +1,41 @@
+version: 1
+
+name: customer_revenue
+
+source:
+  connection: postgres_legacy
+  relation: recon.v_customer_revenue_compare
+
+target:
+  connection: snowflake_warehouse
+  relation: recon.v_customer_revenue_compare
+
+grain:
+  keys:
+    - customer_id
+    - month
+
+columns:
+  numeric:
+    - name: revenue
+      tolerance: 0.01
+
+metrics:
+  - name: revenue_by_month
+    type: sum
+    column: revenue
+    group_by:
+      - month
+    tolerance: 0.01
+
+checks:
+  use:
+    - recon_core.basic_equivalence
+    - recon_core.aggregate_equivalence
+
+sampling:
+  default_policy: full
+
+evidence:
+  level: detailed
+  store_failures: true
