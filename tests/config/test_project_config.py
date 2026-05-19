@@ -101,6 +101,30 @@ def test_load_project_config_reports_invalid_yaml(tmp_path: Path) -> None:
     assert diagnostic.hint is not None
 
 
+def test_load_project_config_reports_duplicate_yaml_keys(tmp_path: Path) -> None:
+    project_file = write_project_config(
+        tmp_path,
+        """
+name: ecommerce_recon
+name: finance_recon
+""".lstrip(),
+    )
+
+    result = load_project_config(project_file)
+
+    assert not result.succeeded
+    assert result.config is None
+    assert len(result.diagnostics) == 1
+
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_CONFIG_INVALID_PROJECT_YAML"
+    assert diagnostic.severity is DiagnosticSeverity.ERROR
+    assert diagnostic.path == str(project_file)
+    assert diagnostic.line is not None
+    assert diagnostic.column is not None
+    assert "Duplicate YAML key" in diagnostic.message
+
+
 def test_load_project_config_reports_non_mapping_yaml(tmp_path: Path) -> None:
     project_file = write_project_config(tmp_path, "- ecommerce_recon\n")
 
@@ -112,6 +136,21 @@ def test_load_project_config_reports_non_mapping_yaml(tmp_path: Path) -> None:
     assert diagnostic.code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
     assert diagnostic.path == str(project_file)
     assert "top-level mapping" in diagnostic.message
+
+
+def test_load_project_config_reports_unreadable_config_path(tmp_path: Path) -> None:
+    result = load_project_config(tmp_path)
+
+    assert not result.succeeded
+    assert result.config is None
+    assert len(result.diagnostics) == 1
+
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
+    assert diagnostic.severity is DiagnosticSeverity.ERROR
+    assert diagnostic.path == str(tmp_path)
+    assert "Could not read project config file" in diagnostic.message
+    assert diagnostic.hint is not None
 
 
 def test_load_project_config_reports_missing_required_name(tmp_path: Path) -> None:

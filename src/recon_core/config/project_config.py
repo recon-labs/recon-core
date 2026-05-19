@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -42,6 +43,10 @@ _SCALAR_PATH_DEFAULTS: dict[str, str] = {
     "report-path": "reports",
     "state-path": "state",
 }
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
+    """YAML safe loader that rejects duplicate mapping keys."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,9 +94,19 @@ def load_project_config(project_file: Path) -> ProjectConfigLoadResult:
                 ),
             )
         )
+    except OSError as error:
+        return ProjectConfigLoadResult(
+            diagnostics=(
+                _invalid_config_diagnostic(
+                    project_file,
+                    f"Could not read project config file: {project_file}",
+                    hint=f"Check that the path points to a readable file. Error: {error}",
+                ),
+            )
+        )
 
     try:
-        loaded: object = yaml.safe_load(raw_content)
+        loaded: object = yaml.load(raw_content, Loader=_UniqueKeySafeLoader)
     except yaml.YAMLError as error:
         return ProjectConfigLoadResult(diagnostics=(_invalid_yaml_diagnostic(project_file, error),))
 
@@ -101,6 +116,33 @@ def load_project_config(project_file: Path) -> ProjectConfigLoadResult:
 
     assert raw_config is not None
     return _project_config_from_mapping(raw_config, project_file)
+
+
+def _construct_mapping_without_duplicate_keys(
+    loader: _UniqueKeySafeLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    loader.flatten_mapping(node)
+    mapping: dict[Any, Any] = {}
+
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            mark = key_node.start_mark
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"Duplicate YAML key: {key}",
+                mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+
+    return mapping
+
+
+_UniqueKeySafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_mapping_without_duplicate_keys,
+)
 
 
 def _coerce_project_mapping(
