@@ -1,5 +1,17 @@
 """Parser primitives for authored Recon project resources."""
 
+from recon_core.parser.contracts import (
+    INVALID_CONTRACT,
+    INVALID_ENDPOINT,
+    MISSING_REQUIRED_FIELD,
+    UNKNOWN_FIELD,
+    AuthoredContract,
+    AuthoredContractSummaryDict,
+    AuthoredEndpoint,
+    AuthoredEndpointDict,
+    ContractParseResult,
+    parse_contract_resource,
+)
 from recon_core.parser.files import (
     RESOURCE_PATH_NOT_FOUND,
     ResourceDiscoveryResult,
@@ -19,8 +31,17 @@ from recon_core.parser.yaml_loader import (
 
 __all__ = [
     "INVALID_YAML",
+    "INVALID_CONTRACT",
+    "INVALID_ENDPOINT",
+    "MISSING_REQUIRED_FIELD",
     "RESOURCE_PATH_NOT_FOUND",
+    "UNKNOWN_FIELD",
     "YAML_FILE_READ_ERROR",
+    "AuthoredContract",
+    "AuthoredContractSummaryDict",
+    "AuthoredEndpoint",
+    "AuthoredEndpointDict",
+    "ContractParseResult",
     "ResourceDiscoveryResult",
     "ResourceFile",
     "ResourceFileDict",
@@ -31,4 +52,5 @@ __all__ = [
     "discover_contract_files",
     "load_yaml_file",
     "load_yaml_text",
+    "parse_contract_resource",
 ]
