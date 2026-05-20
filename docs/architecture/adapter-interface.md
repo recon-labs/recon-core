@@ -36,6 +36,19 @@ Recon Core owns:
 
 Core should not import production database drivers for every supported system.
 
+Core also owns typed check plans. A check planner should express comparison
+intent as typed operations, and SQL adapters should render those operations into
+dialect SQL.
+
+```text
+CompiledCheck
+  -> typed CheckPlan
+  -> adapter SQL renderer or adapter execution request
+```
+
+This keeps comparison semantics consistent in core while isolating dialect
+behavior in adapters.
+
 ## Long-term adapter packages
 
 Expected adapter packages:
@@ -71,6 +84,32 @@ class Adapter:
 ```
 
 This is not final API.
+
+The final API should separate base adapter behavior from SQL dialect rendering.
+
+Illustrative split:
+
+```python
+class BaseAdapter:
+    adapter_type: str
+    supported_adapter_api_version: str
+
+    def connect(self) -> None: ...
+    def close(self) -> None: ...
+    def execute(self, query: str) -> QueryResult: ...
+    def get_columns(self, relation: Relation) -> list[ColumnMetadata]: ...
+    def capabilities(self) -> AdapterCapabilities: ...
+
+class SqlRenderer:
+    def quote_identifier(self, identifier: str) -> str: ...
+    def render_limit(self, query: str, limit: int) -> str: ...
+    def render_cast(self, expression: str, target_type: LogicalType) -> str: ...
+    def render_null_safe_equal(self, left: str, right: str) -> str: ...
+    def render_timestamp_diff(self, left: str, right: str, unit: str) -> str: ...
+```
+
+The exact method names should be finalized with
+`docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`.
 
 ## Capabilities
 
@@ -136,9 +175,13 @@ A future adapter test kit should validate:
 
 - connection behavior,
 - metadata behavior,
-- SQL compilation behavior,
+- typed operation rendering,
 - capability declarations,
 - check compatibility.
+
+It should also validate typed operation rendering. If core adds or changes a
+typed operation, shared adapter tests should fail until every affected adapter
+implements the operation or marks the capability unsupported.
 
 ## Design principle
 

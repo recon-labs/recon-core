@@ -21,8 +21,11 @@ This includes:
 - manifest generation,
 - check-pack expansion,
 - metric compilation,
+- typed check plans,
+- adapter capability validation,
 - validation diagnostics,
 - compiled artifacts,
+- adapter-rendered SQL,
 - check execution,
 - run results,
 - evidence output.
@@ -119,7 +122,12 @@ recon-oracle
 
 ### Adapter test kit
 
-Create a shared adapter test kit after the adapter interface stabilizes.
+Create a shared adapter test kit after the typed check-plan and adapter API
+contracts stabilize.
+
+The test kit should validate adapter API version compatibility, metadata,
+capabilities, SQL rendering for typed operations, and minimal check
+compatibility.
 
 ### Check and policy packages
 

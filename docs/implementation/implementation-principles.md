@@ -77,6 +77,13 @@ Production adapters should eventually live outside `recon-core`.
 
 Core may contain local/dev adapters for tests and examples.
 
+Core owns comparison semantics and typed check plans.
+
+Adapters own metadata access, capability declarations, dialect SQL rendering,
+and execution.
+
+Do not hide reconciliation behavior inside adapter-specific SQL or macro logic.
+
 ## Make errors actionable
 
 Every error should tell the user:

@@ -46,18 +46,23 @@ The compile service should:
 - resolve schema policies,
 - resolve CDC policies,
 - validate compatibility,
+- produce typed check plans,
+- render adapter SQL where possible,
 - produce compiled artifacts.
 
 Compile should make hidden behavior visible.
+
+Typed check plans are the core execution intent. Rendered SQL is an
+adapter-specific artifact derived from those plans.
 
 ## Run service
 
 The run service should:
 
 - ensure parse/compile artifacts are available and fresh,
-- build execution plan,
+- load typed check plans,
 - initialize adapters,
-- run checks,
+- run typed check plans through adapters,
 - collect results,
 - write run artifacts,
 - write evidence,

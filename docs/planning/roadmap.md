@@ -126,12 +126,15 @@ Capabilities:
 - richer evidence reports,
 - `recon debug` for project, profile, adapter, and connection diagnostics,
 - Airflow-friendly CLI behavior,
+- typed check-plan model stabilization,
+- adapter API versioning,
 - adapter interface stabilization,
 - adapter compliance tests.
 
 Adapters:
 
-- stable adapter interface,
+- stable typed check-plan model,
+- stable adapter interface and API versioning,
 - first official SQL adapters split or prepared for split,
 - adapter test kit planning.
 

@@ -57,10 +57,10 @@ Compilation
   Resolves defaults, refs, check packs, metrics, sampling, tolerances, schema policies, CDC settings, and adapter capabilities.
 
 Check planning
-  Produces explicit executable checks.
+  Produces explicit typed check plans.
 
 Execution
-  Runs checks through adapters.
+  Runs typed check plans through adapters.
 
 Evidence
   Writes run results, failure details, compiled artifacts, reports, and state.

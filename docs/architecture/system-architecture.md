@@ -94,11 +94,11 @@ Resolves all inherited and inferred behavior into explicit compiled artifacts.
 
 ### Planning layer
 
-Turns compiled contracts into executable check plans.
+Turns compiled contracts into typed executable check plans.
 
 ### Execution layer
 
-Runs checks through adapters and collects results.
+Runs typed check plans through adapters and collects results.
 
 ### Evidence layer
 
@@ -113,6 +113,9 @@ CLI -> Application services -> Domain models/interfaces <- Adapters
 ```
 
 Adapters should depend on core interfaces. Core should not depend on specific production adapter packages.
+
+Core owns typed check plans and comparison semantics. Adapters own
+system-specific rendering and execution.
 
 ## Strictness boundary
 

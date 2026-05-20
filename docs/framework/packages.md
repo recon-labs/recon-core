@@ -10,6 +10,9 @@ A Recon package is a reusable bundle of framework resources. It is different fro
 
 Adapter packages are Python packages installed with pip, such as `recon-snowflake`. They provide connectivity and dialect behavior.
 
+Adapter packages implement connector types and render or execute typed check
+plans for their system. They should not define Recon's comparison semantics.
+
 Recon resource packages are installed by a future `recon deps` command. They provide check packs, sampling policies, tolerance policies, schema policies, macros, evidence templates, and examples.
 
 ## Why packages matter

@@ -12,7 +12,7 @@ severity
 message
 resource_type
 resource_name
-file_path
+path
 line
 column
 hint

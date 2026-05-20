@@ -148,8 +148,13 @@ adapters/
   base.py
   capabilities.py
   metadata.py
+  registry.py
+  sql_renderer.py
   types.py
 ```
+
+Adapters should not own comparison semantics. Core check planners produce typed
+plans; adapters render or execute those plans for a specific system.
 
 ## `execution/`
 
@@ -157,8 +162,9 @@ Runtime execution.
 
 Responsibilities:
 
-- adapter dispatch,
+- adapter resolution,
 - query execution,
+- typed plan execution,
 - check result collection,
 - run lifecycle.
 

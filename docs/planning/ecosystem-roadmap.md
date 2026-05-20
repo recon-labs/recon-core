@@ -45,6 +45,12 @@ Adapter packages should own:
 - hashing behavior,
 - capability declarations.
 
+Adapter packages should not own reconciliation semantics. `recon-core` owns
+typed check plans and comparison meaning; adapters render or execute those
+plans for a specific system.
+
+Adapter packages should declare their supported adapter API version.
+
 ## Adapter test kit
 
 Future repo:
@@ -56,12 +62,14 @@ recon-adapter-testkit
 Purpose:
 
 - validate adapter behavior,
+- validate adapter API version compatibility,
 - standardize capability tests,
 - test metadata behavior,
-- test SQL compilation behavior,
+- test SQL rendering for typed plan operations,
 - help community adapter maintainers.
 
-Adapter test kit should appear after the base interface stabilizes.
+Adapter test kit should appear after the typed check-plan and base adapter
+interfaces stabilize.
 
 ## Check and policy packages
 

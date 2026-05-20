@@ -6,6 +6,9 @@ The check engine executes compiled checks and returns structured results.
 
 It should not parse authored YAML or resolve contract defaults. It receives compiled checks.
 
+It should execute typed check plans produced by core check planners. SQL
+dialect rendering belongs to adapters.
+
 ## Inputs
 
 Primary inputs:
@@ -72,12 +75,16 @@ Planning should happen before execution.
 
 A planned check may include:
 
-- source SQL,
-- target SQL,
-- comparison SQL,
-- failure detail SQL,
+- typed source operations,
+- typed target operations,
+- typed comparison operations,
+- optional rendered SQL artifact references,
+- failure detail operations,
 - required adapters,
 - expected result schema.
+
+Typed operations are the core contract. Rendered SQL is an adapter-specific
+execution artifact.
 
 ## Execution order
 

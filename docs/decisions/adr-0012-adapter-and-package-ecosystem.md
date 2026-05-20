@@ -62,9 +62,11 @@ Keeping resource packages separate allows a community ecosystem to grow without 
 
 Start with `recon-core`.
 
-Split adapters after the adapter interface stabilizes.
+Split adapters after the typed check-plan model, adapter API versioning, and
+shared adapter test kit stabilize.
 
-Create an adapter test kit when adapter behavior is clear enough to standardize.
+Create an adapter test kit when adapter behavior and typed operation rendering
+are clear enough to standardize.
 
 Create package loading before building a full Hub.
 

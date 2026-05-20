@@ -52,6 +52,7 @@ Examples:
 - tolerance precedence works,
 - schema policy applies,
 - CDC config validates.
+- typed check plans are produced with expected operation requirements.
 
 ### Check engine tests
 
@@ -87,8 +88,13 @@ Examples:
 - metadata columns,
 - quoting,
 - limit compilation,
+- typed operation rendering,
+- adapter API version compatibility,
 - timestamp behavior,
 - capability declarations.
+
+Shared adapter tests should fail when core adds a required typed operation and
+an adapter has not implemented rendering or declared the capability unsupported.
 
 ## Test data
 
@@ -127,6 +133,9 @@ type checks
 ```
 
 Adapter integration tests may run separately when external systems are required.
+
+Production adapter repositories should run a shared adapter test kit in CI once
+the adapter API stabilizes.
 
 ## Design principle
 

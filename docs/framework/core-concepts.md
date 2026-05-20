@@ -169,6 +169,9 @@ run     = execution + results + evidence
 
 Generated artifacts should live under gitignored `target/` and `reports/`.
 
+Compiled checks should lower into typed check plans owned by `recon-core`.
+Adapters render those plans into dialect SQL or equivalent execution requests.
+
 ## Adapter
 
 An adapter provides system-specific behavior: connection, dialect, metadata queries, quoting, hashing, timestamps, limits, and capability declarations.

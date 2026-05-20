@@ -76,7 +76,7 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
 ## Rollout
 
 1. Start with `recon-core`.
-2. Split `recon-postgres`, `recon-snowflake`, and `recon-adapter-testkit` after adapter interface stabilizes.
+2. Split `recon-postgres`, `recon-snowflake`, and `recon-adapter-testkit` after typed check plans, adapter API versioning, and shared adapter tests stabilize.
 3. Add official check/policy packages.
 4. Add `recon-hub-index`.
 5. Add integrations such as `recon-airflow`.

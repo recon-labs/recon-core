@@ -45,4 +45,5 @@ adr-0009-tolerance-normalization-and-null-equivalence.md
 adr-0010-schema-policies-and-technical-columns.md
 adr-0011-cdc-policy-and-delete-modes.md
 adr-0012-adapter-and-package-ecosystem.md
+adr-0013-typed-check-plans-and-adapter-sql-rendering.md
 ```
