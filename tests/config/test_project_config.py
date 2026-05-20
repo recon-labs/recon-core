@@ -210,6 +210,27 @@ contract-paths: contracts
     assert diagnostic.hint is not None
 
 
+def test_load_project_config_reports_unsupported_config_version(tmp_path: Path) -> None:
+    project_file = write_project_config(
+        tmp_path,
+        """
+name: ecommerce_recon
+config-version: 2
+""".lstrip(),
+    )
+
+    result = load_project_config(project_file)
+
+    diagnostic = result.diagnostics[0]
+    assert not result.succeeded
+    assert result.config is None
+    assert diagnostic.code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
+    assert diagnostic.path == str(project_file)
+    assert "config-version" in diagnostic.message
+    assert "1" in diagnostic.message
+    assert diagnostic.hint is not None
+
+
 def test_load_project_config_reports_unknown_field(tmp_path: Path) -> None:
     project_file = write_project_config(
         tmp_path,

@@ -10,6 +10,7 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 INVALID_PROJECT_YAML = "RC_CONFIG_INVALID_PROJECT_YAML"
 INVALID_PROJECT_CONFIG = "RC_CONFIG_INVALID_PROJECT_CONFIG"
+SUPPORTED_CONFIG_VERSIONS = frozenset({1})
 
 _ALLOWED_FIELDS = frozenset(
     {
@@ -186,7 +187,7 @@ def _project_config_from_mapping(
     name = _required_string(raw_config, "name", project_file, diagnostics)
     version = _optional_string(raw_config, "version", project_file, diagnostics)
     profile = _optional_string(raw_config, "profile", project_file, diagnostics)
-    config_version = _integer(raw_config, "config-version", 1, project_file, diagnostics)
+    config_version = _config_version(raw_config, project_file, diagnostics)
 
     contract_paths = _path_list(raw_config, "contract-paths", project_file, diagnostics)
     sample_policy_paths = _path_list(raw_config, "sample-policy-paths", project_file, diagnostics)
@@ -310,6 +311,34 @@ def _integer(
         return default
 
     return value
+
+
+def _config_version(
+    raw_config: dict[str, object],
+    project_file: Path,
+    diagnostics: list[Diagnostic],
+) -> int:
+    config_version = _integer(raw_config, "config-version", 1, project_file, diagnostics)
+    if config_version not in SUPPORTED_CONFIG_VERSIONS:
+        supported_versions = ", ".join(
+            str(version) for version in sorted(SUPPORTED_CONFIG_VERSIONS)
+        )
+        diagnostics.append(
+            _invalid_config_diagnostic(
+                project_file,
+                (
+                    "Unsupported project config-version: "
+                    f"{config_version}. Supported versions: {supported_versions}."
+                ),
+                hint=(
+                    "Use a supported `config-version`, or upgrade Recon Core "
+                    "to a version that supports this project config schema."
+                ),
+            )
+        )
+        return 1
+
+    return config_version
 
 
 def _path_list(
