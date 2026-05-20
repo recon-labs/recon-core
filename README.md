@@ -27,12 +27,15 @@ Implemented today:
 - Python package skeleton,
 - `recon --version`,
 - `recon init <project_name>`,
+- `recon parse`,
+- duplicate-key-safe YAML loading for authored resources,
+- structural equivalence contract parsing,
+- `target/manifest.json` generation,
 - structured service results and diagnostics,
-- CLI command registration for `parse`, `compile`, and `run`.
+- CLI command registration for `compile` and `run`.
 
 Not implemented yet:
 
-- `recon parse`,
 - `recon compile`,
 - `recon run`,
 - adapter execution,
@@ -87,6 +90,8 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 recon --version
 recon init ecommerce_recon
+cd ecommerce_recon
+recon parse
 ```
 
 The generated starter project includes:
@@ -106,8 +111,9 @@ ecommerce_recon/
   state/
 ```
 
-`recon parse`, `recon compile`, and `recon run` are registered commands, but
-they currently return a clear not-implemented diagnostic.
+`recon parse` now performs structural project parsing and writes
+`target/manifest.json`. `recon compile` and `recon run` are registered commands,
+but they currently return a clear not-implemented diagnostic.
 
 ## Core Idea
 
@@ -190,6 +196,14 @@ The intended command responsibilities are:
 - `recon compile` expands contracts, defaults, check packs, metrics, sampling,
   tolerances, schema policies, and CDC settings into explicit artifacts.
 - `recon run` executes compiled checks and writes results and evidence.
+
+Current `recon parse` validation is intentionally structural. It validates YAML
+syntax, contract file discovery, required contract fields, endpoint shape,
+unknown top-level contract fields, simple multi-contract files, and duplicate
+contract names. Compile-time behavior such as check-pack expansion, metric
+compilation, sampling resolution, tolerance precedence, schema policy
+resolution, CDC validation, adapter checks, and row-level key uniqueness is
+still future work.
 
 Expected generated artifacts:
 

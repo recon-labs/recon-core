@@ -6,6 +6,11 @@ This guide shows the intended first Recon workflow.
 
 The user defines an equivalence contract, compiles it into an explicit execution plan, runs checks, and reviews evidence.
 
+Current pre-alpha status:
+
+- `recon init` and `recon parse` are implemented.
+- `recon compile` and `recon run` are not implemented yet.
+
 ## Create a project
 
 Expected command:
@@ -123,7 +128,12 @@ Expected output:
 target/manifest.json
 ```
 
+Current `recon parse` validates authored structure and writes a manifest. It
+does not compile checks, run queries, or produce evidence.
+
 ## Compile
+
+This command is planned but not implemented yet.
 
 ```bash
 recon compile
@@ -140,6 +150,8 @@ target/compiled_sql/customer_revenue/
 Use compiled artifacts to inspect exactly what Recon will run.
 
 ## Run
+
+This command is planned but not implemented yet.
 
 ```bash
 recon run

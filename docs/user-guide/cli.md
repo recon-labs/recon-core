@@ -7,16 +7,18 @@ Recon is designed as a CLI-first framework.
 Core commands:
 
 ```bash
+recon init
 recon parse
 recon compile
 recon run
 ```
 
-Additional expected command:
+Current implementation status:
 
-```bash
-recon init
-```
+- `recon init` is implemented.
+- `recon parse` is implemented for structural parsing and manifest generation.
+- `recon compile` is registered but not implemented yet.
+- `recon run` is registered but not implemented yet.
 
 ## `recon init`
 
@@ -49,7 +51,7 @@ state/
 
 ## `recon parse`
 
-Validates project structure and writes a manifest.
+Validates authored project structure and writes a manifest.
 
 ```bash
 recon parse
@@ -61,11 +63,32 @@ Expected output:
 target/manifest.json
 ```
 
-`parse` should check YAML syntax, required fields, duplicate contract names, resource discovery, and basic refs.
+Current `parse` behavior:
+
+- loads `recon_project.yml`,
+- discovers configured contract files,
+- loads duplicate-key-safe YAML,
+- parses single-contract files and simple `contracts:` multi-contract files,
+- validates required contract fields,
+- validates source and target endpoint shape,
+- rejects unknown top-level contract fields,
+- detects duplicate contract names,
+- writes parse diagnostics into `target/manifest.json`.
+
+If project config loads but contract parsing fails, `recon parse` still writes
+`target/manifest.json` with diagnostics and exits with code `2`.
+
+If project root discovery or project config loading fails, `recon parse` exits
+with code `4` and does not write a manifest.
+
+`recon parse` does not compile checks, expand check packs, resolve sampling or
+tolerances, validate adapter capabilities, execute queries, or produce
+evidence.
 
 ## `recon compile`
 
-Generates human-readable execution artifacts.
+Generates human-readable execution artifacts. This command is not implemented
+yet.
 
 ```bash
 recon compile
@@ -83,7 +106,7 @@ target/compiled_sql/
 
 ## `recon run`
 
-Executes checks.
+Executes checks. This command is not implemented yet.
 
 ```bash
 recon run
