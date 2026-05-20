@@ -193,7 +193,8 @@ Running old and new systems side-by-side and comparing their outputs before cuto
 
 ## Adapter
 
-A package or module that lets Recon connect to and generate SQL for a specific system.
+A package or module that lets Recon connect to, inspect metadata from, execute
+against, and render dialect-specific operations for a specific system.
 
 Examples:
 
@@ -201,6 +202,36 @@ Examples:
 - `recon-postgres`,
 - `recon-sqlserver`,
 - `recon-bigquery`.
+
+Adapters implement connector types.
+
+## Connector
+
+A user-facing connection configuration entry in a Recon profile.
+
+Example:
+
+```yaml
+connections:
+  warehouse:
+    type: snowflake
+```
+
+Here `warehouse` is a connector name and `snowflake` resolves to an adapter
+implementation.
+
+## Typed check plan
+
+The core-owned representation of what a compiled check should do before it is
+rendered into dialect SQL or adapter execution requests.
+
+Typed check plans keep comparison semantics in `recon-core` and let adapters
+handle only system-specific rendering and execution.
+
+## SQL renderer
+
+An adapter-owned component that turns typed check plan operations into dialect
+SQL for a specific system.
 
 ## Recon package
 

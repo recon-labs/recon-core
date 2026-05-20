@@ -36,7 +36,7 @@ The manifest is for the engine, tooling, selectors, docs, compile, run, and CI w
 
 `recon compile` makes execution explicit and inspectable.
 
-It should resolve defaults and refs, expand check packs, compile metrics into checks, resolve sampling inheritance, resolve tolerance precedence, resolve null/normalization rules, apply schema policy configuration, apply CDC mode/delete behavior, validate adapter capabilities when possible, generate human-readable compiled artifacts, and generate SQL/check queries where possible.
+It should resolve defaults and refs, expand check packs, compile metrics into checks, resolve sampling inheritance, resolve tolerance precedence, resolve null/normalization rules, apply schema policy configuration, apply CDC mode/delete behavior, validate adapter capabilities when possible, generate typed check plans, generate human-readable compiled artifacts, and generate adapter-rendered SQL/check queries where possible.
 
 Main outputs:
 
@@ -47,6 +47,9 @@ target/compiled_sql/**/*.sql
 ```
 
 The compiled artifacts are for humans and the engine.
+
+The typed check plan is the core representation of execution intent. Rendered
+SQL is an adapter-specific artifact derived from that plan.
 
 ## `recon run`
 
@@ -88,6 +91,9 @@ Without compilation, users cannot easily see what will actually run.
 
 Compilation prevents hidden behavior by producing an explicit plan.
 
+That plan should stay typed until an adapter renders dialect SQL or equivalent
+execution requests.
+
 ## Compiled checks
 
 A compiled check should show:
@@ -105,6 +111,9 @@ A compiled check should show:
 - CDC mode,
 - evidence settings,
 - severity.
+
+When SQL is generated, the compiled check should also preserve enough plan
+metadata to trace the SQL back to typed operations.
 
 ## Generated artifacts are not source
 

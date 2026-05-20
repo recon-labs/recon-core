@@ -64,15 +64,18 @@ Build:
 
 - compiled contract model,
 - compiled check model,
+- typed check plan model,
 - default resolution,
 - metric compilation,
 - check-pack expansion for `basic_equivalence`,
+- adapter capability requirements,
 - compiled artifact writers.
 
 Tests:
 
 - metric compiles to aggregate check,
 - check pack expands,
+- compiled checks lower into typed plan operations,
 - empty check-pack expansion errors,
 - compiled YAML artifacts match expected output.
 
@@ -96,15 +99,20 @@ Tests:
 Build:
 
 - base adapter interface,
+- adapter API version declaration,
 - local test adapter or DuckDB-style adapter,
 - relation metadata,
 - query execution,
-- capability declarations.
+- capability declarations,
+- SQL rendering for typed plan operations,
+- first internal adapter test-kit shape.
 
 Tests:
 
 - metadata fetch,
 - row count query,
+- typed operation rendering,
+- adapter API version compatibility,
 - adapter capability validation.
 
 ## Milestone 7: check engine

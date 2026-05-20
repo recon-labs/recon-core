@@ -36,7 +36,8 @@ Recommended lifecycle:
 ```text
 validate check requirements
 prepare execution
-generate SQL or adapter request
+produce or load typed check plan
+ask adapter to render SQL or execution request
 execute
 collect result values
 collect failure details when configured
@@ -78,6 +79,9 @@ A check implementation should declare:
 - whether columns are required,
 - supported sampling modes,
 - result schema.
+
+Checks should not hide comparison semantics in adapter-specific SQL strings.
+They should produce typed plan operations that adapters can render or execute.
 
 ## Row-level checks
 

@@ -76,10 +76,12 @@ Use test-driven development for:
 - contract validation,
 - compiler expansion,
 - check planning,
+- typed check plan generation,
 - sampling resolution,
 - tolerance precedence,
 - schema policy behavior,
 - adapter capability handling,
+- adapter SQL rendering,
 - result model behavior.
 
 Tests should cover both success and failure cases.
@@ -96,6 +98,7 @@ Examples:
 - validation rule changes,
 - check pack behavior changes,
 - adapter capability changes,
+- typed check plan or adapter API changes,
 - evidence output changes.
 
 Documentation should be written as project documentation, not as implementation notes.
@@ -158,3 +161,6 @@ Use examples with fake names, fake data, and safe placeholder credentials.
 Open an issue when a design decision is unclear.
 
 If a change affects public contract syntax, artifact formats, validation behavior, or adapter interfaces, it may need an ADR before implementation.
+
+Adapter, check-engine, and SQL-rendering work should follow
+`docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`.

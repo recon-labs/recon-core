@@ -38,7 +38,7 @@ Internal outputs:
 CompiledProject
 CompiledContract
 CompiledCheck
-ExecutionPlan draft
+CheckPlan
 ```
 
 ## Compiler phases
@@ -59,8 +59,14 @@ Recommended compile phases:
 11. resolve CDC policies
 12. validate check requirements
 13. validate adapter capabilities
-14. write compiled artifacts
+14. produce typed check plans
+15. render adapter SQL where possible
+16. write compiled artifacts
 ```
+
+The compiler should not make database-specific SQL strings the primary internal
+representation. It should create typed compiled checks and typed check plans.
+Adapters render those plans into dialect-specific SQL when SQL output is needed.
 
 ## Columns, metrics, and checks
 
@@ -280,6 +286,42 @@ Each check declares required adapter capabilities.
 Compile should fail if required capabilities are known to be missing.
 
 If capabilities are unknown until runtime, compiled artifacts should mark validation as deferred.
+
+Capability validation should include typed operation requirements. For example,
+a check plan that requires null-safe equality, timestamp diff, temporary tables,
+or portable hashing must declare those requirements before adapter SQL is
+rendered.
+
+Adapter API version compatibility should be checked before execution. If an
+adapter does not support the required adapter API version, Recon should return a
+clear diagnostic rather than attempting a partial run.
+
+## Typed check plans
+
+Compiled checks should be lowered into typed check plans before execution.
+
+Example operation families:
+
+```text
+row_count
+aggregate
+grouped_aggregate
+key_diff
+duplicate_key
+null_safe_equal
+cast
+limit
+hash
+timestamp_diff
+schema_metadata
+```
+
+The typed plan is owned by `recon-core`. SQL dialect rendering is owned by
+adapters.
+
+Generated SQL should be traceable back to the typed operations that produced it.
+This keeps compiled artifacts debuggable and prevents adapter code from
+silently changing comparison semantics.
 
 ## Diagnostics
 

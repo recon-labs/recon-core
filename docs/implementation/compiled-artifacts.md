@@ -121,6 +121,30 @@ target/compiled_sql/customer_revenue/revenue_by_month/comparison.sql
 
 SQL should be formatted clearly enough for debugging.
 
+SQL is rendered from typed check plans by adapters. The typed plan remains the
+core representation of comparison behavior; rendered SQL is the dialect-specific
+execution artifact.
+
+Compiled artifacts should preserve enough operation metadata to trace generated
+SQL back to its typed plan.
+
+Example:
+
+```yaml
+checks:
+  - name: row_count_diff
+    type: row_count_diff
+    plan:
+      operations:
+        - type: row_count
+          side: source
+        - type: row_count
+          side: target
+    rendered_sql:
+      source: target/compiled_sql/customer_revenue/row_count_diff/source.sql
+      target: target/compiled_sql/customer_revenue/row_count_diff/target.sql
+```
+
 ## Artifact versioning
 
 Every artifact should include:

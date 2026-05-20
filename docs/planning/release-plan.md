@@ -107,6 +107,8 @@ Included:
 - incremental windows,
 - previous failure retest,
 - persisted sample keys,
+- typed check-plan model stabilization,
+- adapter API versioning,
 - adapter interface stabilization,
 - adapter compliance tests,
 - production-oriented result tables or clear design.
@@ -115,7 +117,7 @@ Release quality bar:
 
 - a user can schedule recurring checks,
 - watermarks behave predictably,
-- adapter authors have a clear test kit path.
+- adapter authors have a clear API version and test kit path.
 
 ## 1.0 release
 

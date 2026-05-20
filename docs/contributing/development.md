@@ -52,13 +52,15 @@ Strong test coverage is required for:
 - contract validation,
 - check-pack expansion,
 - metric compilation,
+- typed check plan generation,
 - sampling resolution,
 - tolerance precedence,
 - schema policy resolution,
 - CDC policy validation,
 - compiled artifact generation,
 - check result models,
-- adapter capability validation.
+- adapter capability validation,
+- adapter SQL rendering.
 
 ## Refactoring
 

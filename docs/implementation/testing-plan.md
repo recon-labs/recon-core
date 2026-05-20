@@ -48,6 +48,8 @@ Examples:
 - tolerances resolve by precedence,
 - schema policies apply,
 - CDC config validates.
+- typed check plans include expected operations,
+- compiled artifacts reference typed plans and rendered SQL.
 
 ### Validation tests
 
@@ -82,14 +84,19 @@ Examples:
 
 Base adapter tests should cover:
 
+- adapter API version compatibility,
 - capability declarations,
 - metadata shape,
 - relation existence,
 - query execution,
 - quoting,
-- limit compilation.
+- limit compilation,
+- typed operation rendering,
+- unsupported capability diagnostics.
 
-Production adapters should eventually use an adapter test kit.
+Production adapters should eventually use a shared adapter test kit. The same
+test kit should run in every adapter repo and should include operation-rendering
+golden tests.
 
 ### Artifact tests
 

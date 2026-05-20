@@ -200,7 +200,22 @@ Preferred direction:
 
 Preferred direction:
 
-- after the adapter interface and test kit are stable enough.
+- after the typed check-plan model, adapter API versioning, and shared adapter
+  test kit are stable enough.
+
+### Should Recon use dbt-style macro dispatch for dialect support?
+
+Decision:
+
+- no, not as the primary comparison engine.
+
+Reason:
+
+- core should own typed check plans and comparison semantics,
+- adapters should render or execute typed operations,
+- macro dispatch or SQL generation helpers can be internal implementation
+  details later,
+- see `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`.
 
 ## Packages and Hub
 

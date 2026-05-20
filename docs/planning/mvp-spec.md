@@ -244,6 +244,8 @@ The MVP needs enough adapter support to prove the framework.
 Recommended strategy:
 
 - define the adapter interface in `recon-core`,
+- define typed check plans before adapter SQL rendering,
+- add adapter API versioning and capability declarations,
 - implement one lightweight SQL adapter for local/dev testing,
 - implement one practical adapter path first, likely Postgres or DuckDB for local repeatability,
 - keep Snowflake/Postgres production adapters as early follow-up packages or experimental modules.

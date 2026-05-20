@@ -145,8 +145,9 @@ Users may need databases not supported early.
 Mitigation:
 
 - design adapter interface early,
+- define typed check plans and adapter API versioning before many adapters,
 - ship at least one practical local adapter,
-- create adapter test kit after interface stabilizes,
+- create adapter test kit after typed plan and adapter API stabilize,
 - invite community adapters.
 
 ### Trust
