@@ -20,6 +20,16 @@ from recon_core.parser.files import (
     ResourceType,
     discover_contract_files,
 )
+from recon_core.parser.manifest import (
+    DUPLICATE_CONTRACT,
+    MANIFEST_ARTIFACT_TYPE,
+    MANIFEST_ARTIFACT_VERSION,
+    Manifest,
+    ManifestDict,
+    ManifestProject,
+    ManifestProjectDict,
+    build_manifest,
+)
 from recon_core.parser.models import SourceLocation, SourceLocationDict
 from recon_core.parser.yaml_loader import (
     INVALID_YAML,
@@ -34,6 +44,9 @@ __all__ = [
     "INVALID_CONTRACT",
     "INVALID_ENDPOINT",
     "MISSING_REQUIRED_FIELD",
+    "DUPLICATE_CONTRACT",
+    "MANIFEST_ARTIFACT_TYPE",
+    "MANIFEST_ARTIFACT_VERSION",
     "RESOURCE_PATH_NOT_FOUND",
     "UNKNOWN_FIELD",
     "YAML_FILE_READ_ERROR",
@@ -42,6 +55,10 @@ __all__ = [
     "AuthoredEndpoint",
     "AuthoredEndpointDict",
     "ContractParseResult",
+    "Manifest",
+    "ManifestDict",
+    "ManifestProject",
+    "ManifestProjectDict",
     "ResourceDiscoveryResult",
     "ResourceFile",
     "ResourceFileDict",
@@ -49,6 +66,7 @@ __all__ = [
     "SourceLocation",
     "SourceLocationDict",
     "YamlLoadResult",
+    "build_manifest",
     "discover_contract_files",
     "load_yaml_file",
     "load_yaml_text",
