@@ -16,6 +16,11 @@ They are not limited to database primary keys. They may be business keys, natura
 
 CDC change identity is separate. CDC checks that validate update, delete, or change propagation should use `cdc.keys` as defined in ADR 0014.
 
+This ADR defines one contract-level comparison grain. It does not define
+multiple named grains, per-check grain overrides, or per-check-pack grain
+binding. Those are future advanced-contract features that require a separate
+decision before implementation.
+
 Row-level checks require:
 
 - `grain.keys`,

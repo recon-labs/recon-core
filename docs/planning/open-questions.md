@@ -116,6 +116,29 @@ Decision:
 - they may be the same only when explicitly declared,
 - see ADR 0014.
 
+### How should advanced contracts model multiple identities?
+
+Open.
+
+Examples:
+
+- order-level checks use `order_id`,
+- line-level checks use `order_id, line_id`,
+- CDC event checks use `event_id`,
+- changed-row CDC checks use `order_id`.
+
+Preferred direction:
+
+- keep one default `grain.keys` and one default `cdc.keys` for simple
+  contracts,
+- add optional named identities for advanced contracts,
+- let checks and check packs reference identity names,
+- make check packs declare identity roles,
+- have the compiler resolve references and write both references and resolved
+  keys to compiled artifacts,
+- reject unknown identities, wrong identity kinds, and missing required roles,
+- resolve with a future ADR before multi-grain or multi-CDC-key execution.
+
 ## Sampling
 
 ### What deterministic sampling strategy is safest across systems?

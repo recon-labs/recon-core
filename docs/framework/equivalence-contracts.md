@@ -205,6 +205,12 @@ If keys are null or duplicated in source or target, row-level value checks shoul
 
 For MVP behavior, source and target should expose the same key column names in their comparable outputs. Recon must not silently guess source-target key mappings.
 
+The current contract model supports one default grain per contract. Future
+advanced contracts may add optional named grains for checks that need different
+row identities, such as order-level checks using `order_id` and line-level
+checks using `order_id, line_id`. That syntax is not implemented and requires a
+future decision.
+
 ## Columns
 
 Columns define value comparison rules and eligible comparison surface.
@@ -522,6 +528,11 @@ cdc:
 ```
 
 `cdc.keys` are separate from `grain.keys`. They may be the same, but Recon should require that choice to be explicit for CDC checks that depend on change identity.
+
+The current contract model supports one default CDC identity per contract.
+Future advanced contracts may add optional named CDC identities for checks that
+need different CDC roles, such as event identity and changed-row identity. That
+syntax is not implemented and requires a future decision.
 
 If delete propagation is intentionally not validated, say so explicitly:
 

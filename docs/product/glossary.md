@@ -97,12 +97,18 @@ The row identity used to compare source and target outputs.
 
 In contracts, comparison identity is declared with `grain.keys`.
 
+The current design supports one default comparison identity per contract.
+Optional named comparison identities are a future advanced-contract design.
+
 ## CDC identity
 
 The identity used to validate CDC change propagation.
 
 In contracts, CDC identity is declared with `cdc.keys`. It may be the same as
 comparison identity, but Recon should not assume that silently.
+
+The current design supports one default CDC identity per contract. Optional
+named CDC identities are a future advanced-contract design.
 
 ## Surrogate key
 

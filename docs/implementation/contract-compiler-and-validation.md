@@ -310,6 +310,11 @@ or changed-row value comparison must resolve CDC identity. `cdc.keys` are
 separate from `grain.keys`. The compiler must not silently copy `grain.keys`
 into CDC checks unless the contract explicitly says `same_as: grain`.
 
+The current compiler should resolve one default comparison identity and one
+default CDC identity per contract. Multiple named grains, multiple named CDC
+identities, and per-check or per-pack identity role binding require a future
+decision before implementation.
+
 ## Grain and uniqueness validation
 
 Row-level checks require `grain.keys`.
