@@ -18,6 +18,11 @@ Primary goal:
 
 > Prove the Reconciliation as Code workflow end to end.
 
+Version 0.1 is the MVP release line. It should be considered release-ready only
+after Milestones 1-10 are complete and the MVP acceptance criteria pass. Until a
+release decision is made, development branches may keep the package version at
+`0.0.0`.
+
 Core capabilities:
 
 - CLI foundation,
@@ -74,6 +79,9 @@ Artifacts:
 Primary goal:
 
 > Make Recon useful for repeated project work and early CDC validation.
+
+Version 0.2 is post-MVP roadmap work. It starts after the 0.1 release decision,
+not merely after an arbitrary milestone branch.
 
 Capabilities:
 

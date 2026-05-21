@@ -190,6 +190,16 @@ Tests:
 - examples compile,
 - examples run with local/dev adapter.
 
+## After Milestone 10
+
+Milestones 1-10 complete the MVP build sequence.
+
+After Milestone 10, run the MVP acceptance criteria and release-readiness
+checklist before any 0.1 version bump, tag, or publish step.
+
+Do not start treating roadmap work as 0.2 scope until the 0.1 release decision
+has been made.
+
 ## Deferral list
 
 Do not block MVP on:

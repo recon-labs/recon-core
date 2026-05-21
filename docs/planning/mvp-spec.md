@@ -16,6 +16,10 @@ produce evidence
 
 The MVP should be strict, transparent, and extensible.
 
+The MVP maps to the 0.1 release line, but completing implementation work does
+not automatically bump or publish a package version. A 0.1 release requires a
+separate release-readiness pass and explicit approval.
+
 ## MVP user story
 
 A data engineer has source and target compare views. They want to prove that the target matches the source at a declared grain.
@@ -350,3 +354,6 @@ The MVP is acceptable when:
 - run results are machine-readable,
 - users can understand why each check passed, failed, warned, errored, or skipped,
 - documentation matches implementation behavior.
+
+After these criteria pass, Recon is eligible for a 0.1 release-readiness pass.
+Post-MVP roadmap work belongs to the 0.2 line after the 0.1 release decision.
