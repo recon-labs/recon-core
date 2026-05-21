@@ -65,6 +65,8 @@ Build:
 - compiled contract model,
 - compiled check model,
 - typed check plan model,
+- stable compiled IDs,
+- top-level compiled artifact headers with invocation IDs,
 - default resolution,
 - metric compilation,
 - check-pack expansion for `basic_equivalence`,
@@ -74,8 +76,11 @@ Build:
 
 Tests:
 
+- stable ID helpers,
+- compiled model serialization,
 - metric compiles to aggregate check,
 - check pack expands,
+- `basic_equivalence` without grain fails validation,
 - compiled checks lower into typed plan operations,
 - empty check-pack expansion errors,
 - compiled YAML artifacts match expected output.
@@ -86,7 +91,6 @@ Build:
 
 - row-level checks require keys,
 - CDC propagation checks require CDC keys,
-- `basic_equivalence` without grain fails validation,
 - columns do not create checks,
 - no silent all-column comparison,
 - incompatible check/column type errors,
@@ -185,6 +189,16 @@ Tests:
 - examples parse,
 - examples compile,
 - examples run with local/dev adapter.
+
+## After Milestone 10
+
+Milestones 1-10 complete the MVP build sequence.
+
+After Milestone 10, run the MVP acceptance criteria and release-readiness
+checklist before any 0.1 version bump, tag, or publish step.
+
+Do not start treating roadmap work as 0.2 scope until the 0.1 release decision
+has been made.
 
 ## Deferral list
 

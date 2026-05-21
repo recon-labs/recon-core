@@ -63,6 +63,9 @@ macros/
 docs/
 ```
 
+`selectors.yml` is a future project resource. Its syntax is not locked yet, and
+`recon run --select` / `recon compile --select` are not implemented.
+
 ## Ignored files
 
 Ignore these:
@@ -81,6 +84,10 @@ recon_packages/
 Contracts are the main source files.
 
 They define source-target equivalence.
+
+Recon can parse multiple contract files in a project. Simple multi-contract
+YAML files are also supported by parse. Selecting a subset of contracts to
+compile or run is a separate future selector feature.
 
 ## `sample_policies/`
 

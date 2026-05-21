@@ -18,6 +18,11 @@ Primary goal:
 
 > Prove the Reconciliation as Code workflow end to end.
 
+Version 0.1 is the MVP release line. It should be considered release-ready only
+after Milestones 1-10 are complete and the MVP acceptance criteria pass. Until a
+release decision is made, development branches may keep the package version at
+`0.0.0`.
+
 Core capabilities:
 
 - CLI foundation,
@@ -55,8 +60,10 @@ Checks:
 
 Built-in check packs:
 
-- `recon_core.basic_equivalence`,
-- early `recon_core.aggregate_equivalence`.
+- `recon_core.basic_equivalence`.
+
+Explicit metrics are the first aggregate path. `recon_core.aggregate_equivalence`
+is deferred until its inference behavior is explicitly designed.
 
 Artifacts:
 
@@ -73,6 +80,9 @@ Primary goal:
 
 > Make Recon useful for repeated project work and early CDC validation.
 
+Version 0.2 is post-MVP roadmap work. It starts after the 0.1 release decision,
+not merely after an arbitrary milestone branch.
+
 Capabilities:
 
 - multiple contracts per file,
@@ -85,7 +95,7 @@ Capabilities:
 - basic HTML report,
 - `recon list` for manifest-backed resource discovery,
 - `recon clean` for safely removing generated artifacts,
-- selectors by tag/name,
+- selector design for tag/name selection,
 - improved error and warning model.
 
 Checks:

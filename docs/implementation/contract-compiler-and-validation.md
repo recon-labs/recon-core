@@ -6,6 +6,11 @@ The contract compiler turns authored contracts into explicit compiled contracts 
 
 The validator rejects unsafe, ambiguous, incompatible, or underspecified behavior before execution whenever possible.
 
+See
+`docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`
+for the compiled artifact schema, versioning, stable ID, and compiler coding
+pattern decision.
+
 ## Compiler inputs
 
 Primary inputs:
@@ -31,6 +36,10 @@ target/compiled_contracts/*.yml
 target/compiled_checks/*.yml
 target/compiled_sql/**/*.sql
 ```
+
+`target/compiled_sql/` is written when adapter SQL rendering is available. When
+SQL rendering is not available, compiled checks still include typed plans and
+`rendering.status: not_rendered`.
 
 Internal outputs:
 
@@ -130,6 +139,21 @@ compiled_checks:
     type: missing_keys
 ```
 
+`recon_core.basic_equivalence` expands exactly to:
+
+```text
+row_count_diff
+missing_keys
+extra_keys
+null_source_keys
+null_target_keys
+duplicate_source_keys
+duplicate_target_keys
+```
+
+The pack requires `grain.keys`. It must not silently weaken to only
+`row_count_diff` when grain is missing.
+
 ## Empty expansion
 
 If a check pack requires inputs and expands to no checks, default behavior is error.
@@ -137,19 +161,15 @@ If a check pack requires inputs and expands to no checks, default behavior is er
 Example:
 
 ```yaml
-columns:
-  exact:
-    - status
-
 checks:
   use:
-    - recon_core.aggregate_equivalence
+    - recon_core.some_future_pack
 ```
 
 Diagnostic:
 
 ```text
-aggregate_equivalence requires numeric columns or explicit metrics.
+recon_core.some_future_pack expanded to no checks.
 ```
 
 Optional future config may support `on_empty: warn` or `on_empty: skip`, but the default remains error.
@@ -185,6 +205,10 @@ Compiled check:
 Metric names must be unique within a contract.
 
 Metric column types must be compatible with metric type.
+
+Explicit metrics are the first aggregate compilation path. The compiler must
+not infer aggregate checks from eligible numeric columns unless a future
+decision explicitly enables that behavior and defines the artifact visibility.
 
 ## Sampling resolution
 
@@ -285,6 +309,11 @@ CDC checks that validate key coverage, update propagation, delete propagation,
 or changed-row value comparison must resolve CDC identity. `cdc.keys` are
 separate from `grain.keys`. The compiler must not silently copy `grain.keys`
 into CDC checks unless the contract explicitly says `same_as: grain`.
+
+The current compiler should resolve one default comparison identity and one
+default CDC identity per contract. Multiple named grains, multiple named CDC
+identities, and per-check or per-pack identity role binding require a future
+decision before implementation.
 
 ## Grain and uniqueness validation
 
@@ -391,6 +420,54 @@ Compiled artifacts should show:
 - CDC rules,
 - evidence behavior,
 - diagnostics.
+
+Compiled artifacts should use the top-level artifact header:
+
+```text
+artifact_type
+artifact_version
+recon_version
+generated_at
+invocation_id
+```
+
+Stable IDs should use these forms:
+
+```text
+contract.<project>.<contract>
+check.<project>.<contract>.<check>
+plan.<project>.<contract>.<check>
+```
+
+## Implementation pattern
+
+The compiler should follow the existing parser and manifest style:
+
+- frozen slotted dataclasses for compiler and artifact models,
+- `StrEnum` for statuses, kinds, operation types, and artifact types,
+- `TypedDict` for serialized public shapes,
+- explicit `to_dict()` serialization,
+- thin CLI modules,
+- services that orchestrate rather than build ad hoc artifacts,
+- dedicated artifact writer classes.
+
+Recommended module shape:
+
+```text
+src/recon_core/compiler/models.py
+src/recon_core/compiler/ids.py
+src/recon_core/compiler/check_packs.py
+src/recon_core/compiler/metrics.py
+src/recon_core/compiler/plans.py
+src/recon_core/compiler/compile.py
+src/recon_core/artifacts/compiled_contract_writer.py
+src/recon_core/artifacts/compiled_check_writer.py
+```
+
+Tests should cover model serialization, stable ID helpers, check-pack
+expansion, explicit metric compilation, typed plan generation, artifact
+writers, compile service behavior, and CLI behavior. Golden tests should be
+reserved for final artifact snapshots.
 
 ## Design principle
 

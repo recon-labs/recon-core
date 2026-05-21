@@ -9,7 +9,7 @@ recon parse
 recon compile
   -> target/compiled_contracts/
   -> target/compiled_checks/
-  -> target/compiled_sql/
+  -> target/compiled_sql/ when adapter SQL rendering is available
 
 recon run
   -> target/run_results.json
@@ -88,6 +88,10 @@ It supports:
 - docs,
 - CI tooling,
 - future integrations.
+
+Selector execution is a future design. The manifest should provide metadata
+that selectors can use, but `--select`, `--exclude`, named selectors, and
+partial compile/run semantics are not locked yet.
 
 ## Compiled artifacts
 

@@ -51,6 +51,15 @@ The compiled artifacts are for humans and the engine.
 The typed check plan is the core representation of execution intent. Rendered
 SQL is an adapter-specific artifact derived from that plan.
 
+Compiled contracts and compiled checks are separate artifacts:
+
+- compiled contracts show resolved contract meaning and policies,
+- compiled checks show the exact checks, requirements, prerequisites, typed
+  plans, and rendering status.
+
+When adapter SQL rendering is not available, compiled checks should still show
+typed plans and mark rendering as `not_rendered`.
+
 ## `recon run`
 
 `recon run` executes checks.
@@ -119,6 +128,14 @@ A compiled check should show:
 
 When SQL is generated, the compiled check should also preserve enough plan
 metadata to trace the SQL back to typed operations.
+
+Compiled artifacts should use stable IDs:
+
+```text
+contract.<project>.<contract>
+check.<project>.<contract>.<check>
+plan.<project>.<contract>.<check>
+```
 
 For row-level value checks, compilation should include or generate required null-key and duplicate-key safety checks and record them as prerequisites.
 

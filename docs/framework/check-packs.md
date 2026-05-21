@@ -12,7 +12,6 @@ A check pack is a named bundle of checks and defaults.
 checks:
   use:
     - recon_core.basic_equivalence
-    - recon_core.aggregate_equivalence
 ```
 
 ## Why check packs exist
@@ -30,19 +29,15 @@ During compilation, a check pack must expand into explicit atomic checks. Compil
 If a check pack needs input columns, metrics, or config and none are available, default behavior should be error.
 
 ```yaml
-columns:
-  exact:
-    - status
-
 checks:
   use:
-    - recon_core.aggregate_equivalence
+    - recon_core.some_future_pack
 ```
 
 Default result:
 
 ```text
-ERROR: aggregate_equivalence requires numeric columns or explicit metrics.
+ERROR: recon_core.some_future_pack expanded to no checks.
 ```
 
 A future escape hatch may support `on_empty: warn`, but default should remain strict.
@@ -104,9 +99,13 @@ Includes:
 - `count_distinct_diff`,
 - `grouped_aggregate_diff`.
 
-Inputs are numeric columns, explicit metrics, or check-specific aggregate definitions.
+Inputs are explicit metrics or check-specific aggregate definitions. Numeric
+columns provide type and tolerance metadata when referenced explicitly.
 
-This pack should use explicit metrics first. It may infer aggregates from eligible numeric columns only if documented and visible in compiled artifacts.
+This pack should use explicit metrics or explicit aggregate check definitions.
+It must not infer aggregates from eligible numeric columns unless a future
+decision explicitly enables that behavior and defines how the generated checks
+appear in compiled artifacts.
 
 ### `recon_core.cdc_equivalence`
 
@@ -178,6 +177,11 @@ cdc:
   operation_column: op
   delete_value: D
 ```
+
+These examples do not define asymmetric source-target delete representation.
+Cases such as source hard delete to target soft delete, source soft delete to
+target hard delete, or operation-column source to soft-delete target require a
+future decision before CDC delete propagation checks are implemented.
 
 Tombstone events and SCD2 history can be added later.
 

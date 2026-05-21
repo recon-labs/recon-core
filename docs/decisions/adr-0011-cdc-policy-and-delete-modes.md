@@ -72,6 +72,13 @@ cdc:
   delete_value: D
 ```
 
+These examples define a single delete representation for the comparable CDC
+contract. They do not yet define asymmetric source-target delete
+representation, such as source hard delete to target soft delete, source soft
+delete to target hard delete, or operation-column source to soft-delete target.
+That behavior requires a future decision before delete propagation checks are
+implemented.
+
 ## Consequences
 
 CDC check packs should fail validation when required CDC configuration is missing.

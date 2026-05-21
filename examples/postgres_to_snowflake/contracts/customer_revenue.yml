@@ -31,7 +31,6 @@ metrics:
 checks:
   use:
     - recon_core.basic_equivalence
-    - recon_core.aggregate_equivalence
 
 sampling:
   default_policy: full

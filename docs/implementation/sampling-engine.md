@@ -59,6 +59,25 @@ Valid approaches:
 - sample keys generated once and applied to both sides,
 - numeric modulo when key semantics allow it.
 
+## Sampling anchor side
+
+When one side can generate sample keys more efficiently or authoritatively than
+the other, the sampling engine may need source-anchored, target-anchored, or
+adapter-optimized sampling.
+
+This is not fully designed yet. Before implementing sampled row-level execution
+or stable sampling artifact fields, define:
+
+- public syntax for the sampling anchor side,
+- whether supported values are source, target, and either,
+- how selected keys are persisted or referenced,
+- how adapter capabilities influence anchor-side choice,
+- how compiled artifacts and evidence expose the resolved anchor side,
+- how unsupported or unsafe anchor-side choices fail validation.
+
+The sampling engine must never independently sample source and target for
+row-level comparison.
+
 ## Numeric modulo
 
 Numeric modulo can be safe when keys are numeric, stable, and comparable.
@@ -122,6 +141,7 @@ Sampling metadata should include:
 
 - sampling mode,
 - policy name,
+- anchor side when sample keys are generated from one side,
 - filter/window,
 - sample size,
 - key set reference when relevant,

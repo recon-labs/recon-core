@@ -100,6 +100,11 @@ This directory should be ignored.
 
 Selector behavior should operate on manifest metadata rather than raw file scans.
 
+Selector syntax and semantics are not locked yet. Project loading may preserve
+the future resource location, but implementation of `selectors.yml`,
+`--select`, `--exclude`, or partial compile/run behavior requires a future
+selector decision.
+
 ## Resource discovery
 
 The loader should discover resources from configured paths:

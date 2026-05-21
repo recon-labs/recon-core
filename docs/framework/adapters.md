@@ -116,6 +116,11 @@ Recon should not assume `hash()` in one system equals `hash()` in another.
 
 Safe approaches include persisted sample keys, sampling from source and applying keys to target, numeric modulo when valid, or adapter-declared portable hashing.
 
+Adapter capability differences may also affect which side can efficiently
+produce sample keys. Recon should not choose a source or target sampling anchor
+silently. If adapter-optimized sampling is supported later, compiled artifacts
+and evidence must show the resolved anchor side and key-set reference.
+
 ## Type and schema metadata
 
 Adapters should expose normalized metadata where possible: column name, logical type, physical type, nullable, precision, scale, and timezone behavior when known.

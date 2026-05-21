@@ -171,7 +171,6 @@ metrics:
 checks:
   use:
     - recon_core.basic_equivalence
-    - recon_core.aggregate_equivalence
 
 sampling:
   default_policy: full
@@ -214,7 +213,7 @@ Expected generated artifacts:
 target/manifest.json
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/
+target/compiled_sql/       # when adapter SQL rendering is available
 target/run_results.json
 target/failures/
 reports/

@@ -64,6 +64,10 @@ grain:
 
 `grain.keys` are not trusted blindly. They are a claim that the selected keys uniquely identify comparable rows. Row-level checks must validate that claim before running.
 
+The current contract model has one default comparison grain. Future advanced
+contracts may add optional named grains for cases such as order-level and
+line-level checks in the same contract, but that syntax is not implemented.
+
 ## CDC keys
 
 `cdc.keys` identify records for CDC change propagation checks.
@@ -85,6 +89,11 @@ cdc:
 ```
 
 Recon must not silently assume that CDC identity and comparison identity are the same.
+
+The current contract model has one default CDC identity. Future advanced
+contracts may add optional named CDC identities for cases such as event identity
+and changed-row identity in the same contract, but that syntax is not
+implemented.
 
 ## Keys versus segmenting columns
 

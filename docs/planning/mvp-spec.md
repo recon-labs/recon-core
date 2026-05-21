@@ -16,6 +16,10 @@ produce evidence
 
 The MVP should be strict, transparent, and extensible.
 
+The MVP maps to the 0.1 release line, but completing implementation work does
+not automatically bump or publish a package version. A 0.1 release requires a
+separate release-readiness pass and explicit approval.
+
 ## MVP user story
 
 A data engineer has source and target compare views. They want to prove that the target matches the source at a declared grain.
@@ -139,11 +143,9 @@ Required built-in check pack:
 recon_core.basic_equivalence
 ```
 
-Recommended if feasible:
-
-```text
-recon_core.aggregate_equivalence
-```
+`recon_core.aggregate_equivalence` is deferred until its aggregate inference
+behavior is explicitly designed. Explicit metrics are the initial aggregate
+path.
 
 CDC check pack can be documented and designed in MVP docs, but implementation can begin after basic and aggregate checks are stable.
 
@@ -331,7 +333,6 @@ metrics:
 checks:
   use:
     - recon_core.basic_equivalence
-    - recon_core.aggregate_equivalence
 
 sampling:
   default_policy: full
@@ -353,3 +354,6 @@ The MVP is acceptable when:
 - run results are machine-readable,
 - users can understand why each check passed, failed, warned, errored, or skipped,
 - documentation matches implementation behavior.
+
+After these criteria pass, Recon is eligible for a 0.1 release-readiness pass.
+Post-MVP roadmap work belongs to the 0.2 line after the 0.1 release decision.

@@ -106,7 +106,6 @@ metrics:
 checks:
   use:
     - recon_core.basic_equivalence
-    - recon_core.aggregate_equivalence
 
 sampling:
   default_policy: full
@@ -144,10 +143,10 @@ Expected output:
 ```text
 target/compiled_contracts/customer_revenue.yml
 target/compiled_checks/customer_revenue.yml
-target/compiled_sql/customer_revenue/
 ```
 
-Use compiled artifacts to inspect exactly what Recon will run.
+Use compiled artifacts to inspect exactly what Recon will run. SQL files under
+`target/compiled_sql/` are produced when adapter SQL rendering is available.
 
 ## Run
 

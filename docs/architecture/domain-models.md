@@ -78,6 +78,22 @@ Compiled checks should include identity and requirement metadata, including
 whether they use comparison identity from `grain.keys`, CDC identity from
 `cdc.keys`, or no key identity.
 
+The current compiled model should assume one default comparison identity and
+one default CDC identity per contract. Future named identities should be modeled
+explicitly rather than by passing raw key lists through checks.
+
+Likely future model concepts:
+
+```text
+IdentityDefinition
+IdentityRef
+ResolvedIdentity
+CheckIdentityRequirement
+```
+
+Those concepts need a future decision before multi-grain or multi-CDC-key
+contracts are implemented.
+
 ## Execution models
 
 Execution models represent work to be run.

@@ -76,6 +76,9 @@ Row-level checks require keys and require those keys to be unique in both source
 
 `grain.keys` are comparison identity. They do not have to be database primary keys; they should identify one comparable source row and one comparable target row.
 
+The current contract model supports one default grain per contract. Advanced
+multi-grain contracts are a future design.
+
 For MVP behavior, expose canonical key column names through compare views or queries. Recon does not guess source-target key mappings.
 
 ## Columns
@@ -186,6 +189,9 @@ cdc:
   target_deleted_column: is_deleted
 ```
 
+This example assumes source and target both expose soft-delete indicators.
+Asymmetric delete representation is not defined yet and should not be assumed.
+
 CDC keys are change identity, not necessarily comparison identity. If CDC checks validate update, delete, or change propagation and the CDC key differs from the grain, declare it explicitly:
 
 ```yaml
@@ -195,6 +201,9 @@ cdc:
   keys:
     - source_order_id
 ```
+
+The current contract model supports one default CDC identity per contract.
+Advanced contracts with multiple CDC identities are a future design.
 
 If delete propagation is intentionally not validated, declare that explicitly:
 

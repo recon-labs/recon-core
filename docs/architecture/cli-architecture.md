@@ -110,7 +110,7 @@ Reads authored files and/or the manifest, resolves behavior, and writes:
 ```text
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/
+target/compiled_sql/  # when adapter SQL rendering is available
 ```
 
 It should return non-zero on compile-time validation errors.
@@ -185,6 +185,11 @@ recon run --exclude tag:experimental
 ```
 
 Selector logic should not require scanning files independently from the parser.
+
+Selector syntax and semantics are not locked yet. Implementing `--select`,
+`--exclude`, named selectors, or partial compile/run behavior requires a future
+design decision covering selection precedence, empty matches, artifact
+freshness, and run result metadata.
 
 ## Design principle
 

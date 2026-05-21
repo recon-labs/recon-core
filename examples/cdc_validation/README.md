@@ -4,8 +4,9 @@ This example shows an authored Recon project for validating an upsert-style CDC
 pipeline with explicit soft-delete behavior.
 
 The contract compares orders by `order_id`, declares value columns, configures
-CDC mode and delete behavior, ignores expected target-side CDC metadata columns
-for schema checks, and references an incremental-window sampling policy.
+CDC mode, declares CDC identity explicitly with `cdc.keys`, configures delete
+behavior, ignores expected target-side CDC metadata columns for schema checks,
+and references an incremental-window sampling policy.
 
 ## Files
 

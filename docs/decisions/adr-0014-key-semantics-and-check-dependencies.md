@@ -39,6 +39,12 @@ Recon will model comparison identity and CDC identity as separate concepts.
 They may be the same, but Recon must never silently assume that they are the
 same.
 
+For the current design, each contract has one default comparison identity and
+one default CDC identity. Multiple named grains, multiple named CDC identities,
+per-check identity overrides, and per-check-pack identity role binding are
+future advanced-contract features that require a separate decision before
+implementation.
+
 Checks and check packs must declare their identity requirements. The compiler
 must validate requirements that can be checked before execution. The runner must
 validate data-dependent requirements, such as null or duplicate keys, before
@@ -101,6 +107,49 @@ Recon must not guess source-target key mappings.
 
 Future versions may add explicit source/target key mapping, but it must be a
 public schema change with validation and evidence support.
+
+### Future named identities
+
+Advanced contracts may eventually declare optional named identities while
+keeping simple contracts unchanged.
+
+Illustrative future syntax:
+
+```yaml
+identities:
+  grains:
+    order:
+      keys:
+        - order_id
+    line:
+      keys:
+        - order_id
+        - line_id
+  cdc:
+    order_change:
+      keys:
+        - order_id
+    event:
+      keys:
+        - event_id
+```
+
+Checks or check packs would reference identity names rather than repeat key
+lists:
+
+```yaml
+checks:
+  use:
+    - name: recon_core.order_line_equivalence
+      identities:
+        order_grain: order
+        line_grain: line
+        cdc_keys: order_change
+```
+
+This design direction is not implemented. Before implementation, a future
+decision must define public syntax, identity role names, validation rules,
+compiled artifact shape, evidence behavior, and check-pack APIs.
 
 ## Check Dependency Rules
 
@@ -242,6 +291,14 @@ cdc:
   operation_column: op
   delete_value: D
 ```
+
+These design targets cover a single declared delete representation. They do not
+yet define asymmetric source-target delete representation, such as source hard
+delete to target soft delete, source soft delete to target hard delete, or
+operation-column source to soft-delete target. Asymmetric delete representation
+requires a future decision that defines public contract syntax, compiled
+artifact visibility, evidence output, validation rules, and supported mode
+combinations before delete propagation checks are implemented.
 
 If `delete_mode: none` is configured, compiled artifacts and evidence must state
 that delete propagation is not validated.

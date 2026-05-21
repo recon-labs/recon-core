@@ -65,6 +65,10 @@ When sampling is random or generated from one side, sample keys should be persis
 
 This ensures source and target compare the same records.
 
+Sample-key state should record which side generated the keys when sampling is
+anchored on source or target. The public syntax for sampling anchor side is not
+locked yet and should be decided before sampled row-level execution.
+
 ## CDC state
 
 CDC checks may need state for last successful source timestamp, last successful target timestamp, last batch/load id, last CDC offset, previous delete checks, and previous failed keys.

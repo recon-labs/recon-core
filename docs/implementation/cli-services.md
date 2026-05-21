@@ -78,6 +78,11 @@ Common options:
 
 Not all need to be implemented at first.
 
+`--select` and `--exclude` should not be implemented until selector syntax,
+named selectors, partial compile/run behavior, and run result metadata are
+designed. Selector handling should be service-level behavior backed by parsed
+manifest metadata, not ad hoc CLI file scanning.
+
 ## Output
 
 Services return structured summaries.

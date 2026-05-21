@@ -19,6 +19,9 @@ Recon should use semantic versioning once the public package is released.
 
 Before 1.0, breaking changes are allowed but should be documented clearly.
 
+Development branches may keep the package version at `0.0.0` until the project
+is intentionally prepared for a public release.
+
 Expected format:
 
 ```text
@@ -27,6 +30,25 @@ Expected format:
 0.3.0
 1.0.0
 ```
+
+## Milestone and release mapping
+
+Milestones 1-10 are the MVP build sequence.
+
+Completing Milestone 10 does not automatically release the package. It means the
+project is eligible for a 0.1 release-readiness pass.
+
+The 0.1 release line starts only after:
+
+- Milestones 1-10 are complete,
+- the MVP acceptance criteria pass,
+- the release readiness checklist passes,
+- docs and examples match real behavior,
+- the user explicitly approves a version bump, tag, or publish step.
+
+Post-MVP roadmap work belongs to the 0.2 line after the 0.1 release decision.
+Agents should not infer a release, tag, publish, or version bump without an
+explicit user request.
 
 ## Release readiness checklist
 
@@ -47,6 +69,8 @@ Before each release:
 Release purpose:
 
 > Demonstrate the core Reconciliation as Code workflow.
+
+This is the MVP release line.
 
 Included:
 

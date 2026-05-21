@@ -10,11 +10,35 @@ Open questions should be resolved through design discussion, implementation lear
 
 ### Should one file support multiple contracts in the first release?
 
+Decision:
+
+- support one contract per file,
+- support multiple contract files in a project,
+- support simple multi-contract YAML files,
+- normalize all contracts into the same internal contract model.
+
+### How should selectors and contract subset execution work?
+
+Open.
+
+Examples:
+
+```bash
+recon run --select tag:critical
+recon run --select contract:customer_revenue
+recon run --exclude tag:experimental
+```
+
 Preferred direction:
 
-- support one contract per file first,
-- support multiple contracts per file if it does not delay the parser,
-- normalize both into the same internal contract model.
+- use parsed manifest metadata, not raw file scanning,
+- design selector syntax before implementation,
+- define named selector shape in `selectors.yml`,
+- define how `--select` and `--exclude` compose,
+- record selected scope in compiled artifacts or run results when relevant,
+- fail clearly when selectors match nothing unless an explicit empty-selection
+  mode is added,
+- resolve with a future ADR before dbt-like selectors or partial run behavior.
 
 ### How much inheritance should contracts support?
 
@@ -45,18 +69,21 @@ Preferred direction:
 
 ### Should check packs infer aggregate checks from numeric columns?
 
-Preferred direction:
+Decision:
 
-- allow only if documented,
-- make expansion visible in compiled artifacts,
-- prefer explicit metrics for business-important aggregates.
+- no for the current compiler design,
+- explicit metrics compile into aggregate checks,
+- numeric-column aggregate inference requires a future decision before it is
+  enabled,
+- see ADR 0015.
 
 ### What should happen when a check pack expands to nothing?
 
-Preferred direction:
+Decision:
 
 - default to error,
 - allow `on_empty: warn` or `on_empty: skip` later only when explicitly configured.
+- see ADR 0015.
 
 ## Columns and metrics
 
@@ -113,6 +140,29 @@ Decision:
 - they may be the same only when explicitly declared,
 - see ADR 0014.
 
+### How should advanced contracts model multiple identities?
+
+Open.
+
+Examples:
+
+- order-level checks use `order_id`,
+- line-level checks use `order_id, line_id`,
+- CDC event checks use `event_id`,
+- changed-row CDC checks use `order_id`.
+
+Preferred direction:
+
+- keep one default `grain.keys` and one default `cdc.keys` for simple
+  contracts,
+- add optional named identities for advanced contracts,
+- let checks and check packs reference identity names,
+- make check packs declare identity roles,
+- have the compiler resolve references and write both references and resolved
+  keys to compiled artifacts,
+- reject unknown identities, wrong identity kinds, and missing required roles,
+- resolve with a future ADR before multi-grain or multi-CDC-key execution.
+
 ## Sampling
 
 ### What deterministic sampling strategy is safest across systems?
@@ -122,6 +172,22 @@ Preferred direction:
 - do not assume cross-database hash equality,
 - prefer persisted sample keys or source-generated sample key sets,
 - use numeric modulo only when key semantics allow it.
+
+### How should sampling anchor side be modeled?
+
+Open.
+
+Some source or target systems may not efficiently generate sample keys. Recon
+may need to generate sample keys from source, target, or an adapter-optimized
+side, then apply those keys to both sides.
+
+Preferred direction:
+
+- support explicit anchor-side semantics before sampled row-level execution,
+- consider values such as source, target, and either,
+- persist or reference generated key sets when needed,
+- expose the resolved anchor side in compiled artifacts and evidence,
+- reject independent source and target samples for row-level comparison.
 
 ### How should first-run incremental windows work?
 
@@ -184,6 +250,24 @@ Decision:
 - avoid one-size-fits-all CDC assumptions,
 - allow `delete_mode: none` only when artifacts and evidence say delete propagation is not validated,
 - see ADR 0014.
+
+### How should asymmetric CDC delete representation be modeled?
+
+Open.
+
+Examples:
+
+- source hard delete to target soft delete,
+- source soft delete to target hard delete,
+- source operation column to target soft delete.
+
+Preferred direction:
+
+- model source and target delete representation separately,
+- define explicit public contract syntax before implementation,
+- show both sides in compiled artifacts and evidence,
+- validate unsupported combinations clearly,
+- resolve this with a future ADR before CDC delete propagation checks.
 
 ## Evidence
 
