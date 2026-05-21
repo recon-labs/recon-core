@@ -59,6 +59,12 @@ target:
 grain:
   keys:
     - order_id
+cdc:
+  mode: upsert
+  timestamp_column: updated_at
+  keys:
+    same_as: grain
+  delete_mode: none
 sampling:
   policy: latest_changed_records
 checks:

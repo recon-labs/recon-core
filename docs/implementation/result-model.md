@@ -43,12 +43,15 @@ class CheckResult:
     type: str
     status: str
     severity: str
+    identity: str | None
     message: str | None
     source_value: Any | None
     target_value: Any | None
     diff_value: Any | None
     tolerance: Any | None
     failure_count: int | None
+    blocked_by: list[str]
+    skip_reason: str | None
     artifacts: list[EvidenceArtifact]
     diagnostics: list[Diagnostic]
 ```
@@ -73,6 +76,10 @@ warn
 error
 skipped
 ```
+
+`skipped` should be used when a check intentionally did not run because a
+prerequisite failed. Skipped checks should include `blocked_by` and
+`skip_reason`.
 
 ## Severity
 
@@ -116,6 +123,8 @@ They help explain warnings, skips, runtime problems, and validation behavior.
 - check results,
 - diagnostics,
 - artifact references.
+- identity used by key-dependent checks,
+- prerequisite and blocked-check information.
 
 ## Avoid large embedded data
 

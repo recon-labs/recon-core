@@ -211,7 +211,7 @@ sampling:
   policy: latest_changed_records
 ```
 
-Sampling does not remove uniqueness requirements for row-level checks.
+Sampling does not remove non-null or uniqueness requirements for row-level checks.
 
 ## Tolerance and null resolution
 
@@ -262,6 +262,18 @@ cdc:
 
 ```yaml
 cdc:
+  keys:
+    same_as: grain
+```
+
+```yaml
+cdc:
+  keys:
+    - source_order_id
+```
+
+```yaml
+cdc:
   delete_mode: soft_delete
   source_deleted_column: is_deleted
   target_deleted_column: is_deleted
@@ -269,15 +281,31 @@ cdc:
 
 Missing required CDC config should fail validation.
 
+CDC checks that validate key coverage, update propagation, delete propagation,
+or changed-row value comparison must resolve CDC identity. `cdc.keys` are
+separate from `grain.keys`. The compiler must not silently copy `grain.keys`
+into CDC checks unless the contract explicitly says `same_as: grain`.
+
 ## Grain and uniqueness validation
 
 Row-level checks require `grain.keys`.
 
-Row-level value checks require unique source and target keys after filters, sampling, or windows are applied.
+Row-level value checks require non-null and unique source and target keys after filters, sampling, or windows are applied.
 
 The compiler can validate the presence of keys. The runner may need to validate actual uniqueness using duplicate-key checks.
 
-Compiled plans should place duplicate-key checks before row-level value checks.
+Compiled plans should place null-key and duplicate-key checks before row-level value checks.
+
+If row-level value checks require these safety checks and the user did not
+author them explicitly, the compiler should generate them with origin
+`framework_required_safety_check`.
+
+`missing_keys` and `extra_keys` may compile as distinct non-null key coverage
+checks even when null-key or duplicate-key safety checks also exist. Null and
+duplicate failures still block row-level value checks.
+
+`recon_core.basic_equivalence` requires `grain.keys`. It should fail validation
+when grain is missing rather than silently compiling only `row_count_diff`.
 
 ## Adapter capability validation
 
@@ -333,6 +361,11 @@ Examples:
 RC_COMPILE_UNKNOWN_CHECK_PACK
 RC_COMPILE_EMPTY_CHECK_PACK
 RC_VALIDATE_ROW_CHECK_REQUIRES_KEYS
+RC_VALIDATE_CHECK_REQUIRES_GRAIN_KEYS
+RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS
+RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
+RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
+RC_VALIDATE_CDC_ORDERING_REQUIRED
 RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE
 RC_VALIDATE_MISSING_SAMPLE_POLICY
 RC_VALIDATE_UNSUPPORTED_ADAPTER_CAPABILITY
@@ -345,9 +378,12 @@ Compiled artifacts should show:
 - original resource name,
 - source file path,
 - source and target,
+- identity kind and declared keys,
 - resolved defaults,
 - generated checks,
 - check origins,
+- check requirements,
+- prerequisites and blocking policy,
 - sampling,
 - tolerances,
 - null rules,

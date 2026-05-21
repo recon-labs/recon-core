@@ -91,6 +91,19 @@ Columns used to match source rows to target rows.
 
 Recon should prefer business keys or canonical keys, not generated surrogate keys.
 
+## Comparison identity
+
+The row identity used to compare source and target outputs.
+
+In contracts, comparison identity is declared with `grain.keys`.
+
+## CDC identity
+
+The identity used to validate CDC change propagation.
+
+In contracts, CDC identity is declared with `cdc.keys`. It may be the same as
+comparison identity, but Recon should not assume that silently.
+
 ## Surrogate key
 
 A system-generated identifier, often different between source and target systems.
@@ -174,6 +187,8 @@ Examples:
 Continuous validation that a target system matches changes from a source system.
 
 CDC reconciliation often uses watermarks, latest changed records, freshness lag, and insert/update/delete propagation checks.
+
+CDC update and delete propagation checks usually depend on CDC identity, not only comparison grain.
 
 ## Watermark
 

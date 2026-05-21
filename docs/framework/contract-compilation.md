@@ -101,7 +101,9 @@ A compiled check should show:
 - check name,
 - check type,
 - source and target,
-- keys,
+- identity kind,
+- grain keys,
+- CDC keys when relevant,
 - columns,
 - metrics,
 - sampling,
@@ -111,9 +113,14 @@ A compiled check should show:
 - CDC mode,
 - evidence settings,
 - severity.
+- requirements,
+- prerequisites,
+- blocking policy.
 
 When SQL is generated, the compiled check should also preserve enough plan
 metadata to trace the SQL back to typed operations.
+
+For row-level value checks, compilation should include or generate required null-key and duplicate-key safety checks and record them as prerequisites.
 
 ## Generated artifacts are not source
 

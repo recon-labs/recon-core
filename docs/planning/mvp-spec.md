@@ -75,6 +75,10 @@ Required for row-level checks:
 
 - `grain.keys`.
 
+Required for CDC propagation checks:
+
+- `cdc.keys`, or explicit `same_as: grain`.
+
 Supported source/target definitions:
 
 - `connection`,
@@ -115,6 +119,8 @@ Required atomic checks:
 - `row_count_diff`,
 - `missing_keys`,
 - `extra_keys`,
+- `null_source_keys`,
+- `null_target_keys`,
 - `duplicate_source_keys`,
 - `duplicate_target_keys`,
 - `sum_diff`,
@@ -258,7 +264,10 @@ The MVP must enforce these rules:
 
 - no silent all-column comparison,
 - row-level checks require `grain.keys`,
-- row-level checks require unique source and target keys,
+- CDC propagation checks require `cdc.keys`,
+- row-level checks require non-null and unique source and target keys,
+- row-level checks are blocked by null or duplicate grain keys,
+- `recon_core.basic_equivalence` requires `grain.keys`,
 - metrics cause aggregate checks,
 - columns do not cause checks by themselves,
 - empty check-pack expansion is an error,
@@ -267,6 +276,7 @@ The MVP must enforce these rules:
 - hash sampling cannot assume cross-database equality,
 - schema ignores must be explicit,
 - CDC mode/delete behavior must be explicit for CDC checks.
+- CDC delete validation can be explicitly disabled with `delete_mode: none`, but this must appear in artifacts and evidence.
 
 ## Out of MVP scope
 
@@ -338,7 +348,7 @@ The MVP is acceptable when:
 - contracts can be parsed and validated,
 - check packs compile into explicit checks,
 - metrics compile into aggregate checks,
-- row-level checks block on duplicate keys,
+- row-level checks block on null or duplicate keys,
 - compiled artifacts are readable,
 - run results are machine-readable,
 - users can understand why each check passed, failed, warned, errored, or skipped,

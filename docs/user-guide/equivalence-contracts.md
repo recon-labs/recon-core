@@ -74,6 +74,10 @@ grain:
 
 Row-level checks require keys and require those keys to be unique in both source and target.
 
+`grain.keys` are comparison identity. They do not have to be database primary keys; they should identify one comparable source row and one comparable target row.
+
+For MVP behavior, expose canonical key column names through compare views or queries. Recon does not guess source-target key mappings.
+
 ## Columns
 
 Columns define eligible comparison fields.
@@ -175,9 +179,28 @@ CDC contracts should define CDC behavior when using CDC check packs.
 cdc:
   mode: upsert
   timestamp_column: updated_at
+  keys:
+    same_as: grain
   delete_mode: soft_delete
   source_deleted_column: is_deleted
   target_deleted_column: is_deleted
+```
+
+CDC keys are change identity, not necessarily comparison identity. If CDC checks validate update, delete, or change propagation and the CDC key differs from the grain, declare it explicitly:
+
+```yaml
+cdc:
+  mode: upsert
+  timestamp_column: updated_at
+  keys:
+    - source_order_id
+```
+
+If delete propagation is intentionally not validated, declare that explicitly:
+
+```yaml
+cdc:
+  delete_mode: none
 ```
 
 ## Evidence
@@ -194,5 +217,7 @@ evidence:
 ## Compiled contract
 
 Recon should compile authored YAML into explicit generated artifacts showing the resolved checks, columns, metrics, sampling, tolerances, schema ignores, CDC mode, and evidence behavior.
+
+Compiled artifacts should also show check requirements, declared grain keys, declared CDC keys, generated safety checks, prerequisites, and blocked-check behavior.
 
 Generated artifacts belong under `target/` and should not be committed.

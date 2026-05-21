@@ -52,7 +52,9 @@ Invalid resolved behavior, unknown refs, unknown check packs, empty check-pack e
 
 ### Validation errors
 
-Unsafe or ambiguous behavior, such as row-level checks without keys or unsupported adapter capabilities.
+Unsafe or ambiguous behavior, such as row-level checks without keys, CDC
+propagation checks without CDC keys, CDC checks without required delete mode or
+ordering, or unsupported adapter capabilities.
 
 ### Runtime errors
 
@@ -70,6 +72,10 @@ Good:
 
 ```text
 row_diff requires grain.keys because source and target rows must be matched.
+```
+
+```text
+delete_propagation requires cdc.keys because CDC delete validation needs change identity.
 ```
 
 Bad:

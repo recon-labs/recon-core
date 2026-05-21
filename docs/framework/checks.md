@@ -17,7 +17,9 @@ Checks should not hide business meaning. The contract defines the business grain
 Every check should declare what it requires:
 
 - whether it requires `grain.keys`,
-- whether keys must be unique,
+- whether grain keys must be non-null and unique,
+- whether it requires `cdc.keys`,
+- whether it requires CDC ordering or windows,
 - whether it requires numeric columns,
 - whether it can run on sampled data,
 - whether it can run without source/target metadata,
@@ -35,11 +37,21 @@ Compares source row count to target row count. This can run without `grain.keys`
 
 ### `missing_keys`
 
-Finds keys that exist in source but not target. Requires `grain.keys`.
+Finds distinct non-null grain keys that exist in source but not target. Requires `grain.keys`.
 
 ### `extra_keys`
 
-Finds keys that exist in target but not source. Requires `grain.keys`.
+Finds distinct non-null grain keys that exist in target but not source. Requires `grain.keys`.
+
+`missing_keys` and `extra_keys` may run as distinct non-null key coverage even when null or duplicate keys exist. Null-key and duplicate-key failures still block row-level value checks.
+
+### `null_source_keys`
+
+Finds rows with null source grain key values. Requires `grain.keys`.
+
+### `null_target_keys`
+
+Finds rows with null target grain key values. Requires `grain.keys`.
 
 ### `duplicate_source_keys`
 
@@ -67,19 +79,22 @@ Examples:
 These checks require:
 
 - `grain.keys`,
+- non-null grain keys,
 - unique keys in source,
 - unique keys in target,
 - declared eligible columns or explicit check-level columns.
 
-If keys are duplicated, row-level value checks should be blocked rather than guessed.
+If keys are null or duplicated, row-level value checks should be blocked rather than guessed.
+
+If users did not author null-key and duplicate-key checks explicitly, Recon should generate visible safety checks for row-level value checks.
 
 ## Sampling and row-level checks
 
-Sampling does not remove uniqueness requirements.
+Sampling does not remove non-null or uniqueness requirements.
 
-For sampled row-level checks, uniqueness must hold inside the sampled/windowed comparable output.
+For sampled row-level checks, non-null and uniqueness requirements must hold inside the sampled/windowed comparable output.
 
-For CDC latest-window checks, uniqueness must hold inside the incremental window.
+For CDC latest-window checks, non-null and uniqueness requirements must hold inside the incremental window.
 
 ## Value checks
 
@@ -157,6 +172,8 @@ Examples:
 
 CDC checks should require explicit CDC mode when behavior is ambiguous.
 
+CDC checks that validate key coverage, update propagation, or delete propagation require explicit `cdc.keys`. CDC freshness and count checks may not require `cdc.keys` if they only compare configured windows, timestamps, or counts.
+
 ## CDC delete checks
 
 Delete checks must support multiple delete representations:
@@ -168,6 +185,8 @@ Delete checks must support multiple delete representations:
 - SCD2 current/history model later.
 
 A CDC check pack must not assume one delete model.
+
+If delete propagation is intentionally not validated, `delete_mode: none` should be explicit and visible in compiled artifacts and evidence.
 
 ## Schema checks
 
@@ -206,6 +225,8 @@ Possible statuses:
 
 `error` means the check could not run. `fail` means the check ran and found mismatches. `skipped` should include a clear reason and should not hide unsafe behavior.
 
+When a check is skipped because a prerequisite failed, the result should include `blocked_by` and `skip_reason`.
+
 ## Severity
 
 Severity controls run outcome.
@@ -219,6 +240,8 @@ Severity controls run outcome.
 Unsafe or ambiguous behavior should default to error.
 
 Errors should include row-level checks without keys, row-level checks with duplicate keys, numeric checks on text columns, metric references to undefined columns, unknown check packs, empty check-pack expansion, missing sample policies, and random sampling without persisted keys.
+
+CDC propagation checks without required `cdc.keys`, CDC checks without required delete mode, and CDC checks without required ordering should also be errors.
 
 Warnings may include defined columns not used by any compiled check, target freshness lag making row comparison unreliable, or timestamp comparison without explicit timezone policy in non-strict mode.
 

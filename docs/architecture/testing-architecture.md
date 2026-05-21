@@ -53,6 +53,7 @@ Examples:
 - schema policy applies,
 - CDC config validates.
 - typed check plans are produced with expected operation requirements.
+- key identity and check requirement metadata is compiled.
 
 ### Check engine tests
 
@@ -62,6 +63,9 @@ Examples:
 
 - row count pass/fail,
 - duplicate keys block row diff,
+- null keys block row diff,
+- null keys block row diff,
+- CDC propagation checks require CDC keys,
 - aggregate sum diff,
 - value mismatch evidence,
 - schema ignore behavior.
@@ -75,6 +79,7 @@ Examples:
 - manifest shape,
 - compiled check shape,
 - run result shape,
+- blocked checks include prerequisites and skip reasons,
 - diagnostic inclusion,
 - artifact version field.
 

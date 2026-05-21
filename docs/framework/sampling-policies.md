@@ -171,11 +171,11 @@ Recon should design for this even if v0.1 supports one policy.
 
 ## Sampling and uniqueness
 
-Sampling does not remove uniqueness requirements.
+Sampling does not remove non-null or uniqueness requirements.
 
-Any row-level value check still requires unique `grain.keys` in both source and target after sampling/windowing.
+Any row-level value check still requires non-null and unique `grain.keys` in both source and target after sampling/windowing.
 
-If duplicates are found in the sampled/windowed data, row-level checks should be blocked.
+If null or duplicate keys are found in the sampled/windowed data, row-level checks should be blocked.
 
 ## Sampling and evidence
 

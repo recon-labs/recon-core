@@ -46,4 +46,5 @@ adr-0010-schema-policies-and-technical-columns.md
 adr-0011-cdc-policy-and-delete-modes.md
 adr-0012-adapter-and-package-ecosystem.md
 adr-0013-typed-check-plans-and-adapter-sql-rendering.md
+adr-0014-key-semantics-and-check-dependencies.md
 ```

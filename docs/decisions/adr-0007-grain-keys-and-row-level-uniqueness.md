@@ -10,9 +10,11 @@ Developers may believe selected keys are unique, but the actual data may violate
 
 ## Decision
 
-`grain.keys` define row identity for row-level reconciliation.
+`grain.keys` define source-target comparison row identity for row-level reconciliation.
 
 They are not limited to database primary keys. They may be business keys, natural keys, composite keys, or canonical keys.
+
+CDC change identity is separate. CDC checks that validate update, delete, or change propagation should use `cdc.keys` as defined in ADR 0014.
 
 Row-level checks require:
 
@@ -23,6 +25,8 @@ Row-level checks require:
 If uniqueness fails, row-level checks must be blocked.
 
 Aggregate checks may continue when they do not require row-level identity.
+
+Missing key coverage checks such as `missing_keys` and `extra_keys` may still run as distinct non-null key coverage when nulls or duplicates exist, but they must not imply that row-level value matching is safe.
 
 ## Row-level checks affected
 
@@ -42,7 +46,7 @@ This applies to checks such as:
 
 Sampled row-level checks still require uniqueness inside the sampled comparable output.
 
-CDC latest-window row-level checks require uniqueness inside the incremental window.
+CDC latest-window row-level checks require non-null keys and uniqueness inside the incremental window.
 
 ## Segmenting columns
 
@@ -66,6 +70,8 @@ Here `country` and `status` are dimensions, not row identity.
 
 The compiler and runner should include duplicate-key checks before row-level value checks.
 
+The compiler should also generate required null-key and duplicate-key safety checks for row-level value checks when users did not author them explicitly. These generated checks must be visible in compiled artifacts.
+
 Example behavior:
 
 ```text
@@ -77,3 +83,5 @@ SKIP row_diff: source grain keys are not unique
 The default uniqueness mode should be required.
 
 Relaxed uniqueness behavior may be added later only with explicit configuration and strong warnings.
+
+See ADR 0014 for the full key semantics, CDC key, check dependency, and blocked-result rules.

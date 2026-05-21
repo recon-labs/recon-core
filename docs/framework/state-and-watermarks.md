@@ -69,6 +69,8 @@ This ensures source and target compare the same records.
 
 CDC checks may need state for last successful source timestamp, last successful target timestamp, last batch/load id, last CDC offset, previous delete checks, and previous failed keys.
 
+State that stores previous failures, sample keys, or CDC windows should record which identity was used: comparison identity from `grain.keys` or change identity from `cdc.keys`.
+
 ## Local vs remote state
 
 Local file state is useful for development and should live in gitignored `state/`.

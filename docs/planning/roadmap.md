@@ -47,6 +47,8 @@ Checks:
 - row count,
 - missing keys,
 - extra keys,
+- null source keys,
+- null target keys,
 - duplicate source keys,
 - duplicate target keys,
 - sum metric diff.
@@ -108,6 +110,7 @@ CDC:
 - freshness lag,
 - latest window count,
 - incremental key coverage,
+- explicit `cdc.keys`,
 - explicit delete-mode config.
 
 ## Version 0.3

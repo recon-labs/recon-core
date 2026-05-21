@@ -60,6 +60,9 @@ Rules include:
 - no silent all-column comparison,
 - row-level checks require keys,
 - duplicate keys block row-level checks,
+- null keys block row-level checks,
+- CDC propagation checks require CDC keys,
+- `basic_equivalence` without grain fails validation,
 - invalid check/column types error,
 - random sampling requires persisted keys,
 - hash sampling does not assume portability,
@@ -94,6 +97,10 @@ Base adapter tests should cover:
 - typed operation rendering,
 - unsupported capability diagnostics.
 
+Adapter tests for key-dependent operations should cover null-key detection,
+duplicate-key detection, key-diff rendering, and CDC-key operation rendering
+where supported.
+
 Production adapters should eventually use a shared adapter test kit. The same
 test kit should run in every adapter repo and should include operation-rendering
 golden tests.
@@ -109,6 +116,9 @@ Examples:
 - compiled checks shape,
 - run results shape,
 - diagnostics included,
+- check requirements included,
+- identity metadata included,
+- blocked checks include `blocked_by` and `skip_reason`,
 - artifact versions included.
 
 ### CLI tests
