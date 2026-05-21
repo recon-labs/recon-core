@@ -28,15 +28,15 @@ The parser should not expand check packs or compile metrics into checks.
 The manifest should contain:
 
 - artifact type and version,
+- Recon version,
+- generation timestamp,
 - project metadata,
-- resource graph,
+- discovered resource files,
 - contract summaries,
-- policy summaries,
-- check pack summaries,
-- endpoint summaries,
-- file paths,
-- selectors,
 - parse diagnostics.
+
+Future parser milestones may add policy summaries, check pack summaries,
+endpoint summaries, selectors, and richer resource graph metadata.
 
 ## Manifest shape
 
@@ -46,22 +46,35 @@ Example:
 {
   "artifact_type": "manifest",
   "artifact_version": 1,
+  "recon_version": "0.0.0",
+  "generated_at": "2026-05-20T12:00:00Z",
   "project": {
     "name": "ecommerce_recon",
-    "config_version": 1
+    "config_version": 1,
+    "version": "0.1.0"
+  },
+  "files": {
+    "contracts/customer_revenue.yml": {
+      "path": "contracts/customer_revenue.yml",
+      "resource_type": "contract",
+      "checksum": "..."
+    }
   },
   "contracts": {
     "customer_revenue": {
       "name": "customer_revenue",
+      "version": 1,
       "path": "contracts/customer_revenue.yml",
       "tags": ["finance"],
       "source": {
         "connection": "legacy",
-        "relation": "qa.v_customer_revenue_compare"
+        "relation": "qa.v_customer_revenue_compare",
+        "query": null
       },
       "target": {
         "connection": "warehouse",
-        "relation": "qa.v_customer_revenue_compare"
+        "relation": "qa.v_customer_revenue_compare",
+        "query": null
       }
     }
   },
@@ -103,6 +116,10 @@ contracts:
 
 Internally both should normalize into a list of parsed contracts.
 
+If a multi-contract file contains both valid and invalid entries, valid
+contracts should still appear in the manifest while parse diagnostics report
+the invalid entries.
+
 ## Defaults
 
 File-level and project-level defaults may be parsed, but they should be resolved during compilation.
@@ -135,6 +152,9 @@ target/manifest.json
 ```
 
 The writer should create the target directory when needed.
+
+If the manifest cannot be written, `recon parse` should return a structured
+runtime diagnostic instead of crashing.
 
 ## Design principle
 

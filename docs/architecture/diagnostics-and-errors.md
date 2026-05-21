@@ -95,11 +95,13 @@ Stable error codes should be introduced as behavior matures.
 Example categories:
 
 ```text
+RC_CONFIG_*
 RC_PARSE_*
 RC_COMPILE_*
 RC_VALIDATE_*
 RC_ADAPTER_*
 RC_RUNTIME_*
+RC_EVIDENCE_*
 ```
 
 ## CLI rendering
