@@ -126,8 +126,8 @@ Default requirements:
 | `extra_keys` | Yes | No | No | No | Runs as distinct non-null key coverage at the declared grain. |
 | `null_source_keys` | Yes | No | No | No | Safety check for row-level comparison. |
 | `null_target_keys` | Yes | No | No | No | Safety check for row-level comparison. |
-| `duplicate_source_keys` | Yes | Yes | No | No | Safety check for row-level comparison. |
-| `duplicate_target_keys` | Yes | Yes | No | No | Safety check for row-level comparison. |
+| `duplicate_source_keys` | Yes | No | No | No | Safety check for row-level comparison. |
+| `duplicate_target_keys` | Yes | No | No | No | Safety check for row-level comparison. |
 | row-level value checks | Yes | Yes | Yes | No | Blocked if null or duplicate grain checks fail. |
 | CDC freshness and count checks | No | No | No | Sometimes | Require CDC mode/window/timestamp config. |
 | CDC key coverage and propagation checks | Sometimes | Sometimes | Sometimes | Yes | Use change identity. |
@@ -137,6 +137,9 @@ Default requirements:
 when nulls or duplicates exist. Null-key and duplicate-key safety checks must
 report those failures separately, and key coverage must not claim that
 row-level value matching is safe.
+
+Duplicate-key checks should still run when null keys exist so users can see
+both null-key and duplicate-key failure signals.
 
 ## Check-Pack Rules
 
