@@ -186,6 +186,9 @@ cdc:
   target_deleted_column: is_deleted
 ```
 
+This example assumes source and target both expose soft-delete indicators.
+Asymmetric delete representation is not defined yet and should not be assumed.
+
 CDC keys are change identity, not necessarily comparison identity. If CDC checks validate update, delete, or change propagation and the CDC key differs from the grain, declare it explicitly:
 
 ```yaml

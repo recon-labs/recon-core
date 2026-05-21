@@ -188,6 +188,24 @@ Decision:
 - allow `delete_mode: none` only when artifacts and evidence say delete propagation is not validated,
 - see ADR 0014.
 
+### How should asymmetric CDC delete representation be modeled?
+
+Open.
+
+Examples:
+
+- source hard delete to target soft delete,
+- source soft delete to target hard delete,
+- source operation column to target soft delete.
+
+Preferred direction:
+
+- model source and target delete representation separately,
+- define explicit public contract syntax before implementation,
+- show both sides in compiled artifacts and evidence,
+- validate unsupported combinations clearly,
+- resolve this with a future ADR before CDC delete propagation checks.
+
 ## Evidence
 
 ### How much failure detail should be exported by default?

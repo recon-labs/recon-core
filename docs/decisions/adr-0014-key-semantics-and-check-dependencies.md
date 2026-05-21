@@ -243,6 +243,14 @@ cdc:
   delete_value: D
 ```
 
+These design targets cover a single declared delete representation. They do not
+yet define asymmetric source-target delete representation, such as source hard
+delete to target soft delete, source soft delete to target hard delete, or
+operation-column source to soft-delete target. Asymmetric delete representation
+requires a future decision that defines public contract syntax, compiled
+artifact visibility, evidence output, validation rules, and supported mode
+combinations before delete propagation checks are implemented.
+
 If `delete_mode: none` is configured, compiled artifacts and evidence must state
 that delete propagation is not validated.
 

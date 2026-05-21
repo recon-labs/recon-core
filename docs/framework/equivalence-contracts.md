@@ -483,6 +483,11 @@ cdc:
   target_deleted_column: is_deleted
 ```
 
+This example assumes source and target both expose soft-delete indicators.
+Asymmetric delete representation, such as source hard delete to target soft
+delete or source operation column to target soft delete, is not defined yet and
+requires a future decision before delete propagation checks are implemented.
+
 Operation-column example:
 
 ```yaml

@@ -178,6 +178,11 @@ cdc:
   delete_value: D
 ```
 
+These examples do not define asymmetric source-target delete representation.
+Cases such as source hard delete to target soft delete, source soft delete to
+target hard delete, or operation-column source to soft-delete target require a
+future decision before CDC delete propagation checks are implemented.
+
 Tombstone events and SCD2 history can be added later.
 
 ## Overrides
