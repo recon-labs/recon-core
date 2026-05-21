@@ -126,6 +126,22 @@ Preferred direction:
 - prefer persisted sample keys or source-generated sample key sets,
 - use numeric modulo only when key semantics allow it.
 
+### How should sampling anchor side be modeled?
+
+Open.
+
+Some source or target systems may not efficiently generate sample keys. Recon
+may need to generate sample keys from source, target, or an adapter-optimized
+side, then apply those keys to both sides.
+
+Preferred direction:
+
+- support explicit anchor-side semantics before sampled row-level execution,
+- consider values such as source, target, and either,
+- persist or reference generated key sets when needed,
+- expose the resolved anchor side in compiled artifacts and evidence,
+- reject independent source and target samples for row-level comparison.
+
 ### How should first-run incremental windows work?
 
 Preferred direction:

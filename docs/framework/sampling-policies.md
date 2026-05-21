@@ -82,6 +82,30 @@ Hash functions differ across databases. Recon must not assume hashes are portabl
 
 Safe approaches include persisted sample keys, sampling from source and applying keys to target, numeric modulo when valid, or adapter-declared portable hashing.
 
+## Sampling anchor side
+
+Some systems cannot efficiently generate samples, windows, or random keys. A
+safe design may need to generate sample keys from one side and apply those keys
+to both source and target.
+
+Examples of future anchor-side semantics:
+
+```text
+source
+target
+either
+```
+
+`source` means sample keys are selected from source and applied to target.
+`target` means sample keys are selected from target and applied to source.
+`either` means Recon may choose an adapter-efficient side only if the choice is
+deterministic, visible, and recorded.
+
+The exact public YAML syntax for anchor-side sampling is not locked yet. Do not
+implement sampled row-level execution that silently chooses a side. Compiled
+artifacts and evidence must eventually show the sampling mode, anchor side, and
+sample-key reference when keys are generated from one side.
+
 ## Incremental window
 
 Purpose: validate records changed since the last successful run.
