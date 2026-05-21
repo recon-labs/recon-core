@@ -144,10 +144,7 @@ def parse_contract_resource(resource_file: ResourceFile, data: object) -> Contra
         contract = _parse_contract_mapping(raw_mapping, source_location, resource_file, diagnostics)
         contracts = (contract,) if contract is not None else ()
 
-    if diagnostics:
-        return ContractParseResult(diagnostics=tuple(diagnostics))
-
-    return ContractParseResult(contracts=contracts)
+    return ContractParseResult(contracts=contracts, diagnostics=tuple(diagnostics))
 
 
 def _parse_multi_contract_file(

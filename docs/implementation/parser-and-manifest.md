@@ -116,6 +116,10 @@ contracts:
 
 Internally both should normalize into a list of parsed contracts.
 
+If a multi-contract file contains both valid and invalid entries, valid
+contracts should still appear in the manifest while parse diagnostics report
+the invalid entries.
+
 ## Defaults
 
 File-level and project-level defaults may be parsed, but they should be resolved during compilation.
@@ -148,6 +152,9 @@ target/manifest.json
 ```
 
 The writer should create the target directory when needed.
+
+If the manifest cannot be written, `recon parse` should return a structured
+runtime diagnostic instead of crashing.
 
 ## Design principle
 

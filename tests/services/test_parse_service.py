@@ -123,6 +123,47 @@ target:
     ]
 
 
+def test_parse_service_preserves_valid_multi_contract_entries_with_diagnostics(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    tmp_path.joinpath("contracts", "grouped.yml").write_text(
+        """
+version: 1
+contracts:
+  - name: customer_revenue
+    source:
+      connection: legacy
+      relation: qa.customer_source
+    target:
+      connection: warehouse
+      relation: qa.customer_target
+    checks:
+      use:
+        - recon_core.basic_equivalence
+  - name: broken_contract
+    source:
+      connection: legacy
+      relation: qa.broken_source
+    target:
+      connection: warehouse
+      relation: qa.broken_target
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    result = ParseService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_PARSE_MISSING_REQUIRED_FIELD"
+    ]
+
+    manifest = read_manifest(tmp_path)
+    assert list(manifest["contracts"]) == ["customer_revenue"]
+    assert manifest["diagnostics"][0]["code"] == "RC_PARSE_MISSING_REQUIRED_FIELD"
+
+
 def test_parse_service_writes_manifest_with_diagnostics_for_invalid_yaml(
     tmp_path: Path,
 ) -> None:
@@ -199,3 +240,21 @@ def test_parse_service_writes_manifest_with_diagnostics_for_duplicate_contracts(
     manifest = read_manifest(tmp_path)
     assert list(manifest["contracts"]) == ["customer_revenue"]
     assert manifest["diagnostics"][0]["code"] == "RC_PARSE_DUPLICATE_CONTRACT"
+
+
+def test_parse_service_returns_runtime_error_when_manifest_cannot_be_written(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    tmp_path.joinpath("target").write_text("not a directory\n", encoding="utf-8")
+
+    result = ParseService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Parse completed but manifest could not be written."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_MANIFEST_WRITE_FAILED"
+    ]
+    assert result.diagnostics[0].path == "target"
+    assert "Unable to write manifest" in result.diagnostics[0].message

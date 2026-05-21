@@ -279,6 +279,38 @@ def test_parse_contract_resource_reports_invalid_multi_contract_entries(
     assert "must be a mapping" in result.diagnostics[0].message
 
 
+def test_parse_contract_resource_preserves_valid_multi_contract_entries_with_diagnostics(
+    tmp_path: Path,
+) -> None:
+    resource_file = make_resource_file(tmp_path, "contracts/grouped.yml")
+
+    result = parse_contract_resource(
+        resource_file,
+        {
+            "version": 1,
+            "contracts": [
+                {
+                    "name": "customer_revenue",
+                    "source": {"connection": "legacy", "relation": "qa.customer_source"},
+                    "target": {"connection": "warehouse", "relation": "qa.customer_target"},
+                    "checks": {"use": ["recon_core.basic_equivalence"]},
+                },
+                {
+                    "name": "broken_contract",
+                    "source": {"connection": "legacy", "relation": "qa.broken_source"},
+                    "target": {"connection": "warehouse", "relation": "qa.broken_target"},
+                },
+            ],
+        },
+    )
+
+    assert not result.succeeded
+    assert [contract.name for contract in result.contracts] == ["customer_revenue"]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_PARSE_MISSING_REQUIRED_FIELD"
+    ]
+
+
 def test_authored_contract_serializes_summary_dict(tmp_path: Path) -> None:
     resource_file = make_resource_file(tmp_path)
     result = parse_contract_resource(resource_file, single_contract_data())

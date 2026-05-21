@@ -78,8 +78,14 @@ Current `parse` behavior:
 If project config loads but contract parsing fails, `recon parse` still writes
 `target/manifest.json` with diagnostics and exits with code `2`.
 
+If one entry in a multi-contract file is invalid, valid entries from that file
+are still included in the manifest while diagnostics report the invalid entry.
+
 If project root discovery or project config loading fails, `recon parse` exits
 with code `4` and does not write a manifest.
+
+If the manifest cannot be written, `recon parse` exits with code `3` and prints
+a runtime diagnostic.
 
 `recon parse` does not compile checks, expand check packs, resolve sampling or
 tolerances, validate adapter capabilities, execute queries, or produce
