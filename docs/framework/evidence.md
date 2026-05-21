@@ -40,6 +40,8 @@ target/compiled_checks/customer_revenue.yml
 
 These should show check-pack expansion, metric expansion, columns used, sampling used, tolerances used, schema ignores, CDC mode, and delete behavior.
 
+They should also show declared comparison identity, declared CDC identity, check requirements, generated safety checks, prerequisites, and blocking policy.
+
 ### Compiled SQL
 
 Generated SQL should be available for debugging:
@@ -66,6 +68,8 @@ target/failures/customer_revenue__row_diff.csv
 
 Fields may include run id, contract name, check name, key values, column name, source value, target value, normalized values, diff value, tolerance, and severity.
 
+For key safety checks, failure details may include bounded examples of null or duplicate keys when evidence settings allow them.
+
 ### HTML report
 
 Human-readable report:
@@ -75,6 +79,8 @@ reports/customer_revenue.html
 ```
 
 It should include run summary, contract metadata, source/target, checks, sampling, tolerances, null/normalization rules, schema ignore rules, CDC mode, failures, and evidence links.
+
+Reports should also show which checks were blocked, which prerequisite checks blocked them, and whether each key-dependent check used `grain.keys` or `cdc.keys`.
 
 ### Result tables
 
@@ -93,6 +99,8 @@ Possible levels are `summary`, `detailed`, and `debug`.
 Reports must clearly state whether each check ran on full data, deterministic sample, incremental window, random persisted sample, or previous failure set.
 
 Sampled evidence should never imply full-data equivalence.
+
+CDC evidence must also state when delete propagation is not validated, when CDC keys differ from comparison keys, and which window or ordering assumptions were used.
 
 ## Sensitive data
 

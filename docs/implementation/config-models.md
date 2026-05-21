@@ -108,6 +108,10 @@ class AuthoredContract:
     source_location: SourceLocation
 ```
 
+`AuthoredCdcPolicy` should preserve CDC identity separately from `grain`.
+`cdc.keys` may declare explicit keys or `same_as: grain`; it should not be
+resolved by the parser.
+
 ## Unknown fields
 
 Unknown fields should produce diagnostics.

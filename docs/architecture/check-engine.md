@@ -75,7 +75,9 @@ A check implementation should declare:
 - required contract context,
 - required adapter capabilities,
 - whether keys are required,
-- whether unique keys are required,
+- whether non-null or unique grain keys are required,
+- whether CDC keys are required,
+- whether CDC ordering or windows are required,
 - whether columns are required,
 - supported sampling modes,
 - result schema.
@@ -87,11 +89,12 @@ They should produce typed plan operations that adapters can render or execute.
 
 Row-level checks require `grain.keys`.
 
-Value-level row checks require unique keys in source and target.
+Value-level row checks require non-null and unique keys in source and target.
 
-Duplicate-key checks should run before row-level value checks.
+Null-key and duplicate-key checks should run before row-level value checks.
 
-If duplicates are found, row-level value checks should be blocked.
+If null keys or duplicates are found, row-level value checks should be blocked
+and returned as `skipped` with `blocked_by` and `skip_reason`.
 
 ## Aggregate checks
 
@@ -112,6 +115,9 @@ Schema checks should report ignored columns in evidence.
 CDC checks require explicit CDC configuration when behavior is ambiguous.
 
 CDC checks should be small composable checks rather than one large opaque check.
+
+CDC propagation checks should use `cdc.keys`. CDC changed-row value checks may
+also require `grain.keys` when they compare source and target row values.
 
 ## Failure details
 

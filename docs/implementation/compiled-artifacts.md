@@ -27,6 +27,7 @@ It should include:
 - source endpoint,
 - target endpoint,
 - grain,
+- CDC keys when relevant,
 - columns,
 - metrics,
 - resolved defaults,
@@ -52,6 +53,9 @@ grain:
   keys:
     - customer_id
     - month
+cdc:
+  keys:
+    same_as: grain
 ```
 
 ## Compiled checks
@@ -75,6 +79,21 @@ checks:
       mode: full
     severity: error
 
+  - name: duplicate_source_keys
+    type: duplicate_source_keys
+    origin:
+      kind: framework_required_safety_check
+    identity:
+      kind: grain
+      keys:
+        - customer_id
+        - month
+    requirements:
+      requires_grain_keys: true
+      requires_non_null_grain: true
+      requires_unique_grain: false
+    severity: error
+
   - name: revenue_by_month
     type: grouped_aggregate_diff
     origin:
@@ -92,6 +111,25 @@ checks:
     severity: error
 ```
 
+Row-level value checks should include prerequisites and blocking policy:
+
+```yaml
+  - name: sampled_value_match
+    type: sampled_value_match
+    identity:
+      kind: grain
+      keys:
+        - customer_id
+        - month
+    prerequisites:
+      - null_source_keys
+      - null_target_keys
+      - duplicate_source_keys
+      - duplicate_target_keys
+    blocking_policy:
+      on_prerequisite_failure: skipped
+```
+
 ## Check origin
 
 Every compiled check should record why it exists.
@@ -106,6 +144,9 @@ framework_required_safety_check
 ```
 
 This helps users understand generated behavior.
+
+Generated safety checks for null and duplicate keys should use
+`framework_required_safety_check`.
 
 ## Compiled SQL
 
@@ -163,6 +204,10 @@ recon_version
 Compiled artifacts should include warnings and validation notes.
 
 Errors should prevent execution unless explicitly allowed.
+
+Compiled check artifacts should also include declared identities, check
+requirements, prerequisites, and blocking policy so users can inspect why a
+check can run or why it may be skipped later.
 
 ## Stability
 

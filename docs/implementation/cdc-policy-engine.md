@@ -24,6 +24,7 @@ Outputs:
 
 - resolved CDC mode,
 - resolved delete mode,
+- resolved CDC keys,
 - required columns,
 - incremental window definition,
 - operation mapping,
@@ -58,6 +59,8 @@ Example:
 cdc:
   mode: upsert
   timestamp_column: updated_at
+  keys:
+    same_as: grain
 ```
 
 Checks may include:
@@ -75,6 +78,8 @@ Example:
 cdc:
   mode: append_only_events
   operation_column: operation
+  keys:
+    - source_order_id
   insert_value: I
   update_value: U
   delete_value: D
@@ -95,6 +100,13 @@ cdc:
 Checks may compare batch-level counts and key coverage.
 
 ## Delete modes
+
+No delete validation:
+
+```yaml
+cdc:
+  delete_mode: none
+```
 
 Hard delete:
 
@@ -128,6 +140,8 @@ CDC checks should fail validation when required config is missing.
 Examples:
 
 - timestamp-window mode without timestamp column,
+- CDC propagation checks without CDC keys,
+- CDC checks that need ordering without ordering configuration,
 - operation-column mode without operation column,
 - soft delete mode without deleted columns,
 - incremental validation without bootstrap behavior.
@@ -160,11 +174,13 @@ CDC evidence should show:
 
 - CDC mode,
 - delete mode,
+- CDC keys,
 - operation mapping,
 - watermark/window,
 - lookback,
 - freshness lag,
 - state update behavior.
+- any CDC behavior intentionally not validated, such as `delete_mode: none`.
 
 ## Design principle
 

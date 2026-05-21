@@ -86,18 +86,32 @@ Preferred direction:
 
 ### Should duplicate keys always block row-level checks?
 
-Preferred direction:
+Decision:
 
-- yes by default,
+- yes for row-level value checks,
 - aggregate checks may continue,
-- any relaxed behavior must be explicit and clearly marked unsafe or non-row-level.
+- `missing_keys` and `extra_keys` may still run as distinct non-null key coverage,
+- any relaxed row-level matching behavior must be explicit and clearly marked unsafe or non-row-level,
+- see ADR 0014.
 
 ### Should null key values be allowed?
 
-Preferred direction:
+Decision:
 
-- default to error for row-level checks,
-- allow only with explicit advanced config later.
+- null grain keys fail key safety checks,
+- dependent row-level value checks are blocked,
+- allow only with explicit advanced config later,
+- see ADR 0014.
+
+### Should CDC keys be separate from grain keys?
+
+Decision:
+
+- yes,
+- `grain.keys` define comparison identity,
+- `cdc.keys` define CDC/change propagation identity,
+- they may be the same only when explicitly declared,
+- see ADR 0014.
 
 ## Sampling
 
@@ -162,11 +176,14 @@ Preferred direction:
 
 ### How should hard delete validation work?
 
-Preferred direction:
+Decision:
 
 - define explicit delete mode,
+- require `cdc.keys` for delete propagation checks,
 - compare key absence or delete operation evidence depending on mode,
-- avoid one-size-fits-all CDC assumptions.
+- avoid one-size-fits-all CDC assumptions,
+- allow `delete_mode: none` only when artifacts and evidence say delete propagation is not validated,
+- see ADR 0014.
 
 ## Evidence
 

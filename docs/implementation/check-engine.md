@@ -41,7 +41,9 @@ Each check implementation should declare:
 - required contract context,
 - required adapter capabilities,
 - whether `grain.keys` are required,
-- whether unique keys are required,
+- whether non-null and unique grain keys are required,
+- whether `cdc.keys` are required,
+- whether CDC ordering or windows are required,
 - whether columns are required,
 - supported sampling modes,
 - result fields,
@@ -98,7 +100,7 @@ Recommended order:
 6. aggregate checks,
 7. row-level value checks.
 
-Duplicate key failures should block row-level value checks that depend on unique matching.
+Null-key and duplicate-key failures should block row-level value checks that depend on unique matching.
 
 ## Status model
 
@@ -131,9 +133,12 @@ A check may support:
 
 ## Row-level checks
 
-Row-level checks require unique matching keys.
+Row-level checks require non-null and unique matching keys.
 
-If duplicate keys are present, value comparisons should not guess.
+If null or duplicate keys are present, value comparisons should not guess.
+
+If null or duplicate key safety checks fail, dependent row-level value checks
+should return status `skipped` with `blocked_by` and `skip_reason`.
 
 ## Aggregate checks
 
@@ -158,6 +163,9 @@ Examples:
 - operation count diff,
 - delete propagation,
 - previous failure retest.
+
+CDC propagation checks should use `cdc.keys`. CDC changed-row value checks may
+also require `grain.keys` when they compare source and target row values.
 
 ## Design principle
 

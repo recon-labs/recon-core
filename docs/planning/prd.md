@@ -132,6 +132,9 @@ The equivalence contract is the main user-authored object.
 
 Contracts define source, target, grain, keys, columns, metrics, checks, sampling, tolerances, schema behavior, CDC behavior, evidence, severity, tags, and ownership.
 
+Contracts distinguish comparison identity (`grain.keys`) from CDC identity
+(`cdc.keys`).
+
 ### Explicit beats surprising
 
 Recon should not silently compare all columns, silently skip empty check packs, silently coerce incompatible types, or silently guess mappings.
@@ -225,6 +228,7 @@ Recon should support:
 - row count,
 - missing keys,
 - extra keys,
+- null keys,
 - duplicate keys,
 - aggregate checks,
 - row-level value checks,
@@ -272,6 +276,7 @@ Recon should support explicit CDC modes:
 - append-only event CDC,
 - timestamp-window CDC,
 - batch/load-id CDC,
+- explicit CDC keys for propagation checks,
 - hard delete,
 - soft delete,
 - operation-column delete,

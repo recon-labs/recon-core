@@ -112,7 +112,7 @@ Each compiled check should have resolved sampling.
 
 ## Uniqueness
 
-Sampling does not remove row-level uniqueness requirements.
+Sampling does not remove row-level non-null or uniqueness requirements.
 
 Row-level checks must validate unique keys within the sampled/windowed data.
 

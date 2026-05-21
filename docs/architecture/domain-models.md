@@ -74,6 +74,10 @@ CompiledCdcPolicy
 
 Compiled models should show all resolved behavior.
 
+Compiled checks should include identity and requirement metadata, including
+whether they use comparison identity from `grain.keys`, CDC identity from
+`cdc.keys`, or no key identity.
+
 ## Execution models
 
 Execution models represent work to be run.
@@ -102,6 +106,9 @@ FailureDetail
 EvidenceReference
 Diagnostic
 ```
+
+Check results for blocked checks should include the failed prerequisite checks
+and a skip reason.
 
 ## Identifiers
 

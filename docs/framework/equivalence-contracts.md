@@ -67,7 +67,7 @@ evidence:
   store_failures: true
 ```
 
-In this example, `basic_equivalence` may run row count, missing keys, extra keys, and duplicate key checks. `aggregate_equivalence` may run aggregate checks for eligible numeric columns. `revenue` is available to those checks as a numeric comparable column with `0.01` tolerance. `stable_hash_5_percent` is the default sampling policy unless a check overrides it.
+In this example, `basic_equivalence` may run row count, missing keys, extra keys, null-key checks, and duplicate-key checks. `aggregate_equivalence` may run aggregate checks for eligible numeric columns. `revenue` is available to those checks as a numeric comparable column with `0.01` tolerance. `stable_hash_5_percent` is the default sampling policy unless a check overrides it.
 
 ## Columns do not run checks
 
@@ -185,7 +185,11 @@ Guidelines:
 
 `grain.keys` are a uniqueness claim. Recon must validate uniqueness before row-level checks.
 
-If keys are duplicated in source or target, row-level value checks should be blocked. Aggregate checks may still run.
+If keys are null or duplicated in source or target, row-level value checks should be blocked. Aggregate checks may still run.
+
+`grain.keys` define comparison identity, not necessarily database primary keys. They should normally be business keys or canonical keys exposed by compare views or queries.
+
+For MVP behavior, source and target should expose the same key column names in their comparable outputs. Recon must not silently guess source-target key mappings.
 
 ## Columns
 
@@ -477,6 +481,35 @@ cdc:
 
 CDC check packs must not assume one CDC shape.
 
+CDC checks that validate update, delete, or change propagation should also define CDC identity:
+
+```yaml
+cdc:
+  mode: upsert
+  timestamp_column: updated_at
+  keys:
+    same_as: grain
+```
+
+or:
+
+```yaml
+cdc:
+  mode: operation_column
+  operation_column: operation
+  keys:
+    - source_order_id
+```
+
+`cdc.keys` are separate from `grain.keys`. They may be the same, but Recon should require that choice to be explicit for CDC checks that depend on change identity.
+
+If delete propagation is intentionally not validated, say so explicitly:
+
+```yaml
+cdc:
+  delete_mode: none
+```
+
 ## Evidence
 
 Evidence settings define output behavior.
@@ -542,7 +575,9 @@ Recon should validate contracts before execution:
 - source and target are required,
 - exactly one of `relation` or `query` per endpoint,
 - row-level checks require `grain.keys`,
-- row-level checks require unique keys after filtering/sampling/windowing,
+- row-level checks require non-null and unique keys after filtering/sampling/windowing,
+- CDC propagation checks require `cdc.keys`,
+- CDC delete behavior is explicit when CDC checks are used,
 - checks must be compatible with column types,
 - metrics must be compatible with referenced columns,
 - referenced sample policies exist,

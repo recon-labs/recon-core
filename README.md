@@ -132,6 +132,9 @@ An equivalence contract defines:
 - CDC behavior,
 - evidence.
 
+`grain.keys` define source-target comparison identity. CDC checks that validate
+change propagation should declare CDC identity separately with `cdc.keys`.
+
 Example authored contract:
 
 ```yaml
@@ -202,7 +205,7 @@ syntax, contract file discovery, required contract fields, endpoint shape,
 unknown top-level contract fields, simple multi-contract files, and duplicate
 contract names. Compile-time behavior such as check-pack expansion, metric
 compilation, sampling resolution, tolerance precedence, schema policy
-resolution, CDC validation, adapter checks, and row-level key uniqueness is
+resolution, CDC validation, adapter checks, and row-level key non-null/uniqueness is
 still future work.
 
 Expected generated artifacts:

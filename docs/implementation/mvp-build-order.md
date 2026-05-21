@@ -69,6 +69,7 @@ Build:
 - metric compilation,
 - check-pack expansion for `basic_equivalence`,
 - adapter capability requirements,
+- identity and check requirement metadata,
 - compiled artifact writers.
 
 Tests:
@@ -84,6 +85,8 @@ Tests:
 Build:
 
 - row-level checks require keys,
+- CDC propagation checks require CDC keys,
+- `basic_equivalence` without grain fails validation,
 - columns do not create checks,
 - no silent all-column comparison,
 - incompatible check/column type errors,
@@ -122,6 +125,7 @@ Build:
 - check registry,
 - row count check,
 - duplicate key checks,
+- null key checks,
 - missing/extra key checks,
 - metric sum diff,
 - check result model.
@@ -130,6 +134,7 @@ Tests:
 
 - pass/fail cases,
 - duplicate keys block row-level checks,
+- null keys block row-level checks,
 - aggregate metric result,
 - check result serialization.
 

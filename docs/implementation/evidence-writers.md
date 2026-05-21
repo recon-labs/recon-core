@@ -52,6 +52,9 @@ The HTML report should summarize:
 - null rules,
 - schema ignores,
 - CDC mode,
+- declared grain keys,
+- declared CDC keys,
+- blocked checks and their prerequisites,
 - failure links,
 - warnings and errors.
 
@@ -97,6 +100,9 @@ Every report should show whether each check ran on:
 - previous failure set.
 
 Sampled evidence should not imply full-data equivalence.
+
+Every report should also show whether key-dependent checks used `grain.keys` or
+`cdc.keys`, and should identify any CDC behavior intentionally not validated.
 
 ## Design principle
 

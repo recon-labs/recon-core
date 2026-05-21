@@ -182,12 +182,16 @@ The report should show:
 - which tolerances applied,
 - which schema ignores applied,
 - which rows or metrics failed.
+- which checks were blocked by key safety checks.
 
 ## Important safety rules
 
 Recon should not silently compare all columns.
 
-Recon should not run row-level comparisons unless keys are defined and unique.
+Recon should not run row-level comparisons unless keys are defined, non-null, and unique.
+
+CDC propagation checks should declare `cdc.keys`; Recon should not silently
+reuse `grain.keys` for CDC update or delete validation.
 
 Recon should not hide check-pack expansion.
 

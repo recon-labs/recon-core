@@ -102,6 +102,8 @@ They should answer:
 - which tolerance they use,
 - which schema ignores apply,
 - which CDC mode applies.
+- which identity each key-dependent check uses,
+- which prerequisite checks can block dependent checks.
 
 ## Error boundaries
 
@@ -110,6 +112,9 @@ Parse errors should be about invalid authored structure.
 Compile errors should be about invalid resolved behavior.
 
 Run errors should be about execution failure or check failure.
+
+Blocked checks should be represented as skipped check results with explicit
+prerequisite context, not as hidden omissions.
 
 ## Design principle
 

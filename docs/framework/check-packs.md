@@ -58,10 +58,14 @@ Includes:
 - `row_count_diff`,
 - `missing_keys`,
 - `extra_keys`,
+- `null_source_keys`,
+- `null_target_keys`,
 - `duplicate_source_keys`,
 - `duplicate_target_keys`.
 
-`row_count_diff` can run without keys. Key coverage checks require `grain.keys`. Duplicate key checks validate whether row-level checks are safe.
+`row_count_diff` can run without keys. Key coverage checks require `grain.keys`. Null-key and duplicate-key checks validate whether row-level checks are safe.
+
+The pack itself requires `grain.keys`. It must not silently weaken to only `row_count_diff` when grain is missing. If users want only row-count behavior, they should request `row_count_diff` explicitly.
 
 ### `recon_core.value_equivalence`
 
@@ -79,10 +83,13 @@ Includes:
 Requirements:
 
 - `grain.keys`,
+- non-null keys in source and target,
 - unique keys in source and target,
 - eligible columns or explicit check-level columns.
 
 This pack must not compare all columns unless explicitly configured.
+
+If required null-key or duplicate-key safety checks are not authored explicitly, the compiler should generate visible safety checks before value checks.
 
 ### `recon_core.aggregate_equivalence`
 
@@ -119,6 +126,8 @@ Potential checks:
 
 CDC mode must be explicit when behavior is ambiguous.
 
+CDC checks that validate update, delete, key coverage, or change propagation require `cdc.keys`. CDC keys are separate from `grain.keys`; they may be declared as `same_as: grain` only when that assumption is intentional.
+
 Supported modes should include snapshot comparison, upsert CDC, append-only event CDC, batch CDC by load/batch id, timestamp-window CDC, operation-column CDC, soft-delete CDC, hard-delete CDC, and SCD2-style history later.
 
 ### `recon_core.schema_equivalence`
@@ -143,6 +152,13 @@ Potential checks include row preservation, expected row reduction, aggregate pre
 ## CDC delete modes
 
 CDC check packs must support explicit delete behavior.
+
+No delete validation:
+
+```yaml
+cdc:
+  delete_mode: none
+```
 
 ```yaml
 cdc:

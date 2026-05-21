@@ -64,6 +64,28 @@ grain:
 
 `grain.keys` are not trusted blindly. They are a claim that the selected keys uniquely identify comparable rows. Row-level checks must validate that claim before running.
 
+## CDC keys
+
+`cdc.keys` identify records for CDC change propagation checks.
+
+They are separate from `grain.keys` because CDC systems often use source primary keys, source unique keys, or event keys, while source-target comparison may use business or canonical keys.
+
+```yaml
+cdc:
+  keys:
+    same_as: grain
+```
+
+or:
+
+```yaml
+cdc:
+  keys:
+    - source_order_id
+```
+
+Recon must not silently assume that CDC identity and comparison identity are the same.
+
 ## Keys versus segmenting columns
 
 `grain.keys` are row identity.
@@ -91,6 +113,8 @@ source.customer_id != target.customer_sk
 ```
 
 Recon should compare canonical business outputs instead of forcing generated surrogate keys to match. Users can expose canonical keys through source/target compare views or custom queries.
+
+For MVP behavior, declared keys should refer to columns in those canonical comparable outputs. Recon should not guess source-target key mappings.
 
 ## Columns
 
@@ -125,13 +149,15 @@ A **check pack** is a reusable group of checks, such as a basic equivalence pack
 
 Check packs must expand into explicit compiled checks. Hidden behavior is not acceptable.
 
+Check packs must also preserve their requirements. For example, `recon_core.basic_equivalence` requires `grain.keys`; it must not silently become only a row-count check when grain is missing.
+
 ## Sampling policy
 
 A **sampling policy** defines which records are included in comparison. It should be reusable and separate from individual checks.
 
 Examples include deterministic hash, incremental window, persisted random, previous failures, and full data.
 
-Sampling does not remove key uniqueness requirements for row-level value checks.
+Sampling does not remove key non-null or uniqueness requirements for row-level value checks.
 
 ## Tolerance policy
 
@@ -150,6 +176,8 @@ CDC tools often add target-only technical columns. Schema checks should be stric
 A **CDC policy** defines how change data capture behavior is represented.
 
 CDC reconciliation must not assume one delete mode or operation style. It should support explicit configuration for hard deletes, soft deletes, operation columns, tombstones, timestamp windows, batch IDs, and later SCD2-style history.
+
+CDC propagation checks must also declare whether they require `cdc.keys`, ordering, watermarks, and delete-mode configuration.
 
 ## Evidence
 
@@ -171,6 +199,8 @@ Generated artifacts should live under gitignored `target/` and `reports/`.
 
 Compiled checks should lower into typed check plans owned by `recon-core`.
 Adapters render those plans into dialect SQL or equivalent execution requests.
+
+Compiled checks should show check requirements, identity kind, declared keys, generated safety checks, prerequisites, and blocking policy when relevant.
 
 ## Adapter
 

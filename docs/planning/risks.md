@@ -63,13 +63,24 @@ Mitigation:
 
 ### Row matching ambiguity
 
-Duplicate keys make row-level comparison unreliable.
+Null or duplicate keys make row-level comparison unreliable.
 
 Mitigation:
 
 - require `grain.keys` for row-level checks,
 - validate uniqueness,
-- block row-level checks when keys are duplicated.
+- block row-level checks when keys are null or duplicated.
+
+### CDC identity ambiguity
+
+CDC update and delete propagation may depend on source primary keys, unique
+keys, or event keys that differ from comparison grain.
+
+Mitigation:
+
+- model CDC identity with explicit `cdc.keys`,
+- allow `same_as: grain` only when declared,
+- require delete behavior and ordering configuration for CDC checks that need them.
 
 ### Sampling mistakes
 
@@ -89,6 +100,7 @@ CDC has many patterns: upserts, append-only logs, hard deletes, soft deletes, op
 Mitigation:
 
 - require explicit CDC mode,
+- require explicit CDC keys where propagation checks need change identity,
 - design CDC check packs as configurable,
 - start with a small supported subset,
 - document unsupported modes clearly.

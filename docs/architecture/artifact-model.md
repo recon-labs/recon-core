@@ -61,6 +61,9 @@ reports/
 
 Compiled artifacts should show resolved behavior.
 
+For key-dependent checks, compiled artifacts should show declared identity,
+requirements, prerequisites, and blocking policy.
+
 Reports should show execution evidence.
 
 ## Stateful artifacts
@@ -135,6 +138,9 @@ They should be:
 - optionally disabled,
 - referenced from run results,
 - handled carefully in reports.
+
+Failure summaries for key safety checks should show null-key or duplicate-key
+counts and may include bounded example keys when evidence settings allow them.
 
 ## Design principle
 
