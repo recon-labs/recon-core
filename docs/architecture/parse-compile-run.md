@@ -9,7 +9,7 @@ recon parse
 recon compile
   -> target/compiled_contracts/
   -> target/compiled_checks/
-  -> target/compiled_sql/
+  -> target/compiled_sql/ when adapter SQL rendering is available
 
 recon run
   -> target/run_results.json

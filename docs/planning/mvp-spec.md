@@ -139,11 +139,9 @@ Required built-in check pack:
 recon_core.basic_equivalence
 ```
 
-Recommended if feasible:
-
-```text
-recon_core.aggregate_equivalence
-```
+`recon_core.aggregate_equivalence` is deferred until its aggregate inference
+behavior is explicitly designed. Explicit metrics are the initial aggregate
+path.
 
 CDC check pack can be documented and designed in MVP docs, but implementation can begin after basic and aggregate checks are stable.
 
@@ -331,7 +329,6 @@ metrics:
 checks:
   use:
     - recon_core.basic_equivalence
-    - recon_core.aggregate_equivalence
 
 sampling:
   default_policy: full

@@ -45,18 +45,21 @@ Preferred direction:
 
 ### Should check packs infer aggregate checks from numeric columns?
 
-Preferred direction:
+Decision:
 
-- allow only if documented,
-- make expansion visible in compiled artifacts,
-- prefer explicit metrics for business-important aggregates.
+- no for the current compiler design,
+- explicit metrics compile into aggregate checks,
+- numeric-column aggregate inference requires a future decision before it is
+  enabled,
+- see ADR 0015.
 
 ### What should happen when a check pack expands to nothing?
 
-Preferred direction:
+Decision:
 
 - default to error,
 - allow `on_empty: warn` or `on_empty: skip` later only when explicitly configured.
+- see ADR 0015.
 
 ## Columns and metrics
 

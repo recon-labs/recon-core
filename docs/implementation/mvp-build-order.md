@@ -65,6 +65,8 @@ Build:
 - compiled contract model,
 - compiled check model,
 - typed check plan model,
+- stable compiled IDs,
+- top-level compiled artifact headers with invocation IDs,
 - default resolution,
 - metric compilation,
 - check-pack expansion for `basic_equivalence`,
@@ -74,8 +76,11 @@ Build:
 
 Tests:
 
+- stable ID helpers,
+- compiled model serialization,
 - metric compiles to aggregate check,
 - check pack expands,
+- `basic_equivalence` without grain fails validation,
 - compiled checks lower into typed plan operations,
 - empty check-pack expansion errors,
 - compiled YAML artifacts match expected output.
@@ -86,7 +91,6 @@ Build:
 
 - row-level checks require keys,
 - CDC propagation checks require CDC keys,
-- `basic_equivalence` without grain fails validation,
 - columns do not create checks,
 - no silent all-column comparison,
 - incompatible check/column type errors,

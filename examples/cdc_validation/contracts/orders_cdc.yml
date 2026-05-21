@@ -26,6 +26,8 @@ columns:
 
 cdc:
   mode: upsert
+  keys:
+    same_as: grain
   timestamp_column: updated_at
   delete_mode: soft_delete
   source_deleted_column: is_deleted

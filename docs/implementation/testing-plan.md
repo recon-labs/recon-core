@@ -40,6 +40,8 @@ Tests for explicit generated behavior.
 
 Examples:
 
+- stable compiled IDs,
+- compiled model serialization,
 - check packs expand,
 - metrics compile into checks,
 - columns do not create checks,
@@ -112,8 +114,10 @@ Tests for generated artifacts.
 Examples:
 
 - manifest JSON shape,
+- top-level artifact headers,
 - compiled contract shape,
 - compiled checks shape,
+- invocation IDs included for compile and run artifacts,
 - run results shape,
 - diagnostics included,
 - check requirements included,

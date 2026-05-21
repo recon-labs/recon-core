@@ -54,10 +54,17 @@ columns:
     - name: revenue
       tolerance: 0.01
 
+metrics:
+  - name: revenue_by_month
+    type: sum
+    column: revenue
+    group_by:
+      - month
+    tolerance: 0.01
+
 checks:
   use:
     - recon_core.basic_equivalence
-    - recon_core.aggregate_equivalence
 
 sampling:
   default_policy: stable_hash_5_percent
@@ -67,7 +74,11 @@ evidence:
   store_failures: true
 ```
 
-In this example, `basic_equivalence` may run row count, missing keys, extra keys, null-key checks, and duplicate-key checks. `aggregate_equivalence` may run aggregate checks for eligible numeric columns. `revenue` is available to those checks as a numeric comparable column with `0.01` tolerance. `stable_hash_5_percent` is the default sampling policy unless a check overrides it.
+In this example, `basic_equivalence` runs row count, missing keys, extra keys,
+null-key checks, and duplicate-key checks. The explicit `revenue_by_month`
+metric compiles into an aggregate check. `revenue` is available as a numeric
+comparable column with `0.01` tolerance. `stable_hash_5_percent` is the default
+sampling policy unless a check overrides it.
 
 ## Columns do not run checks
 
@@ -87,9 +98,12 @@ It means `revenue` is a numeric comparable column, and when a compatible check u
 This runs checks:
 
 ```yaml
-checks:
-  use:
-    - recon_core.aggregate_equivalence
+metrics:
+  - name: revenue_by_month
+    type: sum
+    column: revenue
+    group_by:
+      - month
 ```
 
 or:
@@ -286,7 +300,8 @@ Check packs are preferred for standardization. Explicit checks are preferred whe
 
 ## Check packs and column metadata
 
-A check pack may use column metadata to decide which checks to run.
+A check pack may use column metadata only when that behavior is explicitly
+documented by the pack.
 
 ```yaml
 columns:
@@ -299,32 +314,32 @@ checks:
     - recon_core.aggregate_equivalence
 ```
 
-Possible interpretation:
+Rejected implicit interpretation:
 
 - `aggregate_equivalence` sees numeric column `revenue`,
 - it creates a `sum_diff` check for `revenue`,
 - it uses tolerance `0.01`.
 
-This behavior must be documented by each check pack. Check-pack expansion must be visible in compiled artifacts.
+Recon must not infer aggregate checks from numeric columns unless a future
+decision explicitly enables that behavior. Prefer explicit metrics or explicit
+aggregate checks for business-important aggregate comparisons.
+
+Check-pack expansion must be visible in compiled artifacts.
 
 ## Empty check-pack expansion
 
 If a check pack requires columns or metrics and none are available, the default should be an error, not a silent no-op.
 
 ```yaml
-columns:
-  exact:
-    - status
-
 checks:
   use:
-    - recon_core.aggregate_equivalence
+    - recon_core.some_future_pack
 ```
 
 Default behavior:
 
 ```text
-ERROR: aggregate_equivalence requires numeric columns or explicit metrics.
+ERROR: recon_core.some_future_pack expanded to no checks.
 ```
 
 A later escape hatch may allow:
@@ -332,7 +347,7 @@ A later escape hatch may allow:
 ```yaml
 checks:
   use:
-    - name: recon_core.aggregate_equivalence
+    - name: recon_core.some_future_pack
       on_empty: warn
 ```
 

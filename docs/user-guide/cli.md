@@ -105,10 +105,12 @@ Expected output:
 ```text
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/
 ```
 
-`compile` should resolve defaults, refs, check packs, metrics, sampling, tolerances, schema policies, CDC behavior, and adapter capabilities.
+`compile` should resolve defaults, refs, check packs, metrics, sampling,
+tolerances, schema policies, CDC behavior, and adapter capabilities. SQL files
+under `target/compiled_sql/` are produced when adapter SQL rendering is
+available.
 
 ## `recon run`
 

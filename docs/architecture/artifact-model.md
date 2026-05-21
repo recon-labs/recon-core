@@ -103,18 +103,27 @@ StateWriter
 
 ## Artifact versioning
 
-Artifact formats should include a version field.
+Artifact formats should include top-level header fields.
 
 Example:
 
 ```json
 {
   "artifact_type": "run_results",
-  "artifact_version": 1
+  "artifact_version": 1,
+  "recon_version": "0.0.0",
+  "generated_at": "2026-05-21T12:00:00Z",
+  "invocation_id": "01HXAMPLEINVOCATION000000000"
 }
 ```
 
 This helps future compatibility.
+
+Compiled artifacts should follow the schema in
+`docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`.
+`target/manifest.json` already uses the same top-level header style without
+`invocation_id`; compile and run artifacts should include `invocation_id` so
+artifacts from the same invocation can be traced together.
 
 ## Generated artifact policy
 

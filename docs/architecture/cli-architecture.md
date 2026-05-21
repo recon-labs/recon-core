@@ -110,7 +110,7 @@ Reads authored files and/or the manifest, resolves behavior, and writes:
 ```text
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/
+target/compiled_sql/  # when adapter SQL rendering is available
 ```
 
 It should return non-zero on compile-time validation errors.

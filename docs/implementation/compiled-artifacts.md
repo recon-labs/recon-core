@@ -6,35 +6,92 @@ Compiled artifacts make resolved Recon behavior visible before execution.
 
 They are generated outputs under `target/` and should not be committed.
 
+See
+`docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`
+for the durable artifact schema decision.
+
 ## Artifact paths
 
-Recommended paths:
+The compiler writes one compiled contract artifact and one compiled checks
+artifact per contract:
 
 ```text
-target/compiled_contracts/
-target/compiled_checks/
-target/compiled_sql/
+target/compiled_contracts/<contract_name>.yml
+target/compiled_checks/<contract_name>.yml
+```
+
+Adapter-rendered SQL belongs under `target/compiled_sql/` when SQL rendering is
+available:
+
+```text
+target/compiled_sql/<contract_name>/<check_name>/source.sql
+target/compiled_sql/<contract_name>/<check_name>/target.sql
+target/compiled_sql/<contract_name>/<check_name>/comparison.sql
+```
+
+When SQL rendering is not available, compiled checks still include typed plans
+and should set `rendering.status: not_rendered`.
+
+## Artifact header
+
+Compiled artifacts use top-level artifact header fields:
+
+```yaml
+artifact_type: compiled_checks
+artifact_version: 1
+recon_version: "0.0.0"
+generated_at: "2026-05-21T12:00:00Z"
+invocation_id: "01HXAMPLEINVOCATION000000000"
+```
+
+`invocation_id` ties artifacts from the same compile or run invocation
+together.
+
+## Stable IDs
+
+Compiled artifacts should use stable IDs:
+
+```text
+contract.<project>.<contract>
+check.<project>.<contract>.<check>
+plan.<project>.<contract>.<check>
+```
+
+Example:
+
+```text
+contract.cdc_validation.orders_cdc
+check.cdc_validation.orders_cdc.row_count_diff
+plan.cdc_validation.orders_cdc.row_count_diff
 ```
 
 ## Compiled contract
 
 A compiled contract is the resolved version of an authored contract.
 
+It answers:
+
+```text
+What did Recon resolve this authored contract to mean?
+```
+
 It should include:
 
-- contract name,
+- project and contract metadata,
+- stable contract ID,
 - source file path,
 - source endpoint,
 - target endpoint,
-- grain,
-- CDC keys when relevant,
+- comparison identity from `grain.keys`,
+- CDC identity from `cdc.keys` when relevant,
 - columns,
 - metrics,
 - resolved defaults,
-- tolerance policy,
-- schema policy,
-- CDC policy,
-- evidence policy,
+- resolved sampling policy,
+- resolved tolerance policy,
+- resolved schema policy,
+- resolved CDC policy,
+- resolved evidence policy,
 - diagnostics.
 
 Example:
@@ -42,99 +99,148 @@ Example:
 ```yaml
 artifact_type: compiled_contract
 artifact_version: 1
-contract_name: customer_revenue
+recon_version: "0.0.0"
+generated_at: "2026-05-21T12:00:00Z"
+invocation_id: "01HXAMPLEINVOCATION000000000"
+
+project:
+  name: cdc_validation
+  version: null
+
+contract:
+  id: contract.cdc_validation.orders_cdc
+  name: orders_cdc
+  authored_version: 1
+  source_file: contracts/orders_cdc.yml
+
 source:
-  connection: legacy
-  relation: qa.v_customer_revenue_compare
+  connection: source_db
+  relation: recon.v_orders_source_compare
+
 target:
   connection: warehouse
-  relation: qa.v_customer_revenue_compare
-grain:
-  keys:
-    - customer_id
-    - month
-cdc:
-  keys:
-    same_as: grain
+  relation: recon.v_orders_target_compare
+
+identity:
+  grain:
+    keys:
+      - order_id
+  cdc:
+    declaration:
+      same_as: grain
+    resolved_keys:
+      - order_id
+
+policies:
+  sampling:
+    default_policy: latest_changed_records
+  schema:
+    ignore_target_columns:
+      - _dms_operation
+      - _dms_timestamp
+      - _loaded_at
+  cdc:
+    mode: upsert
+    timestamp_column: updated_at
+    delete_mode: soft_delete
+    source_deleted_column: is_deleted
+    target_deleted_column: is_deleted
+
+diagnostics: []
 ```
 
 ## Compiled checks
 
 A compiled checks artifact shows exactly what will run.
 
+It answers:
+
+```text
+What exact checks and typed plans will Recon run?
+```
+
+Every compiled check should include:
+
+- stable check ID,
+- check name,
+- check type,
+- origin metadata,
+- identity kind and keys,
+- requirements,
+- prerequisites,
+- blocking policy,
+- resolved sampling,
+- resolved tolerance when applicable,
+- typed check plan,
+- rendering metadata,
+- diagnostics.
+
 Example:
 
 ```yaml
 artifact_type: compiled_checks
 artifact_version: 1
-contract_name: customer_revenue
+recon_version: "0.0.0"
+generated_at: "2026-05-21T12:00:00Z"
+invocation_id: "01HXAMPLEINVOCATION000000000"
+
+project:
+  name: cdc_validation
+  version: null
+
+contract:
+  id: contract.cdc_validation.orders_cdc
+  name: orders_cdc
+  source_file: contracts/orders_cdc.yml
 
 checks:
-  - name: row_count_diff
+  - id: check.cdc_validation.orders_cdc.row_count_diff
+    name: row_count_diff
     type: row_count_diff
     origin:
       kind: check_pack
       name: recon_core.basic_equivalence
-    sampling:
-      mode: full
-    severity: error
-
-  - name: duplicate_source_keys
-    type: duplicate_source_keys
-    origin:
-      kind: framework_required_safety_check
     identity:
-      kind: grain
-      keys:
-        - customer_id
-        - month
+      kind: none
+      keys: []
     requirements:
-      requires_grain_keys: true
-      requires_non_null_grain: true
+      requires_grain_keys: false
+      requires_non_null_grain: false
       requires_unique_grain: false
-    severity: error
-
-  - name: revenue_by_month
-    type: grouped_aggregate_diff
-    origin:
-      kind: metric
-      name: revenue_by_month
-    column: revenue
-    metric: sum
-    group_by:
-      - month
-    tolerance:
-      type: absolute
-      value: 0.01
-    sampling:
-      mode: full
-    severity: error
-```
-
-Row-level value checks should include prerequisites and blocking policy:
-
-```yaml
-  - name: sampled_value_match
-    type: sampled_value_match
-    identity:
-      kind: grain
-      keys:
-        - customer_id
-        - month
-    prerequisites:
-      - null_source_keys
-      - null_target_keys
-      - duplicate_source_keys
-      - duplicate_target_keys
+      requires_cdc_keys: false
+      required_columns: []
+      required_metrics: []
+      required_capabilities:
+        - row_count
+    prerequisites: []
     blocking_policy:
       on_prerequisite_failure: skipped
+    sampling:
+      mode: full
+    tolerance: null
+    plan:
+      id: plan.cdc_validation.orders_cdc.row_count_diff
+      operations:
+        - type: row_count
+          side: source
+        - type: row_count
+          side: target
+        - type: compare_counts
+      required_capabilities:
+        - row_count
+    rendering:
+      status: not_rendered
+      sql_paths: []
+    diagnostics: []
+
+diagnostics: []
 ```
 
 ## Check origin
 
 Every compiled check should record why it exists.
 
-Possible origins:
+Allowed origins:
 
 ```text
 explicit_check
@@ -143,69 +249,140 @@ check_pack
 framework_required_safety_check
 ```
 
-This helps users understand generated behavior.
-
 Generated safety checks for null and duplicate keys should use
-`framework_required_safety_check`.
+`framework_required_safety_check` when they were required by another check. When
+the same safety checks come directly from `recon_core.basic_equivalence`, their
+origin is the check pack.
 
-## Compiled SQL
+## Built-in check-pack expansion
 
-Compiled SQL files should be grouped by contract and check.
+`recon_core.basic_equivalence` expands exactly to:
+
+```text
+row_count_diff
+missing_keys
+extra_keys
+null_source_keys
+null_target_keys
+duplicate_source_keys
+duplicate_target_keys
+```
+
+The pack requires `grain.keys`. It must not silently weaken to only
+`row_count_diff` when grain is missing.
+
+`missing_keys` and `extra_keys` use distinct non-null grain-key coverage. Null
+and duplicate grain-key checks report key safety failures separately.
+
+Empty check-pack expansion is an error.
+
+## Metric compilation
+
+Explicit metrics compile into aggregate checks.
+
+Metrics do not require `grain.keys`. `metrics.group_by` is aggregate
+segmentation, not row identity.
 
 Example:
 
-```text
-target/compiled_sql/customer_revenue/row_count_diff/source.sql
-target/compiled_sql/customer_revenue/row_count_diff/target.sql
-target/compiled_sql/customer_revenue/revenue_by_month/comparison.sql
+```yaml
+- id: check.cdc_validation.orders_cdc.revenue_by_month
+  name: revenue_by_month
+  type: grouped_aggregate_diff
+  origin:
+    kind: metric
+    name: revenue_by_month
+  identity:
+    kind: none
+    keys: []
+  metric:
+    type: sum
+    column: revenue
+    group_by:
+      - month
+  tolerance:
+    type: absolute
+    value: 0.01
+  plan:
+    id: plan.cdc_validation.orders_cdc.revenue_by_month
+    operations:
+      - type: grouped_aggregate
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: compare_grouped_aggregates
+    required_capabilities:
+      - grouped_aggregate
+  rendering:
+    status: not_rendered
+    sql_paths: []
 ```
 
-SQL should be formatted clearly enough for debugging.
+`recon_core.aggregate_equivalence` must not infer aggregate checks from numeric
+columns unless a future decision explicitly enables that behavior. Explicit
+metrics remain the first aggregate path.
+
+## Row-level prerequisites
+
+Row-level value checks should include prerequisites and blocking policy:
+
+```yaml
+- name: sampled_value_match
+  type: sampled_value_match
+  identity:
+    kind: grain
+    keys:
+      - customer_id
+      - month
+  prerequisites:
+    - null_source_keys
+    - null_target_keys
+    - duplicate_source_keys
+    - duplicate_target_keys
+  blocking_policy:
+    on_prerequisite_failure: skipped
+```
+
+If a prerequisite fails at runtime, dependent row-level value checks should be
+skipped with `blocked_by` and `skip_reason` in run results.
+
+## Compiled SQL
 
 SQL is rendered from typed check plans by adapters. The typed plan remains the
-core representation of comparison behavior; rendered SQL is the dialect-specific
-execution artifact.
+core representation of comparison behavior; rendered SQL is the
+dialect-specific execution artifact.
 
 Compiled artifacts should preserve enough operation metadata to trace generated
 SQL back to its typed plan.
 
-Example:
+Example after SQL rendering exists:
 
 ```yaml
 checks:
   - name: row_count_diff
     type: row_count_diff
     plan:
+      id: plan.cdc_validation.orders_cdc.row_count_diff
       operations:
         - type: row_count
           side: source
         - type: row_count
           side: target
-    rendered_sql:
-      source: target/compiled_sql/customer_revenue/row_count_diff/source.sql
-      target: target/compiled_sql/customer_revenue/row_count_diff/target.sql
+    rendering:
+      status: rendered
+      sql_paths:
+        - target/compiled_sql/orders_cdc/row_count_diff/source.sql
+        - target/compiled_sql/orders_cdc/row_count_diff/target.sql
 ```
-
-## Artifact versioning
-
-Every artifact should include:
-
-```text
-artifact_type
-artifact_version
-generated_at
-recon_version
-```
-
-`generated_at` may be omitted in golden tests to keep output stable.
 
 ## Diagnostics in artifacts
 
-Compiled artifacts should include warnings and validation notes.
+Compiled artifacts should include structured diagnostics.
 
-Errors should prevent execution unless explicitly allowed.
+Errors should prevent execution unless explicitly allowed by a future mode.
 
-Compiled check artifacts should also include declared identities, check
+Compiled check artifacts should include declared identities, check
 requirements, prerequisites, and blocking policy so users can inspect why a
 check can run or why it may be skipped later.
 
@@ -213,8 +390,10 @@ check can run or why it may be skipped later.
 
 Artifact formats can evolve before 1.0, but changes should be documented.
 
-After artifact formats are used by CI or integrations, changes should be versioned carefully.
+After artifact formats are used by CI or integrations, changes should be
+versioned carefully.
 
 ## Design principle
 
-Compiled artifacts are the bridge between readable contracts and trustworthy execution.
+Compiled artifacts are the bridge between readable contracts and trustworthy
+execution.

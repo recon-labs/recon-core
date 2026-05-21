@@ -55,8 +55,10 @@ Checks:
 
 Built-in check packs:
 
-- `recon_core.basic_equivalence`,
-- early `recon_core.aggregate_equivalence`.
+- `recon_core.basic_equivalence`.
+
+Explicit metrics are the first aggregate path. `recon_core.aggregate_equivalence`
+is deferred until its inference behavior is explicitly designed.
 
 Artifacts:
 
