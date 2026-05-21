@@ -195,7 +195,8 @@ def _parse_multi_contract_file(
         if contract_mapping is None:
             continue
         contract_mapping = dict(contract_mapping)
-        contract_mapping.setdefault("version", version)
+        if version is not None:
+            contract_mapping.setdefault("version", version)
 
         contract = _parse_contract_mapping(
             contract_mapping, source_location, resource_file, diagnostics

@@ -121,3 +121,21 @@ def test_load_yaml_file_reports_unreadable_file(tmp_path: Path) -> None:
     assert diagnostic.severity is DiagnosticSeverity.ERROR
     assert diagnostic.path == str(yaml_file)
     assert diagnostic.hint == "Check that the resource file exists and is readable."
+
+
+def test_load_yaml_file_reports_non_utf8_file_as_read_error(tmp_path: Path) -> None:
+    yaml_file = tmp_path / "contracts" / "customer_revenue.yml"
+    yaml_file.parent.mkdir()
+    yaml_file.write_bytes(b"\xff\xfe\xfa")
+
+    result = load_yaml_file(yaml_file)
+
+    assert not result.succeeded
+    assert result.data is None
+    assert len(result.diagnostics) == 1
+
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_PARSE_FILE_READ_ERROR"
+    assert diagnostic.severity is DiagnosticSeverity.ERROR
+    assert diagnostic.path == str(yaml_file)
+    assert diagnostic.hint == "Check that the resource file exists and is readable."

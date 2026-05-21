@@ -164,6 +164,39 @@ contracts:
     assert manifest["diagnostics"][0]["code"] == "RC_PARSE_MISSING_REQUIRED_FIELD"
 
 
+def test_parse_service_writes_manifest_for_multi_contract_file_missing_shared_version(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    tmp_path.joinpath("contracts", "grouped.yml").write_text(
+        """
+contracts:
+  - name: customer_revenue
+    source:
+      connection: legacy
+      relation: qa.customer_source
+    target:
+      connection: warehouse
+      relation: qa.customer_target
+    checks:
+      use:
+        - recon_core.basic_equivalence
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    result = ParseService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_PARSE_MISSING_REQUIRED_FIELD"
+    ]
+
+    manifest = read_manifest(tmp_path)
+    assert manifest["contracts"] == {}
+    assert manifest["diagnostics"][0]["message"] == "Missing required contract field: version"
+
+
 def test_parse_service_writes_manifest_with_diagnostics_for_invalid_yaml(
     tmp_path: Path,
 ) -> None:
@@ -180,6 +213,25 @@ def test_parse_service_writes_manifest_with_diagnostics_for_invalid_yaml(
     assert list(manifest["files"]) == ["contracts/broken.yml"]
     assert manifest["contracts"] == {}
     assert manifest["diagnostics"][0]["code"] == "RC_PARSE_INVALID_YAML"
+    assert manifest["diagnostics"][0]["path"] == "contracts/broken.yml"
+
+
+def test_parse_service_writes_manifest_with_diagnostics_for_non_utf8_yaml(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    (tmp_path / "contracts" / "broken.yml").write_bytes(b"\xff\xfe\xfa")
+
+    result = ParseService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_PARSE_FILE_READ_ERROR"]
+    assert result.diagnostics[0].path == "contracts/broken.yml"
+
+    manifest = read_manifest(tmp_path)
+    assert list(manifest["files"]) == ["contracts/broken.yml"]
+    assert manifest["contracts"] == {}
+    assert manifest["diagnostics"][0]["code"] == "RC_PARSE_FILE_READ_ERROR"
     assert manifest["diagnostics"][0]["path"] == "contracts/broken.yml"
 
 

@@ -32,7 +32,7 @@ def load_yaml_file(path: Path) -> YamlLoadResult:
     """Load a YAML resource file from disk."""
     try:
         raw_content = path.read_text(encoding="utf-8")
-    except OSError as error:
+    except (OSError, UnicodeDecodeError) as error:
         return YamlLoadResult(
             diagnostics=(
                 Diagnostic(

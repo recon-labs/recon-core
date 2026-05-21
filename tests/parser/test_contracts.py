@@ -279,6 +279,33 @@ def test_parse_contract_resource_reports_invalid_multi_contract_entries(
     assert "must be a mapping" in result.diagnostics[0].message
 
 
+def test_parse_contract_resource_reports_missing_multi_contract_shared_version(
+    tmp_path: Path,
+) -> None:
+    resource_file = make_resource_file(tmp_path, "contracts/grouped.yml")
+
+    result = parse_contract_resource(
+        resource_file,
+        {
+            "contracts": [
+                {
+                    "name": "customer_revenue",
+                    "source": {"connection": "legacy", "relation": "qa.customer_source"},
+                    "target": {"connection": "warehouse", "relation": "qa.customer_target"},
+                    "checks": {"use": ["recon_core.basic_equivalence"]},
+                },
+            ],
+        },
+    )
+
+    assert not result.succeeded
+    assert result.contracts == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_PARSE_MISSING_REQUIRED_FIELD"
+    ]
+    assert result.diagnostics[0].message == "Missing required contract field: version"
+
+
 def test_parse_contract_resource_preserves_valid_multi_contract_entries_with_diagnostics(
     tmp_path: Path,
 ) -> None:
