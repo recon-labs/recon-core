@@ -10,11 +10,35 @@ Open questions should be resolved through design discussion, implementation lear
 
 ### Should one file support multiple contracts in the first release?
 
+Decision:
+
+- support one contract per file,
+- support multiple contract files in a project,
+- support simple multi-contract YAML files,
+- normalize all contracts into the same internal contract model.
+
+### How should selectors and contract subset execution work?
+
+Open.
+
+Examples:
+
+```bash
+recon run --select tag:critical
+recon run --select contract:customer_revenue
+recon run --exclude tag:experimental
+```
+
 Preferred direction:
 
-- support one contract per file first,
-- support multiple contracts per file if it does not delay the parser,
-- normalize both into the same internal contract model.
+- use parsed manifest metadata, not raw file scanning,
+- design selector syntax before implementation,
+- define named selector shape in `selectors.yml`,
+- define how `--select` and `--exclude` compose,
+- record selected scope in compiled artifacts or run results when relevant,
+- fail clearly when selectors match nothing unless an explicit empty-selection
+  mode is added,
+- resolve with a future ADR before dbt-like selectors or partial run behavior.
 
 ### How much inheritance should contracts support?
 

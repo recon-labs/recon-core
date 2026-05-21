@@ -87,7 +87,7 @@ Capabilities:
 - basic HTML report,
 - `recon list` for manifest-backed resource discovery,
 - `recon clean` for safely removing generated artifacts,
-- selectors by tag/name,
+- selector design for tag/name selection,
 - improved error and warning model.
 
 Checks:

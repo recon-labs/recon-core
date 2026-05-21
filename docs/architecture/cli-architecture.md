@@ -186,6 +186,11 @@ recon run --exclude tag:experimental
 
 Selector logic should not require scanning files independently from the parser.
 
+Selector syntax and semantics are not locked yet. Implementing `--select`,
+`--exclude`, named selectors, or partial compile/run behavior requires a future
+design decision covering selection precedence, empty matches, artifact
+freshness, and run result metadata.
+
 ## Design principle
 
 The CLI should feel simple while delegating complex framework behavior to testable services.

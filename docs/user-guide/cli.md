@@ -166,7 +166,13 @@ recon run --select contract:customer_revenue
 recon run --exclude tag:experimental
 ```
 
-Selectors should use parsed project metadata.
+Selectors are not implemented yet, and the exact selector syntax is not locked.
+Before adding `--select`, `--exclude`, or `selectors.yml`, Recon needs a
+selector design covering syntax, manifest metadata, partial compile/run
+behavior, and run result semantics.
+
+Selectors should use parsed project metadata rather than scanning files
+independently from the parser.
 
 ## Artifact directories
 

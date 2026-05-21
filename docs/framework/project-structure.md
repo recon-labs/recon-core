@@ -97,6 +97,11 @@ Future dependency file for Recon packages.
 
 Named selectors for running groups of contracts.
 
+This file is a future project resource. Its syntax and semantics are not locked
+yet. Before implementation, Recon should define how selectors match contracts,
+how `--select` and `--exclude` compose, and how partial compile/run artifacts
+record selected scope.
+
 ## `connections/`
 
 Contains connection examples.
@@ -123,6 +128,9 @@ Contracts may reference endpoints later.
 Contains equivalence contracts.
 
 One contract per file and multiple contracts per file should both be supported.
+Parser support for multiple contract files and simple multi-contract YAML files
+does not imply selector support; selecting subsets for compile/run is a
+separate future CLI design.
 
 ## `check_packs/`
 

@@ -89,6 +89,10 @@ It supports:
 - CI tooling,
 - future integrations.
 
+Selector execution is a future design. The manifest should provide metadata
+that selectors can use, but `--select`, `--exclude`, named selectors, and
+partial compile/run semantics are not locked yet.
+
 ## Compiled artifacts
 
 Compiled artifacts are human-readable and machine-usable.
