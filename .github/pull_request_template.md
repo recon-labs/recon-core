@@ -51,12 +51,30 @@ Updated docs:
 list docs here
 ```
 
+## Public change impact
+
+- [ ] No public behavior or public contract impact
+- [ ] Public behavior changed
+- [ ] Contract YAML syntax or validation behavior changed
+- [ ] CLI behavior changed
+- [ ] Generated artifact format, path, or version changed
+- [ ] Adapter interface, capability, typed check plan, or package semantics changed
+- [ ] Result model, evidence output, sampling state, or watermark behavior changed
+
+If any public impact is checked:
+
+- [ ] `CHANGELOG.md` updated under `Unreleased`
+- [ ] Migration or deprecation guidance added when users must change projects, contracts, CLI usage, artifact consumers, adapters, packages, or evidence workflows
+- [ ] ADR added or updated when durable framework behavior changed
+- [ ] Not applicable; explained in Notes for reviewers
+
 ## Safety checklist
 
 - [ ] No credentials, tokens, private keys, or secrets are included.
 - [ ] No customer data or production evidence is included.
 - [ ] Generated artifacts under `target/`, `reports/`, or `state/` are not included.
 - [ ] Public behavior changes are documented.
+- [ ] Changelog, migration, and ADR impact has been handled or explicitly marked not applicable.
 - [ ] Durable design changes are captured in `docs/decisions/` when needed.
 - [ ] Validation behavior remains strict and does not create misleading evidence.
 
