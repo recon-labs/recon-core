@@ -1,0 +1,71 @@
+# Public Contract Inventory
+
+## Purpose
+
+This inventory lists the Recon surfaces that users, adapters, packages,
+integrations, generated-artifact readers, CI workflows, or future repositories
+may depend on.
+
+Treat these surfaces as public contract surfaces even before 1.0. Pre-alpha
+surfaces can still change, but changes must be deliberate, documented, and
+reviewed for compatibility impact.
+
+## Current inventory
+
+| Public contract surface | Current status | Primary docs | Code version constant |
+| --- | --- | --- | --- |
+| Contract YAML schema | Parser scope implemented; not frozen before 1.0. | `docs/framework/equivalence-contracts.md`, `docs/user-guide/equivalence-contracts.md` | Not centralized yet. |
+| Manifest artifact schema | Implemented for `recon parse`. | `docs/implementation/parser-and-manifest.md`, `docs/compatibility/artifact-versions.md` | `MANIFEST_ARTIFACT_VERSION = 1` |
+| Compiled artifact schema | Decided by ADR 0015; not implemented yet. | `docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`, `docs/implementation/compiled-artifacts.md` | Add `COMPILED_ARTIFACT_VERSION` when compiled artifact writers are implemented. |
+| Typed check plan schema | Decided at architecture level; not implemented yet. | `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`, `docs/compatibility/typed-check-plan.md` | Add `TYPED_CHECK_PLAN_VERSION` when typed plans are implemented and validated. |
+| Adapter API | Planned; not implemented or stable yet. | `docs/architecture/adapter-interface.md`, `docs/implementation/adapter-interface-spec.md`, `docs/compatibility/adapter-api.md` | Add `ADAPTER_API_VERSION` when the adapter API exists in code. |
+| Capability catalog | Draft catalog documented; no stable code constants yet. | `docs/compatibility/capability-catalog.md`, `docs/framework/adapters.md` | Add code constants or enums when adapter capability validation is implemented. |
+| Run result schema | Planned; not implemented yet. | `docs/implementation/result-model.md`, `docs/framework/evidence.md` | Add `RUN_RESULT_VERSION` when run result artifacts are implemented. |
+| Evidence and report schema | Planned; not implemented yet. | `docs/framework/evidence.md`, `docs/user-guide/evidence.md`, `docs/implementation/evidence-writers.md` | Add version constants when evidence artifacts have stable machine-readable formats. |
+| Failure detail schema | Planned; not implemented yet. | `docs/architecture/artifact-model.md`, `docs/implementation/result-model.md` | Add a version constant only if failure details become machine-readable artifacts. |
+| State, watermark, and sample-key formats | Planned; not implemented yet. | `docs/framework/state-and-watermarks.md`, `docs/implementation/sampling-engine.md` | Add version constants when state artifacts are implemented. |
+| Package resource schema | Planned; not implemented yet. | `docs/framework/packages.md`, `docs/framework/hub.md` | Add package schema/version constants when package loading is implemented. |
+| Cross-repo compatibility matrix | Documented as current/future matrix. | `docs/compatibility/compatibility-matrix.md` | Not a code constant. |
+
+## Version constant policy
+
+Code version constants should exist only for surfaces that code can actually
+produce, consume, validate, or reject.
+
+Use this policy:
+
+- keep `MANIFEST_ARTIFACT_VERSION` because `target/manifest.json` is implemented,
+- add `COMPILED_ARTIFACT_VERSION` when compiled artifact writers land,
+- add `TYPED_CHECK_PLAN_VERSION` when typed check-plan models land,
+- add `ADAPTER_API_VERSION` when the adapter API exists in code,
+- add `RUN_RESULT_VERSION` when `target/run_results.json` is implemented,
+- avoid placeholder constants that imply a stable API before the surface exists.
+
+## Public contract change rule
+
+A change touches a public contract surface when it changes:
+
+- accepted YAML syntax,
+- validation defaults or error behavior users rely on,
+- generated artifact fields, paths, IDs, versions, or semantics,
+- typed check-plan operation names, payloads, requirements, or rendering states,
+- adapter interfaces, capabilities, registry behavior, or version support,
+- result, evidence, failure detail, state, or watermark formats,
+- package resource schema or package compatibility behavior,
+- support ranges for Python, `recon-core`, adapters, packages, or test kits,
+- deprecation, migration, or cross-repo compatibility promises.
+
+When a public contract surface changes, use
+`docs/compatibility/change-checklist.md`.
+
+If a new public surface appears later, add it to this inventory in the same
+change that introduces the surface.
+
+## Related docs
+
+- `docs/compatibility/change-checklist.md`
+- `docs/compatibility/artifact-versions.md`
+- `docs/compatibility/adapter-api.md`
+- `docs/compatibility/typed-check-plan.md`
+- `docs/compatibility/capability-catalog.md`
+- `docs/compatibility/compatibility-matrix.md`

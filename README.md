@@ -247,6 +247,7 @@ Start here:
 - [MVP build order](docs/implementation/mvp-build-order.md)
 - [Architecture decisions](docs/decisions/README.md)
 - [Compatibility](docs/compatibility/README.md)
+- [Public contract inventory](docs/compatibility/public-contract-inventory.md)
 
 ## Contributing
 

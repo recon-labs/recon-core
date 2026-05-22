@@ -65,6 +65,7 @@ list docs here
 
 If any public impact is checked:
 
+- [ ] `docs/compatibility/change-checklist.md` reviewed
 - [ ] `CHANGELOG.md` updated under `Unreleased`
 - [ ] Migration or deprecation guidance added when users must change projects, contracts, CLI usage, artifact consumers, adapters, packages, or evidence workflows
 - [ ] `docs/compatibility/` updated when compatibility surfaces, version support, adapters, typed plans, capabilities, artifacts, packages, integrations, or automation are affected

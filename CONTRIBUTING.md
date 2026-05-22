@@ -104,6 +104,9 @@ Examples:
 
 Documentation should be written as project documentation, not as implementation notes.
 
+For changes to public contract surfaces, use
+`docs/compatibility/change-checklist.md`.
+
 ## Pull request expectations
 
 A good pull request includes:

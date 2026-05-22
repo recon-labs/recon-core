@@ -32,6 +32,10 @@ Current implementation status:
 
 ## Documents
 
+- `public-contract-inventory.md` lists the public contract surfaces that need
+  compatibility review.
+- `change-checklist.md` gives the required review checklist for public contract
+  changes.
 - `adapter-api.md` defines the current adapter API compatibility position.
 - `typed-check-plan.md` defines the current typed check-plan compatibility
   position.
@@ -73,6 +77,8 @@ update the relevant ADR under `docs/decisions/` or create a new one.
 
 See also:
 
+- `docs/compatibility/public-contract-inventory.md`
+- `docs/compatibility/change-checklist.md`
 - `docs/decisions/adr-0012-adapter-and-package-ecosystem.md`
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
 - `docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`

@@ -70,6 +70,28 @@ These are related but not the same. A new `recon-core` release may write the
 same artifact schema version, and a future artifact schema change may require
 migration guidance even before 1.0.
 
+## Code version constants
+
+Version constants should exist only for artifacts that code can produce,
+consume, validate, or reject.
+
+Current code constant:
+
+```text
+MANIFEST_ARTIFACT_VERSION = 1
+```
+
+Planned constants should be added when their writers or readers are
+implemented:
+
+```text
+COMPILED_ARTIFACT_VERSION
+RUN_RESULT_VERSION
+```
+
+Do not add placeholder artifact constants for planned artifacts before the
+implementation exists.
+
 ## Generated artifact policy
 
 Generated artifacts belong under ignored paths:
