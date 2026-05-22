@@ -231,6 +231,7 @@ docs/framework/        Framework concepts and public behavior
 docs/architecture/     System boundaries and package layout
 docs/implementation/   Implementation guidance and build order
 docs/decisions/        Architecture decision records
+docs/compatibility/    Compatibility surfaces and version support
 examples/              Authored example Recon projects
 ```
 
@@ -245,6 +246,7 @@ Start here:
 - [Framework concepts](docs/framework/core-concepts.md)
 - [MVP build order](docs/implementation/mvp-build-order.md)
 - [Architecture decisions](docs/decisions/README.md)
+- [Compatibility](docs/compatibility/README.md)
 
 ## Contributing
 

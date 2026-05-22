@@ -30,6 +30,7 @@ Describe what changed and why.
 - [ ] CLI
 - [ ] Adapters
 - [ ] Packages
+- [ ] Compatibility
 - [ ] Documentation
 
 ## Tests
@@ -60,11 +61,13 @@ list docs here
 - [ ] Generated artifact format, path, or version changed
 - [ ] Adapter interface, capability, typed check plan, or package semantics changed
 - [ ] Result model, evidence output, sampling state, or watermark behavior changed
+- [ ] Compatibility promise, support range, deprecation, or migration behavior changed
 
 If any public impact is checked:
 
 - [ ] `CHANGELOG.md` updated under `Unreleased`
 - [ ] Migration or deprecation guidance added when users must change projects, contracts, CLI usage, artifact consumers, adapters, packages, or evidence workflows
+- [ ] `docs/compatibility/` updated when compatibility surfaces, version support, adapters, typed plans, capabilities, artifacts, packages, integrations, or automation are affected
 - [ ] ADR added or updated when durable framework behavior changed
 - [ ] Not applicable; explained in Notes for reviewers
 
@@ -75,6 +78,7 @@ If any public impact is checked:
 - [ ] Generated artifacts under `target/`, `reports/`, or `state/` are not included.
 - [ ] Public behavior changes are documented.
 - [ ] Changelog, migration, and ADR impact has been handled or explicitly marked not applicable.
+- [ ] Compatibility documentation impact has been handled or explicitly marked not applicable.
 - [ ] Durable design changes are captured in `docs/decisions/` when needed.
 - [ ] Validation behavior remains strict and does not create misleading evidence.
 

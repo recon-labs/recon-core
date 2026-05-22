@@ -99,6 +99,7 @@ Examples:
 - check pack behavior changes,
 - adapter capability changes,
 - typed check plan or adapter API changes,
+- compatibility promises or supported version ranges,
 - evidence output changes.
 
 Documentation should be written as project documentation, not as implementation notes.
