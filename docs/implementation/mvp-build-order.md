@@ -243,6 +243,48 @@ checklist before any 0.1 version bump, tag, or publish step.
 Do not start treating roadmap work as 0.2 scope until the 0.1 release decision
 has been made.
 
+## Post-MVP Milestone 11: aggregate metrics expansion
+
+Build this after Milestones 1-10 are complete and after the 0.1
+release-readiness decision.
+
+Goal:
+
+- expand explicit aggregate metric support beyond the MVP `sum` metric,
+- keep `recon_core.aggregate_equivalence` deferred until its behavior is
+  explicitly designed,
+- avoid aggregate inference from numeric columns unless a durable decision
+  defines the opt-in model and compiled artifact visibility.
+
+Build:
+
+- explicit `min`, `max`, `avg`, and `count_distinct` metric compilation,
+- grouped aggregate behavior where adapter capabilities support it,
+- validation for metric type and referenced column compatibility,
+- typed check-plan operations and adapter capability expectations,
+- check-engine execution for the new aggregate metric checks,
+- result and evidence fields for aggregate metric comparisons.
+
+Tests:
+
+- each supported metric type compiles into the expected typed plan,
+- unsupported metric types produce diagnostics,
+- grouped and ungrouped aggregate behavior is covered separately,
+- adapter capability validation blocks unsupported aggregate operations,
+- run results and evidence preserve metric names and aggregate details.
+
+Required gate:
+
+- resolve the aggregate metrics expansion gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  implementation.
+
+Recommended commit message:
+
+```text
+feat: expand aggregate metric checks
+```
+
 ## Deferral list
 
 Do not block MVP on:
@@ -257,6 +299,8 @@ Do not block MVP on:
 - many adapters,
 - hosted UI,
 - persisted random sample,
+- aggregate metric expansion beyond explicit `sum`,
+- `recon_core.aggregate_equivalence`,
 - SCD2 CDC,
 - advanced evidence redaction,
 - orchestration integrations.
