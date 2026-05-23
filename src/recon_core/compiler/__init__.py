@@ -1,14 +1,28 @@
 """Compiler primitives for resolved Recon execution intent."""
 
+from recon_core.compiler.check_packs import (
+    BASIC_EQUIVALENCE_CHECK_PACK_NAME,
+    UNKNOWN_CHECK_PACK,
+    VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS,
+    CheckPackExpansionResult,
+    expand_basic_equivalence,
+    expand_check_pack,
+)
 from recon_core.compiler.ids import build_check_id, build_contract_id, build_plan_id
 from recon_core.compiler.models import (
     COMPILED_ARTIFACT_VERSION,
     AdapterCapability,
+    BlockingPolicy,
     BlockingPolicyValue,
+    CheckOrigin,
     CheckOriginKind,
     CheckPlan,
     CheckPlanDict,
+    CheckRequirements,
     CompiledArtifactType,
+    CompiledCheck,
+    CompiledCheckDict,
+    CompiledCheckType,
     Identity,
     IdentityDict,
     IdentityKind,
@@ -22,12 +36,20 @@ from recon_core.compiler.models import (
 
 __all__ = [
     "COMPILED_ARTIFACT_VERSION",
+    "BASIC_EQUIVALENCE_CHECK_PACK_NAME",
     "AdapterCapability",
+    "BlockingPolicy",
     "BlockingPolicyValue",
+    "CheckPackExpansionResult",
+    "CheckOrigin",
+    "CheckOriginKind",
+    "CheckRequirements",
     "CheckPlan",
     "CheckPlanDict",
-    "CheckOriginKind",
     "CompiledArtifactType",
+    "CompiledCheck",
+    "CompiledCheckDict",
+    "CompiledCheckType",
     "Identity",
     "IdentityDict",
     "IdentityKind",
@@ -37,7 +59,11 @@ __all__ = [
     "RenderingStatus",
     "TypedOperation",
     "TypedOperationDict",
+    "UNKNOWN_CHECK_PACK",
+    "VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS",
     "build_check_id",
     "build_contract_id",
     "build_plan_id",
+    "expand_basic_equivalence",
+    "expand_check_pack",
 ]

@@ -276,6 +276,41 @@ and duplicate grain-key checks report key safety failures separately.
 
 Empty check-pack expansion is an error.
 
+Example null-key check plan:
+
+```yaml
+- id: check.cdc_validation.orders_cdc.null_source_keys
+  name: null_source_keys
+  type: null_source_keys
+  origin:
+    kind: check_pack
+    name: recon_core.basic_equivalence
+  identity:
+    kind: grain
+    keys:
+      - order_id
+  requirements:
+    requires_grain_keys: true
+    requires_non_null_grain: false
+    requires_unique_grain: false
+    requires_cdc_keys: false
+    required_columns: []
+    required_metrics: []
+    required_capabilities:
+      - null_key
+  plan:
+    id: plan.cdc_validation.orders_cdc.null_source_keys
+    operations:
+      - type: null_key
+        side: source
+        identity:
+          kind: grain
+          keys:
+            - order_id
+    required_capabilities:
+      - null_key
+```
+
 ## Metric compilation
 
 Explicit metrics compile into aggregate checks.

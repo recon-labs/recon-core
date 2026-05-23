@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import NotRequired, TypedDict
 
+from recon_core.diagnostics import Diagnostic, DiagnosticDict
+
 COMPILED_ARTIFACT_VERSION = 1
 
 
@@ -21,6 +23,18 @@ class CheckOriginKind(StrEnum):
     METRIC = "metric"
     CHECK_PACK = "check_pack"
     FRAMEWORK_REQUIRED_SAFETY_CHECK = "framework_required_safety_check"
+
+
+class CompiledCheckType(StrEnum):
+    """Compiled check type names."""
+
+    ROW_COUNT_DIFF = "row_count_diff"
+    MISSING_KEYS = "missing_keys"
+    EXTRA_KEYS = "extra_keys"
+    NULL_SOURCE_KEYS = "null_source_keys"
+    NULL_TARGET_KEYS = "null_target_keys"
+    DUPLICATE_SOURCE_KEYS = "duplicate_source_keys"
+    DUPLICATE_TARGET_KEYS = "duplicate_target_keys"
 
 
 class IdentityKind(StrEnum):
@@ -127,6 +141,45 @@ class CheckPlanDict(TypedDict):
     required_capabilities: list[str]
 
 
+class CheckOriginDict(TypedDict):
+    kind: str
+    name: NotRequired[str]
+    required_by: NotRequired[list[str]]
+
+
+class CheckRequirementsDict(TypedDict):
+    requires_grain_keys: bool
+    requires_non_null_grain: bool
+    requires_unique_grain: bool
+    requires_cdc_keys: bool
+    required_columns: list[str]
+    required_metrics: list[str]
+    required_capabilities: list[str]
+
+
+class BlockingPolicyDict(TypedDict):
+    on_prerequisite_failure: str
+
+
+class RenderingDict(TypedDict):
+    status: str
+    sql_paths: list[str]
+
+
+class CompiledCheckDict(TypedDict):
+    id: str
+    name: str
+    type: str
+    origin: CheckOriginDict
+    identity: IdentityDict
+    requirements: CheckRequirementsDict
+    prerequisites: list[str]
+    blocking_policy: BlockingPolicyDict
+    plan: CheckPlanDict
+    rendering: RenderingDict
+    diagnostics: list[DiagnosticDict]
+
+
 @dataclass(frozen=True, slots=True)
 class Identity:
     """Resolved identity used by a compiled check or typed operation."""
@@ -138,6 +191,73 @@ class Identity:
         return {
             "kind": self.kind.value,
             "keys": list(self.keys),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CheckOrigin:
+    """Reason a compiled check was generated."""
+
+    kind: CheckOriginKind
+    name: str | None = None
+    required_by: tuple[str, ...] = ()
+
+    def to_dict(self) -> CheckOriginDict:
+        origin: CheckOriginDict = {"kind": self.kind.value}
+        if self.name is not None:
+            origin["name"] = self.name
+        if self.required_by:
+            origin["required_by"] = list(self.required_by)
+        return origin
+
+
+@dataclass(frozen=True, slots=True)
+class CheckRequirements:
+    """Resolved requirements for a compiled check."""
+
+    requires_grain_keys: bool = False
+    requires_non_null_grain: bool = False
+    requires_unique_grain: bool = False
+    requires_cdc_keys: bool = False
+    required_columns: tuple[str, ...] = ()
+    required_metrics: tuple[str, ...] = ()
+    required_capabilities: tuple[AdapterCapability, ...] = ()
+
+    def to_dict(self) -> CheckRequirementsDict:
+        return {
+            "requires_grain_keys": self.requires_grain_keys,
+            "requires_non_null_grain": self.requires_non_null_grain,
+            "requires_unique_grain": self.requires_unique_grain,
+            "requires_cdc_keys": self.requires_cdc_keys,
+            "required_columns": list(self.required_columns),
+            "required_metrics": list(self.required_metrics),
+            "required_capabilities": [
+                capability.value for capability in self.required_capabilities
+            ],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class BlockingPolicy:
+    """Runtime behavior for checks blocked by prerequisite failures."""
+
+    on_prerequisite_failure: BlockingPolicyValue = BlockingPolicyValue.SKIPPED
+
+    def to_dict(self) -> BlockingPolicyDict:
+        return {"on_prerequisite_failure": self.on_prerequisite_failure.value}
+
+
+@dataclass(frozen=True, slots=True)
+class Rendering:
+    """SQL rendering metadata for a compiled check."""
+
+    status: RenderingStatus = RenderingStatus.NOT_RENDERED
+    sql_paths: tuple[str, ...] = ()
+
+    def to_dict(self) -> RenderingDict:
+        return {
+            "status": self.status.value,
+            "sql_paths": list(self.sql_paths),
         }
 
 
@@ -282,4 +402,36 @@ class CheckPlan:
             "required_capabilities": [
                 capability.value for capability in self.required_capabilities
             ],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledCheck:
+    """Resolved check generated from authored checks, metrics, or check packs."""
+
+    id: str
+    name: str
+    check_type: CompiledCheckType
+    origin: CheckOrigin
+    identity: Identity
+    requirements: CheckRequirements
+    plan: CheckPlan
+    prerequisites: tuple[str, ...] = ()
+    blocking_policy: BlockingPolicy = BlockingPolicy()
+    rendering: Rendering = Rendering()
+    diagnostics: tuple[Diagnostic, ...] = ()
+
+    def to_dict(self) -> CompiledCheckDict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "type": self.check_type.value,
+            "origin": self.origin.to_dict(),
+            "identity": self.identity.to_dict(),
+            "requirements": self.requirements.to_dict(),
+            "prerequisites": list(self.prerequisites),
+            "blocking_policy": self.blocking_policy.to_dict(),
+            "plan": self.plan.to_dict(),
+            "rendering": self.rendering.to_dict(),
+            "diagnostics": [diagnostic.to_dict() for diagnostic in self.diagnostics],
         }

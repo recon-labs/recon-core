@@ -18,6 +18,8 @@ Current state:
 - ADR 0015 establishes the compiled artifact shape that will contain typed
   plans.
 - The typed plan model foundation exists in code.
+- Built-in `recon_core.basic_equivalence` expansion helpers produce draft typed
+  plans at library level.
 - End-to-end contract compilation is not implemented yet.
 - No stable typed check-plan schema has been released.
 - No adapter currently consumes typed plans.

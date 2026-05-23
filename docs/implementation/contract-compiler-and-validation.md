@@ -154,6 +154,21 @@ duplicate_target_keys
 The pack requires `grain.keys`. It must not silently weaken to only
 `row_count_diff` when grain is missing.
 
+The expanded checks should lower to typed operations as follows:
+
+| Check | Typed operation | Required capability |
+| --- | --- | --- |
+| `row_count_diff` | `row_count` on both sides, then `compare_counts` | `row_count` |
+| `missing_keys` | `key_diff` with `source_minus_target` | `key_diff` |
+| `extra_keys` | `key_diff` with `target_minus_source` | `key_diff` |
+| `null_source_keys` | `null_key` with `side: source` | `null_key` |
+| `null_target_keys` | `null_key` with `side: target` | `null_key` |
+| `duplicate_source_keys` | `duplicate_key` with `side: source` | `duplicate_key` |
+| `duplicate_target_keys` | `duplicate_key` with `side: target` | `duplicate_key` |
+
+`null_key` checks actual data values in declared identity keys. It is not a
+schema nullability check.
+
 ## Empty expansion
 
 If a check pack requires inputs and expands to no checks, default behavior is error.
