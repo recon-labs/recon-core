@@ -129,6 +129,28 @@ def test_compile_service_writes_no_artifacts_for_duplicate_contract_names(
     assert not (tmp_path / "target" / "compiled_checks").exists()
 
 
+def test_compile_service_writes_no_artifacts_for_case_colliding_artifact_names(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path, name="Sales", file_name="sales_upper.yml")
+    write_contract(tmp_path, name="sales", file_name="sales_lower.yml")
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert result.message == "Compile failed with 1 diagnostic. Wrote no compiled artifacts."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION"
+    ]
+    assert result.diagnostics[0].path in {
+        "contracts/sales_lower.yml",
+        "contracts/sales_upper.yml",
+    }
+    assert not (tmp_path / "target" / "compiled_contracts").exists()
+    assert not (tmp_path / "target" / "compiled_checks").exists()
+
+
 def test_compile_service_returns_runtime_error_when_artifacts_cannot_be_written(
     tmp_path: Path,
 ) -> None:
@@ -172,7 +194,13 @@ target-path: target
     )
 
 
-def write_contract(project_root: Path, *, include_grain: bool = True) -> None:
+def write_contract(
+    project_root: Path,
+    *,
+    name: str = "customer_revenue",
+    file_name: str = "customer_revenue.yml",
+    include_grain: bool = True,
+) -> None:
     grain_yaml = (
         """
 grain:
@@ -183,10 +211,10 @@ grain:
         if include_grain
         else ""
     )
-    project_root.joinpath("contracts", "customer_revenue.yml").write_text(
+    project_root.joinpath("contracts", file_name).write_text(
         f"""
 version: 1
-name: customer_revenue
+name: {name}
 source:
   connection: legacy
   relation: qa.customer_source

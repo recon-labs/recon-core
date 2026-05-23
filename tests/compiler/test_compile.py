@@ -1,4 +1,8 @@
-from recon_core.compiler import INVALID_STABLE_ID_PART, compile_project
+from recon_core.compiler import (
+    COMPILED_ARTIFACT_FILENAME_COLLISION,
+    INVALID_STABLE_ID_PART,
+    compile_project,
+)
 from recon_core.compiler.check_packs import VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
 from recon_core.compiler.models import CompiledArtifactType
 from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndpoint
@@ -152,6 +156,31 @@ def test_compile_project_returns_diagnostic_for_duplicate_contract_names() -> No
     assert result.diagnostics[0].resource_type == "contract"
     assert result.diagnostics[0].resource_name == "customer_revenue"
     assert result.diagnostics[0].path == "contracts/duplicate.yml"
+
+
+def test_compile_project_returns_diagnostic_for_case_colliding_artifact_names() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(name="Sales", source_path="contracts/sales_upper.yml"),
+            _contract(name="sales", source_path="contracts/sales_lower.yml"),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert result.contracts == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        COMPILED_ARTIFACT_FILENAME_COLLISION
+    ]
+    assert result.diagnostics[0].resource_type == "contract"
+    assert result.diagnostics[0].resource_name == "sales"
+    assert result.diagnostics[0].path == "contracts/sales_lower.yml"
+    assert "Sales.yml" in result.diagnostics[0].message
+    assert "sales.yml" in result.diagnostics[0].message
 
 
 def test_compile_project_returns_diagnostic_for_invalid_metric_stable_id_part() -> None:

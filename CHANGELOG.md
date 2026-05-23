@@ -28,8 +28,9 @@ This project follows semantic versioning once public package releases begin.
 ### Fixed
 
 - `recon compile` now reports structured validation diagnostics for invalid
-  stable ID parts and duplicate contract names instead of crashing or silently
-  overwriting compiled artifacts.
+  stable ID parts, duplicate contract names, and case-insensitive compiled
+  artifact filename collisions instead of crashing or silently overwriting
+  compiled artifacts.
 
 ## Release format
 

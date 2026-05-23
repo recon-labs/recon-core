@@ -123,6 +123,8 @@ Current `compile` behavior:
   yet,
 - validates duplicate contract names and stable ID-safe project, contract, and
   metric names before writing compiled artifacts,
+- validates case-insensitive contract filename collisions before writing
+  compiled artifacts,
 - exits with code `2` when parse or compile diagnostics contain errors.
 
 Current limitations:

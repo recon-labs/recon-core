@@ -544,6 +544,12 @@ compiled contract and compiled checks filenames are contract-name based. Compile
 must report duplicate contract names before artifact writing and must not
 silently overwrite generated artifacts.
 
+Contract names must also be unique when compared case-insensitively for compiled
+artifact filenames. Names such as `Sales` and `sales` have distinct stable IDs
+but can target the same filename on common case-insensitive filesystems. Compile
+must report `RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION` before artifact
+writing in this case.
+
 ## Implementation pattern
 
 The compiler should follow the existing parser and manifest style:

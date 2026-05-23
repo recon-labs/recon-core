@@ -74,6 +74,11 @@ names must fail validation before artifact writing. The compiler must not
 silently overwrite one compiled contract or compiled checks artifact with
 another.
 
+Contract names must also be unique when compared case-insensitively for compiled
+artifact filenames. For example, `Sales` and `sales` would produce filenames
+that collide on common case-insensitive filesystems, so compile should report
+`RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION` before writing artifacts.
+
 Names used in stable IDs must start with a letter or underscore and contain only
 letters, numbers, and underscores. Invalid project, contract, check, or metric
 name parts should produce `RC_VALIDATE_INVALID_STABLE_ID_PART` diagnostics

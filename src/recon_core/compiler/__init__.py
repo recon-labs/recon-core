@@ -9,6 +9,7 @@ from recon_core.compiler.check_packs import (
     expand_check_pack,
 )
 from recon_core.compiler.compile import (
+    COMPILED_ARTIFACT_FILENAME_COLLISION,
     DUPLICATE_COMPILED_CHECK,
     INVALID_CHECK_PACK_USE,
     INVALID_GRAIN_KEYS,
@@ -77,6 +78,7 @@ from recon_core.compiler.models import (
 __all__ = [
     "COMPILED_ARTIFACT_VERSION",
     "BASIC_EQUIVALENCE_CHECK_PACK_NAME",
+    "COMPILED_ARTIFACT_FILENAME_COLLISION",
     "DUPLICATE_METRIC_NAME",
     "DUPLICATE_COMPILED_CHECK",
     "INVALID_METRIC",

@@ -30,6 +30,7 @@ from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndp
 
 INVALID_CHECK_PACK_USE = "RC_VALIDATE_INVALID_CHECK_PACK_USE"
 INVALID_GRAIN_KEYS = "RC_VALIDATE_INVALID_GRAIN_KEYS"
+COMPILED_ARTIFACT_FILENAME_COLLISION = "RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION"
 UNSUPPORTED_EXPLICIT_CHECKS = "RC_COMPILE_UNSUPPORTED_EXPLICIT_CHECKS"
 DUPLICATE_COMPILED_CHECK = "RC_COMPILE_DUPLICATE_COMPILED_CHECK"
 
@@ -75,6 +76,7 @@ def compile_project(
     diagnostics: list[Diagnostic] = []
     diagnostics.extend(_stable_project_id_diagnostics(project_name, contracts))
     diagnostics.extend(_duplicate_contract_name_diagnostics(contracts))
+    diagnostics.extend(_compiled_artifact_filename_collision_diagnostics(contracts))
     if diagnostics:
         return ProjectCompilationResult(
             diagnostics=tuple(diagnostics),
@@ -254,6 +256,43 @@ def _duplicate_contract_name_diagnostics(
         seen_contracts[contract.name] = contract
 
     return tuple(diagnostics)
+
+
+def _compiled_artifact_filename_collision_diagnostics(
+    contracts: Sequence[AuthoredContract],
+) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+    seen_contracts_by_filename: dict[str, AuthoredContract] = {}
+
+    for contract in contracts:
+        filename = _compiled_contract_filename(contract.name)
+        filename_key = filename.casefold()
+        existing_contract = seen_contracts_by_filename.get(filename_key)
+        if existing_contract is not None and existing_contract.name != contract.name:
+            existing_filename = _compiled_contract_filename(existing_contract.name)
+            diagnostics.append(
+                Diagnostic(
+                    code=COMPILED_ARTIFACT_FILENAME_COLLISION,
+                    severity=DiagnosticSeverity.ERROR,
+                    message=(
+                        f"Contract names {existing_contract.name} and {contract.name} would "
+                        "write case-colliding compiled artifact filenames "
+                        f"{existing_filename} and {filename}."
+                    ),
+                    resource_type="contract",
+                    resource_name=contract.name,
+                    path=contract.source_location.path,
+                    hint=("Use contract names that are unique when compared case-insensitively."),
+                )
+            )
+            continue
+        seen_contracts_by_filename[filename_key] = contract
+
+    return tuple(diagnostics)
+
+
+def _compiled_contract_filename(contract_name: str) -> str:
+    return f"{contract_name}.yml"
 
 
 def _grain_keys(contract: AuthoredContract, diagnostics: list[Diagnostic]) -> tuple[str, ...]:
