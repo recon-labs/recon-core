@@ -60,6 +60,10 @@ Compiled contracts and compiled checks are separate artifacts:
 When adapter SQL rendering is not available, compiled checks should still show
 typed plans and mark rendering as `not_rendered`.
 
+Current implementation writes compiled contract and compiled checks artifacts
+for supported check-pack and metric behavior. `target/compiled_sql/` is not
+written until adapter SQL rendering exists.
+
 ## `recon run`
 
 `recon run` executes checks.

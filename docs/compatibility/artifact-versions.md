@@ -13,8 +13,8 @@ artifact formats.
 | Artifact | Path | Format | Version status |
 | --- | --- | --- | --- |
 | Manifest | `target/manifest.json` | JSON | Implemented with `artifact_version: 1`. |
-| Compiled contract | `target/compiled_contracts/<contract_name>.yml` | YAML | Schema decided as `artifact_version: 1`, not implemented yet. |
-| Compiled checks | `target/compiled_checks/<contract_name>.yml` | YAML | Schema decided as `artifact_version: 1`, not implemented yet. |
+| Compiled contract | `target/compiled_contracts/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
+| Compiled checks | `target/compiled_checks/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
 | Compiled SQL | `target/compiled_sql/**` | SQL | Planned, not implemented yet. |
 | Run results | `target/run_results.json` | JSON | Planned, not implemented yet. |
 | Failure details | `target/failures/` | TBD | Planned, not implemented yet. |
@@ -36,8 +36,8 @@ Example:
 }
 ```
 
-Compiled and run artifacts should also include `invocation_id` once those
-writers exist.
+Compiled artifacts also include `invocation_id`. Run artifacts should include
+`invocation_id` once run artifact writers exist.
 
 ## Artifact version rules
 
@@ -75,17 +75,17 @@ migration guidance even before 1.0.
 Version constants should exist only for artifacts that code can produce,
 consume, validate, or reject.
 
-Current code constant:
+Current code constants:
 
 ```text
 MANIFEST_ARTIFACT_VERSION = 1
+COMPILED_ARTIFACT_VERSION = 1
 ```
 
 Planned constants should be added when their writers or readers are
 implemented:
 
 ```text
-COMPILED_ARTIFACT_VERSION
 RUN_RESULT_VERSION
 ```
 

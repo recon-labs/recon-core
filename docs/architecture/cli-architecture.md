@@ -115,6 +115,10 @@ target/compiled_sql/  # when adapter SQL rendering is available
 
 It should return non-zero on compile-time validation errors.
 
+Current implementation reads authored files through the parser pipeline,
+expands supported check packs and explicit metrics, and writes compiled
+contract and compiled checks artifacts. It does not render SQL yet.
+
 ## `recon run`
 
 Runs compiled checks.

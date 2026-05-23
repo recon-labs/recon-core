@@ -32,6 +32,10 @@ target/compiled_sql/<contract_name>/<check_name>/comparison.sql
 When SQL rendering is not available, compiled checks still include typed plans
 and should set `rendering.status: not_rendered`.
 
+The current compiler writes compiled contract and compiled checks YAML artifacts
+for supported check-pack and metric behavior. It does not write
+`target/compiled_sql/` yet.
+
 ## Artifact header
 
 Compiled artifacts use top-level artifact header fields:

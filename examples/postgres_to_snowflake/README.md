@@ -18,10 +18,10 @@ schema_policies/
 
 ## Current Status
 
-This is a project and contract fixture for the framework design. `recon parse`,
-`recon compile`, and `recon run` are registered in the CLI but are not
-implemented yet.
+This is a project and contract fixture for the framework design. `recon parse`
+and `recon compile` are implemented for the current parser and compiler scope.
+`recon run` is registered in the CLI but is not implemented yet.
 
-Generated artifacts should be written under `target/`, `reports/`, and
-`state/` once those commands are implemented. Those directories should not be
+Generated artifacts are written under `target/`. Future evidence and state
+outputs belong under `reports/` and `state/`. Those directories should not be
 committed.

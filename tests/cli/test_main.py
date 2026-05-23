@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 from click.testing import CliRunner
 
 from recon_core import __version__
@@ -24,7 +25,7 @@ def test_cli_help_lists_core_commands() -> None:
         assert command in result.output
 
 
-@pytest.mark.parametrize("command", ["compile", "run"])
+@pytest.mark.parametrize("command", ["run"])
 def test_placeholder_commands_fail_clearly(command: str) -> None:
     result = CliRunner().invoke(main, [command])
 
@@ -78,6 +79,33 @@ def test_parse_command_writes_manifest_for_project() -> None:
         manifest = json.loads(_manifest_path().read_text(encoding="utf-8"))
         assert list(manifest["contracts"]) == ["customer_revenue"]
         assert manifest["diagnostics"] == []
+
+
+def test_compile_command_writes_compiled_artifacts_for_project() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        _write_project()
+        _write_contract()
+
+        result = runner.invoke(main, ["compile"])
+
+        assert result.exit_code == 0
+        assert "Compiled 1 contract. Wrote artifacts to" in result.output
+
+        checks = _read_yaml(_compiled_checks_path())
+        assert isinstance(checks, dict)
+        assert checks["artifact_type"] == "compiled_checks"
+        assert [check["name"] for check in checks["checks"]] == [
+            "row_count_diff",
+            "missing_keys",
+            "extra_keys",
+            "null_source_keys",
+            "null_target_keys",
+            "duplicate_source_keys",
+            "duplicate_target_keys",
+            "total_revenue",
+        ]
 
 
 def test_parse_command_returns_validation_error_and_writes_manifest() -> None:
@@ -185,6 +213,14 @@ source:
 target:
   connection: warehouse
   relation: qa.customer_target
+grain:
+  keys:
+    - customer_id
+    - month
+metrics:
+  - name: total_revenue
+    type: sum
+    column: revenue
 checks:
   use:
     - recon_core.basic_equivalence
@@ -203,3 +239,11 @@ def _contract_path() -> Path:
 
 def _manifest_path() -> Path:
     return Path("target/manifest.json")
+
+
+def _compiled_checks_path() -> Path:
+    return Path("target/compiled_checks/customer_revenue.yml")
+
+
+def _read_yaml(path: Path) -> object:
+    return yaml.safe_load(path.read_text(encoding="utf-8"))

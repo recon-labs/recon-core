@@ -18,6 +18,8 @@ This project follows semantic versioning once public package releases begin.
   coverage, null-key, and duplicate-key checks.
 - Explicit metric compilation helpers for ungrouped `sum_diff` and grouped
   aggregate comparison typed plans.
+- `recon compile` artifact generation for compiled contract and compiled checks
+  YAML under `target/`.
 
 ### Changed
 

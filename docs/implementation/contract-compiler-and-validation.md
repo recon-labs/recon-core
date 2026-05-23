@@ -77,6 +77,18 @@ The compiler should not make database-specific SQL strings the primary internal
 representation. It should create typed compiled checks and typed check plans.
 Adapters render those plans into dialect-specific SQL when SQL output is needed.
 
+The current compiler implementation supports the first end-to-end artifact
+path:
+
+- parse current authored contract files,
+- expand supported check packs,
+- compile explicit `sum` metrics,
+- write compiled contract and compiled checks YAML artifacts,
+- mark rendering as `not_rendered`.
+
+Explicit authored checks outside supported check-pack and metric compilation
+return a clear diagnostic until their typed plans are implemented.
+
 ## Columns, metrics, and checks
 
 Compiler rules:

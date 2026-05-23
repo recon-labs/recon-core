@@ -46,6 +46,7 @@ class _MetricDefinition:
     metric_type: str
     column: str
     group_by: tuple[str, ...] = ()
+    tolerance: object | None = None
 
 
 def compile_metrics(
@@ -92,6 +93,7 @@ def _parse_metric(raw_metric: Mapping[str, object]) -> _MetricDefinition | None:
     metric_type = raw_metric.get("type")
     column = raw_metric.get("column")
     group_by = raw_metric.get("group_by", ())
+    tolerance = raw_metric.get("tolerance")
 
     if not isinstance(name, str) or not name:
         return None
@@ -109,6 +111,7 @@ def _parse_metric(raw_metric: Mapping[str, object]) -> _MetricDefinition | None:
         metric_type=metric_type,
         column=column,
         group_by=tuple(group_by),
+        tolerance=tolerance,
     )
 
 
@@ -146,6 +149,7 @@ def _compile_metric(
             column=metric.column,
             group_by=metric.group_by,
         ),
+        tolerance=metric.tolerance,
         plan=plan,
     )
 

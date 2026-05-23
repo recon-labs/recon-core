@@ -55,6 +55,10 @@ Compile should make hidden behavior visible.
 Typed check plans are the core execution intent. Rendered SQL is an
 adapter-specific artifact derived from those plans.
 
+Current compile implementation writes compiled contract and compiled checks
+artifacts with `rendering.status: not_rendered`. Adapter SQL rendering is a
+future layer.
+
 ## Run service
 
 The run service should:

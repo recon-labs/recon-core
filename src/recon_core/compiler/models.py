@@ -168,6 +168,11 @@ class RenderingDict(TypedDict):
     sql_paths: list[str]
 
 
+class ResolvedSamplingDict(TypedDict, total=False):
+    mode: str
+    policy: str
+
+
 class CompiledMetricDict(TypedDict):
     type: str
     column: str
@@ -181,11 +186,77 @@ class CompiledCheckDict(TypedDict):
     origin: CheckOriginDict
     identity: IdentityDict
     requirements: CheckRequirementsDict
+    sampling: ResolvedSamplingDict
+    tolerance: object | None
     metric: NotRequired[CompiledMetricDict]
     prerequisites: list[str]
     blocking_policy: BlockingPolicyDict
     plan: CheckPlanDict
     rendering: RenderingDict
+    diagnostics: list[DiagnosticDict]
+
+
+class CompiledProjectDict(TypedDict):
+    name: str
+    version: str | None
+
+
+class CompiledContractReferenceDict(TypedDict):
+    id: str
+    name: str
+    source_file: str
+    authored_version: NotRequired[int]
+
+
+class CompiledEndpointDict(TypedDict):
+    connection: str
+    relation: str | None
+    query: str | None
+
+
+class CompiledGrainIdentityDict(TypedDict):
+    keys: list[str]
+
+
+class CompiledContractIdentityDict(TypedDict):
+    grain: CompiledGrainIdentityDict
+    cdc: object | None
+
+
+class CompiledContractPoliciesDict(TypedDict):
+    sampling: object | None
+    tolerance_policy: object | None
+    schema: object | None
+    cdc: object | None
+    evidence: object | None
+
+
+class CompiledContractArtifactDict(TypedDict):
+    artifact_type: str
+    artifact_version: int
+    recon_version: str
+    generated_at: str
+    invocation_id: str
+    project: CompiledProjectDict
+    contract: CompiledContractReferenceDict
+    source: CompiledEndpointDict
+    target: CompiledEndpointDict
+    identity: CompiledContractIdentityDict
+    columns: object | None
+    metrics: list[dict[str, object]]
+    policies: CompiledContractPoliciesDict
+    diagnostics: list[DiagnosticDict]
+
+
+class CompiledChecksArtifactDict(TypedDict):
+    artifact_type: str
+    artifact_version: int
+    recon_version: str
+    generated_at: str
+    invocation_id: str
+    project: CompiledProjectDict
+    contract: CompiledContractReferenceDict
+    checks: list[CompiledCheckDict]
     diagnostics: list[DiagnosticDict]
 
 
@@ -204,6 +275,22 @@ class Identity:
 
 
 @dataclass(frozen=True, slots=True)
+class ResolvedSampling:
+    """Resolved sampling metadata preserved on compiled checks."""
+
+    mode: str | None = "full"
+    policy: str | None = None
+
+    def to_dict(self) -> ResolvedSamplingDict:
+        sampling: ResolvedSamplingDict = {}
+        if self.mode is not None:
+            sampling["mode"] = self.mode
+        if self.policy is not None:
+            sampling["policy"] = self.policy
+        return sampling
+
+
+@dataclass(frozen=True, slots=True)
 class CompiledMetric:
     """Metric metadata preserved on a metric-generated compiled check."""
 
@@ -216,6 +303,76 @@ class CompiledMetric:
             "type": self.metric_type,
             "column": self.column,
             "group_by": list(self.group_by),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledProject:
+    """Project metadata included in compiled artifacts."""
+
+    name: str
+    version: str | None = None
+
+    def to_dict(self) -> CompiledProjectDict:
+        return {
+            "name": self.name,
+            "version": self.version,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledContractReference:
+    """Contract metadata included in compiled artifacts."""
+
+    id: str
+    name: str
+    source_file: str
+    authored_version: int | None = None
+
+    def to_dict(self) -> CompiledContractReferenceDict:
+        contract: CompiledContractReferenceDict = {
+            "id": self.id,
+            "name": self.name,
+            "source_file": self.source_file,
+        }
+        if self.authored_version is not None:
+            contract["authored_version"] = self.authored_version
+        return contract
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledEndpoint:
+    """Resolved endpoint metadata included in compiled artifacts."""
+
+    connection: str
+    relation: str | None = None
+    query: str | None = None
+
+    def to_dict(self) -> CompiledEndpointDict:
+        return {
+            "connection": self.connection,
+            "relation": self.relation,
+            "query": self.query,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledContractPolicies:
+    """Policy metadata included in compiled contract artifacts."""
+
+    sampling: object | None = None
+    tolerance_policy: object | None = None
+    schema: object | None = None
+    cdc: object | None = None
+    evidence: object | None = None
+
+    def to_dict(self) -> CompiledContractPoliciesDict:
+        return {
+            "sampling": self.sampling,
+            "tolerance_policy": self.tolerance_policy,
+            "schema": self.schema,
+            "cdc": self.cdc,
+            "evidence": self.evidence,
         }
 
 
@@ -441,6 +598,8 @@ class CompiledCheck:
     identity: Identity
     requirements: CheckRequirements
     plan: CheckPlan
+    sampling: ResolvedSampling = ResolvedSampling()
+    tolerance: object | None = None
     metric: CompiledMetric | None = None
     prerequisites: tuple[str, ...] = ()
     blocking_policy: BlockingPolicy = BlockingPolicy()
@@ -455,6 +614,8 @@ class CompiledCheck:
             "origin": self.origin.to_dict(),
             "identity": self.identity.to_dict(),
             "requirements": self.requirements.to_dict(),
+            "sampling": self.sampling.to_dict(),
+            "tolerance": self.tolerance,
             "prerequisites": list(self.prerequisites),
             "blocking_policy": self.blocking_policy.to_dict(),
             "plan": self.plan.to_dict(),
@@ -464,3 +625,72 @@ class CompiledCheck:
         if self.metric is not None:
             compiled_check["metric"] = self.metric.to_dict()
         return compiled_check
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledContractArtifact:
+    """Compiled contract artifact for one authored contract."""
+
+    artifact_type: CompiledArtifactType
+    recon_version: str
+    generated_at: str
+    invocation_id: str
+    project: CompiledProject
+    contract: CompiledContractReference
+    source: CompiledEndpoint
+    target: CompiledEndpoint
+    grain_keys: tuple[str, ...]
+    columns: object | None = None
+    metrics: tuple[dict[str, object], ...] = ()
+    policies: CompiledContractPolicies = CompiledContractPolicies()
+    diagnostics: tuple[Diagnostic, ...] = ()
+    artifact_version: int = COMPILED_ARTIFACT_VERSION
+
+    def to_dict(self) -> CompiledContractArtifactDict:
+        return {
+            "artifact_type": self.artifact_type.value,
+            "artifact_version": self.artifact_version,
+            "recon_version": self.recon_version,
+            "generated_at": self.generated_at,
+            "invocation_id": self.invocation_id,
+            "project": self.project.to_dict(),
+            "contract": self.contract.to_dict(),
+            "source": self.source.to_dict(),
+            "target": self.target.to_dict(),
+            "identity": {
+                "grain": {"keys": list(self.grain_keys)},
+                "cdc": self.policies.cdc,
+            },
+            "columns": self.columns,
+            "metrics": [dict(metric) for metric in self.metrics],
+            "policies": self.policies.to_dict(),
+            "diagnostics": [diagnostic.to_dict() for diagnostic in self.diagnostics],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledChecksArtifact:
+    """Compiled checks artifact for one authored contract."""
+
+    artifact_type: CompiledArtifactType
+    recon_version: str
+    generated_at: str
+    invocation_id: str
+    project: CompiledProject
+    contract: CompiledContractReference
+    checks: tuple[CompiledCheck, ...] = ()
+    diagnostics: tuple[Diagnostic, ...] = ()
+    artifact_version: int = COMPILED_ARTIFACT_VERSION
+
+    def to_dict(self) -> CompiledChecksArtifactDict:
+        return {
+            "artifact_type": self.artifact_type.value,
+            "artifact_version": self.artifact_version,
+            "recon_version": self.recon_version,
+            "generated_at": self.generated_at,
+            "invocation_id": self.invocation_id,
+            "project": self.project.to_dict(),
+            "contract": self.contract.to_dict(),
+            "checks": [check.to_dict() for check in self.checks],
+            "diagnostics": [diagnostic.to_dict() for diagnostic in self.diagnostics],
+        }

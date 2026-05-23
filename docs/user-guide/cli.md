@@ -17,7 +17,7 @@ Current implementation status:
 
 - `recon init` is implemented.
 - `recon parse` is implemented for structural parsing and manifest generation.
-- `recon compile` is registered but not implemented yet.
+- `recon compile` is implemented for the current compiler scope.
 - `recon run` is registered but not implemented yet.
 
 ## `recon init`
@@ -93,8 +93,7 @@ evidence.
 
 ## `recon compile`
 
-Generates human-readable execution artifacts. This command is not implemented
-yet.
+Generates human-readable execution artifacts.
 
 ```bash
 recon compile
@@ -111,6 +110,26 @@ target/compiled_checks/
 tolerances, schema policies, CDC behavior, and adapter capabilities. SQL files
 under `target/compiled_sql/` are produced when adapter SQL rendering is
 available.
+
+Current `compile` behavior:
+
+- loads project configuration,
+- discovers and parses contract files through the existing parser,
+- expands `recon_core.basic_equivalence`,
+- compiles explicit `sum` metrics into aggregate comparison checks,
+- writes `target/compiled_contracts/<contract_name>.yml`,
+- writes `target/compiled_checks/<contract_name>.yml`,
+- sets `rendering.status: not_rendered` because SQL rendering is not available
+  yet,
+- exits with code `2` when parse or compile diagnostics contain errors.
+
+Current limitations:
+
+- explicit authored checks outside supported check-pack and metric compilation
+  fail with a clear diagnostic,
+- adapter capability validation is not connected to real adapters yet,
+- SQL rendering, execution, run results, and evidence reports are not
+  implemented yet.
 
 ## `recon run`
 
