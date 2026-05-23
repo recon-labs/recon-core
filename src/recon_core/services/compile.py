@@ -61,6 +61,17 @@ class CompileService:
             contracts=tuple(contracts),
         )
 
+        if compilation.diagnostics and not compilation.contracts:
+            return ServiceResult(
+                exit_category=ExitCategory.VALIDATION_ERROR,
+                message=(
+                    "Compile failed with "
+                    f"{_pluralize(len(compilation.diagnostics), 'diagnostic')}. "
+                    "Wrote no compiled artifacts."
+                ),
+                diagnostics=compilation.diagnostics,
+            )
+
         try:
             _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
         except OSError as exc:

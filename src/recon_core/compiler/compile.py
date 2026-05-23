@@ -7,7 +7,12 @@ from uuid import uuid4
 
 from recon_core._version import get_version
 from recon_core.compiler.check_packs import expand_check_pack
-from recon_core.compiler.ids import build_contract_id
+from recon_core.compiler.ids import (
+    INVALID_STABLE_ID_PART,
+    STABLE_ID_PART_HINT,
+    build_contract_id,
+    is_valid_stable_id_part,
+)
 from recon_core.compiler.metrics import compile_metrics
 from recon_core.compiler.models import (
     CompiledArtifactType,
@@ -21,7 +26,7 @@ from recon_core.compiler.models import (
     ResolvedSampling,
 )
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
-from recon_core.parser import AuthoredContract, AuthoredEndpoint
+from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndpoint
 
 INVALID_CHECK_PACK_USE = "RC_VALIDATE_INVALID_CHECK_PACK_USE"
 INVALID_GRAIN_KEYS = "RC_VALIDATE_INVALID_GRAIN_KEYS"
@@ -68,6 +73,13 @@ def compile_project(
 
     compiled_contracts: list[ContractCompilationArtifacts] = []
     diagnostics: list[Diagnostic] = []
+    diagnostics.extend(_stable_project_id_diagnostics(project_name, contracts))
+    diagnostics.extend(_duplicate_contract_name_diagnostics(contracts))
+    if diagnostics:
+        return ProjectCompilationResult(
+            diagnostics=tuple(diagnostics),
+            invocation_id=resolved_invocation_id,
+        )
 
     for contract in contracts:
         compiled = _compile_contract(
@@ -170,6 +182,78 @@ def _compile_contract(
             diagnostics=contract_diagnostics,
         ),
     )
+
+
+def _stable_project_id_diagnostics(
+    project_name: str,
+    contracts: Sequence[AuthoredContract],
+) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+    if not is_valid_stable_id_part(project_name):
+        diagnostics.append(
+            _invalid_stable_id_part_diagnostic(
+                resource_type="project",
+                resource_name=project_name,
+                value=project_name,
+            )
+        )
+
+    for contract in contracts:
+        if not is_valid_stable_id_part(contract.name):
+            diagnostics.append(
+                _invalid_stable_id_part_diagnostic(
+                    resource_type="contract",
+                    resource_name=contract.name,
+                    value=contract.name,
+                    path=contract.source_location.path,
+                )
+            )
+
+    return tuple(diagnostics)
+
+
+def _invalid_stable_id_part_diagnostic(
+    *,
+    resource_type: str,
+    resource_name: str,
+    value: str,
+    path: str | None = None,
+) -> Diagnostic:
+    return Diagnostic(
+        code=INVALID_STABLE_ID_PART,
+        severity=DiagnosticSeverity.ERROR,
+        message=f"{resource_type.title()} name {value} cannot be used in stable compiled IDs.",
+        resource_type=resource_type,
+        resource_name=resource_name,
+        path=path,
+        hint=STABLE_ID_PART_HINT,
+    )
+
+
+def _duplicate_contract_name_diagnostics(
+    contracts: Sequence[AuthoredContract],
+) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+    seen_contracts: dict[str, AuthoredContract] = {}
+
+    for contract in contracts:
+        existing_contract = seen_contracts.get(contract.name)
+        if existing_contract is not None:
+            diagnostics.append(
+                Diagnostic(
+                    code=DUPLICATE_CONTRACT,
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Contract name {contract.name} is defined more than once.",
+                    resource_type="contract",
+                    resource_name=contract.name,
+                    path=contract.source_location.path,
+                    hint=f"First definition was found at {existing_contract.source_location.path}.",
+                )
+            )
+            continue
+        seen_contracts[contract.name] = contract
+
+    return tuple(diagnostics)
 
 
 def _grain_keys(contract: AuthoredContract, diagnostics: list[Diagnostic]) -> tuple[str, ...]:

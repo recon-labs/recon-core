@@ -3,7 +3,13 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from recon_core.compiler.ids import build_check_id, build_plan_id
+from recon_core.compiler.ids import (
+    INVALID_STABLE_ID_PART,
+    STABLE_ID_PART_HINT,
+    build_check_id,
+    build_plan_id,
+    is_valid_stable_id_part,
+)
 from recon_core.compiler.models import (
     AdapterCapability,
     CheckOrigin,
@@ -70,6 +76,10 @@ def compile_metrics(
             diagnostics.append(_duplicate_metric_diagnostic(metric.name))
             continue
         seen_names.add(metric.name)
+
+        if not is_valid_stable_id_part(metric.name):
+            diagnostics.append(_invalid_metric_stable_id_part_diagnostic(metric.name))
+            continue
 
         if metric.metric_type not in SUPPORTED_METRIC_TYPES:
             diagnostics.append(_unsupported_metric_type_diagnostic(metric.name, metric.metric_type))
@@ -224,6 +234,17 @@ def _invalid_metric_diagnostic() -> Diagnostic:
         message="Metric definitions require string `name`, `type`, and `column` fields.",
         resource_type="metric",
         hint="Use a supported explicit metric such as `name`, `type: sum`, and `column`.",
+    )
+
+
+def _invalid_metric_stable_id_part_diagnostic(metric_name: str) -> Diagnostic:
+    return Diagnostic(
+        code=INVALID_STABLE_ID_PART,
+        severity=DiagnosticSeverity.ERROR,
+        message=f"Metric name {metric_name} cannot be used in stable compiled IDs.",
+        resource_type="metric",
+        resource_name=metric_name,
+        hint=STABLE_ID_PART_HINT,
     )
 
 

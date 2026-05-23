@@ -17,7 +17,14 @@ from recon_core.compiler.compile import (
     ProjectCompilationResult,
     compile_project,
 )
-from recon_core.compiler.ids import build_check_id, build_contract_id, build_plan_id
+from recon_core.compiler.ids import (
+    INVALID_STABLE_ID_PART,
+    STABLE_ID_PART_HINT,
+    build_check_id,
+    build_contract_id,
+    build_plan_id,
+    is_valid_stable_id_part,
+)
 from recon_core.compiler.metrics import (
     DUPLICATE_METRIC_NAME,
     INVALID_METRIC,
@@ -75,6 +82,7 @@ __all__ = [
     "INVALID_METRIC",
     "INVALID_CHECK_PACK_USE",
     "INVALID_GRAIN_KEYS",
+    "INVALID_STABLE_ID_PART",
     "AdapterCapability",
     "BlockingPolicy",
     "BlockingPolicyValue",
@@ -115,6 +123,7 @@ __all__ = [
     "ResolvedSamplingDict",
     "RenderingStatus",
     "SUPPORTED_METRIC_TYPES",
+    "STABLE_ID_PART_HINT",
     "TypedOperation",
     "TypedOperationDict",
     "UNKNOWN_CHECK_PACK",
@@ -128,4 +137,5 @@ __all__ = [
     "compile_project",
     "expand_basic_equivalence",
     "expand_check_pack",
+    "is_valid_stable_id_part",
 ]

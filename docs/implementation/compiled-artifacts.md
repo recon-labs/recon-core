@@ -69,6 +69,16 @@ check.cdc_validation.orders_cdc.row_count_diff
 plan.cdc_validation.orders_cdc.row_count_diff
 ```
 
+Because compiled artifact filenames are contract-name based, duplicate contract
+names must fail validation before artifact writing. The compiler must not
+silently overwrite one compiled contract or compiled checks artifact with
+another.
+
+Names used in stable IDs must start with a letter or underscore and contain only
+letters, numbers, and underscores. Invalid project, contract, check, or metric
+name parts should produce `RC_VALIDATE_INVALID_STABLE_ID_PART` diagnostics
+instead of unhandled exceptions.
+
 ## Compiled contract
 
 A compiled contract is the resolved version of an authored contract.

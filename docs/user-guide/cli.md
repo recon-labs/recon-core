@@ -121,6 +121,8 @@ Current `compile` behavior:
 - writes `target/compiled_checks/<contract_name>.yml`,
 - sets `rendering.status: not_rendered` because SQL rendering is not available
   yet,
+- validates duplicate contract names and stable ID-safe project, contract, and
+  metric names before writing compiled artifacts,
 - exits with code `2` when parse or compile diagnostics contain errors.
 
 Current limitations:

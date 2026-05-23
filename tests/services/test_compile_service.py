@@ -92,6 +92,43 @@ target:
     assert not (tmp_path / "target" / "compiled_checks").exists()
 
 
+def test_compile_service_writes_no_artifacts_for_invalid_stable_id_parts(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, project_name="ecommerce-recon")
+    write_contract(tmp_path)
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert result.message == "Compile failed with 1 diagnostic. Wrote no compiled artifacts."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_VALIDATE_INVALID_STABLE_ID_PART"
+    ]
+    assert not (tmp_path / "target" / "compiled_contracts").exists()
+    assert not (tmp_path / "target" / "compiled_checks").exists()
+
+
+def test_compile_service_writes_no_artifacts_for_duplicate_contract_names(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    tmp_path.joinpath("contracts", "duplicate.yml").write_text(
+        tmp_path.joinpath("contracts", "customer_revenue.yml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert result.message == "Compile failed with 1 diagnostic. Wrote no compiled artifacts."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_PARSE_DUPLICATE_CONTRACT"]
+    assert result.diagnostics[0].path == "contracts/duplicate.yml"
+    assert not (tmp_path / "target" / "compiled_contracts").exists()
+    assert not (tmp_path / "target" / "compiled_checks").exists()
+
+
 def test_compile_service_returns_runtime_error_when_artifacts_cannot_be_written(
     tmp_path: Path,
 ) -> None:
@@ -120,11 +157,11 @@ def test_compile_service_writes_no_artifacts_when_project_root_is_missing(
     assert not (tmp_path / "target" / "compiled_checks").exists()
 
 
-def write_project(project_root: Path) -> None:
+def write_project(project_root: Path, *, project_name: str = "ecommerce_recon") -> None:
     project_root.joinpath("contracts").mkdir()
     project_root.joinpath("recon_project.yml").write_text(
-        """
-name: ecommerce_recon
+        f"""
+name: {project_name}
 version: 0.1.0
 config-version: 1
 contract-paths:

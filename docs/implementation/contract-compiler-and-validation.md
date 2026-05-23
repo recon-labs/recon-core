@@ -527,6 +527,23 @@ check.<project>.<contract>.<check>
 plan.<project>.<contract>.<check>
 ```
 
+Stable ID parts must be safe before the compiler builds IDs. Project names,
+contract names, check names, and metric names that cannot be represented in
+stable IDs must produce structured validation diagnostics instead of unhandled
+exceptions.
+
+Current stable ID parts must:
+
+- start with a letter or underscore,
+- contain only letters, numbers, and underscores.
+
+Invalid stable ID parts should report `RC_VALIDATE_INVALID_STABLE_ID_PART`.
+
+Duplicate contract names make compiled artifact paths ambiguous because
+compiled contract and compiled checks filenames are contract-name based. Compile
+must report duplicate contract names before artifact writing and must not
+silently overwrite generated artifacts.
+
 ## Implementation pattern
 
 The compiler should follow the existing parser and manifest style:

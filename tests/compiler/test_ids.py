@@ -4,6 +4,7 @@ from recon_core.compiler.ids import (
     build_check_id,
     build_contract_id,
     build_plan_id,
+    is_valid_stable_id_part,
 )
 
 
@@ -23,6 +24,13 @@ def test_build_plan_id_uses_public_stable_shape() -> None:
     assert build_plan_id("ecommerce_recon", "customer_revenue", "row_count_diff") == (
         "plan.ecommerce_recon.customer_revenue.row_count_diff"
     )
+
+
+def test_is_valid_stable_id_part_matches_public_id_rules() -> None:
+    assert is_valid_stable_id_part("customer_revenue")
+    assert is_valid_stable_id_part("_customer_revenue")
+    assert not is_valid_stable_id_part("customer-revenue")
+    assert not is_valid_stable_id_part("1_customer_revenue")
 
 
 @pytest.mark.parametrize(
