@@ -122,6 +122,12 @@ Tests:
 - project configuration errors still prevent both manifest and compiled artifact
   writes.
 
+Required gate:
+
+- resolve the local resource loading and precedence gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  expanding this milestone beyond contract-resource loading.
+
 Recommended commit message:
 
 ```text
@@ -140,6 +146,16 @@ Build:
 - sampling policy resolution,
 - tolerance precedence.
 
+Required gates:
+
+- resolve the validation timing and diagnostic code catalog gate,
+- resolve the check-pack invocation config and overrides gate before supporting
+  check-pack config or non-error empty expansion behavior,
+- resolve the column model and value-comparison surface gate before validating
+  column eligibility or all-column selection,
+- resolve the tolerance, null, and normalization resolution gate before
+  applying comparison policy precedence.
+
 Tests:
 
 - each locked validation rule has passing and failing tests.
@@ -156,6 +172,16 @@ Build:
 - capability declarations,
 - SQL rendering for typed plan operations,
 - first internal adapter test-kit shape.
+
+Required gates:
+
+- resolve the profiles, connections, and secrets gate before adapter execution,
+- resolve the adapter API, capability validation, and compiled SQL gate before
+  implementing the adapter API or SQL rendering,
+- resolve the typed operation catalog expansion gate before rendering or
+  emitting additional typed operations,
+- resolve the query endpoint support boundary gate if executable query
+  endpoints are included.
 
 Tests:
 
@@ -176,6 +202,14 @@ Build:
 - missing/extra key checks,
 - metric sum diff,
 - check result model.
+
+Required gates:
+
+- resolve the explicit authored checks and check registry gate before
+  implementing explicit `checks: [...]` support or registry behavior that must
+  serve explicit checks later,
+- re-check the typed operation catalog expansion gate before executing any
+  operation beyond the current compiled subset.
 
 Tests:
 
@@ -285,6 +319,46 @@ Recommended commit message:
 feat: expand aggregate metric checks
 ```
 
+## Post-MVP Milestone 12: schema policy and metadata checks
+
+Build this after the adapter API and metadata model exist.
+
+Goal:
+
+- implement schema policy checks without silent ignores,
+- use adapter-normalized metadata for structural compatibility,
+- make ignored columns and schema assumptions visible in results and evidence.
+
+Build:
+
+- `column_presence`,
+- `type_compatibility`,
+- `nullable_compatibility`,
+- `precision_scale_compatibility`,
+- schema ignore lists and patterns,
+- adapter metadata validation,
+- schema check results and evidence fields.
+
+Tests:
+
+- source and target ignore rules are side-specific,
+- pattern matching is predictable,
+- incompatible types fail or warn according to policy,
+- nullable and precision/scale behavior is covered,
+- unavailable metadata produces clear diagnostics.
+
+Required gate:
+
+- resolve the schema policy and metadata checks gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  implementation.
+
+Recommended commit message:
+
+```text
+feat: add schema policy checks
+```
+
 ## Deferral list
 
 Do not block MVP on:
@@ -301,6 +375,7 @@ Do not block MVP on:
 - persisted random sample,
 - aggregate metric expansion beyond explicit `sum`,
 - `recon_core.aggregate_equivalence`,
+- schema policy checks,
 - SCD2 CDC,
 - advanced evidence redaction,
 - orchestration integrations.
