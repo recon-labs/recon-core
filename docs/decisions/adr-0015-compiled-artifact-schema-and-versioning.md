@@ -334,6 +334,10 @@ be arbitrary ad hoc dictionaries passed through the compiler service.
 Adapters render typed plans into SQL or equivalent execution requests. Adapter
 rendering must not define reconciliation semantics.
 
+For key safety checks, `null_source_keys` and `null_target_keys` use the
+side-specific `null_key` operation. `null_key` checks data values for nulls in
+declared identity keys; it is separate from schema nullability checks.
+
 ## Rendering Metadata
 
 Compiled checks must include rendering metadata even when SQL is not generated.
@@ -467,6 +471,10 @@ Example compiled check:
 ```
 
 Metric compilation must not depend on `grain.keys`.
+
+Ungrouped aggregate metrics use `aggregate` operations followed by
+`compare_aggregates`. Grouped aggregate metrics use `grouped_aggregate`
+operations followed by `compare_grouped_aggregates`.
 
 ## Diagnostics
 

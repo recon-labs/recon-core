@@ -17,7 +17,8 @@ Current state:
 - ADR 0013 establishes the typed check-plan architecture.
 - ADR 0015 establishes the compiled artifact shape that will contain typed
   plans.
-- The compiler is not implemented yet.
+- The typed plan model foundation exists in code.
+- End-to-end contract compilation is not implemented yet.
 - No stable typed check-plan schema has been released.
 - No adapter currently consumes typed plans.
 
@@ -50,6 +51,7 @@ row_count
 aggregate
 grouped_aggregate
 key_diff
+null_key
 duplicate_key
 null_safe_equal
 cast
@@ -58,11 +60,31 @@ hash
 timestamp_diff
 schema_metadata
 compare_counts
+compare_aggregates
 compare_grouped_aggregates
 ```
 
 This catalog is not stable until the compiler and adapter interface implement
 it and tests protect the payload schemas.
+
+`null_key` is the typed operation for side-specific key null checks. It is a
+data check over declared comparison identity keys, not a schema nullability
+check.
+
+Example:
+
+```yaml
+- type: null_key
+  side: source
+  identity:
+    kind: grain
+    keys:
+      - customer_id
+```
+
+`compare_aggregates` compares ungrouped source and target aggregate operation
+results. `compare_grouped_aggregates` compares aggregate results segmented by
+`group_by` fields.
 
 ## Compatibility rules
 

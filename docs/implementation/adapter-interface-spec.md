@@ -103,6 +103,12 @@ class AdapterCapabilities:
     metadata_precision_scale: bool
     temp_tables: bool
     cte_support: bool
+    row_count: bool
+    aggregate: bool
+    grouped_aggregate: bool
+    key_diff: bool
+    null_key: bool
+    duplicate_key: bool
     null_safe_equality: bool
     numeric_cast: bool
     string_cast: bool
@@ -156,6 +162,7 @@ row_count
 aggregate
 grouped_aggregate
 key_diff
+null_key
 duplicate_key
 null_safe_equal
 cast
@@ -163,6 +170,9 @@ limit
 hash
 timestamp_diff
 schema_metadata
+compare_counts
+compare_aggregates
+compare_grouped_aggregates
 ```
 
 Generated SQL should remain traceable to the typed operation that produced it.

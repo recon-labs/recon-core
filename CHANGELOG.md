@@ -12,6 +12,8 @@ This project follows semantic versioning once public package releases begin.
 - Framework design docs.
 - Planning docs.
 - User and contributor documentation.
+- Draft compiler typed plan model foundation, including stable ID helpers and
+  public operation/capability names for `null_key` and `compare_aggregates`.
 
 ### Changed
 
