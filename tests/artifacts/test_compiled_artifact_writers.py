@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 import yaml
 
 from recon_core.artifacts import CompiledCheckWriter, CompiledContractWriter
@@ -33,6 +34,39 @@ def test_compiled_contract_writer_creates_directory_and_writes_yaml(tmp_path: Pa
     assert output_path.read_text(encoding="utf-8").endswith("\n")
 
 
+def test_compiled_contract_writer_rejects_unexpected_overwrite(tmp_path: Path) -> None:
+    artifact = _compiled_contract_artifact()
+    writer = CompiledContractWriter()
+    writer.write(artifact, tmp_path / "target")
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        writer.write(artifact, tmp_path / "target")
+
+
+def test_compiled_contract_writer_rejects_case_insensitive_collision(tmp_path: Path) -> None:
+    writer = CompiledContractWriter()
+    writer.write(
+        _compiled_contract_artifact(contract_name="Sales"),
+        tmp_path / "target",
+    )
+
+    with pytest.raises(FileExistsError, match="case-insensitive"):
+        writer.write(
+            _compiled_contract_artifact(contract_name="sales"),
+            tmp_path / "target",
+        )
+
+
+def test_compiled_contract_writer_allows_explicit_overwrite(tmp_path: Path) -> None:
+    artifact = _compiled_contract_artifact()
+    writer = CompiledContractWriter()
+    writer.write(artifact, tmp_path / "target")
+
+    output_path = writer.write(artifact, tmp_path / "target", overwrite=True)
+
+    assert yaml.safe_load(output_path.read_text(encoding="utf-8")) == artifact.to_dict()
+
+
 def test_compiled_check_writer_creates_directory_and_writes_yaml(tmp_path: Path) -> None:
     artifact = _compiled_checks_artifact()
 
@@ -43,7 +77,42 @@ def test_compiled_check_writer_creates_directory_and_writes_yaml(tmp_path: Path)
     assert output_path.read_text(encoding="utf-8").endswith("\n")
 
 
-def _compiled_contract_artifact() -> CompiledContractArtifact:
+def test_compiled_check_writer_rejects_unexpected_overwrite(tmp_path: Path) -> None:
+    artifact = _compiled_checks_artifact()
+    writer = CompiledCheckWriter()
+    writer.write(artifact, tmp_path / "target")
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        writer.write(artifact, tmp_path / "target")
+
+
+def test_compiled_check_writer_rejects_case_insensitive_collision(tmp_path: Path) -> None:
+    writer = CompiledCheckWriter()
+    writer.write(
+        _compiled_checks_artifact(contract_name="Sales"),
+        tmp_path / "target",
+    )
+
+    with pytest.raises(FileExistsError, match="case-insensitive"):
+        writer.write(
+            _compiled_checks_artifact(contract_name="sales"),
+            tmp_path / "target",
+        )
+
+
+def test_compiled_check_writer_allows_explicit_overwrite(tmp_path: Path) -> None:
+    artifact = _compiled_checks_artifact()
+    writer = CompiledCheckWriter()
+    writer.write(artifact, tmp_path / "target")
+
+    output_path = writer.write(artifact, tmp_path / "target", overwrite=True)
+
+    assert yaml.safe_load(output_path.read_text(encoding="utf-8")) == artifact.to_dict()
+
+
+def _compiled_contract_artifact(
+    contract_name: str = "customer_revenue",
+) -> CompiledContractArtifact:
     return CompiledContractArtifact(
         artifact_type=CompiledArtifactType.COMPILED_CONTRACT,
         recon_version="0.0.test",
@@ -51,9 +120,9 @@ def _compiled_contract_artifact() -> CompiledContractArtifact:
         invocation_id="01JTESTINVOCATION0000000000",
         project=CompiledProject(name="ecommerce_recon", version="0.1.0"),
         contract=CompiledContractReference(
-            id="contract.ecommerce_recon.customer_revenue",
-            name="customer_revenue",
-            source_file="contracts/customer_revenue.yml",
+            id=f"contract.ecommerce_recon.{contract_name}",
+            name=contract_name,
+            source_file=f"contracts/{contract_name}.yml",
             authored_version=1,
         ),
         source=CompiledEndpoint(
@@ -68,7 +137,7 @@ def _compiled_contract_artifact() -> CompiledContractArtifact:
     )
 
 
-def _compiled_checks_artifact() -> CompiledChecksArtifact:
+def _compiled_checks_artifact(contract_name: str = "customer_revenue") -> CompiledChecksArtifact:
     return CompiledChecksArtifact(
         artifact_type=CompiledArtifactType.COMPILED_CHECKS,
         recon_version="0.0.test",
@@ -76,9 +145,9 @@ def _compiled_checks_artifact() -> CompiledChecksArtifact:
         invocation_id="01JTESTINVOCATION0000000000",
         project=CompiledProject(name="ecommerce_recon", version="0.1.0"),
         contract=CompiledContractReference(
-            id="contract.ecommerce_recon.customer_revenue",
-            name="customer_revenue",
-            source_file="contracts/customer_revenue.yml",
+            id=f"contract.ecommerce_recon.{contract_name}",
+            name=contract_name,
+            source_file=f"contracts/{contract_name}.yml",
         ),
         checks=(
             CompiledCheck(

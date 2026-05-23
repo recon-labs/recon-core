@@ -31,6 +31,9 @@ This project follows semantic versioning once public package releases begin.
   stable ID parts, duplicate contract names, and case-insensitive compiled
   artifact filename collisions instead of crashing or silently overwriting
   compiled artifacts.
+- Exported compiler helpers now report stable-ID diagnostics before ID
+  construction, and standalone compiled artifact writers now require explicit
+  overwrite behavior while still rejecting case-insensitive filename collisions.
 
 ## Release format
 

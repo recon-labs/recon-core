@@ -79,6 +79,12 @@ artifact filenames. For example, `Sales` and `sales` would produce filenames
 that collide on common case-insensitive filesystems, so compile should report
 `RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION` before writing artifacts.
 
+Compiled artifact writers must not overwrite existing artifacts unless the
+caller explicitly opts into overwrite behavior. Case-insensitive filename
+collisions remain errors even when overwrite is enabled, because regenerating
+`sales.yml` must not replace an existing `Sales.yml` artifact on
+case-insensitive filesystems.
+
 Names used in stable IDs must start with a letter or underscore and contain only
 letters, numbers, and underscores. Invalid project, contract, check, or metric
 name parts should produce `RC_VALIDATE_INVALID_STABLE_ID_PART` diagnostics

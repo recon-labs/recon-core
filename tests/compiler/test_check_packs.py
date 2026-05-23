@@ -4,6 +4,7 @@ from recon_core.compiler.check_packs import (
     VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS,
     expand_check_pack,
 )
+from recon_core.compiler.ids import INVALID_STABLE_ID_PART
 from recon_core.compiler.models import (
     AdapterCapability,
     CheckOriginKind,
@@ -187,3 +188,23 @@ def test_unknown_check_pack_fails_validation_without_checks() -> None:
     assert diagnostic.severity is DiagnosticSeverity.ERROR
     assert diagnostic.resource_type == "check_pack"
     assert diagnostic.resource_name == "recon_core.missing_pack"
+
+
+def test_basic_equivalence_invalid_stable_id_parts_fail_without_exception() -> None:
+    result = expand_check_pack(
+        BASIC_EQUIVALENCE_CHECK_PACK_NAME,
+        project_name="ecommerce-recon",
+        contract_name="customer-revenue",
+        grain_keys=("customer_id",),
+    )
+
+    assert not result.succeeded
+    assert result.checks == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        INVALID_STABLE_ID_PART,
+        INVALID_STABLE_ID_PART,
+    ]
+    assert [diagnostic.resource_type for diagnostic in result.diagnostics] == [
+        "project",
+        "contract",
+    ]

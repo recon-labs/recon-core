@@ -1,3 +1,4 @@
+from recon_core.compiler.ids import INVALID_STABLE_ID_PART
 from recon_core.compiler.metrics import (
     DUPLICATE_METRIC_NAME,
     UNSUPPORTED_METRIC_TYPE,
@@ -169,3 +170,22 @@ def test_unsupported_metric_type_fails_validation_without_checks() -> None:
     assert diagnostic.resource_type == "metric"
     assert diagnostic.resource_name == "average_revenue"
     assert "unsupported type avg" in diagnostic.message
+
+
+def test_metric_compilation_invalid_project_or_contract_id_parts_fail_without_exception() -> None:
+    result = compile_metrics(
+        ({"name": "total_revenue", "type": "sum", "column": "revenue"},),
+        project_name="ecommerce-recon",
+        contract_name="customer-revenue",
+    )
+
+    assert not result.succeeded
+    assert result.checks == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        INVALID_STABLE_ID_PART,
+        INVALID_STABLE_ID_PART,
+    ]
+    assert [diagnostic.resource_type for diagnostic in result.diagnostics] == [
+        "project",
+        "contract",
+    ]

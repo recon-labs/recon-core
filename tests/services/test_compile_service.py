@@ -40,6 +40,17 @@ def test_compile_service_writes_compiled_artifacts_for_valid_project(tmp_path: P
     assert checks_artifact["checks"][-1]["plan"]["operations"][-1] == {"type": "compare_aggregates"}
 
 
+def test_compile_service_overwrites_previous_compiled_artifacts(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+
+    first_result = CompileService(start_path=tmp_path).execute()
+    second_result = CompileService(start_path=tmp_path).execute()
+
+    assert first_result.exit_category is ExitCategory.SUCCESS
+    assert second_result.exit_category is ExitCategory.SUCCESS
+
+
 def test_compile_service_returns_validation_error_for_invalid_contract(
     tmp_path: Path,
 ) -> None:

@@ -143,8 +143,8 @@ def _write_compiled_artifacts(
     (target_path / COMPILED_CHECKS_DIR_NAME).mkdir(parents=True, exist_ok=True)
 
     for compiled_contract in compiled_contracts:
-        contract_writer.write(compiled_contract.contract_artifact, target_path)
-        check_writer.write(compiled_contract.checks_artifact, target_path)
+        contract_writer.write(compiled_contract.contract_artifact, target_path, overwrite=True)
+        check_writer.write(compiled_contract.checks_artifact, target_path, overwrite=True)
 
 
 def _resource_relative_diagnostics(

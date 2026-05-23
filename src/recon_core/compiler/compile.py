@@ -8,9 +8,8 @@ from uuid import uuid4
 from recon_core._version import get_version
 from recon_core.compiler.check_packs import expand_check_pack
 from recon_core.compiler.ids import (
-    INVALID_STABLE_ID_PART,
-    STABLE_ID_PART_HINT,
     build_contract_id,
+    invalid_stable_id_part_diagnostic,
     is_valid_stable_id_part,
 )
 from recon_core.compiler.metrics import compile_metrics
@@ -193,7 +192,7 @@ def _stable_project_id_diagnostics(
     diagnostics: list[Diagnostic] = []
     if not is_valid_stable_id_part(project_name):
         diagnostics.append(
-            _invalid_stable_id_part_diagnostic(
+            invalid_stable_id_part_diagnostic(
                 resource_type="project",
                 resource_name=project_name,
                 value=project_name,
@@ -203,7 +202,7 @@ def _stable_project_id_diagnostics(
     for contract in contracts:
         if not is_valid_stable_id_part(contract.name):
             diagnostics.append(
-                _invalid_stable_id_part_diagnostic(
+                invalid_stable_id_part_diagnostic(
                     resource_type="contract",
                     resource_name=contract.name,
                     value=contract.name,
@@ -212,24 +211,6 @@ def _stable_project_id_diagnostics(
             )
 
     return tuple(diagnostics)
-
-
-def _invalid_stable_id_part_diagnostic(
-    *,
-    resource_type: str,
-    resource_name: str,
-    value: str,
-    path: str | None = None,
-) -> Diagnostic:
-    return Diagnostic(
-        code=INVALID_STABLE_ID_PART,
-        severity=DiagnosticSeverity.ERROR,
-        message=f"{resource_type.title()} name {value} cannot be used in stable compiled IDs.",
-        resource_type=resource_type,
-        resource_name=resource_name,
-        path=path,
-        hint=STABLE_ID_PART_HINT,
-    )
 
 
 def _duplicate_contract_name_diagnostics(

@@ -89,6 +89,11 @@ path:
 Explicit authored checks outside supported check-pack and metric compilation
 return a clear diagnostic until their typed plans are implemented.
 
+Compiler entry points that build stable compiled contract, check, or plan IDs
+should validate project, contract, check, and metric name parts before building
+IDs. Invalid stable ID parts must return structured diagnostics instead of
+allowing helper APIs to raise unhandled exceptions.
+
 ## Columns, metrics, and checks
 
 Compiler rules:

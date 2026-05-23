@@ -4,7 +4,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from recon_core.compiler.ids import build_check_id, build_plan_id
+from recon_core.compiler.ids import (
+    build_check_id,
+    build_plan_id,
+    invalid_stable_id_part_diagnostic,
+    is_valid_stable_id_part,
+)
 from recon_core.compiler.models import (
     AdapterCapability,
     CheckOrigin,
@@ -71,11 +76,13 @@ def expand_basic_equivalence(
     grain_keys: Sequence[str],
 ) -> CheckPackExpansionResult:
     """Expand `recon_core.basic_equivalence` into explicit key safety checks."""
+    diagnostics = list(_stable_id_part_diagnostics(project_name, contract_name))
     normalized_grain_keys = tuple(grain_keys)
     if not normalized_grain_keys:
-        return CheckPackExpansionResult(
-            diagnostics=(_basic_equivalence_requires_grain_diagnostic(),)
-        )
+        diagnostics.append(_basic_equivalence_requires_grain_diagnostic())
+
+    if diagnostics:
+        return CheckPackExpansionResult(diagnostics=tuple(diagnostics))
 
     identity = Identity(kind=IdentityKind.GRAIN, keys=normalized_grain_keys)
     return CheckPackExpansionResult(
@@ -229,6 +236,27 @@ def _grain_check_requirements(capability: AdapterCapability) -> CheckRequirement
         requires_grain_keys=True,
         required_capabilities=(capability,),
     )
+
+
+def _stable_id_part_diagnostics(project_name: str, contract_name: str) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+    if not is_valid_stable_id_part(project_name):
+        diagnostics.append(
+            invalid_stable_id_part_diagnostic(
+                resource_type="project",
+                resource_name=project_name,
+                value=project_name,
+            )
+        )
+    if not is_valid_stable_id_part(contract_name):
+        diagnostics.append(
+            invalid_stable_id_part_diagnostic(
+                resource_type="contract",
+                resource_name=contract_name,
+                value=contract_name,
+            )
+        )
+    return tuple(diagnostics)
 
 
 def _basic_equivalence_requires_grain_diagnostic() -> Diagnostic:

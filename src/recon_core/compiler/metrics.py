@@ -8,6 +8,7 @@ from recon_core.compiler.ids import (
     STABLE_ID_PART_HINT,
     build_check_id,
     build_plan_id,
+    invalid_stable_id_part_diagnostic,
     is_valid_stable_id_part,
 )
 from recon_core.compiler.models import (
@@ -64,6 +65,7 @@ def compile_metrics(
     """Compile explicit authored metrics into aggregate comparison checks."""
     parsed_metrics: list[_MetricDefinition] = []
     diagnostics: list[Diagnostic] = []
+    diagnostics.extend(_stable_id_part_diagnostics(project_name, contract_name))
     seen_names: set[str] = set()
 
     for raw_metric in metrics:
@@ -246,6 +248,27 @@ def _invalid_metric_stable_id_part_diagnostic(metric_name: str) -> Diagnostic:
         resource_name=metric_name,
         hint=STABLE_ID_PART_HINT,
     )
+
+
+def _stable_id_part_diagnostics(project_name: str, contract_name: str) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+    if not is_valid_stable_id_part(project_name):
+        diagnostics.append(
+            invalid_stable_id_part_diagnostic(
+                resource_type="project",
+                resource_name=project_name,
+                value=project_name,
+            )
+        )
+    if not is_valid_stable_id_part(contract_name):
+        diagnostics.append(
+            invalid_stable_id_part_diagnostic(
+                resource_type="contract",
+                resource_name=contract_name,
+                value=contract_name,
+            )
+        )
+    return tuple(diagnostics)
 
 
 def _unsupported_metric_type_diagnostic(metric_name: str, metric_type: str) -> Diagnostic:
