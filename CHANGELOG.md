@@ -16,6 +16,8 @@ This project follows semantic versioning once public package releases begin.
   public operation/capability names for `null_key` and `compare_aggregates`.
 - Built-in `recon_core.basic_equivalence` expansion helpers for row count, key
   coverage, null-key, and duplicate-key checks.
+- Explicit metric compilation helpers for ungrouped `sum_diff` and grouped
+  aggregate comparison typed plans.
 
 ### Changed
 

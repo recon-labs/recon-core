@@ -10,7 +10,9 @@ execute those typed operations for a specific system.
 
 ## Current status
 
-Typed check plans are designed but not implemented yet.
+Typed check plans are designed and the first library-level compiler helpers now
+produce draft typed plans. End-to-end `recon compile` artifact writing is not
+implemented yet.
 
 Current state:
 
@@ -20,6 +22,8 @@ Current state:
 - The typed plan model foundation exists in code.
 - Built-in `recon_core.basic_equivalence` expansion helpers produce draft typed
   plans at library level.
+- Explicit metric compilation helpers produce draft aggregate typed plans at
+  library level.
 - End-to-end contract compilation is not implemented yet.
 - No stable typed check-plan schema has been released.
 - No adapter currently consumes typed plans.

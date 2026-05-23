@@ -318,6 +318,59 @@ Explicit metrics compile into aggregate checks.
 Metrics do not require `grain.keys`. `metrics.group_by` is aggregate
 segmentation, not row identity.
 
+Ungrouped metrics compile to `sum_diff` checks with source and target
+`aggregate` operations followed by `compare_aggregates`.
+
+Example:
+
+```yaml
+- id: check.cdc_validation.orders_cdc.total_revenue
+  name: total_revenue
+  type: sum_diff
+  origin:
+    kind: metric
+    name: total_revenue
+  identity:
+    kind: none
+    keys: []
+  requirements:
+    requires_grain_keys: false
+    requires_non_null_grain: false
+    requires_unique_grain: false
+    requires_cdc_keys: false
+    required_columns:
+      - revenue
+    required_metrics:
+      - total_revenue
+    required_capabilities:
+      - aggregate
+  metric:
+    type: sum
+    column: revenue
+    group_by: []
+  plan:
+    id: plan.cdc_validation.orders_cdc.total_revenue
+    operations:
+      - type: aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+      - type: aggregate
+        side: target
+        aggregate: sum
+        column: revenue
+      - type: compare_aggregates
+    required_capabilities:
+      - aggregate
+  rendering:
+    status: not_rendered
+    sql_paths: []
+```
+
+Grouped metrics compile to `grouped_aggregate_diff` checks with source and
+target `grouped_aggregate` operations followed by
+`compare_grouped_aggregates`.
+
 Example:
 
 ```yaml
@@ -330,6 +383,18 @@ Example:
   identity:
     kind: none
     keys: []
+  requirements:
+    requires_grain_keys: false
+    requires_non_null_grain: false
+    requires_unique_grain: false
+    requires_cdc_keys: false
+    required_columns:
+      - revenue
+      - month
+    required_metrics:
+      - revenue_by_month
+    required_capabilities:
+      - grouped_aggregate
   metric:
     type: sum
     column: revenue
@@ -342,6 +407,13 @@ Example:
     id: plan.cdc_validation.orders_cdc.revenue_by_month
     operations:
       - type: grouped_aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: grouped_aggregate
+        side: target
         aggregate: sum
         column: revenue
         group_by:

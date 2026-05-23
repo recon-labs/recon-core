@@ -191,12 +191,17 @@ Optional future config may support `on_empty: warn` or `on_empty: skip`, but the
 
 ## Metric compilation
 
-Each metric compiles into one or more aggregate checks.
+Each explicit metric compiles into one aggregate comparison check. Metrics do
+not require `grain.keys`; `metrics.group_by` is aggregate segmentation, not row
+identity.
 
 Example:
 
 ```yaml
 metrics:
+  - name: total_revenue
+    type: sum
+    column: revenue
   - name: revenue_by_month
     type: sum
     column: revenue
@@ -205,19 +210,75 @@ metrics:
     tolerance: 0.01
 ```
 
-Compiled check:
+Compiled ungrouped metric check:
+
+```yaml
+- name: total_revenue
+  type: sum_diff
+  origin:
+    kind: metric
+    name: total_revenue
+  identity:
+    kind: none
+    keys: []
+  metric:
+    type: sum
+    column: revenue
+    group_by: []
+  plan:
+    operations:
+      - type: aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+      - type: aggregate
+        side: target
+        aggregate: sum
+        column: revenue
+      - type: compare_aggregates
+    required_capabilities:
+      - aggregate
+```
+
+Compiled grouped metric check:
 
 ```yaml
 - name: revenue_by_month
   type: grouped_aggregate_diff
-  metric: sum
-  column: revenue
-  group_by:
-    - month
+  origin:
+    kind: metric
+    name: revenue_by_month
+  identity:
+    kind: none
+    keys: []
+  metric:
+    type: sum
+    column: revenue
+    group_by:
+      - month
   tolerance: 0.01
+  plan:
+    operations:
+      - type: grouped_aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: grouped_aggregate
+        side: target
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: compare_grouped_aggregates
+    required_capabilities:
+      - grouped_aggregate
 ```
 
-Metric names must be unique within a contract.
+The first compiler implementation supports explicit `sum` metrics. Metric
+names must be unique within a contract; duplicate names fail validation with
+`RC_VALIDATE_DUPLICATE_METRIC_NAME`.
 
 Metric column types must be compatible with metric type.
 

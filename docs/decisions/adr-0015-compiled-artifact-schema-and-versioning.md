@@ -438,6 +438,7 @@ Example compiled check:
     requires_cdc_keys: false
     required_columns:
       - revenue
+      - month
     required_metrics:
       - revenue_by_month
     required_capabilities:
@@ -457,6 +458,13 @@ Example compiled check:
     id: plan.cdc_validation.orders_cdc.revenue_by_month
     operations:
       - type: grouped_aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: grouped_aggregate
+        side: target
         aggregate: sum
         column: revenue
         group_by:

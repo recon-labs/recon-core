@@ -29,6 +29,8 @@ class CompiledCheckType(StrEnum):
     """Compiled check type names."""
 
     ROW_COUNT_DIFF = "row_count_diff"
+    SUM_DIFF = "sum_diff"
+    GROUPED_AGGREGATE_DIFF = "grouped_aggregate_diff"
     MISSING_KEYS = "missing_keys"
     EXTRA_KEYS = "extra_keys"
     NULL_SOURCE_KEYS = "null_source_keys"
@@ -166,6 +168,12 @@ class RenderingDict(TypedDict):
     sql_paths: list[str]
 
 
+class CompiledMetricDict(TypedDict):
+    type: str
+    column: str
+    group_by: list[str]
+
+
 class CompiledCheckDict(TypedDict):
     id: str
     name: str
@@ -173,6 +181,7 @@ class CompiledCheckDict(TypedDict):
     origin: CheckOriginDict
     identity: IdentityDict
     requirements: CheckRequirementsDict
+    metric: NotRequired[CompiledMetricDict]
     prerequisites: list[str]
     blocking_policy: BlockingPolicyDict
     plan: CheckPlanDict
@@ -191,6 +200,22 @@ class Identity:
         return {
             "kind": self.kind.value,
             "keys": list(self.keys),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledMetric:
+    """Metric metadata preserved on a metric-generated compiled check."""
+
+    metric_type: str
+    column: str
+    group_by: tuple[str, ...] = ()
+
+    def to_dict(self) -> CompiledMetricDict:
+        return {
+            "type": self.metric_type,
+            "column": self.column,
+            "group_by": list(self.group_by),
         }
 
 
@@ -416,13 +441,14 @@ class CompiledCheck:
     identity: Identity
     requirements: CheckRequirements
     plan: CheckPlan
+    metric: CompiledMetric | None = None
     prerequisites: tuple[str, ...] = ()
     blocking_policy: BlockingPolicy = BlockingPolicy()
     rendering: Rendering = Rendering()
     diagnostics: tuple[Diagnostic, ...] = ()
 
     def to_dict(self) -> CompiledCheckDict:
-        return {
+        compiled_check: CompiledCheckDict = {
             "id": self.id,
             "name": self.name,
             "type": self.check_type.value,
@@ -435,3 +461,6 @@ class CompiledCheck:
             "rendering": self.rendering.to_dict(),
             "diagnostics": [diagnostic.to_dict() for diagnostic in self.diagnostics],
         }
+        if self.metric is not None:
+            compiled_check["metric"] = self.metric.to_dict()
+        return compiled_check
