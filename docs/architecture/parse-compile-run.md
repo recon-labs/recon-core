@@ -59,6 +59,16 @@ Current compile implementation writes compiled contract and compiled checks
 artifacts with `rendering.status: not_rendered`. Adapter SQL rendering is a
 future layer.
 
+Before the validation rulebook milestone expands parse and compile validation,
+parse and compile should share one internal parsed-project loading pipeline.
+That pipeline should read authored project files, discover resources, load YAML,
+parse contracts, and return parsed in-memory models plus diagnostics. It should
+not require `recon compile` to read `target/manifest.json`, and it should not
+introduce manifest freshness or caching rules.
+
+This preserves authored YAML and `recon_project.yml` as the source of truth
+while avoiding drift between `recon parse` and `recon compile`.
+
 ## Run service
 
 The run service should:
@@ -96,6 +106,11 @@ It supports:
 Selector execution is a future design. The manifest should provide metadata
 that selectors can use, but `--select`, `--exclude`, named selectors, and
 partial compile/run semantics are not locked yet.
+
+The manifest is a generated artifact, not the authoritative source of project
+truth. Services may parse authored files directly through the shared
+parsed-project loading pipeline until freshness and cache semantics are
+designed.
 
 ## Compiled artifacts
 

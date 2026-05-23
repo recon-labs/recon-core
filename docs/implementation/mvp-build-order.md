@@ -85,6 +85,49 @@ Tests:
 - empty check-pack expansion errors,
 - compiled YAML artifacts match expected output.
 
+## Milestone 4.5: shared parsed-project loading
+
+Build this hardening milestone before Milestone 5.
+
+Goal:
+
+- keep authored project files as the source of truth,
+- keep `target/manifest.json` as a generated machine-oriented artifact,
+- remove duplicated contract discovery/loading/parsing flow between parse and
+  compile services before the validation rulebook expands,
+- avoid introducing manifest freshness or caching behavior yet.
+
+Build:
+
+- shared internal parsed-project loading helper used by both `ParseService` and
+  `CompileService`,
+- a typed return model containing project context, discovered resource files,
+  parsed contracts, and parse diagnostics,
+- parse behavior that still writes `target/manifest.json`, including parse
+  diagnostics when structural validation fails,
+- compile behavior that still stops before compiled artifact writing when parse
+  diagnostics exist,
+- no public CLI behavior change,
+- no generated artifact format change,
+- no requirement for `recon compile` to read `target/manifest.json`.
+
+Tests:
+
+- parse and compile use the same shared parser pipeline,
+- parse still writes a manifest with diagnostics for invalid authored
+  resources,
+- compile still writes no compiled artifacts when parse diagnostics exist,
+- compile still succeeds for valid projects without requiring a pre-existing
+  manifest,
+- project configuration errors still prevent both manifest and compiled artifact
+  writes.
+
+Recommended commit message:
+
+```text
+refactor: share parsed project loading across services
+```
+
 ## Milestone 5: validation rulebook
 
 Build:
