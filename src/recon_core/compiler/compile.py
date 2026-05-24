@@ -31,6 +31,7 @@ INVALID_CHECK_PACK_USE = "RC_VALIDATE_INVALID_CHECK_PACK_USE"
 INVALID_GRAIN_KEYS = "RC_VALIDATE_INVALID_GRAIN_KEYS"
 INVALID_SAMPLING = "RC_VALIDATE_INVALID_SAMPLING"
 NO_COMPILED_CHECKS = "RC_VALIDATE_NO_COMPILED_CHECKS"
+NO_CONTRACTS_FOUND = "RC_VALIDATE_NO_CONTRACTS_FOUND"
 COMPILED_ARTIFACT_FILENAME_COLLISION = "RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION"
 UNSUPPORTED_CHECK_PACK_CONFIG = "RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG"
 UNSUPPORTED_EXPLICIT_CHECKS = "RC_COMPILE_UNSUPPORTED_EXPLICIT_CHECKS"
@@ -77,6 +78,8 @@ def compile_project(
     compiled_contracts: list[ContractCompilationArtifacts] = []
     diagnostics: list[Diagnostic] = []
     diagnostics.extend(_stable_project_id_diagnostics(project_name, contracts))
+    if not contracts:
+        diagnostics.append(_no_contracts_found_diagnostic(project_name))
     diagnostics.extend(_duplicate_contract_name_diagnostics(contracts))
     diagnostics.extend(_compiled_artifact_filename_collision_diagnostics(contracts))
     if diagnostics:
@@ -126,7 +129,7 @@ def _compile_contract(
             contract_name=contract.name,
             grain_keys=grain_keys,
         )
-        diagnostics.extend(expansion.diagnostics)
+        diagnostics.extend(_with_contract_path(expansion.diagnostics, contract))
         checks.extend(replace(check, sampling=sampling) for check in expansion.checks)
 
     metric_compilation = compile_metrics(
@@ -134,7 +137,7 @@ def _compile_contract(
         project_name=project_name,
         contract_name=contract.name,
     )
-    diagnostics.extend(metric_compilation.diagnostics)
+    diagnostics.extend(_with_contract_path(metric_compilation.diagnostics, contract))
     checks.extend(replace(check, sampling=sampling) for check in metric_compilation.checks)
     checks = _deduplicate_checks(checks, diagnostics)
     if not checks and not diagnostics:
@@ -279,6 +282,29 @@ def _compiled_artifact_filename_collision_diagnostics(
 
 def _compiled_contract_filename(contract_name: str) -> str:
     return f"{contract_name}.yml"
+
+
+def _no_contracts_found_diagnostic(project_name: str) -> Diagnostic:
+    return Diagnostic(
+        code=NO_CONTRACTS_FOUND,
+        severity=DiagnosticSeverity.ERROR,
+        message="No contracts were found to compile.",
+        resource_type="project",
+        resource_name=project_name,
+        hint="Add at least one contract YAML file under a configured contract path.",
+    )
+
+
+def _with_contract_path(
+    diagnostics: Sequence[Diagnostic],
+    contract: AuthoredContract,
+) -> tuple[Diagnostic, ...]:
+    return tuple(
+        diagnostic
+        if diagnostic.path is not None
+        else replace(diagnostic, path=contract.source_location.path)
+        for diagnostic in diagnostics
+    )
 
 
 def _grain_keys(contract: AuthoredContract, diagnostics: list[Diagnostic]) -> tuple[str, ...]:

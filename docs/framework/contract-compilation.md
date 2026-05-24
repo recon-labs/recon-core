@@ -73,7 +73,7 @@ stale.
 
 Generated compiled artifact directories and their `target-path` ancestry must be
 real directories, not symlinks, and compiled artifact filenames must be safe
-single-segment names.
+single-segment names. Exact compiled artifact output files must not be symlinks.
 
 ## `recon run`
 

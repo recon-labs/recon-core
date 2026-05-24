@@ -59,6 +59,9 @@ Responsibilities:
 `ParseService`. If parse diagnostics exist, compile should return a validation
 error before writing compiled artifacts.
 
+If no contracts are discovered, `CompileService` should return a validation
+error before writing compiled artifacts.
+
 `CompileService` does not need to read `target/manifest.json` until freshness
 and cache semantics are designed. The shared helper keeps authored files as the
 source of truth while preventing parse/compile drift.

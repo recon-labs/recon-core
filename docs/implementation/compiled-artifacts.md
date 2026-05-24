@@ -45,9 +45,11 @@ instead of stale.
 
 Compiled artifact directories must be real directories, not symlinks. Recon
 rejects symlinked compiled artifact directories and symlinked `target-path`
-ancestry rather than following those paths during cleanup or writes. Compiled
-artifact filenames are built from safe single-segment artifact names; path-like
-names are invalid for standalone artifact writers.
+ancestry rather than following those paths during cleanup or writes. Exact
+compiled artifact output files must also not be symlinks, even when overwrite
+behavior is explicitly enabled. Compiled artifact filenames are built from safe
+single-segment artifact names; path-like names are invalid for standalone
+artifact writers.
 
 ## Artifact header
 

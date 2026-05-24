@@ -45,6 +45,9 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile` now rejects symlinked `target-path` ancestry, contracts that
   compile into no checks, non-string nested `checks` mapping keys, and empty
   `sampling.default_policy` values.
+- `recon compile` now rejects projects where no contracts are discovered,
+  rejects exact compiled artifact output symlinks even with explicit overwrite,
+  and includes contract file paths on compiler diagnostics where available.
 - `recon init` now rejects project names that cannot be used in stable compiled
   artifact IDs.
 

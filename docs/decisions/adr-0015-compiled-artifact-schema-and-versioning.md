@@ -62,9 +62,10 @@ intent behind.
 Compiled artifact directories and their `target-path` ancestry must be real
 directories. Recon should reject symlinked compiled artifact directories or
 symlinked ancestry rather than following them during cleanup or artifact writes.
-Compiled artifact filenames should be built from safe single-segment names so
-standalone artifact writers cannot write outside their generated artifact
-directories.
+Exact compiled artifact output files must also not be symlinks, even when
+overwrite behavior is explicitly enabled. Compiled artifact filenames should be
+built from safe single-segment names so standalone artifact writers cannot write
+outside their generated artifact directories.
 
 Compiled SQL is not required for the first compiler implementation. Until
 adapter rendering exists, compiled checks must include typed plans and a

@@ -130,6 +130,22 @@ target:
     assert not (tmp_path / "target" / "compiled_checks").exists()
 
 
+def test_compile_service_writes_no_artifacts_when_no_contracts_are_found(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert result.message == "Compile failed with 1 diagnostic. Wrote no compiled artifacts."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_VALIDATE_NO_CONTRACTS_FOUND"
+    ]
+    assert not (tmp_path / "target" / "compiled_contracts").exists()
+    assert not (tmp_path / "target" / "compiled_checks").exists()
+
+
 def test_compile_service_removes_stale_compiled_artifacts_when_parse_fails(
     tmp_path: Path,
 ) -> None:

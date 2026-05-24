@@ -32,8 +32,9 @@ compiled artifacts for downstream automation to read.
 
 Compiled artifact cleanup and writes reject symlinked compiled artifact
 directories and symlinked `target-path` ancestry. Standalone compiled artifact
-writers also reject path-like artifact names so generated filenames cannot
-escape `target/compiled_contracts/` or `target/compiled_checks/`.
+writers also reject exact output-file symlinks and path-like artifact names so
+generated filenames cannot escape `target/compiled_contracts/` or
+`target/compiled_checks/`.
 
 This lifecycle behavior does not require an artifact version bump by itself
 because artifact paths, schemas, header fields, and field meanings are

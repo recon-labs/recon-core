@@ -35,6 +35,9 @@ def ensure_safe_artifact_write(output_path: Path, *, overwrite: bool) -> None:
     if not output_dir.exists():
         return
 
+    if output_path.is_symlink():
+        raise FileExistsError(f"Artifact output path is a symlink: {output_path}")
+
     matching_paths = tuple(
         existing_path
         for existing_path in output_dir.iterdir()

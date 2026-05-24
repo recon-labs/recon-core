@@ -94,6 +94,9 @@ should validate project, contract, check, and metric name parts before building
 IDs. Invalid stable ID parts must return structured diagnostics instead of
 allowing helper APIs to raise unhandled exceptions.
 
+Compile should fail validation when no contracts are discovered. A successful
+compile must represent at least one authored contract.
+
 ## Columns, metrics, and checks
 
 Compiler rules:
@@ -512,6 +515,7 @@ RC_VALIDATE_ROW_CHECK_REQUIRES_KEYS
 RC_VALIDATE_CHECK_REQUIRES_GRAIN_KEYS
 RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS
 RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
+RC_VALIDATE_NO_CONTRACTS_FOUND
 RC_VALIDATE_NO_COMPILED_CHECKS
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED

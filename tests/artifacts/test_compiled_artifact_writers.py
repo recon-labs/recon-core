@@ -113,6 +113,29 @@ def test_compiled_contract_writer_allows_explicit_overwrite(tmp_path: Path) -> N
     assert yaml.safe_load(output_path.read_text(encoding="utf-8")) == artifact.to_dict()
 
 
+def test_compiled_contract_writer_rejects_exact_output_symlink_with_overwrite(
+    tmp_path: Path,
+) -> None:
+    target_path = tmp_path / "target"
+    output_dir = target_path / "compiled_contracts"
+    external_path = tmp_path / "external.yml"
+    output_dir.mkdir(parents=True)
+    external_path.write_text("external\n", encoding="utf-8")
+    try:
+        (output_dir / "customer_revenue.yml").symlink_to(external_path)
+    except OSError:
+        pytest.skip("Filesystem does not support file symlinks.")
+
+    with pytest.raises(FileExistsError, match="symlink"):
+        CompiledContractWriter().write(
+            _compiled_contract_artifact(),
+            target_path,
+            overwrite=True,
+        )
+
+    assert external_path.read_text(encoding="utf-8") == "external\n"
+
+
 def test_compiled_contract_writer_rejects_ambiguous_overwrite_regardless_of_directory_order(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -227,6 +250,29 @@ def test_compiled_check_writer_allows_explicit_overwrite(tmp_path: Path) -> None
     output_path = writer.write(artifact, tmp_path / "target", overwrite=True)
 
     assert yaml.safe_load(output_path.read_text(encoding="utf-8")) == artifact.to_dict()
+
+
+def test_compiled_check_writer_rejects_exact_output_symlink_with_overwrite(
+    tmp_path: Path,
+) -> None:
+    target_path = tmp_path / "target"
+    output_dir = target_path / "compiled_checks"
+    external_path = tmp_path / "external.yml"
+    output_dir.mkdir(parents=True)
+    external_path.write_text("external\n", encoding="utf-8")
+    try:
+        (output_dir / "customer_revenue.yml").symlink_to(external_path)
+    except OSError:
+        pytest.skip("Filesystem does not support file symlinks.")
+
+    with pytest.raises(FileExistsError, match="symlink"):
+        CompiledCheckWriter().write(
+            _compiled_checks_artifact(),
+            target_path,
+            overwrite=True,
+        )
+
+    assert external_path.read_text(encoding="utf-8") == "external\n"
 
 
 def _compiled_contract_artifact(

@@ -3,6 +3,7 @@ from recon_core.compiler import (
     INVALID_SAMPLING,
     INVALID_STABLE_ID_PART,
     NO_COMPILED_CHECKS,
+    NO_CONTRACTS_FOUND,
     UNSUPPORTED_CHECK_PACK_CONFIG,
     UNSUPPORTED_EXPLICIT_CHECKS,
     compile_project,
@@ -58,6 +59,22 @@ def test_compile_project_builds_contract_and_checks_artifacts() -> None:
     ]
 
 
+def test_compile_project_rejects_empty_contract_set() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert result.contracts == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [NO_CONTRACTS_FOUND]
+    assert result.diagnostics[0].resource_type == "project"
+
+
 def test_compile_project_check_artifact_contains_expanded_plans_and_metric_checks() -> None:
     result = compile_project(
         project_name="ecommerce_recon",
@@ -106,6 +123,7 @@ def test_compile_project_validation_errors_are_embedded_without_success() -> Non
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
     ]
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
     assert result.contracts[0].checks_artifact.checks == ()
     assert result.contracts[0].checks_artifact.diagnostics == result.diagnostics
 
@@ -202,6 +220,7 @@ def test_compile_project_returns_diagnostic_for_invalid_metric_stable_id_part() 
     assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_STABLE_ID_PART]
     assert result.diagnostics[0].resource_type == "metric"
     assert result.diagnostics[0].resource_name == "total-revenue"
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
     assert result.contracts[0].checks_artifact.checks == ()
 
 

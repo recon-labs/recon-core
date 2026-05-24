@@ -123,7 +123,7 @@ Current `compile` behavior:
 - removes old top-level compiled contract and compiled checks YAML files once
   `target-path` is known,
 - rejects symlinked compiled artifact directories and symlinked `target-path`
-  ancestry,
+  ancestry, and rejects exact compiled artifact output-file symlinks,
 - writes `target/compiled_contracts/<contract_name>.yml`,
 - writes `target/compiled_checks/<contract_name>.yml`,
 - sets `rendering.status: not_rendered` because SQL rendering is not available
@@ -135,6 +135,7 @@ Current `compile` behavior:
 - rejects unsupported check-pack invocation config, nested `checks` mappings
   with non-string keys, unknown metric fields, invalid sampling config, and
   contracts that compile into no checks,
+- rejects projects where no contracts are discovered,
 - exits with code `2` when parse or compile diagnostics contain errors.
 
 Current limitations:
