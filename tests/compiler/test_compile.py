@@ -1,5 +1,6 @@
 from recon_core.compiler import (
     COMPILED_ARTIFACT_FILENAME_COLLISION,
+    DUPLICATE_COMPILED_CHECK,
     INVALID_SAMPLING,
     INVALID_STABLE_ID_PART,
     NO_COMPILED_CHECKS,
@@ -292,6 +293,24 @@ def test_compile_project_rejects_contract_that_compiles_no_checks() -> None:
 
     assert not result.succeeded
     assert [diagnostic.code for diagnostic in result.diagnostics] == [NO_COMPILED_CHECKS]
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
+def test_compile_project_duplicate_compiled_check_diagnostic_includes_contract_path() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(metrics=({"name": "row_count_diff", "type": "sum", "column": "revenue"},)),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [DUPLICATE_COMPILED_CHECK]
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
     assert result.contracts[0].checks_artifact.checks == ()
 
 

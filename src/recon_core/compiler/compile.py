@@ -139,7 +139,7 @@ def _compile_contract(
     )
     diagnostics.extend(_with_contract_path(metric_compilation.diagnostics, contract))
     checks.extend(replace(check, sampling=sampling) for check in metric_compilation.checks)
-    checks = _deduplicate_checks(checks, diagnostics)
+    checks = _deduplicate_checks(checks, diagnostics, contract)
     if not checks and not diagnostics:
         diagnostics.append(_no_compiled_checks_diagnostic(contract))
 
@@ -403,6 +403,7 @@ def _check_pack_use_names(
 def _deduplicate_checks(
     checks: Sequence[CompiledCheck],
     diagnostics: list[Diagnostic],
+    contract: AuthoredContract,
 ) -> list[CompiledCheck]:
     deduplicated: list[CompiledCheck] = []
     seen_names: set[str] = set()
@@ -415,6 +416,7 @@ def _deduplicate_checks(
                     message=f"Compiled check name {check.name} is generated more than once.",
                     resource_type="check",
                     resource_name=check.name,
+                    path=contract.source_location.path,
                     hint="Rename explicit metrics or checks so compiled check names are unique.",
                 )
             )
