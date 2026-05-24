@@ -50,6 +50,10 @@ This project follows semantic versioning once public package releases begin.
   and includes contract file paths on compiler diagnostics where available.
 - `recon init` now rejects project names that cannot be used in stable compiled
   artifact IDs.
+- `recon parse` now rejects symlinked manifest output paths instead of following
+  them when writing `target/manifest.json`.
+- Typed operation models now reject payload fields that are not valid for the
+  selected operation type.
 
 ## Release format
 

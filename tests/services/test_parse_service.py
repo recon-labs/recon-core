@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from recon_core.services import ParseService
 from recon_core.services.results import ExitCategory
 
@@ -310,3 +312,50 @@ def test_parse_service_returns_runtime_error_when_manifest_cannot_be_written(
     ]
     assert result.diagnostics[0].path == "target"
     assert "Unable to write manifest" in result.diagnostics[0].message
+
+
+def test_parse_service_rejects_symlinked_target_directory(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    target_path = tmp_path / "target"
+    external_path = tmp_path / "external_target"
+    external_path.mkdir()
+    try:
+        target_path.symlink_to(external_path, target_is_directory=True)
+    except OSError:
+        pytest.skip("Filesystem does not support directory symlinks.")
+
+    result = ParseService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_MANIFEST_WRITE_FAILED"
+    ]
+    assert "symlink" in result.diagnostics[0].message
+    assert not (external_path / "manifest.json").exists()
+
+
+def test_parse_service_rejects_exact_manifest_symlink(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    target_path = tmp_path / "target"
+    external_path = tmp_path / "external_manifest.json"
+    target_path.mkdir()
+    external_path.write_text("external\n", encoding="utf-8")
+    try:
+        (target_path / "manifest.json").symlink_to(external_path)
+    except OSError:
+        pytest.skip("Filesystem does not support file symlinks.")
+
+    result = ParseService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_MANIFEST_WRITE_FAILED"
+    ]
+    assert "symlink" in result.diagnostics[0].message
+    assert external_path.read_text(encoding="utf-8") == "external\n"

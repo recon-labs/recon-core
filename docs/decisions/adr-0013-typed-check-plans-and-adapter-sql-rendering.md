@@ -53,6 +53,11 @@ Adapters own system-specific behavior:
 Compiler and check planning should produce typed abstract operations rather than
 database-specific SQL as the primary internal representation.
 
+Typed operation models must validate their payload shape. An operation should
+accept only the fields that are meaningful for that operation type, and planned
+operation names must not be emitted until their payload schema and capability
+requirements are implemented and tested.
+
 Examples of typed operations:
 
 ```text

@@ -36,7 +36,11 @@ writers also reject exact output-file symlinks and path-like artifact names so
 generated filenames cannot escape `target/compiled_contracts/` or
 `target/compiled_checks/`.
 
-This lifecycle behavior does not require an artifact version bump by itself
+Manifest writes also reject symlinked `target-path` ancestry and exact
+`manifest.json` output-file symlinks. Normal manifest regeneration still
+overwrites the current manifest file.
+
+These lifecycle behaviors do not require an artifact version bump by themselves
 because artifact paths, schemas, header fields, and field meanings are
 unchanged.
 

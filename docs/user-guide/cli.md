@@ -90,6 +90,9 @@ with code `4` and does not write a manifest.
 If the manifest cannot be written, `recon parse` exits with code `3` and prints
 a runtime diagnostic.
 
+`recon parse` rejects symlinked manifest output paths instead of following them
+when writing `target/manifest.json`.
+
 `recon parse` does not compile checks, expand check packs, resolve sampling or
 tolerances, validate adapter capabilities, execute queries, or produce
 evidence.

@@ -153,6 +153,11 @@ target/manifest.json
 
 The writer should create the target directory when needed.
 
+The manifest writer should overwrite the current `manifest.json` during normal
+regeneration, but generated manifest paths must remain real paths. It should
+reject symlinked `target-path` ancestry and exact `manifest.json` output
+symlinks instead of following them.
+
 If the manifest cannot be written, `recon parse` should return a structured
 runtime diagnostic instead of crashing.
 

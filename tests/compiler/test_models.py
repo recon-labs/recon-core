@@ -8,6 +8,7 @@ from recon_core.compiler.models import (
     CheckPlan,
     Identity,
     IdentityKind,
+    KeyDiffDirection,
     OperationSide,
     OperationType,
     TypedOperation,
@@ -33,6 +34,28 @@ def test_null_key_operation_requires_identity_keys() -> None:
         TypedOperation.null_key(
             side=OperationSide.SOURCE,
             identity=Identity(kind=IdentityKind.GRAIN, keys=()),
+        )
+
+
+def test_typed_operation_rejects_unexpected_payload_fields() -> None:
+    identity = Identity(kind=IdentityKind.GRAIN, keys=("customer_id",))
+
+    with pytest.raises(ValueError, match="compare_counts operation does not allow: side"):
+        TypedOperation(type=OperationType.COMPARE_COUNTS, side=OperationSide.SOURCE)
+
+    with pytest.raises(ValueError, match="row_count operation does not allow: column"):
+        TypedOperation(
+            type=OperationType.ROW_COUNT,
+            side=OperationSide.SOURCE,
+            column="customer_id",
+        )
+
+    with pytest.raises(ValueError, match="key_diff operation does not allow: side"):
+        TypedOperation(
+            type=OperationType.KEY_DIFF,
+            side=OperationSide.SOURCE,
+            direction=KeyDiffDirection.SOURCE_MINUS_TARGET,
+            identity=identity,
         )
 
 

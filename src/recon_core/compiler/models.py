@@ -122,6 +122,19 @@ class AdapterCapability(StrEnum):
     SCHEMA_METADATA = "schema_metadata"
 
 
+_OPERATION_ALLOWED_FIELDS: dict[OperationType, frozenset[str]] = {
+    OperationType.ROW_COUNT: frozenset({"side"}),
+    OperationType.COMPARE_COUNTS: frozenset(),
+    OperationType.KEY_DIFF: frozenset({"direction", "identity"}),
+    OperationType.NULL_KEY: frozenset({"side", "identity"}),
+    OperationType.DUPLICATE_KEY: frozenset({"side", "identity"}),
+    OperationType.AGGREGATE: frozenset({"side", "aggregate", "column"}),
+    OperationType.GROUPED_AGGREGATE: frozenset({"side", "aggregate", "column", "group_by"}),
+    OperationType.COMPARE_AGGREGATES: frozenset(),
+    OperationType.COMPARE_GROUPED_AGGREGATES: frozenset(),
+}
+
+
 class IdentityDict(TypedDict):
     kind: str
     keys: list[str]
@@ -529,6 +542,14 @@ class TypedOperation:
         return operation
 
     def _validate(self) -> None:
+        allowed_fields = _OPERATION_ALLOWED_FIELDS.get(self.type)
+        if allowed_fields is None:
+            raise ValueError(
+                f"{self.type.value} operation is not implemented by the typed operation model"
+            )
+
+        self._reject_unexpected_fields(allowed_fields)
+
         if self.type in {
             OperationType.ROW_COUNT,
             OperationType.NULL_KEY,
@@ -553,6 +574,29 @@ class TypedOperation:
 
         if self.type is OperationType.GROUPED_AGGREGATE and not self.group_by:
             raise ValueError("grouped_aggregate operation requires group_by fields")
+
+    def _reject_unexpected_fields(self, allowed_fields: frozenset[str]) -> None:
+        unexpected_fields = sorted(set(self._payload_fields()) - allowed_fields)
+        if unexpected_fields:
+            raise ValueError(
+                f"{self.type.value} operation does not allow: {', '.join(unexpected_fields)}"
+            )
+
+    def _payload_fields(self) -> tuple[str, ...]:
+        fields: list[str] = []
+        if self.side is not None:
+            fields.append("side")
+        if self.direction is not None:
+            fields.append("direction")
+        if self.identity is not None:
+            fields.append("identity")
+        if self.aggregate_function is not None:
+            fields.append("aggregate")
+        if self.column is not None:
+            fields.append("column")
+        if self.group_by:
+            fields.append("group_by")
+        return tuple(fields)
 
     def _require_side(self) -> None:
         if self.side is None:

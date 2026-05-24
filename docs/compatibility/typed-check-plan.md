@@ -48,6 +48,11 @@ plan:
 Typed operation payloads should be modeled explicitly in Python. They must not
 be arbitrary dictionaries passed through the compiler.
 
+Implemented typed operation models must reject payload fields that are not valid
+for their operation type. For example, comparison operations such as
+`compare_counts` must not serialize side-specific fields, and side-specific
+operations such as `row_count` must not serialize aggregate or column fields.
+
 ## Draft operation catalog
 
 The current draft operation names come from ADR 0013 and ADR 0015:
@@ -72,6 +77,10 @@ compare_grouped_aggregates
 
 This catalog is not stable until the compiler and adapter interface implement
 it and tests protect the payload schemas.
+
+The current model validates payload schemas for the operations emitted by the
+compiler. Planned operation names must not be emitted until their payload schema,
+capability expectations, docs, and tests exist.
 
 `null_key` is the typed operation for side-specific key null checks. It is a
 data check over declared comparison identity keys, not a schema nullability

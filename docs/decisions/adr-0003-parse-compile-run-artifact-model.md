@@ -20,6 +20,11 @@ run     = execution, results, and evidence
 
 Generated artifacts should be written under gitignored directories.
 
+Generated artifact writers should reject symlinked generated-artifact paths
+instead of following them during writes or cleanup. Normal regeneration may
+overwrite the expected generated file, but must not escape the configured
+generated-artifact location through symlinks.
+
 Machine-oriented artifacts:
 
 ```text
