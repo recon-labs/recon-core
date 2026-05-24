@@ -28,6 +28,7 @@ Responsibilities:
 - write example profiles,
 - create directories,
 - avoid writing secrets,
+- reject project names that cannot be used as stable compiled artifact ID parts,
 - avoid overwriting existing files unless explicitly allowed.
 
 ## ParseService

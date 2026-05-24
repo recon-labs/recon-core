@@ -183,7 +183,20 @@ def test_init_command_rejects_path_like_project_name() -> None:
         assert result.exit_code == 4
         assert "Error: Invalid project name: ../outside" in result.output
         assert "Code: RC_CONFIG_INIT_INVALID_PROJECT_NAME" in result.output
-        assert "Hint: Use a single directory name without path separators." in result.output
+        assert "Hint: Use a single directory name." in result.output
+        assert "Names must start with a letter or underscore." in result.output
+
+
+def test_init_command_rejects_project_name_that_cannot_be_stable_id() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ["init", "ecommerce-recon"])
+
+        assert result.exit_code == 4
+        assert "Error: Invalid project name: ecommerce-recon" in result.output
+        assert "Code: RC_CONFIG_INIT_INVALID_PROJECT_NAME" in result.output
+        assert "Names must start with a letter or underscore." in result.output
 
 
 def _write_project() -> None:

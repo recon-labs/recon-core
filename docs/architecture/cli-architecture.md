@@ -91,7 +91,11 @@ state/
 
 The generated project should include safe placeholder examples and no secrets.
 It should not overwrite an existing path unless explicit overwrite behavior is added later.
-The project name should be validated as a single directory name before paths are created. Absolute paths, nested paths, path separators, and path traversal should return a configuration error.
+The project name should be validated as a single directory name before paths are
+created. It must also be usable as a stable compiled artifact ID part. Absolute
+paths, nested paths, path separators, path traversal, names that start with a
+number, and names containing punctuation or spaces should return a configuration
+error.
 
 ## `recon parse`
 

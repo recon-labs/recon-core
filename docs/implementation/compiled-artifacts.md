@@ -44,10 +44,10 @@ or fatal compile validation fails, old compiled artifacts are therefore absent
 instead of stale.
 
 Compiled artifact directories must be real directories, not symlinks. Recon
-rejects symlinked compiled artifact directories rather than following them
-during cleanup or writes. Compiled artifact filenames are built from safe
-single-segment artifact names; path-like names are invalid for standalone
-artifact writers.
+rejects symlinked compiled artifact directories and symlinked `target-path`
+ancestry rather than following those paths during cleanup or writes. Compiled
+artifact filenames are built from safe single-segment artifact names; path-like
+names are invalid for standalone artifact writers.
 
 ## Artifact header
 
@@ -312,7 +312,8 @@ The pack requires `grain.keys`. It must not silently weaken to only
 `missing_keys` and `extra_keys` use distinct non-null grain-key coverage. Null
 and duplicate grain-key checks report key safety failures separately.
 
-Empty check-pack expansion is an error.
+Empty check-pack expansion is an error. A contract that compiles into no checks
+is also an error.
 
 Example null-key check plan:
 

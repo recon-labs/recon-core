@@ -4,10 +4,21 @@ from pathlib import Path
 
 
 def ensure_real_artifact_directory(output_dir: Path) -> None:
-    """Create an artifact directory after rejecting symlinked directories."""
-    if output_dir.is_symlink():
-        raise FileExistsError(f"Artifact directory is a symlink: {output_dir}")
+    """Create an artifact directory after rejecting symlinked path components."""
+    reject_symlinked_path_components(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    reject_symlinked_path_components(output_dir)
+
+
+def reject_symlinked_path_components(path: Path) -> None:
+    """Reject a path if any existing component is a symlink."""
+    current_path = Path(path.anchor) if path.is_absolute() else Path()
+    parts = path.parts[1:] if path.is_absolute() else path.parts
+
+    for part in parts:
+        current_path = current_path / part
+        if current_path.is_symlink():
+            raise FileExistsError(f"Artifact path contains a symlink: {current_path}")
 
 
 def artifact_output_path(output_dir: Path, artifact_name: str) -> Path:

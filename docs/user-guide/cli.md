@@ -47,7 +47,10 @@ state/
 
 `recon init` should not overwrite an existing path unless an explicit overwrite option is added later.
 
-`PROJECT_NAME` must be a single directory name. It must not be an absolute path, a nested path, or contain path traversal.
+`PROJECT_NAME` must be a single directory name that can be used in stable
+compiled artifact IDs. It must start with a letter or underscore and contain
+only letters, numbers, and underscores. It must not be an absolute path, a
+nested path, or contain path traversal.
 
 ## `recon parse`
 
@@ -119,7 +122,8 @@ Current `compile` behavior:
 - compiles explicit `sum` metrics into aggregate comparison checks,
 - removes old top-level compiled contract and compiled checks YAML files once
   `target-path` is known,
-- rejects symlinked compiled artifact directories,
+- rejects symlinked compiled artifact directories and symlinked `target-path`
+  ancestry,
 - writes `target/compiled_contracts/<contract_name>.yml`,
 - writes `target/compiled_checks/<contract_name>.yml`,
 - sets `rendering.status: not_rendered` because SQL rendering is not available
@@ -128,8 +132,9 @@ Current `compile` behavior:
   metric names before writing compiled artifacts,
 - validates case-insensitive contract filename collisions before writing
   compiled artifacts,
-- rejects unsupported check-pack invocation config, unknown metric fields, and
-  invalid sampling config,
+- rejects unsupported check-pack invocation config, nested `checks` mappings
+  with non-string keys, unknown metric fields, invalid sampling config, and
+  contracts that compile into no checks,
 - exits with code `2` when parse or compile diagnostics contain errors.
 
 Current limitations:

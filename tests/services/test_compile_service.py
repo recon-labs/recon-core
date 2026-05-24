@@ -196,6 +196,37 @@ def test_compile_service_rejects_symlinked_compiled_artifact_directories(
     assert external_artifact.read_text(encoding="utf-8") == "stale\n"
 
 
+def test_compile_service_rejects_symlinked_target_directory_before_cleanup(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    target_path = tmp_path / "target"
+    external_path = tmp_path / "external_target"
+    external_contracts = external_path / "compiled_contracts"
+    external_checks = external_path / "compiled_checks"
+    external_contracts.mkdir(parents=True)
+    external_checks.mkdir(parents=True)
+    external_contract_artifact = external_contracts / "customer_revenue.yml"
+    external_check_artifact = external_checks / "customer_revenue.yml"
+    external_contract_artifact.write_text("stale contract\n", encoding="utf-8")
+    external_check_artifact.write_text("stale checks\n", encoding="utf-8")
+    try:
+        target_path.symlink_to(external_path, target_is_directory=True)
+    except OSError:
+        pytest.skip("Filesystem does not support directory symlinks.")
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
+    ]
+    assert "symlink" in result.diagnostics[0].message
+    assert external_contract_artifact.read_text(encoding="utf-8") == "stale contract\n"
+    assert external_check_artifact.read_text(encoding="utf-8") == "stale checks\n"
+
+
 def test_compile_service_writes_no_artifacts_for_invalid_stable_id_parts(
     tmp_path: Path,
 ) -> None:
@@ -286,6 +317,40 @@ def test_compile_service_writes_no_artifacts_for_case_colliding_artifact_names(
         "contracts/sales_lower.yml",
         "contracts/sales_upper.yml",
     }
+    assert not (tmp_path / "target" / "compiled_contracts").exists()
+    assert not (tmp_path / "target" / "compiled_checks").exists()
+
+
+def test_compile_service_returns_validation_error_for_non_string_check_mapping_key(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    tmp_path.joinpath("contracts", "customer_revenue.yml").write_text(
+        """
+version: 1
+name: customer_revenue
+source:
+  connection: legacy
+  relation: qa.customer_source
+target:
+  connection: warehouse
+  relation: qa.customer_target
+grain:
+  keys:
+    - customer_id
+checks:
+  use:
+    - recon_core.basic_equivalence
+  1: true
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_PARSE_INVALID_CONTRACT"]
+    assert "string keys" in result.diagnostics[0].message
     assert not (tmp_path / "target" / "compiled_contracts").exists()
     assert not (tmp_path / "target" / "compiled_checks").exists()
 

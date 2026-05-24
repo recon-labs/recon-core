@@ -30,6 +30,7 @@ from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndp
 INVALID_CHECK_PACK_USE = "RC_VALIDATE_INVALID_CHECK_PACK_USE"
 INVALID_GRAIN_KEYS = "RC_VALIDATE_INVALID_GRAIN_KEYS"
 INVALID_SAMPLING = "RC_VALIDATE_INVALID_SAMPLING"
+NO_COMPILED_CHECKS = "RC_VALIDATE_NO_COMPILED_CHECKS"
 COMPILED_ARTIFACT_FILENAME_COLLISION = "RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION"
 UNSUPPORTED_CHECK_PACK_CONFIG = "RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG"
 UNSUPPORTED_EXPLICIT_CHECKS = "RC_COMPILE_UNSUPPORTED_EXPLICIT_CHECKS"
@@ -136,6 +137,8 @@ def _compile_contract(
     diagnostics.extend(metric_compilation.diagnostics)
     checks.extend(replace(check, sampling=sampling) for check in metric_compilation.checks)
     checks = _deduplicate_checks(checks, diagnostics)
+    if not checks and not diagnostics:
+        diagnostics.append(_no_compiled_checks_diagnostic(contract))
 
     contract_id = build_contract_id(project_name, contract.name)
     project = CompiledProject(name=project_name, version=project_version)
@@ -307,7 +310,7 @@ def _check_pack_names(
     checks = contract.checks
     if isinstance(checks, Mapping):
         names = _check_pack_use_names(contract, checks.get("use"), diagnostics)
-        unsupported_fields = sorted(set(checks) - {"use"})
+        unsupported_fields = sorted(str(field) for field in checks if field != "use")
         if unsupported_fields:
             diagnostics.append(
                 _unsupported_checks_diagnostic(
@@ -415,11 +418,11 @@ def _resolved_sampling(
     default_policy = contract.sampling.get("default_policy")
     if default_policy is None or default_policy == "full":
         return ResolvedSampling()
-    if not isinstance(default_policy, str):
+    if not isinstance(default_policy, str) or not default_policy:
         diagnostics.append(
             _invalid_sampling_diagnostic(
                 contract,
-                "Contract `sampling.default_policy` must be a string.",
+                "Contract `sampling.default_policy` must be `full` or a non-empty string.",
             )
         )
         return ResolvedSampling()
@@ -476,6 +479,20 @@ def _unsupported_checks_diagnostic(contract: AuthoredContract, message: str) -> 
         resource_name=contract.name,
         path=contract.source_location.path,
         hint="Use supported check packs and explicit metrics for this compiler milestone.",
+    )
+
+
+def _no_compiled_checks_diagnostic(contract: AuthoredContract) -> Diagnostic:
+    return Diagnostic(
+        code=NO_COMPILED_CHECKS,
+        severity=DiagnosticSeverity.ERROR,
+        message="Contract does not compile into any checks.",
+        resource_type="contract",
+        resource_name=contract.name,
+        path=contract.source_location.path,
+        hint=(
+            "Add a supported check pack under `checks.use` or define at least one supported metric."
+        ),
     )
 
 

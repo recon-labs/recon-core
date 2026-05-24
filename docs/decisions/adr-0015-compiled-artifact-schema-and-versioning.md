@@ -59,11 +59,12 @@ loads and `target-path` is known, Recon should remove existing top-level
 removed, renamed, or invalid current contracts do not leave stale executable
 intent behind.
 
-Compiled artifact directories must be real directories. Recon should reject
-symlinked compiled artifact directories rather than following them during
-cleanup or artifact writes. Compiled artifact filenames should be built from
-safe single-segment names so standalone artifact writers cannot write outside
-their generated artifact directories.
+Compiled artifact directories and their `target-path` ancestry must be real
+directories. Recon should reject symlinked compiled artifact directories or
+symlinked ancestry rather than following them during cleanup or artifact writes.
+Compiled artifact filenames should be built from safe single-segment names so
+standalone artifact writers cannot write outside their generated artifact
+directories.
 
 Compiled SQL is not required for the first compiler implementation. Until
 adapter rendering exists, compiled checks must include typed plans and a
@@ -564,6 +565,7 @@ Compiler implementation should include focused tests for:
 - explicit metric compilation,
 - columns not creating checks by themselves,
 - empty check-pack expansion errors,
+- no-check compiled contracts,
 - typed plan generation,
 - compiled artifact writers,
 - compile service behavior,

@@ -151,6 +151,9 @@ with only a `name` field. Check-pack invocation config and overrides are gated
 for later design work; fields other than `name` must fail validation instead of
 being silently ignored.
 
+Contracts must compile into at least one check from supported check packs or
+explicit metrics.
+
 Compiled output should show checks such as:
 
 ```yaml
@@ -346,9 +349,10 @@ sampling:
   policy: latest_changed_records
 ```
 
-The current compiler supports contract-level `sampling.default_policy` as a
-string. Unsupported sampling fields or non-string `default_policy` values must
-fail validation instead of compiling as full sampling.
+The current compiler supports contract-level `sampling.default_policy` as
+`full` or a non-empty named sampling policy string. Unsupported sampling fields,
+non-string `default_policy` values, or empty policy names must fail validation
+instead of compiling as full sampling.
 
 Sampling does not remove non-null or uniqueness requirements for row-level checks.
 
@@ -508,6 +512,7 @@ RC_VALIDATE_ROW_CHECK_REQUIRES_KEYS
 RC_VALIDATE_CHECK_REQUIRES_GRAIN_KEYS
 RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS
 RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
+RC_VALIDATE_NO_COMPILED_CHECKS
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED
 RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE

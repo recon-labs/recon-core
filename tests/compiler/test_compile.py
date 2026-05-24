@@ -2,7 +2,9 @@ from recon_core.compiler import (
     COMPILED_ARTIFACT_FILENAME_COLLISION,
     INVALID_SAMPLING,
     INVALID_STABLE_ID_PART,
+    NO_COMPILED_CHECKS,
     UNSUPPORTED_CHECK_PACK_CONFIG,
+    UNSUPPORTED_EXPLICIT_CHECKS,
     compile_project,
 )
 from recon_core.compiler.check_packs import VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
@@ -244,6 +246,51 @@ def test_compile_project_rejects_invalid_sampling_config() -> None:
     assert result.contracts[0].checks_artifact.checks == ()
 
 
+def test_compile_project_rejects_empty_sampling_policy() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(_contract(sampling={"default_policy": ""}),),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_SAMPLING]
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
+def test_compile_project_rejects_contract_that_compiles_no_checks() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(_contract(checks={"use": []}, metrics=()),),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [NO_COMPILED_CHECKS]
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
+def test_compile_project_rejects_unsupported_non_string_check_field_without_crashing() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(_contract(checks={"use": ["recon_core.basic_equivalence"], 1: True}),),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [UNSUPPORTED_EXPLICIT_CHECKS]
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
 def _contract(
     *,
     name: str = "customer_revenue",
@@ -252,6 +299,7 @@ def _contract(
     source_path: str | None = None,
     checks: object | None = None,
     sampling: dict[str, object] | None = None,
+    metrics: tuple[dict[str, object], ...] | None = None,
 ) -> AuthoredContract:
     grain: dict[str, object] | None = None
     if include_grain:
@@ -265,7 +313,9 @@ def _contract(
         checks=checks if checks is not None else {"use": ["recon_core.basic_equivalence"]},
         source_location=SourceLocation(path=source_path or f"contracts/{name}.yml"),
         grain=grain,
-        metrics=(
+        metrics=metrics
+        if metrics is not None
+        else (
             {"name": metric_name, "type": "sum", "column": "revenue"},
             {
                 "name": "revenue_by_month",
