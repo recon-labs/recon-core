@@ -44,7 +44,7 @@ def test_init_service_writes_project_config(tmp_path: Path) -> None:
     assert config["state-path"] == "state"
 
 
-@pytest.mark.parametrize("project_name", ["yes", "null", "123", "#foo", "name: value"])
+@pytest.mark.parametrize("project_name", ["yes", "null"])
 def test_init_service_writes_project_name_as_yaml_string(tmp_path: Path, project_name: str) -> None:
     InitService(project_name=project_name, base_dir=tmp_path).execute()
 
@@ -90,6 +90,19 @@ def test_init_service_rejects_project_names_that_are_paths(
     assert result.diagnostics[0].code == "RC_CONFIG_INIT_INVALID_PROJECT_NAME"
     assert not (base_dir / project_name).exists()
     assert not (tmp_path / "outside").exists()
+
+
+@pytest.mark.parametrize("project_name", ["123", "#foo", "name: value", "ecommerce-recon"])
+def test_init_service_rejects_project_names_that_cannot_be_stable_ids(
+    tmp_path: Path, project_name: str
+) -> None:
+    result = InitService(project_name=project_name, base_dir=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == f"Invalid project name: {project_name}"
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0].code == "RC_CONFIG_INIT_INVALID_PROJECT_NAME"
+    assert not (tmp_path / project_name).exists()
 
 
 def test_init_service_rejects_absolute_project_path(tmp_path: Path) -> None:

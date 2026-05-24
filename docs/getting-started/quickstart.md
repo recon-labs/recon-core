@@ -8,8 +8,9 @@ The user defines an equivalence contract, compiles it into an explicit execution
 
 Current pre-alpha status:
 
-- `recon init` and `recon parse` are implemented.
-- `recon compile` and `recon run` are not implemented yet.
+- `recon init`, `recon parse`, and `recon compile` are implemented for the
+  current compiler scope.
+- `recon run` is not implemented yet.
 
 ## Create a project
 
@@ -132,8 +133,6 @@ does not compile checks, run queries, or produce evidence.
 
 ## Compile
 
-This command is planned but not implemented yet.
-
 ```bash
 recon compile
 ```
@@ -147,6 +146,10 @@ target/compiled_checks/customer_revenue.yml
 
 Use compiled artifacts to inspect exactly what Recon will run. SQL files under
 `target/compiled_sql/` are produced when adapter SQL rendering is available.
+
+Current compile behavior expands `recon_core.basic_equivalence` and explicit
+`sum` metrics into typed check plans. Explicit authored checks, SQL rendering,
+adapter validation, and execution are still future work.
 
 ## Run
 

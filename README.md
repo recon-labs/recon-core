@@ -28,16 +28,21 @@ Implemented today:
 - `recon --version`,
 - `recon init <project_name>`,
 - `recon parse`,
+- `recon compile`,
 - duplicate-key-safe YAML loading for authored resources,
 - structural equivalence contract parsing,
 - `target/manifest.json` generation,
+- compiled contract and compiled checks YAML artifacts,
+- built-in `recon_core.basic_equivalence` expansion,
+- explicit `sum` metric compilation,
 - structured service results and diagnostics,
-- CLI command registration for `compile` and `run`.
+- CLI command registration for `run`.
 
 Not implemented yet:
 
-- `recon compile`,
 - `recon run`,
+- explicit authored checks beyond supported check-pack and metric compilation,
+- adapter SQL rendering,
 - adapter execution,
 - check engine,
 - evidence writers.
@@ -111,9 +116,11 @@ ecommerce_recon/
   state/
 ```
 
-`recon parse` now performs structural project parsing and writes
-`target/manifest.json`. `recon compile` and `recon run` are registered commands,
-but they currently return a clear not-implemented diagnostic.
+`recon parse` performs structural project parsing and writes
+`target/manifest.json`. `recon compile` expands the currently supported check
+packs and explicit metrics into compiled YAML artifacts under `target/`.
+`recon run` is registered, but it currently returns a clear not-implemented
+diagnostic.
 
 ## Core Idea
 

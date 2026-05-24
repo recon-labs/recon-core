@@ -101,6 +101,10 @@ HtmlReportWriter
 StateWriter
 ```
 
+`ManifestWriter`, `CompiledContractWriter`, and `CompiledCheckWriter` are
+implemented. SQL, run-result, failure-detail, report, and state writers are
+future work.
+
 ## Artifact versioning
 
 Artifact formats should include top-level header fields.

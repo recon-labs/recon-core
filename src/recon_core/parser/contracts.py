@@ -452,7 +452,8 @@ def _checks(
         )
         return None
     if isinstance(value, Mapping):
-        return dict(value)
+        mapping = _string_key_mapping(value, resource_file, diagnostics)
+        return dict(mapping) if mapping is not None else None
     return tuple(value)
 
 

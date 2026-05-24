@@ -28,6 +28,7 @@ Responsibilities:
 - write example profiles,
 - create directories,
 - avoid writing secrets,
+- reject project names that cannot be used as stable compiled artifact ID parts,
 - avoid overwriting existing files unless explicitly allowed.
 
 ## ParseService
@@ -41,6 +42,10 @@ Responsibilities:
 - write manifest,
 - return parse summary and diagnostics.
 
+`ParseService` should use the shared parsed-project loading helper. It remains
+responsible for writing `target/manifest.json`, including parse diagnostics
+when authored resources are structurally invalid.
+
 ## CompileService
 
 Responsibilities:
@@ -49,6 +54,17 @@ Responsibilities:
 - compile contracts,
 - write compiled artifacts,
 - return compile summary and diagnostics.
+
+`CompileService` should use the same shared parsed-project loading helper as
+`ParseService`. If parse diagnostics exist, compile should return a validation
+error before writing compiled artifacts.
+
+If no contracts are discovered, `CompileService` should return a validation
+error before writing compiled artifacts.
+
+`CompileService` does not need to read `target/manifest.json` until freshness
+and cache semantics are designed. The shared helper keeps authored files as the
+source of truth while preventing parse/compile drift.
 
 ## RunService
 

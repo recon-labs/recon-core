@@ -14,7 +14,7 @@ The capability catalog is provisional.
 Current state:
 
 - capability names are documented in framework, architecture, and ADR docs,
-- no stable capability constants exist in code yet,
+- draft capability constants exist in code,
 - no production adapter declares capabilities yet,
 - no adapter test kit validates capabilities yet.
 
@@ -54,6 +54,7 @@ adapter API is stable.
 | `aggregate` | Adapter can compute ungrouped aggregate comparisons. |
 | `grouped_aggregate` | Adapter can compute aggregate comparisons segmented by group fields. |
 | `key_diff` | Adapter can compare source and target key presence. |
+| `null_key` | Adapter can detect rows where declared identity keys are null on one side. |
 | `duplicate_key` | Adapter can detect duplicate keys for a side. |
 | `null_safe_equality` | Adapter can compare values with explicit null semantics. |
 | `numeric_cast` | Adapter can render safe numeric casts required by plans. |

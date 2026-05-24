@@ -85,6 +85,55 @@ Tests:
 - empty check-pack expansion errors,
 - compiled YAML artifacts match expected output.
 
+## Milestone 4.5: shared parsed-project loading
+
+Build this hardening milestone before Milestone 5.
+
+Goal:
+
+- keep authored project files as the source of truth,
+- keep `target/manifest.json` as a generated machine-oriented artifact,
+- remove duplicated contract discovery/loading/parsing flow between parse and
+  compile services before the validation rulebook expands,
+- avoid introducing manifest freshness or caching behavior yet.
+
+Build:
+
+- shared internal parsed-project loading helper used by both `ParseService` and
+  `CompileService`,
+- a typed return model containing project context, discovered resource files,
+  parsed contracts, and parse diagnostics,
+- parse behavior that still writes `target/manifest.json`, including parse
+  diagnostics when structural validation fails,
+- compile behavior that still stops before compiled artifact writing when parse
+  diagnostics exist,
+- no public CLI behavior change,
+- no generated artifact format change,
+- no requirement for `recon compile` to read `target/manifest.json`.
+
+Tests:
+
+- parse and compile use the same shared parser pipeline,
+- parse still writes a manifest with diagnostics for invalid authored
+  resources,
+- compile still writes no compiled artifacts when parse diagnostics exist,
+- compile still succeeds for valid projects without requiring a pre-existing
+  manifest,
+- project configuration errors still prevent both manifest and compiled artifact
+  writes.
+
+Required gate:
+
+- resolve the local resource loading and precedence gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  expanding this milestone beyond contract-resource loading.
+
+Recommended commit message:
+
+```text
+refactor: share parsed project loading across services
+```
+
 ## Milestone 5: validation rulebook
 
 Build:
@@ -96,6 +145,16 @@ Build:
 - incompatible check/column type errors,
 - sampling policy resolution,
 - tolerance precedence.
+
+Required gates:
+
+- resolve the validation timing and diagnostic code catalog gate,
+- resolve the check-pack invocation config and overrides gate before supporting
+  check-pack config or non-error empty expansion behavior,
+- resolve the column model and value-comparison surface gate before validating
+  column eligibility or all-column selection,
+- resolve the tolerance, null, and normalization resolution gate before
+  applying comparison policy precedence.
 
 Tests:
 
@@ -113,6 +172,16 @@ Build:
 - capability declarations,
 - SQL rendering for typed plan operations,
 - first internal adapter test-kit shape.
+
+Required gates:
+
+- resolve the profiles, connections, and secrets gate before adapter execution,
+- resolve the adapter API, capability validation, and compiled SQL gate before
+  implementing the adapter API or SQL rendering,
+- resolve the typed operation catalog expansion gate before rendering or
+  emitting additional typed operations,
+- resolve the query endpoint support boundary gate if executable query
+  endpoints are included.
 
 Tests:
 
@@ -133,6 +202,14 @@ Build:
 - missing/extra key checks,
 - metric sum diff,
 - check result model.
+
+Required gates:
+
+- resolve the explicit authored checks and check registry gate before
+  implementing explicit `checks: [...]` support or registry behavior that must
+  serve explicit checks later,
+- re-check the typed operation catalog expansion gate before executing any
+  operation beyond the current compiled subset.
 
 Tests:
 
@@ -200,6 +277,88 @@ checklist before any 0.1 version bump, tag, or publish step.
 Do not start treating roadmap work as 0.2 scope until the 0.1 release decision
 has been made.
 
+## Post-MVP Milestone 11: aggregate metrics expansion
+
+Build this after Milestones 1-10 are complete and after the 0.1
+release-readiness decision.
+
+Goal:
+
+- expand explicit aggregate metric support beyond the MVP `sum` metric,
+- keep `recon_core.aggregate_equivalence` deferred until its behavior is
+  explicitly designed,
+- avoid aggregate inference from numeric columns unless a durable decision
+  defines the opt-in model and compiled artifact visibility.
+
+Build:
+
+- explicit `min`, `max`, `avg`, and `count_distinct` metric compilation,
+- grouped aggregate behavior where adapter capabilities support it,
+- validation for metric type and referenced column compatibility,
+- typed check-plan operations and adapter capability expectations,
+- check-engine execution for the new aggregate metric checks,
+- result and evidence fields for aggregate metric comparisons.
+
+Tests:
+
+- each supported metric type compiles into the expected typed plan,
+- unsupported metric types produce diagnostics,
+- grouped and ungrouped aggregate behavior is covered separately,
+- adapter capability validation blocks unsupported aggregate operations,
+- run results and evidence preserve metric names and aggregate details.
+
+Required gate:
+
+- resolve the aggregate metrics expansion gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  implementation.
+
+Recommended commit message:
+
+```text
+feat: expand aggregate metric checks
+```
+
+## Post-MVP Milestone 12: schema policy and metadata checks
+
+Build this after the adapter API and metadata model exist.
+
+Goal:
+
+- implement schema policy checks without silent ignores,
+- use adapter-normalized metadata for structural compatibility,
+- make ignored columns and schema assumptions visible in results and evidence.
+
+Build:
+
+- `column_presence`,
+- `type_compatibility`,
+- `nullable_compatibility`,
+- `precision_scale_compatibility`,
+- schema ignore lists and patterns,
+- adapter metadata validation,
+- schema check results and evidence fields.
+
+Tests:
+
+- source and target ignore rules are side-specific,
+- pattern matching is predictable,
+- incompatible types fail or warn according to policy,
+- nullable and precision/scale behavior is covered,
+- unavailable metadata produces clear diagnostics.
+
+Required gate:
+
+- resolve the schema policy and metadata checks gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  implementation.
+
+Recommended commit message:
+
+```text
+feat: add schema policy checks
+```
+
 ## Deferral list
 
 Do not block MVP on:
@@ -214,6 +373,9 @@ Do not block MVP on:
 - many adapters,
 - hosted UI,
 - persisted random sample,
+- aggregate metric expansion beyond explicit `sum`,
+- `recon_core.aggregate_equivalence`,
+- schema policy checks,
 - SCD2 CDC,
 - advanced evidence redaction,
 - orchestration integrations.

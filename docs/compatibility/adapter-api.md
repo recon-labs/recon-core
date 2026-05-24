@@ -19,7 +19,8 @@ Current state:
 - no external adapter API version has been released,
 - no shared adapter test kit exists yet,
 - the interface in framework and architecture docs is illustrative,
-- typed check plans are designed but not implemented yet.
+- draft typed check plans are produced by the compiler, but no adapter consumes
+  them yet.
 
 Adapter repositories such as `recon-postgres` and `recon-snowflake` should split
 only after typed check plans, adapter API versioning, and shared adapter tests

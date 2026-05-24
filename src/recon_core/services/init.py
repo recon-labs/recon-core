@@ -6,6 +6,7 @@ from typing import cast
 
 import yaml
 
+from recon_core.compiler.ids import STABLE_ID_PART_HINT, is_valid_stable_id_part
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services.results import ExitCategory, ServiceResult
 
@@ -129,7 +130,7 @@ def _validate_project_name(project_name: str) -> ServiceResult | None:
                 message=message,
                 resource_type="project",
                 resource_name=project_name,
-                hint="Use a single directory name without path separators.",
+                hint=f"Use a single directory name. {STABLE_ID_PART_HINT}",
             ),
         ),
     )
@@ -140,4 +141,4 @@ def _is_safe_project_name(project_name: str) -> bool:
         return False
     if "/" in project_name or "\\" in project_name:
         return False
-    return not Path(project_name).is_absolute()
+    return not Path(project_name).is_absolute() and is_valid_stable_id_part(project_name)

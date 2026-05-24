@@ -13,13 +13,36 @@ artifact formats.
 | Artifact | Path | Format | Version status |
 | --- | --- | --- | --- |
 | Manifest | `target/manifest.json` | JSON | Implemented with `artifact_version: 1`. |
-| Compiled contract | `target/compiled_contracts/<contract_name>.yml` | YAML | Schema decided as `artifact_version: 1`, not implemented yet. |
-| Compiled checks | `target/compiled_checks/<contract_name>.yml` | YAML | Schema decided as `artifact_version: 1`, not implemented yet. |
+| Compiled contract | `target/compiled_contracts/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
+| Compiled checks | `target/compiled_checks/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
 | Compiled SQL | `target/compiled_sql/**` | SQL | Planned, not implemented yet. |
 | Run results | `target/run_results.json` | JSON | Planned, not implemented yet. |
 | Failure details | `target/failures/` | TBD | Planned, not implemented yet. |
 | Evidence reports | `reports/` | HTML or other report formats | Planned, not implemented yet. |
 | State | `state/` and `target/sample_keys/` | TBD | Planned, not implemented yet. |
+
+## Compiled artifact lifecycle
+
+`recon compile` writes compiled contract and compiled checks YAML as a current
+snapshot. After project configuration loads and `target-path` is known, Recon
+removes existing top-level `*.yml` files under `target/compiled_contracts/` and
+`target/compiled_checks/` before parsing and compilation continue. This
+prevents removed, renamed, or invalid current contracts from leaving stale
+compiled artifacts for downstream automation to read.
+
+Compiled artifact cleanup and writes reject symlinked compiled artifact
+directories and symlinked `target-path` ancestry. Standalone compiled artifact
+writers also reject exact output-file symlinks and path-like artifact names so
+generated filenames cannot escape `target/compiled_contracts/` or
+`target/compiled_checks/`.
+
+Manifest writes also reject symlinked `target-path` ancestry and exact
+`manifest.json` output-file symlinks. Normal manifest regeneration still
+overwrites the current manifest file.
+
+These lifecycle behaviors do not require an artifact version bump by themselves
+because artifact paths, schemas, header fields, and field meanings are
+unchanged.
 
 ## Header convention
 
@@ -36,8 +59,8 @@ Example:
 }
 ```
 
-Compiled and run artifacts should also include `invocation_id` once those
-writers exist.
+Compiled artifacts also include `invocation_id`. Run artifacts should include
+`invocation_id` once run artifact writers exist.
 
 ## Artifact version rules
 
@@ -75,17 +98,17 @@ migration guidance even before 1.0.
 Version constants should exist only for artifacts that code can produce,
 consume, validate, or reject.
 
-Current code constant:
+Current code constants:
 
 ```text
 MANIFEST_ARTIFACT_VERSION = 1
+COMPILED_ARTIFACT_VERSION = 1
 ```
 
 Planned constants should be added when their writers or readers are
 implemented:
 
 ```text
-COMPILED_ARTIFACT_VERSION
 RUN_RESULT_VERSION
 ```
 

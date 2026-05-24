@@ -60,6 +60,21 @@ Compiled contracts and compiled checks are separate artifacts:
 When adapter SQL rendering is not available, compiled checks should still show
 typed plans and mark rendering as `not_rendered`.
 
+Current implementation writes compiled contract and compiled checks artifacts
+for supported check-pack and metric behavior. `target/compiled_sql/` is not
+written until adapter SQL rendering exists.
+
+Compiled contract and compiled checks directories are regenerated as snapshots.
+After project configuration loads and `target-path` is known, Recon removes
+existing top-level `*.yml` files from `target/compiled_contracts/` and
+`target/compiled_checks/` before parsing and compilation continue. If parsing
+or fatal compile validation fails, old compiled artifacts are absent instead of
+stale.
+
+Generated compiled artifact directories and their `target-path` ancestry must be
+real directories, not symlinks, and compiled artifact filenames must be safe
+single-segment names. Exact compiled artifact output files must not be symlinks.
+
 ## `recon run`
 
 `recon run` executes checks.

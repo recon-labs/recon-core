@@ -10,14 +10,21 @@ execute those typed operations for a specific system.
 
 ## Current status
 
-Typed check plans are designed but not implemented yet.
+Typed check plans are designed and the current compiler writes draft typed
+plans into compiled checks artifacts.
 
 Current state:
 
 - ADR 0013 establishes the typed check-plan architecture.
 - ADR 0015 establishes the compiled artifact shape that will contain typed
   plans.
-- The compiler is not implemented yet.
+- The typed plan model foundation exists in code.
+- Built-in `recon_core.basic_equivalence` expansion helpers produce draft typed
+  plans at library level.
+- Explicit metric compilation helpers produce draft aggregate typed plans at
+  library level.
+- `recon compile` writes compiled checks artifacts containing draft typed
+  plans.
 - No stable typed check-plan schema has been released.
 - No adapter currently consumes typed plans.
 
@@ -41,6 +48,11 @@ plan:
 Typed operation payloads should be modeled explicitly in Python. They must not
 be arbitrary dictionaries passed through the compiler.
 
+Implemented typed operation models must reject payload fields that are not valid
+for their operation type. For example, comparison operations such as
+`compare_counts` must not serialize side-specific fields, and side-specific
+operations such as `row_count` must not serialize aggregate or column fields.
+
 ## Draft operation catalog
 
 The current draft operation names come from ADR 0013 and ADR 0015:
@@ -50,6 +62,7 @@ row_count
 aggregate
 grouped_aggregate
 key_diff
+null_key
 duplicate_key
 null_safe_equal
 cast
@@ -58,11 +71,35 @@ hash
 timestamp_diff
 schema_metadata
 compare_counts
+compare_aggregates
 compare_grouped_aggregates
 ```
 
 This catalog is not stable until the compiler and adapter interface implement
 it and tests protect the payload schemas.
+
+The current model validates payload schemas for the operations emitted by the
+compiler. Planned operation names must not be emitted until their payload schema,
+capability expectations, docs, and tests exist.
+
+`null_key` is the typed operation for side-specific key null checks. It is a
+data check over declared comparison identity keys, not a schema nullability
+check.
+
+Example:
+
+```yaml
+- type: null_key
+  side: source
+  identity:
+    kind: grain
+    keys:
+      - customer_id
+```
+
+`compare_aggregates` compares ungrouped source and target aggregate operation
+results. `compare_grouped_aggregates` compares aggregate results segmented by
+`group_by` fields.
 
 ## Compatibility rules
 

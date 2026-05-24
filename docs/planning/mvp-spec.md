@@ -102,7 +102,7 @@ If no columns are defined, only checks that do not need columns can run.
 
 ### Metrics
 
-Support explicit aggregate metrics.
+Support explicit `sum` aggregate metrics.
 
 Example:
 
@@ -114,7 +114,9 @@ metrics:
     tolerance: 0.01
 ```
 
-Metrics compile into aggregate checks.
+Metrics compile into aggregate checks. Metric types beyond `sum` are post-MVP
+work and should be added through an explicit aggregate metrics expansion
+milestone.
 
 ### Checks
 

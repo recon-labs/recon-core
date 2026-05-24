@@ -77,6 +77,26 @@ The compiler should not make database-specific SQL strings the primary internal
 representation. It should create typed compiled checks and typed check plans.
 Adapters render those plans into dialect-specific SQL when SQL output is needed.
 
+The current compiler implementation supports the first end-to-end artifact
+path:
+
+- parse current authored contract files,
+- expand supported check packs,
+- compile explicit `sum` metrics,
+- write compiled contract and compiled checks YAML artifacts,
+- mark rendering as `not_rendered`.
+
+Explicit authored checks outside supported check-pack and metric compilation
+return a clear diagnostic until their typed plans are implemented.
+
+Compiler entry points that build stable compiled contract, check, or plan IDs
+should validate project, contract, check, and metric name parts before building
+IDs. Invalid stable ID parts must return structured diagnostics instead of
+allowing helper APIs to raise unhandled exceptions.
+
+Compile should fail validation when no contracts are discovered. A successful
+compile must represent at least one authored contract.
+
 ## Columns, metrics, and checks
 
 Compiler rules:
@@ -129,6 +149,14 @@ checks:
     - recon_core.basic_equivalence
 ```
 
+The current compiler supports check-pack names as strings and object entries
+with only a `name` field. Check-pack invocation config and overrides are gated
+for later design work; fields other than `name` must fail validation instead of
+being silently ignored.
+
+Contracts must compile into at least one check from supported check packs or
+explicit metrics.
+
 Compiled output should show checks such as:
 
 ```yaml
@@ -154,6 +182,21 @@ duplicate_target_keys
 The pack requires `grain.keys`. It must not silently weaken to only
 `row_count_diff` when grain is missing.
 
+The expanded checks should lower to typed operations as follows:
+
+| Check | Typed operation | Required capability |
+| --- | --- | --- |
+| `row_count_diff` | `row_count` on both sides, then `compare_counts` | `row_count` |
+| `missing_keys` | `key_diff` with `source_minus_target` | `key_diff` |
+| `extra_keys` | `key_diff` with `target_minus_source` | `key_diff` |
+| `null_source_keys` | `null_key` with `side: source` | `null_key` |
+| `null_target_keys` | `null_key` with `side: target` | `null_key` |
+| `duplicate_source_keys` | `duplicate_key` with `side: source` | `duplicate_key` |
+| `duplicate_target_keys` | `duplicate_key` with `side: target` | `duplicate_key` |
+
+`null_key` checks actual data values in declared identity keys. It is not a
+schema nullability check.
+
 ## Empty expansion
 
 If a check pack requires inputs and expands to no checks, default behavior is error.
@@ -176,12 +219,30 @@ Optional future config may support `on_empty: warn` or `on_empty: skip`, but the
 
 ## Metric compilation
 
-Each metric compiles into one or more aggregate checks.
+Each explicit metric compiles into one aggregate comparison check. Metrics do
+not require `grain.keys`; `metrics.group_by` is aggregate segmentation, not row
+identity.
+
+The current compiler supports these metric fields:
+
+```text
+name
+type
+column
+group_by
+tolerance
+```
+
+Unknown metric fields must fail validation so typos do not silently change
+compiled intent.
 
 Example:
 
 ```yaml
 metrics:
+  - name: total_revenue
+    type: sum
+    column: revenue
   - name: revenue_by_month
     type: sum
     column: revenue
@@ -190,19 +251,75 @@ metrics:
     tolerance: 0.01
 ```
 
-Compiled check:
+Compiled ungrouped metric check:
+
+```yaml
+- name: total_revenue
+  type: sum_diff
+  origin:
+    kind: metric
+    name: total_revenue
+  identity:
+    kind: none
+    keys: []
+  metric:
+    type: sum
+    column: revenue
+    group_by: []
+  plan:
+    operations:
+      - type: aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+      - type: aggregate
+        side: target
+        aggregate: sum
+        column: revenue
+      - type: compare_aggregates
+    required_capabilities:
+      - aggregate
+```
+
+Compiled grouped metric check:
 
 ```yaml
 - name: revenue_by_month
   type: grouped_aggregate_diff
-  metric: sum
-  column: revenue
-  group_by:
-    - month
+  origin:
+    kind: metric
+    name: revenue_by_month
+  identity:
+    kind: none
+    keys: []
+  metric:
+    type: sum
+    column: revenue
+    group_by:
+      - month
   tolerance: 0.01
+  plan:
+    operations:
+      - type: grouped_aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: grouped_aggregate
+        side: target
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: compare_grouped_aggregates
+    required_capabilities:
+      - grouped_aggregate
 ```
 
-Metric names must be unique within a contract.
+The first compiler implementation supports explicit `sum` metrics. Metric
+names must be unique within a contract; duplicate names fail validation with
+`RC_VALIDATE_DUPLICATE_METRIC_NAME`.
 
 Metric column types must be compatible with metric type.
 
@@ -234,6 +351,11 @@ sampling: full
 sampling:
   policy: latest_changed_records
 ```
+
+The current compiler supports contract-level `sampling.default_policy` as
+`full` or a non-empty named sampling policy string. Unsupported sampling fields,
+non-string `default_policy` values, or empty policy names must fail validation
+instead of compiling as full sampling.
 
 Sampling does not remove non-null or uniqueness requirements for row-level checks.
 
@@ -393,6 +515,8 @@ RC_VALIDATE_ROW_CHECK_REQUIRES_KEYS
 RC_VALIDATE_CHECK_REQUIRES_GRAIN_KEYS
 RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS
 RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
+RC_VALIDATE_NO_CONTRACTS_FOUND
+RC_VALIDATE_NO_COMPILED_CHECKS
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED
 RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE
@@ -438,6 +562,29 @@ contract.<project>.<contract>
 check.<project>.<contract>.<check>
 plan.<project>.<contract>.<check>
 ```
+
+Stable ID parts must be safe before the compiler builds IDs. Project names,
+contract names, check names, and metric names that cannot be represented in
+stable IDs must produce structured validation diagnostics instead of unhandled
+exceptions.
+
+Current stable ID parts must:
+
+- start with a letter or underscore,
+- contain only letters, numbers, and underscores.
+
+Invalid stable ID parts should report `RC_VALIDATE_INVALID_STABLE_ID_PART`.
+
+Duplicate contract names make compiled artifact paths ambiguous because
+compiled contract and compiled checks filenames are contract-name based. Compile
+must report duplicate contract names before artifact writing and must not
+silently overwrite generated artifacts.
+
+Contract names must also be unique when compared case-insensitively for compiled
+artifact filenames. Names such as `Sales` and `sales` have distinct stable IDs
+but can target the same filename on common case-insensitive filesystems. Compile
+must report `RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION` before artifact
+writing in this case.
 
 ## Implementation pattern
 

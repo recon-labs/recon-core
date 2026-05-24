@@ -17,7 +17,7 @@ Current implementation status:
 
 - `recon init` is implemented.
 - `recon parse` is implemented for structural parsing and manifest generation.
-- `recon compile` is registered but not implemented yet.
+- `recon compile` is implemented for the current compiler scope.
 - `recon run` is registered but not implemented yet.
 
 ## `recon init`
@@ -47,7 +47,10 @@ state/
 
 `recon init` should not overwrite an existing path unless an explicit overwrite option is added later.
 
-`PROJECT_NAME` must be a single directory name. It must not be an absolute path, a nested path, or contain path traversal.
+`PROJECT_NAME` must be a single directory name that can be used in stable
+compiled artifact IDs. It must start with a letter or underscore and contain
+only letters, numbers, and underscores. It must not be an absolute path, a
+nested path, or contain path traversal.
 
 ## `recon parse`
 
@@ -87,14 +90,16 @@ with code `4` and does not write a manifest.
 If the manifest cannot be written, `recon parse` exits with code `3` and prints
 a runtime diagnostic.
 
+`recon parse` rejects symlinked manifest output paths instead of following them
+when writing `target/manifest.json`.
+
 `recon parse` does not compile checks, expand check packs, resolve sampling or
 tolerances, validate adapter capabilities, execute queries, or produce
 evidence.
 
 ## `recon compile`
 
-Generates human-readable execution artifacts. This command is not implemented
-yet.
+Generates human-readable execution artifacts.
 
 ```bash
 recon compile
@@ -111,6 +116,38 @@ target/compiled_checks/
 tolerances, schema policies, CDC behavior, and adapter capabilities. SQL files
 under `target/compiled_sql/` are produced when adapter SQL rendering is
 available.
+
+Current `compile` behavior:
+
+- loads project configuration,
+- discovers and parses contract files through the existing parser,
+- expands `recon_core.basic_equivalence`,
+- compiles explicit `sum` metrics into aggregate comparison checks,
+- removes old top-level compiled contract and compiled checks YAML files once
+  `target-path` is known,
+- rejects symlinked compiled artifact directories and symlinked `target-path`
+  ancestry, and rejects exact compiled artifact output-file symlinks,
+- writes `target/compiled_contracts/<contract_name>.yml`,
+- writes `target/compiled_checks/<contract_name>.yml`,
+- sets `rendering.status: not_rendered` because SQL rendering is not available
+  yet,
+- validates duplicate contract names and stable ID-safe project, contract, and
+  metric names before writing compiled artifacts,
+- validates case-insensitive contract filename collisions before writing
+  compiled artifacts,
+- rejects unsupported check-pack invocation config, nested `checks` mappings
+  with non-string keys, unknown metric fields, invalid sampling config, and
+  contracts that compile into no checks,
+- rejects projects where no contracts are discovered,
+- exits with code `2` when parse or compile diagnostics contain errors.
+
+Current limitations:
+
+- explicit authored checks outside supported check-pack and metric compilation
+  fail with a clear diagnostic,
+- adapter capability validation is not connected to real adapters yet,
+- SQL rendering, execution, run results, and evidence reports are not
+  implemented yet.
 
 ## `recon run`
 

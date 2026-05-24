@@ -21,11 +21,11 @@ Current implementation status:
 | --- | --- |
 | Contract parsing | Implemented for the current parser scope. |
 | `target/manifest.json` | Implemented with `artifact_version: 1`. |
-| `recon compile` | Command exists, implementation is not complete yet. |
-| Compiled artifacts | Schema is decided by ADR 0015, implementation is not complete yet. |
-| Typed check plans | Architecture is decided by ADR 0013, implementation is not complete yet. |
+| `recon compile` | Implemented for the current compiler scope. |
+| Compiled artifacts | Implemented with `artifact_version: 1` for compiled contract and compiled checks YAML. |
+| Typed check plans | Draft typed plans are produced in compiled checks artifacts. |
 | Adapter API | Documented as an intended boundary, not stable or implemented yet. |
-| Adapter capabilities | Documented as a draft catalog, not implemented as stable constants yet. |
+| Adapter capabilities | Documented as a draft catalog and represented in compiler enums; no production adapter declarations yet. |
 | External adapter repos | Planned, not split yet. |
 | Adapter test kit | Planned, not created yet. |
 | Run results and evidence | Planned, not implemented yet. |

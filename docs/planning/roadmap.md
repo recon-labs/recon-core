@@ -103,10 +103,15 @@ Checks:
 - exact value match,
 - numeric tolerance row-level match,
 - timestamp tolerance match,
+- explicit `min`, `max`, `avg`, and `count_distinct` metric diffs,
 - grouped aggregate diff,
 - column presence,
 - type compatibility,
 - precision/scale compatibility.
+
+Aggregate metric expansion should be handled as an explicit post-MVP milestone.
+`recon_core.aggregate_equivalence` should remain gated until its expansion and
+inference behavior is designed and documented.
 
 Sampling:
 

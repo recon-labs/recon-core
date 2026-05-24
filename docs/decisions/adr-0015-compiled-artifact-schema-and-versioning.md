@@ -52,6 +52,21 @@ What exact checks and typed plans will Recon run?
 `recon run` must use compiled intent instead of reinterpreting raw authored YAML
 as the execution contract.
 
+`recon compile` should treat `target/compiled_contracts/` and
+`target/compiled_checks/` as generated snapshots. After project configuration
+loads and `target-path` is known, Recon should remove existing top-level
+`*.yml` files in those directories before parsing and compilation continue so
+removed, renamed, or invalid current contracts do not leave stale executable
+intent behind.
+
+Compiled artifact directories and their `target-path` ancestry must be real
+directories. Recon should reject symlinked compiled artifact directories or
+symlinked ancestry rather than following them during cleanup or artifact writes.
+Exact compiled artifact output files must also not be symlinks, even when
+overwrite behavior is explicitly enabled. Compiled artifact filenames should be
+built from safe single-segment names so standalone artifact writers cannot write
+outside their generated artifact directories.
+
 Compiled SQL is not required for the first compiler implementation. Until
 adapter rendering exists, compiled checks must include typed plans and a
 rendering status such as `not_rendered`. SQL files under
@@ -334,6 +349,10 @@ be arbitrary ad hoc dictionaries passed through the compiler service.
 Adapters render typed plans into SQL or equivalent execution requests. Adapter
 rendering must not define reconciliation semantics.
 
+For key safety checks, `null_source_keys` and `null_target_keys` use the
+side-specific `null_key` operation. `null_key` checks data values for nulls in
+declared identity keys; it is separate from schema nullability checks.
+
 ## Rendering Metadata
 
 Compiled checks must include rendering metadata even when SQL is not generated.
@@ -434,6 +453,7 @@ Example compiled check:
     requires_cdc_keys: false
     required_columns:
       - revenue
+      - month
     required_metrics:
       - revenue_by_month
     required_capabilities:
@@ -453,6 +473,13 @@ Example compiled check:
     id: plan.cdc_validation.orders_cdc.revenue_by_month
     operations:
       - type: grouped_aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: grouped_aggregate
+        side: target
         aggregate: sum
         column: revenue
         group_by:
@@ -467,6 +494,10 @@ Example compiled check:
 ```
 
 Metric compilation must not depend on `grain.keys`.
+
+Ungrouped aggregate metrics use `aggregate` operations followed by
+`compare_aggregates`. Grouped aggregate metrics use `grouped_aggregate`
+operations followed by `compare_grouped_aggregates`.
 
 ## Diagnostics
 
@@ -535,6 +566,7 @@ Compiler implementation should include focused tests for:
 - explicit metric compilation,
 - columns not creating checks by themselves,
 - empty check-pack expansion errors,
+- no-check compiled contracts,
 - typed plan generation,
 - compiled artifact writers,
 - compile service behavior,

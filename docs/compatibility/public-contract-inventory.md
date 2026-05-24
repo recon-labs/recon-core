@@ -16,10 +16,10 @@ reviewed for compatibility impact.
 | --- | --- | --- | --- |
 | Contract YAML schema | Parser scope implemented; not frozen before 1.0. | `docs/framework/equivalence-contracts.md`, `docs/user-guide/equivalence-contracts.md` | Not centralized yet. |
 | Manifest artifact schema | Implemented for `recon parse`. | `docs/implementation/parser-and-manifest.md`, `docs/compatibility/artifact-versions.md` | `MANIFEST_ARTIFACT_VERSION = 1` |
-| Compiled artifact schema | Decided by ADR 0015; not implemented yet. | `docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`, `docs/implementation/compiled-artifacts.md` | Add `COMPILED_ARTIFACT_VERSION` when compiled artifact writers are implemented. |
-| Typed check plan schema | Decided at architecture level; not implemented yet. | `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`, `docs/compatibility/typed-check-plan.md` | Add `TYPED_CHECK_PLAN_VERSION` when typed plans are implemented and validated. |
+| Compiled artifact schema | Implemented for compiled contract and compiled checks YAML. | `docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`, `docs/implementation/compiled-artifacts.md` | `COMPILED_ARTIFACT_VERSION = 1` |
+| Typed check plan schema | Draft typed plans are produced in compiled checks artifacts. | `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`, `docs/compatibility/typed-check-plan.md` | Add `TYPED_CHECK_PLAN_VERSION` only if typed plans get an independent version. |
 | Adapter API | Planned; not implemented or stable yet. | `docs/architecture/adapter-interface.md`, `docs/implementation/adapter-interface-spec.md`, `docs/compatibility/adapter-api.md` | Add `ADAPTER_API_VERSION` when the adapter API exists in code. |
-| Capability catalog | Draft catalog documented; no stable code constants yet. | `docs/compatibility/capability-catalog.md`, `docs/framework/adapters.md` | Add code constants or enums when adapter capability validation is implemented. |
+| Capability catalog | Draft catalog documented and represented by compiler enums; no production adapter declarations yet. | `docs/compatibility/capability-catalog.md`, `docs/framework/adapters.md` | `AdapterCapability` enum |
 | Run result schema | Planned; not implemented yet. | `docs/implementation/result-model.md`, `docs/framework/evidence.md` | Add `RUN_RESULT_VERSION` when run result artifacts are implemented. |
 | Evidence and report schema | Planned; not implemented yet. | `docs/framework/evidence.md`, `docs/user-guide/evidence.md`, `docs/implementation/evidence-writers.md` | Add version constants when evidence artifacts have stable machine-readable formats. |
 | Failure detail schema | Planned; not implemented yet. | `docs/architecture/artifact-model.md`, `docs/implementation/result-model.md` | Add a version constant only if failure details become machine-readable artifacts. |
@@ -35,7 +35,8 @@ produce, consume, validate, or reject.
 Use this policy:
 
 - keep `MANIFEST_ARTIFACT_VERSION` because `target/manifest.json` is implemented,
-- add `COMPILED_ARTIFACT_VERSION` when compiled artifact writers land,
+- keep `COMPILED_ARTIFACT_VERSION` because compiled artifact writers are
+  implemented,
 - add `TYPED_CHECK_PLAN_VERSION` when typed check-plan models land,
 - add `ADAPTER_API_VERSION` when the adapter API exists in code,
 - add `RUN_RESULT_VERSION` when `target/run_results.json` is implemented,

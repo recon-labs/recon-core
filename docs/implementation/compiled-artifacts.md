@@ -32,6 +32,25 @@ target/compiled_sql/<contract_name>/<check_name>/comparison.sql
 When SQL rendering is not available, compiled checks still include typed plans
 and should set `rendering.status: not_rendered`.
 
+The current compiler writes compiled contract and compiled checks YAML artifacts
+for supported check-pack and metric behavior. It does not write
+`target/compiled_sql/` yet.
+
+`recon compile` treats `target/compiled_contracts/` and
+`target/compiled_checks/` as generated snapshots. After project configuration
+loads and `target-path` is known, Recon removes existing top-level `*.yml` files
+from those two directories before parsing and compilation continue. If parsing
+or fatal compile validation fails, old compiled artifacts are therefore absent
+instead of stale.
+
+Compiled artifact directories must be real directories, not symlinks. Recon
+rejects symlinked compiled artifact directories and symlinked `target-path`
+ancestry rather than following those paths during cleanup or writes. Exact
+compiled artifact output files must also not be symlinks, even when overwrite
+behavior is explicitly enabled. Compiled artifact filenames are built from safe
+single-segment artifact names; path-like names are invalid for standalone
+artifact writers.
+
 ## Artifact header
 
 Compiled artifacts use top-level artifact header fields:
@@ -64,6 +83,27 @@ contract.cdc_validation.orders_cdc
 check.cdc_validation.orders_cdc.row_count_diff
 plan.cdc_validation.orders_cdc.row_count_diff
 ```
+
+Because compiled artifact filenames are contract-name based, duplicate contract
+names must fail validation before artifact writing. The compiler must not
+silently overwrite one compiled contract or compiled checks artifact with
+another.
+
+Contract names must also be unique when compared case-insensitively for compiled
+artifact filenames. For example, `Sales` and `sales` would produce filenames
+that collide on common case-insensitive filesystems, so compile should report
+`RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION` before writing artifacts.
+
+Compiled artifact writers must not overwrite existing artifacts unless the
+caller explicitly opts into overwrite behavior. Case-insensitive filename
+collisions remain errors even when overwrite is enabled, because regenerating
+`sales.yml` must not replace an existing `Sales.yml` artifact on
+case-insensitive filesystems.
+
+Names used in stable IDs must start with a letter or underscore and contain only
+letters, numbers, and underscores. Invalid project, contract, check, or metric
+name parts should produce `RC_VALIDATE_INVALID_STABLE_ID_PART` diagnostics
+instead of unhandled exceptions.
 
 ## Compiled contract
 
@@ -274,7 +314,43 @@ The pack requires `grain.keys`. It must not silently weaken to only
 `missing_keys` and `extra_keys` use distinct non-null grain-key coverage. Null
 and duplicate grain-key checks report key safety failures separately.
 
-Empty check-pack expansion is an error.
+Empty check-pack expansion is an error. A contract that compiles into no checks
+is also an error.
+
+Example null-key check plan:
+
+```yaml
+- id: check.cdc_validation.orders_cdc.null_source_keys
+  name: null_source_keys
+  type: null_source_keys
+  origin:
+    kind: check_pack
+    name: recon_core.basic_equivalence
+  identity:
+    kind: grain
+    keys:
+      - order_id
+  requirements:
+    requires_grain_keys: true
+    requires_non_null_grain: false
+    requires_unique_grain: false
+    requires_cdc_keys: false
+    required_columns: []
+    required_metrics: []
+    required_capabilities:
+      - null_key
+  plan:
+    id: plan.cdc_validation.orders_cdc.null_source_keys
+    operations:
+      - type: null_key
+        side: source
+        identity:
+          kind: grain
+          keys:
+            - order_id
+    required_capabilities:
+      - null_key
+```
 
 ## Metric compilation
 
@@ -282,6 +358,59 @@ Explicit metrics compile into aggregate checks.
 
 Metrics do not require `grain.keys`. `metrics.group_by` is aggregate
 segmentation, not row identity.
+
+Ungrouped metrics compile to `sum_diff` checks with source and target
+`aggregate` operations followed by `compare_aggregates`.
+
+Example:
+
+```yaml
+- id: check.cdc_validation.orders_cdc.total_revenue
+  name: total_revenue
+  type: sum_diff
+  origin:
+    kind: metric
+    name: total_revenue
+  identity:
+    kind: none
+    keys: []
+  requirements:
+    requires_grain_keys: false
+    requires_non_null_grain: false
+    requires_unique_grain: false
+    requires_cdc_keys: false
+    required_columns:
+      - revenue
+    required_metrics:
+      - total_revenue
+    required_capabilities:
+      - aggregate
+  metric:
+    type: sum
+    column: revenue
+    group_by: []
+  plan:
+    id: plan.cdc_validation.orders_cdc.total_revenue
+    operations:
+      - type: aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+      - type: aggregate
+        side: target
+        aggregate: sum
+        column: revenue
+      - type: compare_aggregates
+    required_capabilities:
+      - aggregate
+  rendering:
+    status: not_rendered
+    sql_paths: []
+```
+
+Grouped metrics compile to `grouped_aggregate_diff` checks with source and
+target `grouped_aggregate` operations followed by
+`compare_grouped_aggregates`.
 
 Example:
 
@@ -295,6 +424,18 @@ Example:
   identity:
     kind: none
     keys: []
+  requirements:
+    requires_grain_keys: false
+    requires_non_null_grain: false
+    requires_unique_grain: false
+    requires_cdc_keys: false
+    required_columns:
+      - revenue
+      - month
+    required_metrics:
+      - revenue_by_month
+    required_capabilities:
+      - grouped_aggregate
   metric:
     type: sum
     column: revenue
@@ -307,6 +448,13 @@ Example:
     id: plan.cdc_validation.orders_cdc.revenue_by_month
     operations:
       - type: grouped_aggregate
+        side: source
+        aggregate: sum
+        column: revenue
+        group_by:
+          - month
+      - type: grouped_aggregate
+        side: target
         aggregate: sum
         column: revenue
         group_by:
