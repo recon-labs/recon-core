@@ -42,6 +42,15 @@ class CompileService:
         assert context_result.context is not None
         context = context_result.context
 
+        try:
+            _clear_compiled_artifacts(context.paths.target_path)
+        except OSError as exc:
+            return _compiled_artifact_runtime_error(
+                exc,
+                target_path=context.paths.target_path,
+                project_root=context.project_root,
+            )
+
         discovery_result = discover_contract_files(
             context.project_root,
             context.paths.contract_paths,
@@ -75,23 +84,10 @@ class CompileService:
         try:
             _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
         except OSError as exc:
-            target_path = _display_path(context.paths.target_path, context.project_root)
-            return ServiceResult(
-                exit_category=ExitCategory.RUNTIME_ERROR,
-                message="Compile completed but artifacts could not be written.",
-                diagnostics=(
-                    Diagnostic(
-                        code=COMPILED_ARTIFACT_WRITE_FAILED,
-                        severity=DiagnosticSeverity.ERROR,
-                        message=f"Unable to write compiled artifacts under {target_path}: {exc}",
-                        resource_type="compiled_artifacts",
-                        path=target_path,
-                        hint=(
-                            "Check that target-path is a writable directory "
-                            "or update target-path in recon_project.yml."
-                        ),
-                    ),
-                ),
+            return _compiled_artifact_runtime_error(
+                exc,
+                target_path=context.paths.target_path,
+                project_root=context.project_root,
             )
 
         if compilation.succeeded:
@@ -139,19 +135,56 @@ def _write_compiled_artifacts(
 ) -> None:
     contract_writer = CompiledContractWriter()
     check_writer = CompiledCheckWriter()
-    _prepare_compiled_artifact_directory(target_path / COMPILED_CONTRACTS_DIR_NAME)
-    _prepare_compiled_artifact_directory(target_path / COMPILED_CHECKS_DIR_NAME)
+    _ensure_compiled_artifact_directory(target_path / COMPILED_CONTRACTS_DIR_NAME)
+    _ensure_compiled_artifact_directory(target_path / COMPILED_CHECKS_DIR_NAME)
 
     for compiled_contract in compiled_contracts:
         contract_writer.write(compiled_contract.contract_artifact, target_path, overwrite=True)
         check_writer.write(compiled_contract.checks_artifact, target_path, overwrite=True)
 
 
-def _prepare_compiled_artifact_directory(output_dir: Path) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
+def _clear_compiled_artifacts(target_path: Path) -> None:
+    _clear_compiled_artifact_directory(target_path / COMPILED_CONTRACTS_DIR_NAME)
+    _clear_compiled_artifact_directory(target_path / COMPILED_CHECKS_DIR_NAME)
+
+
+def _clear_compiled_artifact_directory(output_dir: Path) -> None:
+    if not output_dir.is_dir():
+        return
+
     for output_path in output_dir.glob("*.yml"):
         if output_path.is_file() or output_path.is_symlink():
             output_path.unlink()
+
+
+def _ensure_compiled_artifact_directory(output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _compiled_artifact_runtime_error(
+    exc: OSError,
+    *,
+    target_path: Path,
+    project_root: Path,
+) -> ServiceResult:
+    display_path = _display_path(target_path, project_root)
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message="Compile completed but artifacts could not be written.",
+        diagnostics=(
+            Diagnostic(
+                code=COMPILED_ARTIFACT_WRITE_FAILED,
+                severity=DiagnosticSeverity.ERROR,
+                message=f"Unable to write compiled artifacts under {display_path}: {exc}",
+                resource_type="compiled_artifacts",
+                path=display_path,
+                hint=(
+                    "Check that target-path is a writable directory "
+                    "or update target-path in recon_project.yml."
+                ),
+            ),
+        ),
+    )
 
 
 def _resource_relative_diagnostics(

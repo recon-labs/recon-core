@@ -65,10 +65,11 @@ for supported check-pack and metric behavior. `target/compiled_sql/` is not
 written until adapter SQL rendering exists.
 
 Compiled contract and compiled checks directories are regenerated as snapshots.
-Before writing a new successful compile output, Recon removes existing top-level
-`*.yml` files from `target/compiled_contracts/` and
-`target/compiled_checks/`, then writes artifacts for the contracts present in
-the current run.
+After project configuration loads and `target-path` is known, Recon removes
+existing top-level `*.yml` files from `target/compiled_contracts/` and
+`target/compiled_checks/` before parsing and compilation continue. If parsing
+or fatal compile validation fails, old compiled artifacts are absent instead of
+stale.
 
 ## `recon run`
 

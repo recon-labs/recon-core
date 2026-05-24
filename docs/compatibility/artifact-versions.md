@@ -24,10 +24,11 @@ artifact formats.
 ## Compiled artifact lifecycle
 
 `recon compile` writes compiled contract and compiled checks YAML as a current
-snapshot. Before a successful compile writes new files, Recon removes existing
-top-level `*.yml` files under `target/compiled_contracts/` and
-`target/compiled_checks/`. This prevents removed or renamed contracts from
-leaving stale compiled artifacts for downstream automation to read.
+snapshot. After project configuration loads and `target-path` is known, Recon
+removes existing top-level `*.yml` files under `target/compiled_contracts/` and
+`target/compiled_checks/` before parsing and compilation continue. This
+prevents removed, renamed, or invalid current contracts from leaving stale
+compiled artifacts for downstream automation to read.
 
 This lifecycle behavior does not require an artifact version bump by itself
 because artifact paths, schemas, header fields, and field meanings are

@@ -129,6 +129,43 @@ target:
     assert not (tmp_path / "target" / "compiled_checks").exists()
 
 
+def test_compile_service_removes_stale_compiled_artifacts_when_parse_fails(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+
+    first_result = CompileService(start_path=tmp_path).execute()
+
+    assert first_result.exit_category is ExitCategory.SUCCESS
+    assert (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").is_file()
+    assert (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").is_file()
+
+    tmp_path.joinpath("contracts", "customer_revenue.yml").write_text(
+        """
+version: 1
+name: customer_revenue
+source:
+  connection: legacy
+  relation: qa.customer_source
+target:
+  connection: warehouse
+  relation: qa.customer_target
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    second_result = CompileService(start_path=tmp_path).execute()
+
+    assert second_result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert second_result.message == "Compile failed during project parsing."
+    assert [diagnostic.code for diagnostic in second_result.diagnostics] == [
+        "RC_PARSE_MISSING_REQUIRED_FIELD"
+    ]
+    assert not (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").exists()
+    assert not (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").exists()
+
+
 def test_compile_service_writes_no_artifacts_for_invalid_stable_id_parts(
     tmp_path: Path,
 ) -> None:
@@ -144,6 +181,41 @@ def test_compile_service_writes_no_artifacts_for_invalid_stable_id_parts(
     ]
     assert not (tmp_path / "target" / "compiled_contracts").exists()
     assert not (tmp_path / "target" / "compiled_checks").exists()
+
+
+def test_compile_service_removes_stale_compiled_artifacts_for_fatal_compile_validation(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+
+    first_result = CompileService(start_path=tmp_path).execute()
+
+    assert first_result.exit_category is ExitCategory.SUCCESS
+    assert (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").is_file()
+    assert (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").is_file()
+
+    tmp_path.joinpath("recon_project.yml").write_text(
+        """
+name: ecommerce-recon
+version: 0.1.0
+config-version: 1
+contract-paths:
+  - contracts
+target-path: target
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    second_result = CompileService(start_path=tmp_path).execute()
+
+    assert second_result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert second_result.message == "Compile failed with 1 diagnostic. Wrote no compiled artifacts."
+    assert [diagnostic.code for diagnostic in second_result.diagnostics] == [
+        "RC_VALIDATE_INVALID_STABLE_ID_PART"
+    ]
+    assert not (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").exists()
+    assert not (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").exists()
 
 
 def test_compile_service_writes_no_artifacts_for_duplicate_contract_names(

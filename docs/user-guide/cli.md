@@ -117,10 +117,10 @@ Current `compile` behavior:
 - discovers and parses contract files through the existing parser,
 - expands `recon_core.basic_equivalence`,
 - compiles explicit `sum` metrics into aggregate comparison checks,
+- removes old top-level compiled contract and compiled checks YAML files once
+  `target-path` is known,
 - writes `target/compiled_contracts/<contract_name>.yml`,
 - writes `target/compiled_checks/<contract_name>.yml`,
-- removes old top-level compiled contract and compiled checks YAML files before
-  writing the current compile output,
 - sets `rendering.status: not_rendered` because SQL rendering is not available
   yet,
 - validates duplicate contract names and stable ID-safe project, contract, and

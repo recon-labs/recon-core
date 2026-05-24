@@ -36,11 +36,12 @@ The current compiler writes compiled contract and compiled checks YAML artifacts
 for supported check-pack and metric behavior. It does not write
 `target/compiled_sql/` yet.
 
-Each successful compile write treats `target/compiled_contracts/` and
-`target/compiled_checks/` as generated snapshots. Before writing the current
-compile output, Recon removes existing top-level `*.yml` files from those two
-directories so deleted or renamed contracts do not leave stale compiled
-artifacts behind.
+`recon compile` treats `target/compiled_contracts/` and
+`target/compiled_checks/` as generated snapshots. After project configuration
+loads and `target-path` is known, Recon removes existing top-level `*.yml` files
+from those two directories before parsing and compilation continue. If parsing
+or fatal compile validation fails, old compiled artifacts are therefore absent
+instead of stale.
 
 ## Artifact header
 
