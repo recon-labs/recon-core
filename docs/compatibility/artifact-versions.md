@@ -21,6 +21,18 @@ artifact formats.
 | Evidence reports | `reports/` | HTML or other report formats | Planned, not implemented yet. |
 | State | `state/` and `target/sample_keys/` | TBD | Planned, not implemented yet. |
 
+## Compiled artifact lifecycle
+
+`recon compile` writes compiled contract and compiled checks YAML as a current
+snapshot. Before a successful compile writes new files, Recon removes existing
+top-level `*.yml` files under `target/compiled_contracts/` and
+`target/compiled_checks/`. This prevents removed or renamed contracts from
+leaving stale compiled artifacts for downstream automation to read.
+
+This lifecycle behavior does not require an artifact version bump by itself
+because artifact paths, schemas, header fields, and field meanings are
+unchanged.
+
 ## Header convention
 
 Machine-oriented and compiled artifacts should use top-level header fields.

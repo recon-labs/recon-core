@@ -64,6 +64,12 @@ Current implementation writes compiled contract and compiled checks artifacts
 for supported check-pack and metric behavior. `target/compiled_sql/` is not
 written until adapter SQL rendering exists.
 
+Compiled contract and compiled checks directories are regenerated as snapshots.
+Before writing a new successful compile output, Recon removes existing top-level
+`*.yml` files from `target/compiled_contracts/` and
+`target/compiled_checks/`, then writes artifacts for the contracts present in
+the current run.
+
 ## `recon run`
 
 `recon run` executes checks.

@@ -51,6 +51,32 @@ def test_compile_service_overwrites_previous_compiled_artifacts(tmp_path: Path) 
     assert second_result.exit_category is ExitCategory.SUCCESS
 
 
+def test_compile_service_removes_stale_compiled_artifacts_for_removed_contract(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path, name="customer_revenue", file_name="customer_revenue.yml")
+    write_contract(tmp_path, name="orders_revenue", file_name="orders_revenue.yml")
+
+    first_result = CompileService(start_path=tmp_path).execute()
+
+    assert first_result.exit_category is ExitCategory.SUCCESS
+    assert (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").is_file()
+    assert (tmp_path / "target" / "compiled_contracts" / "orders_revenue.yml").is_file()
+    assert (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").is_file()
+    assert (tmp_path / "target" / "compiled_checks" / "orders_revenue.yml").is_file()
+
+    (tmp_path / "contracts" / "orders_revenue.yml").unlink()
+
+    second_result = CompileService(start_path=tmp_path).execute()
+
+    assert second_result.exit_category is ExitCategory.SUCCESS
+    assert (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").is_file()
+    assert not (tmp_path / "target" / "compiled_contracts" / "orders_revenue.yml").exists()
+    assert (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").is_file()
+    assert not (tmp_path / "target" / "compiled_checks" / "orders_revenue.yml").exists()
+
+
 def test_compile_service_returns_validation_error_for_invalid_contract(
     tmp_path: Path,
 ) -> None:

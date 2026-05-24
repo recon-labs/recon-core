@@ -36,6 +36,8 @@ This project follows semantic versioning once public package releases begin.
   overwrite behavior while still rejecting case-insensitive filename collisions.
 - Compiled artifact writer overwrite checks now scan every case-insensitive
   filename match before allowing explicit overwrite.
+- `recon compile` now removes stale compiled contract and compiled checks YAML
+  artifacts before writing the current compile output.
 
 ## Release format
 

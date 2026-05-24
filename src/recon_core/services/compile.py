@@ -139,12 +139,19 @@ def _write_compiled_artifacts(
 ) -> None:
     contract_writer = CompiledContractWriter()
     check_writer = CompiledCheckWriter()
-    (target_path / COMPILED_CONTRACTS_DIR_NAME).mkdir(parents=True, exist_ok=True)
-    (target_path / COMPILED_CHECKS_DIR_NAME).mkdir(parents=True, exist_ok=True)
+    _prepare_compiled_artifact_directory(target_path / COMPILED_CONTRACTS_DIR_NAME)
+    _prepare_compiled_artifact_directory(target_path / COMPILED_CHECKS_DIR_NAME)
 
     for compiled_contract in compiled_contracts:
         contract_writer.write(compiled_contract.contract_artifact, target_path, overwrite=True)
         check_writer.write(compiled_contract.checks_artifact, target_path, overwrite=True)
+
+
+def _prepare_compiled_artifact_directory(output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for output_path in output_dir.glob("*.yml"):
+        if output_path.is_file() or output_path.is_symlink():
+            output_path.unlink()
 
 
 def _resource_relative_diagnostics(

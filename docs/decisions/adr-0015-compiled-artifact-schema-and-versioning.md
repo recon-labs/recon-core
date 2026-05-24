@@ -52,6 +52,12 @@ What exact checks and typed plans will Recon run?
 `recon run` must use compiled intent instead of reinterpreting raw authored YAML
 as the execution contract.
 
+Each successful compile write should treat `target/compiled_contracts/` and
+`target/compiled_checks/` as generated snapshots. Before writing the current
+compiled contract and compiled checks artifacts, Recon should remove existing
+top-level `*.yml` files in those directories so contracts removed or renamed in
+authored YAML do not leave stale executable intent behind.
+
 Compiled SQL is not required for the first compiler implementation. Until
 adapter rendering exists, compiled checks must include typed plans and a
 rendering status such as `not_rendered`. SQL files under
