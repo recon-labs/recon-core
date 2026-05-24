@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 import yaml
 
 from recon_core.services import CompileService
@@ -164,6 +165,35 @@ target:
     ]
     assert not (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").exists()
     assert not (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").exists()
+
+
+def test_compile_service_rejects_symlinked_compiled_artifact_directories(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    target_path = tmp_path / "target"
+    external_path = tmp_path / "external"
+    external_path.mkdir()
+    external_artifact = external_path / "stale.yml"
+    external_artifact.write_text("stale\n", encoding="utf-8")
+    target_path.mkdir()
+    try:
+        (target_path / "compiled_contracts").symlink_to(
+            external_path,
+            target_is_directory=True,
+        )
+    except OSError:
+        pytest.skip("Filesystem does not support directory symlinks.")
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
+    ]
+    assert "symlink" in result.diagnostics[0].message
+    assert external_artifact.read_text(encoding="utf-8") == "stale\n"
 
 
 def test_compile_service_writes_no_artifacts_for_invalid_stable_id_parts(

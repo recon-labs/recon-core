@@ -1,6 +1,7 @@
 from recon_core.compiler.ids import INVALID_STABLE_ID_PART
 from recon_core.compiler.metrics import (
     DUPLICATE_METRIC_NAME,
+    UNKNOWN_METRIC_FIELD,
     UNSUPPORTED_METRIC_TYPE,
     compile_metrics,
 )
@@ -151,6 +152,27 @@ def test_duplicate_metric_names_fail_validation_without_checks() -> None:
     assert diagnostic.resource_type == "metric"
     assert diagnostic.resource_name == "total_revenue"
     assert "defined more than once" in diagnostic.message
+
+
+def test_unknown_metric_fields_fail_validation_without_checks() -> None:
+    result = compile_metrics(
+        (
+            {
+                "name": "total_revenue",
+                "type": "sum",
+                "column": "revenue",
+                "tolerence": 0.01,
+            },
+        ),
+        project_name="ecommerce_recon",
+        contract_name="customer_revenue",
+    )
+
+    assert not result.succeeded
+    assert result.checks == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [UNKNOWN_METRIC_FIELD]
+    assert result.diagnostics[0].resource_name == "total_revenue"
+    assert "tolerence" in result.diagnostics[0].message
 
 
 def test_unsupported_metric_type_fails_validation_without_checks() -> None:

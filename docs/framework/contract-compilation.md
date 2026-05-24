@@ -71,6 +71,9 @@ existing top-level `*.yml` files from `target/compiled_contracts/` and
 or fatal compile validation fails, old compiled artifacts are absent instead of
 stale.
 
+Generated compiled artifact directories must be real directories, not symlinks,
+and compiled artifact filenames must be safe single-segment names.
+
 ## `recon run`
 
 `recon run` executes checks.

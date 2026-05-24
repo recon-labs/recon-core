@@ -39,6 +39,9 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile` now removes stale compiled contract and compiled checks YAML
   artifacts once `target-path` is known, including before parse or fatal compile
   validation exits.
+- `recon compile` now rejects symlinked compiled artifact directories,
+  unsupported check-pack invocation config, unknown metric fields, invalid
+  sampling config, and path-like standalone compiled artifact names.
 
 ## Release format
 

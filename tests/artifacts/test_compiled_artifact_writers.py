@@ -57,6 +57,35 @@ def test_compiled_contract_writer_rejects_case_insensitive_collision(tmp_path: P
         )
 
 
+def test_compiled_contract_writer_rejects_path_like_contract_name(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="safe artifact filename"):
+        CompiledContractWriter().write(
+            _compiled_contract_artifact(contract_name="../outside"),
+            tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / "outside.yml").exists()
+
+
+def test_compiled_contract_writer_rejects_symlinked_artifact_directory(
+    tmp_path: Path,
+) -> None:
+    target_path = tmp_path / "target"
+    external_path = tmp_path / "external"
+    external_path.mkdir()
+    target_path.mkdir()
+    try:
+        (target_path / "compiled_contracts").symlink_to(
+            external_path,
+            target_is_directory=True,
+        )
+    except OSError:
+        pytest.skip("Filesystem does not support directory symlinks.")
+
+    with pytest.raises(FileExistsError, match="symlink"):
+        CompiledContractWriter().write(_compiled_contract_artifact(), target_path)
+
+
 def test_compiled_contract_writer_allows_explicit_overwrite(tmp_path: Path) -> None:
     artifact = _compiled_contract_artifact()
     writer = CompiledContractWriter()
@@ -125,6 +154,35 @@ def test_compiled_check_writer_rejects_case_insensitive_collision(tmp_path: Path
             _compiled_checks_artifact(contract_name="sales"),
             tmp_path / "target",
         )
+
+
+def test_compiled_check_writer_rejects_path_like_contract_name(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="safe artifact filename"):
+        CompiledCheckWriter().write(
+            _compiled_checks_artifact(contract_name="../outside"),
+            tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / "outside.yml").exists()
+
+
+def test_compiled_check_writer_rejects_symlinked_artifact_directory(
+    tmp_path: Path,
+) -> None:
+    target_path = tmp_path / "target"
+    external_path = tmp_path / "external"
+    external_path.mkdir()
+    target_path.mkdir()
+    try:
+        (target_path / "compiled_checks").symlink_to(
+            external_path,
+            target_is_directory=True,
+        )
+    except OSError:
+        pytest.skip("Filesystem does not support directory symlinks.")
+
+    with pytest.raises(FileExistsError, match="symlink"):
+        CompiledCheckWriter().write(_compiled_checks_artifact(), target_path)
 
 
 def test_compiled_check_writer_allows_explicit_overwrite(tmp_path: Path) -> None:

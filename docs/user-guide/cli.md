@@ -119,6 +119,7 @@ Current `compile` behavior:
 - compiles explicit `sum` metrics into aggregate comparison checks,
 - removes old top-level compiled contract and compiled checks YAML files once
   `target-path` is known,
+- rejects symlinked compiled artifact directories,
 - writes `target/compiled_contracts/<contract_name>.yml`,
 - writes `target/compiled_checks/<contract_name>.yml`,
 - sets `rendering.status: not_rendered` because SQL rendering is not available
@@ -127,6 +128,8 @@ Current `compile` behavior:
   metric names before writing compiled artifacts,
 - validates case-insensitive contract filename collisions before writing
   compiled artifacts,
+- rejects unsupported check-pack invocation config, unknown metric fields, and
+  invalid sampling config,
 - exits with code `2` when parse or compile diagnostics contain errors.
 
 Current limitations:

@@ -3,6 +3,19 @@
 from pathlib import Path
 
 
+def ensure_real_artifact_directory(output_dir: Path) -> None:
+    """Create an artifact directory after rejecting symlinked directories."""
+    if output_dir.is_symlink():
+        raise FileExistsError(f"Artifact directory is a symlink: {output_dir}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+
+def artifact_output_path(output_dir: Path, artifact_name: str) -> Path:
+    """Build an artifact path from a safe filename stem."""
+    _validate_artifact_filename_stem(artifact_name)
+    return output_dir / f"{artifact_name}.yml"
+
+
 def ensure_safe_artifact_write(output_path: Path, *, overwrite: bool) -> None:
     """Reject unintentional overwrites and case-insensitive path collisions."""
     output_dir = output_path.parent
@@ -29,3 +42,14 @@ def ensure_safe_artifact_write(output_path: Path, *, overwrite: bool) -> None:
 
     if matching_paths and not overwrite:
         raise FileExistsError(f"Artifact already exists: {output_path}")
+
+
+def _validate_artifact_filename_stem(artifact_name: str) -> None:
+    if (
+        not artifact_name
+        or artifact_name in {".", ".."}
+        or "/" in artifact_name
+        or "\\" in artifact_name
+        or Path(artifact_name).is_absolute()
+    ):
+        raise ValueError(f"Artifact name {artifact_name!r} is not a safe artifact filename stem.")

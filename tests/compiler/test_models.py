@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from recon_core.compiler import Rendering
 from recon_core.compiler.models import (
     AdapterCapability,
     CheckPlan,
@@ -60,6 +61,13 @@ def test_check_plan_serializes_operations_and_capabilities_deterministically() -
             {"type": "compare_counts"},
         ],
         "required_capabilities": ["row_count"],
+    }
+
+
+def test_rendering_model_is_exported_from_compiler_package() -> None:
+    assert Rendering().to_dict() == {
+        "status": "not_rendered",
+        "sql_paths": [],
     }
 
 

@@ -9,6 +9,7 @@ from recon_core.artifacts import (
     CompiledCheckWriter,
     CompiledContractWriter,
 )
+from recon_core.artifacts._paths import ensure_real_artifact_directory
 from recon_core.compiler import ContractCompilationArtifacts, compile_project
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.parser import (
@@ -149,6 +150,9 @@ def _clear_compiled_artifacts(target_path: Path) -> None:
 
 
 def _clear_compiled_artifact_directory(output_dir: Path) -> None:
+    if output_dir.is_symlink():
+        raise FileExistsError(f"Compiled artifact directory is a symlink: {output_dir}")
+
     if not output_dir.is_dir():
         return
 
@@ -158,7 +162,7 @@ def _clear_compiled_artifact_directory(output_dir: Path) -> None:
 
 
 def _ensure_compiled_artifact_directory(output_dir: Path) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_real_artifact_directory(output_dir)
 
 
 def _compiled_artifact_runtime_error(

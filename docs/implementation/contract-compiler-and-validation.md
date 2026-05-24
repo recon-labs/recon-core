@@ -146,6 +146,11 @@ checks:
     - recon_core.basic_equivalence
 ```
 
+The current compiler supports check-pack names as strings and object entries
+with only a `name` field. Check-pack invocation config and overrides are gated
+for later design work; fields other than `name` must fail validation instead of
+being silently ignored.
+
 Compiled output should show checks such as:
 
 ```yaml
@@ -211,6 +216,19 @@ Optional future config may support `on_empty: warn` or `on_empty: skip`, but the
 Each explicit metric compiles into one aggregate comparison check. Metrics do
 not require `grain.keys`; `metrics.group_by` is aggregate segmentation, not row
 identity.
+
+The current compiler supports these metric fields:
+
+```text
+name
+type
+column
+group_by
+tolerance
+```
+
+Unknown metric fields must fail validation so typos do not silently change
+compiled intent.
 
 Example:
 
@@ -327,6 +345,10 @@ sampling: full
 sampling:
   policy: latest_changed_records
 ```
+
+The current compiler supports contract-level `sampling.default_policy` as a
+string. Unsupported sampling fields or non-string `default_policy` values must
+fail validation instead of compiling as full sampling.
 
 Sampling does not remove non-null or uniqueness requirements for row-level checks.
 

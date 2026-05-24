@@ -1,6 +1,8 @@
 from recon_core.compiler import (
     COMPILED_ARTIFACT_FILENAME_COLLISION,
+    INVALID_SAMPLING,
     INVALID_STABLE_ID_PART,
+    UNSUPPORTED_CHECK_PACK_CONFIG,
     compile_project,
 )
 from recon_core.compiler.check_packs import VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
@@ -201,12 +203,55 @@ def test_compile_project_returns_diagnostic_for_invalid_metric_stable_id_part() 
     assert result.contracts[0].checks_artifact.checks == ()
 
 
+def test_compile_project_rejects_unsupported_check_pack_invocation_config() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                checks={
+                    "use": [
+                        {
+                            "name": "recon_core.basic_equivalence",
+                            "on_empty": "warn",
+                        }
+                    ]
+                },
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [UNSUPPORTED_CHECK_PACK_CONFIG]
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
+def test_compile_project_rejects_invalid_sampling_config() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(_contract(sampling={"default_policy": ["stable_hash_5_percent"]}),),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_SAMPLING]
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
 def _contract(
     *,
     name: str = "customer_revenue",
     include_grain: bool = True,
     metric_name: str = "total_revenue",
     source_path: str | None = None,
+    checks: object | None = None,
+    sampling: dict[str, object] | None = None,
 ) -> AuthoredContract:
     grain: dict[str, object] | None = None
     if include_grain:
@@ -217,7 +262,7 @@ def _contract(
         version=1,
         source=AuthoredEndpoint(connection="legacy", relation="qa.customer_source"),
         target=AuthoredEndpoint(connection="warehouse", relation="qa.customer_target"),
-        checks={"use": ["recon_core.basic_equivalence"]},
+        checks=checks if checks is not None else {"use": ["recon_core.basic_equivalence"]},
         source_location=SourceLocation(path=source_path or f"contracts/{name}.yml"),
         grain=grain,
         metrics=(
@@ -230,5 +275,5 @@ def _contract(
                 "tolerance": 0.01,
             },
         ),
-        sampling={"default_policy": "full"},
+        sampling=sampling if sampling is not None else {"default_policy": "full"},
     )

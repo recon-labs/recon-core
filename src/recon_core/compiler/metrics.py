@@ -29,8 +29,10 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 DUPLICATE_METRIC_NAME = "RC_VALIDATE_DUPLICATE_METRIC_NAME"
 INVALID_METRIC = "RC_VALIDATE_INVALID_METRIC"
+UNKNOWN_METRIC_FIELD = "RC_VALIDATE_UNKNOWN_METRIC_FIELD"
 UNSUPPORTED_METRIC_TYPE = "RC_VALIDATE_UNSUPPORTED_METRIC_TYPE"
 SUPPORTED_METRIC_TYPES = frozenset({"sum"})
+_ALLOWED_METRIC_FIELDS = frozenset({"name", "type", "column", "group_by", "tolerance"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +71,11 @@ def compile_metrics(
     seen_names: set[str] = set()
 
     for raw_metric in metrics:
+        unknown_fields = sorted(set(raw_metric) - _ALLOWED_METRIC_FIELDS)
+        if unknown_fields:
+            diagnostics.append(_unknown_metric_field_diagnostic(raw_metric, unknown_fields))
+            continue
+
         metric = _parse_metric(raw_metric)
         if metric is None:
             diagnostics.append(_invalid_metric_diagnostic())
@@ -236,6 +243,22 @@ def _invalid_metric_diagnostic() -> Diagnostic:
         message="Metric definitions require string `name`, `type`, and `column` fields.",
         resource_type="metric",
         hint="Use a supported explicit metric such as `name`, `type: sum`, and `column`.",
+    )
+
+
+def _unknown_metric_field_diagnostic(
+    raw_metric: Mapping[str, object],
+    unknown_fields: Sequence[str],
+) -> Diagnostic:
+    metric_name = raw_metric.get("name")
+    resource_name = metric_name if isinstance(metric_name, str) and metric_name else None
+    return Diagnostic(
+        code=UNKNOWN_METRIC_FIELD,
+        severity=DiagnosticSeverity.ERROR,
+        message=f"Metric definition has unsupported fields: {', '.join(unknown_fields)}.",
+        resource_type="metric",
+        resource_name=resource_name,
+        hint=("Use only supported metric fields: name, type, column, group_by, and tolerance."),
     )
 
 

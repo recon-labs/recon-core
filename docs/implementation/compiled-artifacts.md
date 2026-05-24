@@ -43,6 +43,12 @@ from those two directories before parsing and compilation continue. If parsing
 or fatal compile validation fails, old compiled artifacts are therefore absent
 instead of stale.
 
+Compiled artifact directories must be real directories, not symlinks. Recon
+rejects symlinked compiled artifact directories rather than following them
+during cleanup or writes. Compiled artifact filenames are built from safe
+single-segment artifact names; path-like names are invalid for standalone
+artifact writers.
+
 ## Artifact header
 
 Compiled artifacts use top-level artifact header fields:

@@ -59,6 +59,12 @@ loads and `target-path` is known, Recon should remove existing top-level
 removed, renamed, or invalid current contracts do not leave stale executable
 intent behind.
 
+Compiled artifact directories must be real directories. Recon should reject
+symlinked compiled artifact directories rather than following them during
+cleanup or artifact writes. Compiled artifact filenames should be built from
+safe single-segment names so standalone artifact writers cannot write outside
+their generated artifact directories.
+
 Compiled SQL is not required for the first compiler implementation. Until
 adapter rendering exists, compiled checks must include typed plans and a
 rendering status such as `not_rendered`. SQL files under

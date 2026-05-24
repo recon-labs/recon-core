@@ -29,7 +29,9 @@ from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndp
 
 INVALID_CHECK_PACK_USE = "RC_VALIDATE_INVALID_CHECK_PACK_USE"
 INVALID_GRAIN_KEYS = "RC_VALIDATE_INVALID_GRAIN_KEYS"
+INVALID_SAMPLING = "RC_VALIDATE_INVALID_SAMPLING"
 COMPILED_ARTIFACT_FILENAME_COLLISION = "RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION"
+UNSUPPORTED_CHECK_PACK_CONFIG = "RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG"
 UNSUPPORTED_EXPLICIT_CHECKS = "RC_COMPILE_UNSUPPORTED_EXPLICIT_CHECKS"
 DUPLICATE_COMPILED_CHECK = "RC_COMPILE_DUPLICATE_COMPILED_CHECK"
 
@@ -112,7 +114,7 @@ def _compile_contract(
 ) -> ContractCompilationArtifacts:
     diagnostics: list[Diagnostic] = []
     grain_keys = _grain_keys(contract, diagnostics)
-    sampling = _resolved_sampling(contract)
+    sampling = _resolved_sampling(contract, diagnostics)
     checks: list[CompiledCheck] = []
 
     check_pack_names = _check_pack_names(contract, diagnostics)
@@ -352,6 +354,16 @@ def _check_pack_use_names(
         if isinstance(item, Mapping):
             name = item.get("name")
             if isinstance(name, str) and name:
+                unsupported_fields = sorted(str(field) for field in item if field != "name")
+                if unsupported_fields:
+                    diagnostics.append(
+                        _unsupported_check_pack_config_diagnostic(
+                            contract,
+                            name,
+                            unsupported_fields,
+                        )
+                    )
+                    continue
                 names.append(name)
                 continue
         diagnostics.append(_invalid_check_pack_use_diagnostic(contract))
@@ -383,12 +395,33 @@ def _deduplicate_checks(
     return deduplicated
 
 
-def _resolved_sampling(contract: AuthoredContract) -> ResolvedSampling:
+def _resolved_sampling(
+    contract: AuthoredContract,
+    diagnostics: list[Diagnostic],
+) -> ResolvedSampling:
     if contract.sampling is None:
         return ResolvedSampling()
 
+    unsupported_fields = sorted(set(contract.sampling) - {"default_policy"})
+    if unsupported_fields:
+        diagnostics.append(
+            _invalid_sampling_diagnostic(
+                contract,
+                f"Unsupported `sampling` fields: {', '.join(unsupported_fields)}.",
+            )
+        )
+        return ResolvedSampling()
+
     default_policy = contract.sampling.get("default_policy")
-    if not isinstance(default_policy, str) or default_policy == "full":
+    if default_policy is None or default_policy == "full":
+        return ResolvedSampling()
+    if not isinstance(default_policy, str):
+        diagnostics.append(
+            _invalid_sampling_diagnostic(
+                contract,
+                "Contract `sampling.default_policy` must be a string.",
+            )
+        )
         return ResolvedSampling()
     return ResolvedSampling(mode=None, policy=default_policy)
 
@@ -413,6 +446,27 @@ def _invalid_check_pack_use_diagnostic(contract: AuthoredContract) -> Diagnostic
     )
 
 
+def _unsupported_check_pack_config_diagnostic(
+    contract: AuthoredContract,
+    check_pack_name: str,
+    unsupported_fields: Sequence[str],
+) -> Diagnostic:
+    return Diagnostic(
+        code=UNSUPPORTED_CHECK_PACK_CONFIG,
+        severity=DiagnosticSeverity.ERROR,
+        message=(
+            f"Check-pack invocation for {check_pack_name} has unsupported fields: "
+            f"{', '.join(unsupported_fields)}."
+        ),
+        resource_type="check_pack",
+        resource_name=check_pack_name,
+        path=contract.source_location.path,
+        hint=(
+            "Only `name` is supported in `checks.use` mappings for the current compiler milestone."
+        ),
+    )
+
+
 def _unsupported_checks_diagnostic(contract: AuthoredContract, message: str) -> Diagnostic:
     return Diagnostic(
         code=UNSUPPORTED_EXPLICIT_CHECKS,
@@ -422,6 +476,18 @@ def _unsupported_checks_diagnostic(contract: AuthoredContract, message: str) -> 
         resource_name=contract.name,
         path=contract.source_location.path,
         hint="Use supported check packs and explicit metrics for this compiler milestone.",
+    )
+
+
+def _invalid_sampling_diagnostic(contract: AuthoredContract, message: str) -> Diagnostic:
+    return Diagnostic(
+        code=INVALID_SAMPLING,
+        severity=DiagnosticSeverity.ERROR,
+        message=message,
+        resource_type="contract",
+        resource_name=contract.name,
+        path=contract.source_location.path,
+        hint="Use `sampling: {default_policy: full}` or a named sampling policy.",
     )
 
 

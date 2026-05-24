@@ -30,6 +30,11 @@ removes existing top-level `*.yml` files under `target/compiled_contracts/` and
 prevents removed, renamed, or invalid current contracts from leaving stale
 compiled artifacts for downstream automation to read.
 
+Compiled artifact cleanup and writes reject symlinked compiled artifact
+directories. Standalone compiled artifact writers also reject path-like artifact
+names so generated filenames cannot escape `target/compiled_contracts/` or
+`target/compiled_checks/`.
+
 This lifecycle behavior does not require an artifact version bump by itself
 because artifact paths, schemas, header fields, and field meanings are
 unchanged.

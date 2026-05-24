@@ -2,7 +2,11 @@
 
 from pathlib import Path
 
-from recon_core.artifacts._paths import ensure_safe_artifact_write
+from recon_core.artifacts._paths import (
+    artifact_output_path,
+    ensure_real_artifact_directory,
+    ensure_safe_artifact_write,
+)
 from recon_core.artifacts._yaml import dump_artifact_yaml
 from recon_core.compiler.models import CompiledChecksArtifact
 
@@ -20,8 +24,8 @@ class CompiledCheckWriter:
         overwrite: bool = False,
     ) -> Path:
         output_dir = target_path / COMPILED_CHECKS_DIR_NAME
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"{artifact.contract.name}.yml"
+        ensure_real_artifact_directory(output_dir)
+        output_path = artifact_output_path(output_dir, artifact.contract.name)
         ensure_safe_artifact_write(output_path, overwrite=overwrite)
         output_path.write_text(
             dump_artifact_yaml(artifact.to_dict()),
