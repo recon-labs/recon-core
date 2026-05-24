@@ -11,16 +11,21 @@ def ensure_safe_artifact_write(output_path: Path, *, overwrite: bool) -> None:
     if not output_dir.exists():
         return
 
-    for existing_path in output_dir.iterdir():
-        if existing_path.name.casefold() != output_name_key:
-            continue
+    matching_paths = tuple(
+        existing_path
+        for existing_path in output_dir.iterdir()
+        if existing_path.name.casefold() == output_name_key
+    )
+    case_collisions = tuple(
+        existing_path for existing_path in matching_paths if existing_path.name != output_path.name
+    )
 
-        if existing_path.name == output_path.name:
-            if overwrite:
-                return
-            raise FileExistsError(f"Artifact already exists: {output_path}")
-
+    if case_collisions:
+        colliding_names = ", ".join(path.name for path in case_collisions)
         raise FileExistsError(
             f"Artifact filename {output_path.name} has a case-insensitive collision "
-            f"with existing artifact {existing_path.name} under {output_dir}."
+            f"with existing artifact {colliding_names} under {output_dir}."
         )
+
+    if matching_paths and not overwrite:
+        raise FileExistsError(f"Artifact already exists: {output_path}")

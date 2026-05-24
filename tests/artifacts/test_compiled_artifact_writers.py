@@ -67,6 +67,33 @@ def test_compiled_contract_writer_allows_explicit_overwrite(tmp_path: Path) -> N
     assert yaml.safe_load(output_path.read_text(encoding="utf-8")) == artifact.to_dict()
 
 
+def test_compiled_contract_writer_rejects_ambiguous_overwrite_regardless_of_directory_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target_path = tmp_path / "target"
+    output_dir = target_path / "compiled_contracts"
+    output_dir.mkdir(parents=True)
+    exact_path = output_dir / "sales.yml"
+    variant_path = output_dir / "Sales.yml"
+    exact_path.write_text("exact\n", encoding="utf-8")
+    original_iterdir = Path.iterdir
+
+    def fake_iterdir(path: Path):
+        if path == output_dir:
+            return iter((exact_path, variant_path))
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fake_iterdir)
+
+    with pytest.raises(FileExistsError, match="case-insensitive"):
+        CompiledContractWriter().write(
+            _compiled_contract_artifact(contract_name="sales"),
+            target_path,
+            overwrite=True,
+        )
+
+
 def test_compiled_check_writer_creates_directory_and_writes_yaml(tmp_path: Path) -> None:
     artifact = _compiled_checks_artifact()
 

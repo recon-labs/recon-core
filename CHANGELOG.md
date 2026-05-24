@@ -34,6 +34,8 @@ This project follows semantic versioning once public package releases begin.
 - Exported compiler helpers now report stable-ID diagnostics before ID
   construction, and standalone compiled artifact writers now require explicit
   overwrite behavior while still rejecting case-insensitive filename collisions.
+- Compiled artifact writer overwrite checks now scan every case-insensitive
+  filename match before allowing explicit overwrite.
 
 ## Release format
 
