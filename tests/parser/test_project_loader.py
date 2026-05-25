@@ -124,9 +124,7 @@ def test_load_parsed_project_rewrites_yaml_diagnostics_to_resource_relative_path
     parsed_project = load_parsed_project(context)
 
     assert not parsed_project.succeeded
-    assert [resource.relative_path for resource in parsed_project.files] == [
-        "contracts/broken.yml"
-    ]
+    assert [resource.relative_path for resource in parsed_project.files] == ["contracts/broken.yml"]
     assert parsed_project.contracts == ()
     assert len(parsed_project.diagnostics) == 1
 
