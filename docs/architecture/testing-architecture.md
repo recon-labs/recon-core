@@ -46,6 +46,7 @@ Tests for resolved behavior.
 Examples:
 
 - check packs expand,
+- check-pack invocation config follows ADR 0018 before it is accepted,
 - metrics compile into checks,
 - empty expansion errors,
 - sampling override wins,

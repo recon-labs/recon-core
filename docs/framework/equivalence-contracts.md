@@ -357,7 +357,37 @@ checks:
       on_empty: warn
 ```
 
-Default should remain strict.
+ADR 0018 locks future `on_empty` values as `error`, `warn`, and `skip`.
+Default behavior remains strict. Non-error empty expansion must be visible in
+compiled artifacts and must not suppress invalid config, missing required keys,
+or other safety validation failures.
+
+## Check-pack invocation config
+
+Check-pack invocation config is designed by ADR 0018 but is not implemented
+yet. Current compilation accepts strings and mappings with only `name`.
+
+Locked future shape:
+
+```yaml
+checks:
+  use:
+    - name: recon_core.some_pack
+      on_empty: error
+      config:
+        severity: error
+        sampling: full
+        tolerance: strict
+        params: {}
+        checks:
+          row_count_diff:
+            severity: warn
+```
+
+Unknown invocation fields and unknown config keys must fail. Package check
+packs must declare config schemas before accepting config. Config must not
+disable required safety checks unless a later ADR explicitly allows that
+behavior.
 
 ## Explicit check configuration
 

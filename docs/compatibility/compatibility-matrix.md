@@ -19,6 +19,7 @@ adapter test kit, Hub metadata, and integrations.
 | Compiled contract artifact | `artifact_version: 1` | Implemented for `recon compile`; pre-alpha compatibility. |
 | Compiled checks artifact | `artifact_version: 1` | Implemented for `recon compile`; pre-alpha compatibility. |
 | Typed check plan | Draft typed operation catalog | Produced in compiled checks artifacts; not stable before 1.0. |
+| Check-pack invocation config | Strings and `{name}` mappings implemented; `config` and `on_empty` design locked by ADR 0018. | `config`, `on_empty: warn`, and `on_empty: skip` are not implemented yet. |
 | Adapter API | Planned | No stable adapter API version released yet. |
 | Capability catalog | Draft | Compiler enums exist; no production adapter declarations yet. |
 | Adapter packages | Planned | No official external adapter packages released yet. |

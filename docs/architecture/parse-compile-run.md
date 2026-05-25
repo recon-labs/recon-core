@@ -52,6 +52,11 @@ The compile service should:
 
 Compile should make hidden behavior visible.
 
+Check-pack invocation config is governed by ADR 0018. Until typed invocation
+models, schema validation, and artifact visibility exist, compile should reject
+`config`, `on_empty`, and unknown invocation fields rather than applying them
+partially.
+
 Typed check plans are the core execution intent. Rendered SQL is an
 adapter-specific artifact derived from those plans.
 

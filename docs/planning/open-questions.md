@@ -82,8 +82,9 @@ Decision:
 Decision:
 
 - default to error,
-- allow `on_empty: warn` or `on_empty: skip` later only when explicitly configured.
-- see ADR 0015.
+- allow `on_empty: warn` or `on_empty: skip` later only when explicitly
+  configured and visible in compiled artifacts,
+- see ADR 0015 and ADR 0018.
 
 ## Columns and metrics
 

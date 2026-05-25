@@ -135,6 +135,10 @@ checks:
     - recon_core.basic_equivalence
 ```
 
+The current compiler accepts check-pack entries as strings or mappings with
+only `name`. Future `config` and `on_empty` support is designed by ADR 0018 but
+is not implemented yet.
+
 ## Sampling
 
 Sampling can be defined once and overridden per check.

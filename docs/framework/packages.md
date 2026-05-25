@@ -77,6 +77,10 @@ Package resources should be referenced with qualified names:
 Unqualified references resolve only to local project resources. Packages should
 not silently override local resources or framework built-ins.
 
+Package-provided check packs that accept invocation `config` must declare a
+data-only config schema, as defined by ADR 0018. Recon Core validates package
+config schemas and invocation config without executing package code.
+
 ## Official packages
 
 Possible official packages include `recon-checks-cdc`, `recon-checks-migration`, `recon-checks-medallion`, `recon-policies-sampling`, `recon-policies-tolerances`, and `recon-evidence-templates`.

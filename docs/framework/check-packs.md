@@ -24,8 +24,8 @@ checks:
 ```
 
 Invocation fields such as `config`, `on_empty`, or package-specific overrides
-are future-gated behavior. Current compilation rejects unsupported invocation
-fields instead of ignoring them.
+are designed by ADR 0018 but are not implemented yet. Current compilation
+rejects unsupported invocation fields instead of ignoring them.
 
 ## Why check packs exist
 
@@ -53,7 +53,9 @@ Default result:
 ERROR: recon_core.some_future_pack expanded to no checks.
 ```
 
-A future escape hatch may support `on_empty: warn`, but default should remain strict.
+ADR 0018 locks future `on_empty` values as `error`, `warn`, and `skip`. The
+default remains `error`. `warn` and `skip` require compiled artifact visibility
+before implementation.
 
 ## Built-in check packs
 
@@ -198,24 +200,40 @@ future decision before CDC delete propagation checks are implemented.
 
 Tombstone events and SCD2 history can be added later.
 
-## Future overrides
+## Invocation config
 
-Contracts should eventually be able to override pack defaults. The exact public
-YAML shape, precedence rules, validation timing, diagnostics, and compiled
-artifact visibility are not locked yet.
+Contracts should eventually be able to override pack defaults through the ADR
+0018 invocation model. The locked public shape is:
 
 ```yaml
 checks:
   use:
     - name: recon_core.basic_equivalence
+      on_empty: error
       config:
-        row_count:
-          tolerance: 10
-          severity: warn
+        severity: error
+        sampling: full
+        tolerance: strict
+        params: {}
+        checks:
+          row_count_diff:
+            severity: warn
 ```
 
-Until that design is locked, check-pack override config should fail validation
-rather than being ignored or applied partially.
+Current compilation still rejects `config` and `on_empty`. When support is
+implemented:
+
+- unknown invocation fields must fail,
+- unknown config keys must fail,
+- package check packs must declare config schemas before accepting config,
+- config that cannot apply to generated checks must fail,
+- `on_empty` must be visible in compiled artifacts,
+- config must not disable required safety checks unless a later ADR explicitly
+  allows that behavior.
+
+Per-check overrides under `config.checks` apply only to generated check names
+declared by the check pack. The locked shape does not include `enabled`,
+`exclude`, `only`, `except`, `alias`, or `as`.
 
 ## Design rules
 

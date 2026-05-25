@@ -132,8 +132,8 @@ Current implementation status:
 
 - project configuration preserves path fields for these resource categories,
 - parse and compile currently discover and load contract files only,
-- non-contract local resource loading is gated until resource model boundaries,
-  duplicate rules, package/local precedence, and manifest shape are locked.
+- non-contract local resource loading is designed by ADR 0017 but is not
+  implemented yet.
 
 Locked design:
 
@@ -145,6 +145,8 @@ Locked design:
 - package and framework resources must be referenced as
   `<namespace>.<resource_name>`,
 - `recon_core` is reserved for framework built-ins,
+- check-pack invocation config schemas follow ADR 0018 when check-pack
+  resources are loaded,
 - macros may be discovered and checksummed but are not parsed or executed until
   macro semantics are locked.
 

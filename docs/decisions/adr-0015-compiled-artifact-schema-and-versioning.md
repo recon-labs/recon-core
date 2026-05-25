@@ -418,6 +418,10 @@ aggregate checks without needing the aggregate check pack.
 
 Empty check-pack expansion is an error.
 
+Check-pack invocation config and non-error empty expansion are governed by ADR
+0018. Compiled artifacts must include invocation summaries before accepting
+`config`, `on_empty: warn`, or `on_empty: skip`.
+
 ## Metric Compilation Scope
 
 Explicit metrics compile into aggregate checks.

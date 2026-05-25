@@ -1,0 +1,249 @@
+# ADR 0018: Check-Pack Invocation Config
+
+## Status
+
+Accepted.
+
+## Context
+
+Check packs are reusable execution intent. Recon already supports
+`checks.use` entries as strings or mappings with only `name`. Extra invocation
+fields such as `config` and `on_empty` are rejected today.
+
+Configurable check-pack invocation is a public YAML and artifact surface. If
+Recon silently ignores config, applies only part of it, or lets packages invent
+untyped config shapes, compiled checks and evidence can misrepresent what was
+validated.
+
+dbt Core provides useful reference patterns:
+
+- parser nodes build resolved config from project config, schema YAML, and
+  in-file `config()` calls,
+- resource config paths are tracked and unused config paths can warn,
+- parsed nodes keep config visible in manifest artifacts,
+- dbt allows rich project/package behavior that is appropriate for SQL
+  transformation, but Recon's evidence boundary requires stricter failures for
+  unsupported or unused check-pack config.
+
+Relevant dbt references:
+
+- `core/dbt/parser/base.py`
+- `core/dbt/config/runtime.py`
+- `core/dbt/parser/manifest.py`
+
+## Decision
+
+Current compiler behavior remains strict until this feature is implemented:
+
+```yaml
+checks:
+  use:
+    - recon_core.basic_equivalence
+    - name: recon_core.basic_equivalence
+```
+
+Any invocation field other than `name` continues to fail with
+`RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG` in the current compiler.
+
+When configurable check-pack invocation is implemented, the public YAML shape is:
+
+```yaml
+checks:
+  use:
+    - name: recon_core.some_pack
+      on_empty: error
+      config:
+        severity: error
+        sampling: full
+        tolerance: strict
+        params:
+          include_columns:
+            - amount
+        checks:
+          row_count_diff:
+            severity: warn
+```
+
+Supported top-level invocation fields are:
+
+| Field | Meaning |
+| --- | --- |
+| `name` | Required check-pack reference. String shorthand remains equivalent to `{name: <value>}`. |
+| `on_empty` | Optional empty-expansion policy. Default is `error`. |
+| `config` | Optional invocation config validated against the check pack's schema. |
+
+Unknown top-level invocation fields are errors. They must not be ignored.
+
+## `on_empty`
+
+Allowed values:
+
+| Value | Behavior |
+| --- | --- |
+| `error` | Default. Empty expansion is a compile error. |
+| `warn` | Empty expansion produces a warning and no generated checks for that pack. |
+| `skip` | Empty expansion is intentionally skipped and must be visible in artifacts. |
+
+`on_empty` applies only when a known pack with valid config expands to zero
+checks. It must not suppress unknown check packs, invalid config, missing
+required keys, incompatible check/column combinations, missing adapter
+capabilities, or other safety validation failures.
+
+If `on_empty: warn` or `on_empty: skip` leaves the whole contract with no
+compiled checks, `RC_VALIDATE_NO_COMPILED_CHECKS` still applies.
+
+## Config Shape
+
+`config` is a structured object with reserved generic keys:
+
+| Field | Meaning |
+| --- | --- |
+| `severity` | Pack-wide default severity for generated checks. |
+| `sampling` | Pack-wide sampling override, using the same resolved sampling model as checks once sampling is fully implemented. |
+| `tolerance` | Pack-wide tolerance override, using the same resolved tolerance model as checks once tolerance is fully implemented. |
+| `params` | Pack-specific parameters declared by the check pack schema. |
+| `checks` | Per-generated-check overrides keyed by generated check name. |
+
+Per-generated-check overrides are applied after pack-wide config. They may set
+only fields supported by that generated check and by the pack schema.
+
+Config must not bypass locked safety rules. In particular, invocation config
+must not disable required grain keys, required CDC keys, non-null key checks,
+unique key checks, adapter capability checks, explicit schema ignore rules, or
+other required safety checks unless a later ADR explicitly designs that
+behavior.
+
+The locked shape does not include `enabled`, `exclude`, `only`, `except`,
+`alias`, or `as`. Duplicate invocations of the same check pack in one contract
+are errors until an invocation alias field is designed.
+
+## Check-Pack Config Schemas
+
+Every configurable check pack must declare a config schema before it can accept
+`config`.
+
+Built-in check packs declare schemas in typed core code.
+
+Package-provided check packs must declare schemas in their check-pack resource.
+The schema should be a Recon-owned YAML schema using a restricted, data-only
+vocabulary such as `type`, `enum`, `required`, `default`, and nested object
+properties. Core must validate the schema and the invocation config without
+executing package code.
+
+Unknown config keys, unknown `params`, unknown generated check names under
+`config.checks`, and config that targets a check not generated by the current
+invocation are errors.
+
+## Precedence
+
+For checks generated by a check pack, resolved behavior is applied from lowest
+to highest precedence:
+
+1. framework built-in defaults,
+2. package check-pack defaults,
+3. project/file defaults when those surfaces exist,
+4. contract-level defaults,
+5. check-pack invocation `config`,
+6. `config.checks.<generated_check_name>` overrides.
+
+Explicit authored checks are separate checks. Check-pack invocation config does
+not affect explicit authored checks.
+
+Reference resolution for check packs still follows ADR 0017. Unqualified names
+resolve only in the root project namespace; package and framework resources
+must be qualified.
+
+## Artifact Visibility
+
+When check-pack config support is implemented, compiled artifacts must show:
+
+- each check-pack invocation,
+- the referenced namespace/name,
+- `on_empty`,
+- authored config,
+- resolved config after defaults,
+- generated check IDs,
+- empty-expansion status when applicable,
+- diagnostics attached to the invocation.
+
+Each generated check must remain visibly tied to its check-pack origin. If a
+future alias/instance field allows multiple invocations of the same pack, that
+invocation identity must also appear in generated check origins.
+
+Adding check-pack invocation summaries to compiled artifacts is a public
+artifact change. Additive optional fields may keep the current artifact version
+only if existing readers can ignore them safely and existing field meanings do
+not change.
+
+## Diagnostics
+
+The following codes are locked for this surface:
+
+| Code | Timing | Severity | Meaning |
+| --- | --- | --- | --- |
+| `RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG` | compile resolution | error | Current compiler or pack does not support supplied invocation fields. |
+| `RC_VALIDATE_DUPLICATE_CHECK_PACK_INVOCATION` | compile validation | error | Same check pack is invoked more than once in one contract before aliases exist. |
+| `RC_VALIDATE_INVALID_CHECK_PACK_ON_EMPTY` | compile validation | error | `on_empty` has an unsupported value or wrong type. |
+| `RC_VALIDATE_INVALID_CHECK_PACK_CONFIG` | compile validation | error | Config has an invalid type or value for the pack schema. |
+| `RC_VALIDATE_UNKNOWN_CHECK_PACK_CONFIG_KEY` | compile validation | error | Config contains an unknown key, param, or generated check override. |
+| `RC_VALIDATE_UNUSED_CHECK_PACK_CONFIG` | compile validation | error | Authored config cannot apply to any generated check for this invocation. |
+| `RC_PARSE_INVALID_CHECK_PACK_CONFIG_SCHEMA` | parse | error | A check-pack resource declares an invalid config schema. |
+| `RC_COMPILE_EMPTY_CHECK_PACK` | compile resolution | error | Empty expansion with `on_empty: error`. |
+| `RC_COMPILE_EMPTY_CHECK_PACK_ALLOWED` | compile resolution | warning | Empty expansion with `on_empty: warn`. |
+| `RC_COMPILE_EMPTY_CHECK_PACK_SKIPPED` | compile resolution | info | Empty expansion with `on_empty: skip`. |
+
+## Consequences
+
+Milestone 5 can keep rejecting `config` and `on_empty` while still satisfying
+this decision, because strict rejection is safe and explicit.
+
+Any future implementation that accepts check-pack config must implement schema
+validation, precedence resolution, diagnostics, artifact visibility, and tests
+from this ADR.
+
+Sampling and tolerance values inside check-pack config must reuse the future
+sampling and tolerance decisions. This ADR locks where those overrides live and
+how they are validated; it does not independently redefine sampling or
+tolerance semantics.
+
+Package-provided configurable check packs require ADR 0017 resource loading and
+package namespace behavior.
+
+## Alternatives Considered
+
+### Allow Arbitrary Config Dicts
+
+Rejected. Arbitrary config would be easy for packages but unsafe for evidence.
+Unknown keys could be ignored or interpreted differently across packages.
+
+### Copy dbt's Flexible Config Model Directly
+
+Rejected. dbt's flexibility is useful for SQL transformations, but Recon's
+evidence model needs stronger guarantees that authored config affected the
+compiled checks exactly as shown.
+
+### Support `on_empty: warn` Immediately
+
+Rejected for current implementation. Non-error empty expansion requires
+compiled artifact visibility so users can see that a pack generated no checks.
+
+### Add `enabled` or `exclude` Now
+
+Rejected. Disabling generated checks can weaken a check pack's safety promise.
+That behavior needs a separate decision before it is added.
+
+## Implementation Guidance
+
+Implementation should:
+
+- introduce typed invocation models instead of passing raw YAML mappings through
+  compiler code,
+- normalize string shorthand into the same typed invocation model as mapping
+  entries,
+- validate invocation shape before expansion,
+- validate config against a check-pack schema before expansion,
+- keep expansion, validation, and artifact serialization in separate modules,
+- preserve current strict rejection until full support is implemented,
+- add focused tests for shorthand, mapping entries, invalid fields, invalid
+  `on_empty`, unknown config keys, duplicate invocations, empty-expansion
+  policies, precedence, and compiled artifact visibility.

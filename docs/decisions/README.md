@@ -50,4 +50,5 @@ adr-0014-key-semantics-and-check-dependencies.md
 adr-0015-compiled-artifact-schema-and-versioning.md
 adr-0016-validation-timing-and-diagnostic-codes.md
 adr-0017-project-resource-loading-and-precedence.md
+adr-0018-check-pack-invocation-config.md
 ```

@@ -154,8 +154,10 @@ Required gates:
   `docs/decisions/adr-0017-project-resource-loading-and-precedence.md`, but
   actual reference validation still requires the relevant resource loader to be
   implemented,
-- resolve the check-pack invocation config and overrides gate before supporting
-  check-pack config or non-error empty expansion behavior,
+- check-pack invocation config and override design is satisfied by
+  `docs/decisions/adr-0018-check-pack-invocation-config.md`; supporting
+  `config`, `on_empty: warn`, or `on_empty: skip` still requires implementation
+  of typed invocation models, schema validation, and artifact visibility,
 - resolve the column model and value-comparison surface gate before validating
   column eligibility or all-column selection,
 - resolve the tolerance, null, and normalization resolution gate before

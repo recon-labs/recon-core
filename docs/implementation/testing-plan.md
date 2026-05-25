@@ -65,6 +65,11 @@ config, resource references, adapters, results, or evidence should lock their
 rule-specific diagnostics before implementation and test those diagnostics
 explicitly.
 
+Check-pack invocation config tests should follow ADR 0018. Before accepting
+`config`, `on_empty: warn`, or `on_empty: skip`, tests should cover typed
+invocation parsing, schema validation, unknown keys, duplicate invocations,
+empty-expansion diagnostics, precedence, and compiled artifact visibility.
+
 Rules include:
 
 - no silent all-column comparison,

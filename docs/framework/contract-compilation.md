@@ -73,7 +73,8 @@ written until adapter SQL rendering exists.
 Current check-pack support is intentionally strict: `checks.use` may reference
 a pack by string or by a mapping with `name`, and unsupported invocation fields
 such as `config` or `on_empty` fail validation. Check-pack config and non-error
-empty-expansion behavior require a future design before implementation.
+empty-expansion behavior are designed by ADR 0018 but require typed invocation
+models, schema validation, and artifact visibility before implementation.
 
 Compiled contract and compiled checks directories are regenerated as snapshots.
 After project configuration loads and `target-path` is known, Recon removes

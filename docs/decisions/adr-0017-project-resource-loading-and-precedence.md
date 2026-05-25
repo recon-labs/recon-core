@@ -53,7 +53,7 @@ The first non-contract resource-loader design targets these kinds:
 | Kind | Path field | Suffixes | Required by default | Packageable | Initial handling |
 | --- | --- | --- | --- | --- | --- |
 | `contract` | `contract-paths` | `.yml`, `.yaml` | Yes | No | Parse authored contracts. |
-| `check_pack` | `check-pack-paths` | `.yml`, `.yaml` | No | Yes | Parse/index reusable execution intent after Gate 3B locks config. |
+| `check_pack` | `check-pack-paths` | `.yml`, `.yaml` | No | Yes | Parse/index reusable execution intent using ADR 0018 config-schema rules. |
 | `sample_policy` | `sample-policy-paths` | `.yml`, `.yaml` | No | Yes | Parse/index after sampling policy scope is locked. |
 | `tolerance_policy` | `tolerance-policy-paths` | `.yml`, `.yaml` | No | Yes | Parse/index after tolerance/null scope is locked. |
 | `schema_policy` | `schema-policy-paths` | `.yml`, `.yaml` | No | Yes | Parse/index after schema policy scope is locked. |

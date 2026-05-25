@@ -113,6 +113,12 @@ Resource loading diagnostics locked by ADR 0017:
 | `RC_PARSE_RESOURCE_PATH_NOT_FOUND` | parse | error |
 | `RC_PARSE_DUPLICATE_RESOURCE_NAME` | parse | error |
 
+Check-pack resource schema diagnostics locked by ADR 0018:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_PARSE_INVALID_CHECK_PACK_CONFIG_SCHEMA` | parse | error |
+
 ## Configuration diagnostics
 
 Examples:
@@ -146,10 +152,21 @@ RC_COMPILE_UNKNOWN_SAMPLE_POLICY
 RC_COMPILE_UNKNOWN_TOLERANCE_POLICY
 RC_COMPILE_UNKNOWN_SCHEMA_POLICY
 RC_COMPILE_UNKNOWN_ENDPOINT
+RC_COMPILE_EMPTY_CHECK_PACK_ALLOWED
+RC_COMPILE_EMPTY_CHECK_PACK_SKIPPED
 ```
 
 Unknown macro-reference diagnostics are not locked yet. Macro reference
 validation requires a future macro-semantics decision.
+
+Check-pack invocation diagnostics locked by ADR 0018:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG` | compile resolution | error |
+| `RC_COMPILE_EMPTY_CHECK_PACK` | compile resolution | error |
+| `RC_COMPILE_EMPTY_CHECK_PACK_ALLOWED` | compile resolution | warning |
+| `RC_COMPILE_EMPTY_CHECK_PACK_SKIPPED` | compile resolution | info |
 
 ## Validation diagnostics
 
@@ -194,6 +211,16 @@ Milestone 5 should use these locked diagnostics for the validation rulebook:
 | `RC_VALIDATE_SCHEMA_IGNORE_INVALID` | compile validation | error |
 | `RC_VALIDATE_METADATA_VALIDATION_DEFERRED` | adapter metadata validation | warning |
 | `RC_VALIDATE_UNUSED_DECLARED_COLUMN` | compile validation | warning |
+
+Additional check-pack invocation validation diagnostics locked by ADR 0018:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_VALIDATE_DUPLICATE_CHECK_PACK_INVOCATION` | compile validation | error |
+| `RC_VALIDATE_INVALID_CHECK_PACK_ON_EMPTY` | compile validation | error |
+| `RC_VALIDATE_INVALID_CHECK_PACK_CONFIG` | compile validation | error |
+| `RC_VALIDATE_UNKNOWN_CHECK_PACK_CONFIG_KEY` | compile validation | error |
+| `RC_VALIDATE_UNUSED_CHECK_PACK_CONFIG` | compile validation | error |
 
 Data-dependent null-key and duplicate-key problems are runtime check results,
 not compile-time validation diagnostics. They should fail the corresponding

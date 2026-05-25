@@ -127,6 +127,11 @@ namespace. Unqualified package references should not be resolved by search
 precedence; package and framework resources must be referenced with their
 namespace.
 
+When check-pack resources are loaded, package-provided check packs that accept
+invocation config must declare valid config schemas. Invalid schemas should fail
+parse with `RC_PARSE_INVALID_CHECK_PACK_CONFIG_SCHEMA` before the compiler tries
+to validate contract invocations.
+
 ## Multi-contract files
 
 Parser should support both:

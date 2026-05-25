@@ -151,8 +151,8 @@ checks:
 
 The current compiler supports check-pack names as strings and object entries
 with only a `name` field. Check-pack invocation config and overrides are gated
-for later design work; fields other than `name` must fail validation instead of
-being silently ignored.
+by ADR 0018; fields other than `name` must fail validation instead of being
+silently ignored until full support is implemented.
 
 Contracts must compile into at least one check from supported check packs or
 explicit metrics.
@@ -215,7 +215,45 @@ Diagnostic:
 recon_core.some_future_pack expanded to no checks.
 ```
 
-Optional future config may support `on_empty: warn` or `on_empty: skip`, but the default remains error.
+ADR 0018 locks future `on_empty` values as `error`, `warn`, and `skip`. The
+default remains error. `warn` and `skip` must not suppress invalid config,
+missing required keys, unknown packs, or other safety validation failures.
+
+## Check-pack invocation config
+
+The future typed invocation model should normalize both supported authored
+forms into one internal model:
+
+```yaml
+checks:
+  use:
+    - recon_core.basic_equivalence
+    - name: recon_core.some_pack
+      on_empty: error
+      config:
+        severity: error
+        sampling: full
+        tolerance: strict
+        params: {}
+        checks:
+          row_count_diff:
+            severity: warn
+```
+
+Implementation rules:
+
+- keep current strict rejection until typed invocation config is implemented,
+- accept only `name`, `on_empty`, and `config` as invocation fields,
+- validate `on_empty` before expansion,
+- validate `config` against the check pack schema before expansion,
+- reject unknown config keys, unknown `params`, unknown generated check names,
+  and config that cannot apply to generated checks,
+- apply pack-wide config before `config.checks.<generated_check_name>`
+  overrides,
+- never let config bypass required grain keys, required CDC keys, key safety
+  checks, adapter capability checks, or explicit schema-ignore rules,
+- write invocation and resolved-config details into compiled artifacts before
+  accepting `config`, `on_empty: warn`, or `on_empty: skip`.
 
 ## Metric compilation
 
