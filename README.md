@@ -35,6 +35,7 @@ Implemented today:
 - compiled contract and compiled checks YAML artifacts,
 - built-in `recon_core.basic_equivalence` expansion,
 - explicit `sum` metric compilation,
+- limited contract-level `sampling.default_policy` metadata on compiled checks,
 - structured service results and diagnostics,
 - CLI command registration for `run`.
 
@@ -42,6 +43,7 @@ Not implemented yet:
 
 - `recon run`,
 - explicit authored checks beyond supported check-pack and metric compilation,
+- full sampling, tolerance, schema, and CDC policy engines,
 - adapter SQL rendering,
 - adapter execution,
 - check engine,
@@ -209,10 +211,12 @@ The intended command responsibilities are:
 Current `recon parse` validation is intentionally structural. It validates YAML
 syntax, contract file discovery, required contract fields, endpoint shape,
 unknown top-level contract fields, simple multi-contract files, and duplicate
-contract names. Compile-time behavior such as check-pack expansion, metric
-compilation, sampling resolution, tolerance precedence, schema policy
-resolution, CDC validation, adapter checks, and row-level key non-null/uniqueness is
-still future work.
+contract names. Current `recon compile` expands the supported built-in check
+pack, compiles explicit `sum` metrics, and carries limited contract-level
+`sampling.default_policy` metadata into compiled checks. Broader compile-time
+behavior such as authored checks, full sampling policy resolution, tolerance
+precedence, schema policy resolution, CDC validation, adapter checks, and
+row-level key non-null/uniqueness is still future work.
 
 Expected generated artifacts:
 

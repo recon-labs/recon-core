@@ -31,6 +31,7 @@ from recon_core.parser.manifest import (
     build_manifest,
 )
 from recon_core.parser.models import SourceLocation, SourceLocationDict
+from recon_core.parser.project import ParsedProject, load_parsed_project
 from recon_core.parser.yaml_loader import (
     INVALID_YAML,
     YAML_FILE_READ_ERROR,
@@ -59,6 +60,7 @@ __all__ = [
     "ManifestDict",
     "ManifestProject",
     "ManifestProjectDict",
+    "ParsedProject",
     "ResourceDiscoveryResult",
     "ResourceFile",
     "ResourceFileDict",
@@ -68,6 +70,7 @@ __all__ = [
     "YamlLoadResult",
     "build_manifest",
     "discover_contract_files",
+    "load_parsed_project",
     "load_yaml_file",
     "load_yaml_text",
     "parse_contract_resource",
