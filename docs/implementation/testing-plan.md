@@ -70,6 +70,12 @@ Check-pack invocation config tests should follow ADR 0018. Before accepting
 invocation parsing, schema validation, unknown keys, duplicate invocations,
 empty-expansion diagnostics, precedence, and compiled artifact visibility.
 
+Column and value-comparison tests should follow ADR 0019. Before accepting
+typed column validation, all-column expansion, or row-level value checks, tests
+should cover duplicate declarations, unknown categories, undeclared references,
+invalid selectors, check/category incompatibility, unused declared columns,
+metadata-deferred validation, and resolved column artifact visibility.
+
 Rules include:
 
 - no silent all-column comparison,

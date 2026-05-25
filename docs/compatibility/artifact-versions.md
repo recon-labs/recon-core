@@ -94,6 +94,12 @@ would make compiled artifacts incomplete. Changing existing check origin,
 stable check IDs, or generated check semantics may require a compiled artifact
 version bump.
 
+Adding resolved column metadata to compiled artifacts should follow ADR 0019
+and `docs/compatibility/column-value-comparison.md`. Raw wildcard selectors
+must not appear in typed check plans. Changing existing `columns` field meaning,
+required-column semantics, stable check IDs, or typed operation payloads may
+require a compiled artifact version bump.
+
 ## Package version relationship
 
 `recon_version` identifies the Recon Core package version that wrote the

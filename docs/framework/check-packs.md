@@ -95,9 +95,10 @@ Requirements:
 - `grain.keys`,
 - non-null keys in source and target,
 - unique keys in source and target,
-- eligible columns or explicit check-level columns.
+- eligible columns or explicit check-level columns resolved through ADR 0019.
 
-This pack must not compare all columns unless explicitly configured.
+This pack must not compare all columns unless explicitly configured. All-column
+requests must resolve to concrete column names before execution.
 
 If required null-key or duplicate-key safety checks are not authored explicitly, the compiler should generate visible safety checks before value checks.
 

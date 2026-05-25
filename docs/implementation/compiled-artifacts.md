@@ -125,6 +125,7 @@ It should include:
 - comparison identity from `grain.keys`,
 - CDC identity from `cdc.keys` when relevant,
 - columns,
+- resolved column metadata after ADR 0019 is implemented,
 - metrics,
 - resolved defaults,
 - resolved sampling policy,
@@ -504,6 +505,34 @@ Example:
 `recon_core.aggregate_equivalence` must not infer aggregate checks from numeric
 columns unless a future decision explicitly enables that behavior. Explicit
 metrics remain the first aggregate path.
+
+## Column visibility
+
+Current compiled contract artifacts preserve raw authored `columns`.
+
+Before row-level value checks, all-column expansion, or column/type validation
+are treated as implemented, compiled artifacts must also expose resolved column
+metadata:
+
+```yaml
+resolved_columns:
+  declared:
+    - name: revenue
+      category: numeric
+  all_columns_request: false
+  resolved_value_columns:
+    - revenue
+  excluded_identity_columns:
+    - customer_id
+  ignored_columns: []
+  metadata_validation:
+    status: deferred
+    diagnostics: []
+```
+
+Typed check plans must contain concrete column names only. Raw `*` selectors
+must be resolved before execution or reported as deferred/invalid through
+diagnostics.
 
 ## Row-level prerequisites
 

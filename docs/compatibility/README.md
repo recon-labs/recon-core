@@ -25,6 +25,7 @@ Current implementation status:
 | Compiled artifacts | Implemented with `artifact_version: 1` for compiled contract and compiled checks YAML. |
 | Typed check plans | Draft typed plans are produced in compiled checks artifacts. |
 | Check-pack invocation config | Strings and `{name}` mappings implemented; future `config` and `on_empty` shape locked, not implemented. |
+| Column and value comparison | Raw authored columns preserved; typed column validation and all-column expansion design locked, not implemented. |
 | Adapter API | Documented as an intended boundary, not stable or implemented yet. |
 | Adapter capabilities | Documented as a draft catalog and represented in compiler enums; no production adapter declarations yet. |
 | External adapter repos | Planned, not split yet. |
@@ -43,6 +44,8 @@ Current implementation status:
 - `capability-catalog.md` records the draft capability names and rules.
 - `check-pack-invocation.md` records the check-pack invocation compatibility
   position.
+- `column-value-comparison.md` records the column and value comparison
+  compatibility position.
 - `artifact-versions.md` records generated artifact versioning rules.
 - `compatibility-matrix.md` records the current and future compatibility matrix
   format.

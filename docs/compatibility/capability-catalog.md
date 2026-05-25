@@ -46,7 +46,7 @@ adapter API is stable.
 | --- | --- |
 | `relations` | Adapter can address named relations. |
 | `queries` | Adapter can use authored queries as endpoints. |
-| `metadata_columns` | Adapter can fetch column metadata. |
+| `metadata_columns` | Adapter can fetch column metadata; required for ADR 0019 all-column expansion. |
 | `metadata_precision_scale` | Adapter can report precision and scale metadata where available. |
 | `temp_tables` | Adapter can create or use temporary objects. |
 | `cte_support` | Adapter can render common table expressions. |

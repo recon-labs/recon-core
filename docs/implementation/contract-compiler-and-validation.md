@@ -114,11 +114,38 @@ Metrics do create checks.
 
 Check packs create checks through expansion.
 
+## Column validation and value-comparison surface
+
+Column behavior is governed by ADR 0019.
+
+If no `columns` block is defined, explicit metrics and explicit checks may name
+columns directly. Existence and physical type validation may be deferred until
+adapter metadata is available.
+
+If a `columns` block is defined, it is the explicit comparison surface.
+Explicit checks and metrics that reference columns outside that surface should
+fail validation.
+
+Metric columns must be declared only when the contract has a `columns` block.
+Group-by columns follow the same rule as metric value columns.
+
+Check-level column selections narrow the declared surface. They do not mutate
+contract-level column declarations.
+
+Column validation should include:
+
+- invalid column declarations,
+- duplicate canonical column names,
+- undeclared column references when a declared surface exists,
+- invalid check-level selectors,
+- column/check eligibility conflicts,
+- incompatible authored column categories,
+- unused declared columns as warnings.
+
+Adapter metadata validation should cover physical column existence, physical
+types, and unresolved all-column expansion.
+
 ## No silent all-column comparison
-
-If one or more columns are defined, only those columns are eligible for value and aggregate inference.
-
-If no columns are defined, value checks requiring columns should fail unless the check explicitly defines columns.
 
 All-column comparison must be explicit:
 
@@ -136,6 +163,10 @@ checks:
 ```
 
 When `*` is used, the compiler should resolve and write the actual column list into compiled artifacts when metadata is available.
+
+Raw `*` must never appear in typed check plans. If adapter metadata is not
+available, all-column expansion must remain deferred and visible through
+diagnostics/artifacts; checks that need concrete columns must not execute.
 
 ## Check-pack expansion
 
@@ -359,7 +390,11 @@ The first compiler implementation supports explicit `sum` metrics. Metric
 names must be unique within a contract; duplicate names fail validation with
 `RC_VALIDATE_DUPLICATE_METRIC_NAME`.
 
-Metric column types must be compatible with metric type.
+Metric column references follow ADR 0019. When a contract declares a `columns`
+block, metric value and group-by columns must be inside that declared surface.
+Metric column types must be compatible with metric type, using authored column
+categories during compile validation and adapter metadata when physical types
+are required.
 
 Explicit metrics are the first aggregate compilation path. The compiler must
 not infer aggregate checks from eligible numeric columns unless a future

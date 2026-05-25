@@ -104,3 +104,7 @@ If a numeric column is defined but no compiled check uses it, Recon may warn.
 If a check references an undefined or incompatible column, Recon should fail validation.
 
 Recon must never silently compare every column unless the user explicitly requests all columns.
+
+ADR 0019 defines the detailed column/value comparison surface, including
+column categories, explicit column references, all-column expansion, and
+diagnostic ownership.

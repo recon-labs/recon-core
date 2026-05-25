@@ -214,12 +214,13 @@ future decision.
 ## Columns
 
 Columns define value comparison rules and eligible comparison surface.
+Column behavior is governed by ADR 0019.
 
 ```yaml
 columns:
   exact:
     - customer_status
-    - country_code
+    - name: country_code
 
   numeric:
     - name: lifetime_value
@@ -228,9 +229,26 @@ columns:
   timestamp:
     - name: updated_at
       tolerance: 5 seconds
+
+  string:
+    - name: customer_name
+      normalization: trim_lower
 ```
 
-Defined columns are the only columns eligible for value and aggregate inference.
+Supported categories are `exact`, `numeric`, `timestamp`, and `string`.
+
+String entries are shorthand for `{name: <column_name>}`.
+
+Columns do not create checks. They define the columns that generated,
+metric-derived, or explicit value checks may use.
+
+If a contract has no `columns` block, explicit metrics and explicit checks may
+still name columns directly. Existence and physical type validation may be
+deferred until adapter metadata is available.
+
+If a contract has a `columns` block, that block is the explicit comparison
+surface. Explicit checks and metrics that reference columns outside that
+surface should fail validation.
 
 Recon should never silently compare all columns. If users want all columns, they must request it explicitly:
 
@@ -247,6 +265,14 @@ checks:
     columns: "*"
 ```
 
+All-column comparison requires adapter metadata and compiled artifact
+visibility. Raw `*` must never appear in typed check plans; it must resolve to
+concrete column names before execution.
+
+For MVP behavior, source and target comparable outputs should expose the same
+canonical column names. Source-target column mapping is a future feature and
+must be explicit if added.
+
 ## Column-level check eligibility
 
 A column may optionally specify which checks it participates in.
@@ -262,6 +288,10 @@ columns:
 ```
 
 This is useful when a numeric column should be included in aggregate checks but excluded from row-level value comparison, or vice versa.
+
+Column-level `checks` is a filter. It does not create checks. A generated,
+metric-derived, or explicit check that uses the column should be one of the
+listed check types.
 
 ## Metrics
 
@@ -641,6 +671,9 @@ Recon should validate contracts before execution:
 - CDC delete behavior is explicit when CDC checks are used,
 - checks must be compatible with column types,
 - metrics must be compatible with referenced columns,
+- metric/check column references must stay inside the declared column surface
+  when `columns` is present,
+- all-column requests must resolve to concrete column names before execution,
 - referenced sample policies exist,
 - referenced check packs exist,
 - tolerance syntax is valid,
@@ -657,6 +690,8 @@ The compiled plan should show:
 - which metrics compiled into checks,
 - which atomic checks will run,
 - which columns each check uses,
+- which declared columns were selected, ignored, or excluded as identity
+  columns,
 - which sampling policy each check uses,
 - which tolerances and null rules each check uses,
 - which schema ignore rules apply,

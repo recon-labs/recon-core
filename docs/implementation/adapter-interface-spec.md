@@ -44,6 +44,9 @@ class BaseAdapter:
     def capabilities(self) -> AdapterCapabilities: ...
 ```
 
+`get_columns` is required for ADR 0019 all-column expansion and physical
+column/type validation.
+
 The final API should separate connection/metadata/execution from SQL rendering.
 This avoids forcing non-SQL adapters to implement SQL helper methods.
 

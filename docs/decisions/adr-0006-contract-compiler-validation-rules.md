@@ -102,3 +102,6 @@ The implementation should keep parser, compiler, validator, and runner responsib
 Tests should cover both valid and invalid contracts.
 
 Future coding agents should update this decision or create a new one when compiler behavior changes.
+
+ADR 0019 extends these compiler validation rules for column declarations,
+column references, all-column expansion, and value-check compatibility.

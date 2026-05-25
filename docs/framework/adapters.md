@@ -123,9 +123,12 @@ and evidence must show the resolved anchor side and key-set reference.
 
 ## Type and schema metadata
 
-Adapters should expose normalized metadata where possible: column name, logical type, physical type, nullable, precision, scale, and timezone behavior when known.
+Adapters should expose normalized metadata where possible: column name, logical
+type, physical type, nullable, precision, scale, and timezone behavior when
+known.
 
-This supports schema checks and validation.
+This supports schema checks, ADR 0019 all-column expansion, and column/type
+validation.
 
 ## Semi-structured adapters
 

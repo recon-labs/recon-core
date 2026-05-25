@@ -158,8 +158,11 @@ Required gates:
   `docs/decisions/adr-0018-check-pack-invocation-config.md`; supporting
   `config`, `on_empty: warn`, or `on_empty: skip` still requires implementation
   of typed invocation models, schema validation, and artifact visibility,
-- resolve the column model and value-comparison surface gate before validating
-  column eligibility or all-column selection,
+- column model and value-comparison surface design is satisfied by
+  `docs/decisions/adr-0019-column-and-value-comparison-surface.md`; supporting
+  typed column declarations, all-column expansion, or row-level value checks
+  still requires implementation of typed models, metadata validation, and
+  artifact visibility,
 - resolve the tolerance, null, and normalization resolution gate before
   applying comparison policy precedence,
 - do not validate references to local check packs, sampling policies, tolerance
@@ -370,6 +373,51 @@ Recommended commit message:
 
 ```text
 feat: add schema policy checks
+```
+
+## Post-MVP Milestone 13: explicit source-target column mapping
+
+Build this after the adapter metadata model, resolved column artifacts, schema
+policy behavior, run results, and evidence model are stable enough to show
+exactly which source and target columns were compared.
+
+Goal:
+
+- support real projects where comparable source and target fields have
+  different names,
+- keep every mapping explicit in authored config and generated artifacts,
+- avoid inferred, fuzzy, or silent source-target mapping.
+
+Build:
+
+- authored YAML shape for explicit source-target column mappings,
+- resolved column model fields for canonical, source, and target column names,
+- validation for mapped value-check columns and mapped key columns when the
+  mapping design includes keys,
+- interaction with check-level column selection, `columns.include: "*"`, schema
+  policies, ignored columns, adapter metadata, and type compatibility,
+- typed check-plan, result, failure-detail, and evidence visibility for mapped
+  column names.
+
+Tests:
+
+- same-name MVP behavior remains unchanged,
+- missing, duplicate, ambiguous, or undeclared mappings produce diagnostics,
+- mapped columns resolve consistently across compiler, typed plans, adapter
+  calls, results, and evidence,
+- all-column expansion never guesses renamed columns,
+- schema/type validation uses the explicit mapping and reports both sides.
+
+Required gate:
+
+- resolve the source-target column mapping gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  implementation.
+
+Recommended commit message:
+
+```text
+feat: add explicit source-target column mapping
 ```
 
 ## Deferral list

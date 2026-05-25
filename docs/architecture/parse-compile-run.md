@@ -57,6 +57,11 @@ models, schema validation, and artifact visibility exist, compile should reject
 `config`, `on_empty`, and unknown invocation fields rather than applying them
 partially.
 
+Column and value-comparison behavior is governed by ADR 0019. Until typed
+column models, metadata validation, and artifact visibility exist, compile
+should not expand raw wildcard selectors or execute value checks without
+concrete resolved columns.
+
 Typed check plans are the core execution intent. Rendered SQL is an
 adapter-specific artifact derived from those plans.
 
@@ -131,6 +136,7 @@ They should answer:
 - which checks will run,
 - why they exist,
 - which columns they use,
+- whether all-column requests resolved to concrete columns,
 - which sampling they use,
 - which tolerance they use,
 - which schema ignores apply,

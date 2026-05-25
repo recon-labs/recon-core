@@ -72,6 +72,9 @@ These should not affect value checks unless selected.
 
 For schema checks, they should be ignored only when explicitly configured.
 
+For ADR 0019 all-column value expansion, explicit schema/value ignore rules
+must be reflected in the resolved column surface and compiled artifacts.
+
 ## Type compatibility
 
 Adapters should expose logical type metadata.

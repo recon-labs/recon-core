@@ -83,7 +83,8 @@ For MVP behavior, expose canonical key column names through compare views or que
 
 ## Columns
 
-Columns define eligible comparison fields.
+Columns define eligible comparison fields. They do not run checks by
+themselves.
 
 ```yaml
 columns:
@@ -95,9 +96,11 @@ columns:
       tolerance: 0.01
 ```
 
-Columns do not run checks by themselves.
-
 They are used by compatible checks or check packs.
+
+If a contract has a `columns` block, explicit checks and metrics should stay
+inside that declared surface. All-column comparison must be requested
+explicitly and must resolve to concrete column names before execution.
 
 ## Metrics
 

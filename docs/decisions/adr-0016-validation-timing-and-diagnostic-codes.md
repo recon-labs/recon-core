@@ -260,6 +260,12 @@ Milestone 5 should use the following code catalog unless a later ADR changes it.
 | `RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS` | compile validation | error | A CDC propagation or CDC row-value check has no explicit `cdc.keys`. |
 | `RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS` | compile validation | error | A check pack such as `recon_core.basic_equivalence` requires `grain.keys`. |
 | `RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE` | compile or adapter metadata validation | error | A check or metric is incompatible with a declared or known column type. |
+| `RC_VALIDATE_INVALID_COLUMN_DECLARATION` | compile validation | error | A column block, category, entry, or field has invalid shape. |
+| `RC_VALIDATE_DUPLICATE_COLUMN_NAME` | compile validation | error | The same canonical column name is declared more than once. |
+| `RC_VALIDATE_UNDECLARED_COLUMN_REFERENCE` | compile validation | error | A metric or check references a column outside an explicit declared surface. |
+| `RC_VALIDATE_INVALID_COLUMN_SELECTION` | compile validation | error | A check-level column selector has invalid shape or unsupported wildcard placement. |
+| `RC_VALIDATE_COLUMN_NOT_ELIGIBLE_FOR_CHECK` | compile validation | error | A check uses a column whose `checks` eligibility excludes that check. |
+| `RC_VALIDATE_ALL_COLUMNS_REQUIRES_METADATA` | adapter metadata validation | error | An all-column request cannot be resolved because source/target metadata is unavailable. |
 | `RC_VALIDATE_INVALID_SAMPLING` | compile validation | error | Sampling config is malformed or unsupported in the current milestone. |
 | `RC_VALIDATE_RANDOM_SAMPLE_REQUIRES_PERSISTED_KEYS` | compile validation | error | Random row-level sampling lacks persisted sample keys. |
 | `RC_VALIDATE_CDC_CONFIG_REQUIRED` | compile validation | error | A CDC check requires CDC mode/window config that is missing. |

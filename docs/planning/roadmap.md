@@ -113,6 +113,12 @@ Aggregate metric expansion should be handled as an explicit post-MVP milestone.
 `recon_core.aggregate_equivalence` should remain gated until its expansion and
 inference behavior is designed and documented.
 
+Explicit source-target column mapping should also be handled as a separate
+post-MVP milestone after adapter metadata, resolved column artifacts, schema
+policy behavior, run results, and evidence visibility are stable. Until then,
+projects should use canonical compare views or queries rather than relying on
+Recon to infer renamed columns.
+
 Sampling:
 
 - deterministic hash or safe numeric modulo,

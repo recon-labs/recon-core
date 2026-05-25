@@ -44,7 +44,7 @@ Each check implementation should declare:
 - whether non-null and unique grain keys are required,
 - whether `cdc.keys` are required,
 - whether CDC ordering or windows are required,
-- whether columns are required,
+- whether resolved concrete columns are required,
 - supported sampling modes,
 - result fields,
 - failure detail support.
@@ -101,6 +101,8 @@ Recommended order:
 7. row-level value checks.
 
 Null-key and duplicate-key failures should block row-level value checks that depend on unique matching.
+Row-level value checks should not execute with unresolved wildcard selectors;
+column resolution follows ADR 0019.
 
 ## Status model
 

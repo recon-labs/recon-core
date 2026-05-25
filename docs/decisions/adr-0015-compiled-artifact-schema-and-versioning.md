@@ -422,6 +422,10 @@ Check-pack invocation config and non-error empty expansion are governed by ADR
 0018. Compiled artifacts must include invocation summaries before accepting
 `config`, `on_empty: warn`, or `on_empty: skip`.
 
+Column/value comparison and all-column expansion are governed by ADR 0019.
+Compiled artifacts must expose resolved column metadata before executing value
+checks or accepting raw wildcard column selectors as resolved behavior.
+
 ## Metric Compilation Scope
 
 Explicit metrics compile into aggregate checks.

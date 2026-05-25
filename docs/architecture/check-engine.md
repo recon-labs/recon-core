@@ -78,7 +78,7 @@ A check implementation should declare:
 - whether non-null or unique grain keys are required,
 - whether CDC keys are required,
 - whether CDC ordering or windows are required,
-- whether columns are required,
+- whether resolved concrete columns are required,
 - supported sampling modes,
 - result schema.
 
@@ -95,6 +95,8 @@ Null-key and duplicate-key checks should run before row-level value checks.
 
 If null keys or duplicates are found, row-level value checks should be blocked
 and returned as `skipped` with `blocked_by` and `skip_reason`.
+Row-level value checks should not execute with unresolved wildcard selectors;
+column resolution follows ADR 0019.
 
 ## Aggregate checks
 

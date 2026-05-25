@@ -90,25 +90,33 @@ Decision:
 
 ### Should undefined columns be allowed in checks?
 
-Preferred direction:
+Decision:
 
-- no, fail validation unless the check explicitly supports expressions.
+- if a contract has a `columns` block, checks and metrics should stay inside
+  that declared surface,
+- if no `columns` block exists, explicit checks and metrics may name columns
+  directly and adapter metadata should validate existence/type,
+- see ADR 0019.
 
 ### Should `columns.include: "*"` be supported?
 
-Preferred direction:
+Decision:
 
 - yes later,
 - never make it implicit,
-- compile the actual resolved column list into artifacts.
+- compile the actual resolved column list into artifacts,
+- raw `*` must never appear in typed check plans,
+- see ADR 0019.
 
 ### Should metrics require columns to be declared?
 
-Preferred direction:
+Decision:
 
 - metrics may reference output columns directly,
 - validation should confirm the referenced column exists and is type-compatible,
-- docs should explain whether metric columns must also appear under `columns`.
+- metric columns must be declared only when the contract has an explicit
+  `columns` block,
+- see ADR 0019.
 
 ## Grain and uniqueness
 

@@ -76,6 +76,11 @@ such as `config` or `on_empty` fail validation. Check-pack config and non-error
 empty-expansion behavior are designed by ADR 0018 but require typed invocation
 models, schema validation, and artifact visibility before implementation.
 
+Column and value-comparison behavior is designed by ADR 0019. Typed column
+validation, all-column expansion, and row-level value checks require typed
+column models, adapter metadata validation, and resolved column artifact
+visibility before implementation.
+
 Compiled contract and compiled checks directories are regenerated as snapshots.
 After project configuration loads and `target-path` is known, Recon removes
 existing top-level `*.yml` files from `target/compiled_contracts/` and
