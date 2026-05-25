@@ -68,8 +68,8 @@ docs/
 
 Current parse and compile behavior loads contract files only. The other
 versioned resource directories are part of the project structure and future
-resource-loading surface, but their reference validation and precedence rules
-are not implemented yet.
+resource-loading surface. Their reference validation and precedence rules are
+designed in ADR 0017 but are not implemented yet.
 
 ## Ignored files
 

@@ -82,6 +82,11 @@ Version-impacting changes include:
 Additive optional fields may keep the same `artifact_version` when readers can
 ignore unknown fields safely and the meaning of existing fields does not change.
 
+Adding non-contract project resource summaries to `target/manifest.json` should
+follow ADR 0017 and `docs/compatibility/resource-loading.md`. Package resource
+file keys or namespace-qualified source-file IDs require compatibility review
+because they may change manifest reader assumptions.
+
 ## Package version relationship
 
 `recon_version` identifies the Recon Core package version that wrote the
@@ -143,6 +148,7 @@ Durable artifact format decisions require an ADR or ADR update.
 ## Related docs
 
 - `docs/architecture/artifact-model.md`
+- `docs/compatibility/resource-loading.md`
 - `docs/implementation/compiled-artifacts.md`
 - `docs/decisions/adr-0003-parse-compile-run-artifact-model.md`
 - `docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`

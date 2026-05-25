@@ -37,7 +37,12 @@ Current implementation status:
 - `ProjectConfig` stores the configured resource path fields,
 - contract paths are actively used by parse and compile,
 - non-contract resource path fields are preserved configuration surface until
-  local resource loading and precedence are designed.
+  non-contract resource loading is implemented through ADR 0017.
+
+Future non-contract resource loading should preserve whether each configured
+path was authored or defaulted. ADR 0017 requires this so missing default
+optional resource directories can be skipped while explicitly configured missing
+paths can fail clearly.
 
 ## Profiles config
 
@@ -81,6 +86,18 @@ Resources include:
 - macros.
 
 Each resource should include a stable name and source location.
+
+Resource loading and reference resolution should follow
+`docs/decisions/adr-0017-project-resource-loading-and-precedence.md`.
+Resource identity is:
+
+```text
+resource_kind + namespace + resource_name
+```
+
+Unqualified references resolve only in the root project namespace. Package and
+framework references use `<namespace>.<resource_name>`. The `recon_core`
+namespace is reserved for framework built-ins.
 
 ```python
 @dataclass(frozen=True)

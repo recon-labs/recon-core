@@ -26,9 +26,9 @@ It should read project files, validate YAML syntax, validate basic schema, disco
 
 Current implementation status: parse discovers and loads contract resources
 only. Reusable resource loading for local check packs, sampling policies,
-tolerance policies, schema policies, endpoint resources, and macros is gated
-until resource model boundaries and precedence are locked. Reference validation
-to those resources should wait for that shared loader.
+tolerance policies, schema policies, endpoint resources, and macros should
+follow the ADR 0017 shared resource-loading model. Reference validation to
+those resources should wait for that shared loader.
 
 Main output:
 

@@ -106,6 +106,13 @@ RC_PARSE_RESOURCE_PATH_NOT_FOUND
 RC_PARSE_UNKNOWN_FIELD
 ```
 
+Resource loading diagnostics locked by ADR 0017:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_PARSE_RESOURCE_PATH_NOT_FOUND` | parse | error |
+| `RC_PARSE_DUPLICATE_RESOURCE_NAME` | parse | error |
+
 ## Configuration diagnostics
 
 Examples:
@@ -117,6 +124,14 @@ RC_CONFIG_INVALID_PROJECT_CONFIG
 RC_CONFIG_INIT_PATH_EXISTS
 RC_CONFIG_INIT_INVALID_PROJECT_NAME
 ```
+
+Future package/resource namespace diagnostics locked by ADR 0017:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_CONFIG_RESERVED_RESOURCE_NAMESPACE` | config | error |
+| `RC_CONFIG_DUPLICATE_PACKAGE_NAMESPACE` | config | error |
+| `RC_CONFIG_PACKAGE_NOT_INSTALLED` | config | error |
 
 ## Compile diagnostics
 
@@ -130,7 +145,11 @@ RC_COMPILE_UNSUPPORTED_EXPLICIT_CHECKS
 RC_COMPILE_UNKNOWN_SAMPLE_POLICY
 RC_COMPILE_UNKNOWN_TOLERANCE_POLICY
 RC_COMPILE_UNKNOWN_SCHEMA_POLICY
+RC_COMPILE_UNKNOWN_ENDPOINT
 ```
+
+Unknown macro-reference diagnostics are not locked yet. Macro reference
+validation requires a future macro-semantics decision.
 
 ## Validation diagnostics
 

@@ -31,6 +31,12 @@ Current implementation status:
 - source locations are currently path-level; best-effort line and column
   locations are future diagnostic improvements.
 
+Future non-contract resource loading should follow
+`docs/decisions/adr-0017-project-resource-loading-and-precedence.md`.
+Resource discovery should be catalog-driven rather than a set of ad hoc loops.
+The shared loader should remain the single source of truth for parse and
+compile.
+
 ## Manifest responsibilities
 
 The manifest should contain:
@@ -45,6 +51,16 @@ The manifest should contain:
 
 Future parser milestones may add policy summaries, check pack summaries,
 endpoint summaries, selectors, and richer resource graph metadata.
+
+When package resources are implemented, resource files should have
+namespace-qualified in-memory IDs such as:
+
+```text
+<namespace>://<relative_path>
+```
+
+Manifest changes for non-contract resources must follow compatibility rules in
+`docs/compatibility/artifact-versions.md`.
 
 ## Manifest shape
 
@@ -105,6 +121,11 @@ Parse-time validation should catch:
 Future parser milestones should add duplicate-resource validation for policy,
 check-pack, endpoint, and macro resources after the non-contract resource loader
 is designed.
+
+Per ADR 0017, duplicate names are errors within the same resource kind and
+namespace. Unqualified package references should not be resolved by search
+precedence; package and framework resources must be referenced with their
+namespace.
 
 ## Multi-contract files
 

@@ -150,15 +150,19 @@ Required gates:
 
 - validation timing and diagnostic code catalog gate is satisfied by
   `docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`,
+- local resource loading and precedence design gate is satisfied by
+  `docs/decisions/adr-0017-project-resource-loading-and-precedence.md`, but
+  actual reference validation still requires the relevant resource loader to be
+  implemented,
 - resolve the check-pack invocation config and overrides gate before supporting
   check-pack config or non-error empty expansion behavior,
 - resolve the column model and value-comparison surface gate before validating
   column eligibility or all-column selection,
 - resolve the tolerance, null, and normalization resolution gate before
   applying comparison policy precedence,
-- resolve the local resource loading and precedence gate before validating
-  references to local check packs, sampling policies, tolerance policies,
-  schema policies, endpoint resources, or macros.
+- do not validate references to local check packs, sampling policies, tolerance
+  policies, schema policies, endpoint resources, or macros until those resource
+  kinds are loaded through the shared ADR 0017 resource model.
 
 Tests:
 
