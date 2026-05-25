@@ -45,6 +45,10 @@ reports/
 state/
 ```
 
+The recommended full project structure also includes `check_packs/` and
+`macros/`. Those directories are future local resource-loading surfaces and are
+not required by current parse/compile behavior.
+
 `recon init` should not overwrite an existing path unless an explicit overwrite option is added later.
 
 `PROJECT_NAME` must be a single directory name that can be used in stable

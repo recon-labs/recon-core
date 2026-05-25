@@ -23,6 +23,14 @@ The parser should:
 
 The parser should not expand check packs or compile metrics into checks.
 
+Current implementation status:
+
+- the shared parsed-project loader discovers and parses contract resources only,
+- parse and compile use authored files as the source of truth rather than
+  requiring `recon compile` to read `target/manifest.json`,
+- source locations are currently path-level; best-effort line and column
+  locations are future diagnostic improvements.
+
 ## Manifest responsibilities
 
 The manifest should contain:
@@ -90,10 +98,13 @@ Parse-time validation should catch:
 - invalid top-level resource shape,
 - missing required project config,
 - duplicate contract names,
-- duplicate policy names,
 - invalid scalar/list/object types,
 - unknown resource type,
 - missing required contract fields that do not require compile-time resolution.
+
+Future parser milestones should add duplicate-resource validation for policy,
+check-pack, endpoint, and macro resources after the non-contract resource loader
+is designed.
 
 ## Multi-contract files
 
@@ -128,7 +139,8 @@ The manifest may record defaults as authored resources.
 
 ## Diagnostics
 
-Diagnostics should include file path and resource name.
+Diagnostics should include file path and resource name. Line and column fields
+may be added when parser source-location support is expanded.
 
 Example:
 

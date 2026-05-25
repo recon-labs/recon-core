@@ -69,6 +69,11 @@ introduce manifest freshness or caching rules.
 This preserves authored YAML and `recon_project.yml` as the source of truth
 while avoiding drift between `recon parse` and `recon compile`.
 
+Current implementation status: the shared parsed-project loading pipeline is
+contract-only. Non-contract resource loading and precedence must be designed
+before Milestone 5 validates references to local check packs, sampling policies,
+tolerance policies, schema policies, endpoint resources, or macros.
+
 ## Run service
 
 The run service should:

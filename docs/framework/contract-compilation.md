@@ -24,6 +24,12 @@ results and evidence
 
 It should read project files, validate YAML syntax, validate basic schema, discover contracts and reusable resources, resolve file paths, identify duplicate contract names, validate that refs point to known resources, and produce a machine-oriented manifest.
 
+Current implementation status: parse discovers and loads contract resources
+only. Reusable resource loading for local check packs, sampling policies,
+tolerance policies, schema policies, endpoint resources, and macros is gated
+until resource model boundaries and precedence are locked. Reference validation
+to those resources should wait for that shared loader.
+
 Main output:
 
 ```text
@@ -63,6 +69,11 @@ typed plans and mark rendering as `not_rendered`.
 Current implementation writes compiled contract and compiled checks artifacts
 for supported check-pack and metric behavior. `target/compiled_sql/` is not
 written until adapter SQL rendering exists.
+
+Current check-pack support is intentionally strict: `checks.use` may reference
+a pack by string or by a mapping with `name`, and unsupported invocation fields
+such as `config` or `on_empty` fail validation. Check-pack config and non-error
+empty-expansion behavior require a future design before implementation.
 
 Compiled contract and compiled checks directories are regenerated as snapshots.
 After project configuration loads and `target-path` is known, Recon removes

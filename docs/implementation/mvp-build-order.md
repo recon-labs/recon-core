@@ -154,7 +154,10 @@ Required gates:
 - resolve the column model and value-comparison surface gate before validating
   column eligibility or all-column selection,
 - resolve the tolerance, null, and normalization resolution gate before
-  applying comparison policy precedence.
+  applying comparison policy precedence,
+- resolve the local resource loading and precedence gate before validating
+  references to local check packs, sampling policies, tolerance policies,
+  schema policies, endpoint resources, or macros.
 
 Tests:
 

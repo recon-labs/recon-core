@@ -32,11 +32,22 @@ class ProjectConfig:
 
 Default paths may be applied by the config loader.
 
+Current implementation status:
+
+- `ProjectConfig` stores the configured resource path fields,
+- contract paths are actively used by parse and compile,
+- non-contract resource path fields are preserved configuration surface until
+  local resource loading and precedence are designed.
+
 ## Profiles config
 
 Profiles should describe connection definitions.
 
 Real profiles should not be committed.
+
+Profile loading, environment-variable resolution, connection validation, and
+secret-safe adapter configuration are future work. They should be implemented
+before adapter execution, not folded into project config loading implicitly.
 
 Suggested model:
 
@@ -133,7 +144,9 @@ Policy names should be unique per policy type.
 
 ## Source locations
 
-All parsed resources should preserve file path and best-effort line/column information.
+All parsed resources should preserve file path. The current implementation
+preserves path-level locations. Best-effort line and column information is a
+future diagnostic improvement.
 
 This enables actionable diagnostics.
 

@@ -117,6 +117,18 @@ The loader should discover resources from configured paths:
 - endpoints,
 - macros.
 
+Current implementation status:
+
+- project configuration preserves path fields for these resource categories,
+- parse and compile currently discover and load contract files only,
+- non-contract local resource loading is gated until resource model boundaries,
+  duplicate rules, package/local precedence, and manifest shape are locked.
+
+Milestone 5 validation should not validate references to local check packs,
+sampling policies, tolerance policies, schema policies, endpoint resources, or
+macros until those resources are loaded through one shared project-loading
+model.
+
 ## Configuration precedence
 
 Recommended precedence:

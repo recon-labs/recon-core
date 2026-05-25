@@ -14,6 +14,19 @@ checks:
     - recon_core.basic_equivalence
 ```
 
+Current implementation supports check-pack use entries as either strings or
+mappings with only `name`:
+
+```yaml
+checks:
+  use:
+    - name: recon_core.basic_equivalence
+```
+
+Invocation fields such as `config`, `on_empty`, or package-specific overrides
+are future-gated behavior. Current compilation rejects unsupported invocation
+fields instead of ignoring them.
+
 ## Why check packs exist
 
 Check packs let organizations standardize reconciliation behavior across contracts.
@@ -185,9 +198,11 @@ future decision before CDC delete propagation checks are implemented.
 
 Tombstone events and SCD2 history can be added later.
 
-## Overrides
+## Future overrides
 
-Contracts should be able to override pack defaults.
+Contracts should eventually be able to override pack defaults. The exact public
+YAML shape, precedence rules, validation timing, diagnostics, and compiled
+artifact visibility are not locked yet.
 
 ```yaml
 checks:
@@ -198,6 +213,9 @@ checks:
           tolerance: 10
           severity: warn
 ```
+
+Until that design is locked, check-pack override config should fail validation
+rather than being ignored or applied partially.
 
 ## Design rules
 
