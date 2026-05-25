@@ -1,6 +1,6 @@
 """Compile command service."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 from recon_core.artifacts import (
@@ -15,13 +15,7 @@ from recon_core.artifacts._paths import (
 )
 from recon_core.compiler import ContractCompilationArtifacts, compile_project
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
-from recon_core.parser import (
-    AuthoredContract,
-    ResourceFile,
-    discover_contract_files,
-    load_yaml_file,
-    parse_contract_resource,
-)
+from recon_core.parser import load_parsed_project
 from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
 
@@ -55,23 +49,18 @@ class CompileService:
                 project_root=context.project_root,
             )
 
-        discovery_result = discover_contract_files(
-            context.project_root,
-            context.paths.contract_paths,
-        )
-        diagnostics = list(discovery_result.diagnostics)
-        contracts = _parse_contract_files(discovery_result.files, diagnostics)
-        if diagnostics:
+        parsed_project = load_parsed_project(context)
+        if parsed_project.diagnostics:
             return ServiceResult(
                 exit_category=ExitCategory.VALIDATION_ERROR,
                 message="Compile failed during project parsing.",
-                diagnostics=tuple(diagnostics),
+                diagnostics=parsed_project.diagnostics,
             )
 
         compilation = compile_project(
             project_name=context.config.name,
             project_version=context.config.version,
-            contracts=tuple(contracts),
+            contracts=parsed_project.contracts,
         )
 
         if compilation.diagnostics and not compilation.contracts:
@@ -112,25 +101,6 @@ class CompileService:
             ),
             diagnostics=compilation.diagnostics,
         )
-
-
-def _parse_contract_files(
-    resource_files: tuple[ResourceFile, ...],
-    diagnostics: list[Diagnostic],
-) -> list[AuthoredContract]:
-    contracts: list[AuthoredContract] = []
-
-    for resource_file in resource_files:
-        yaml_result = load_yaml_file(resource_file.path)
-        diagnostics.extend(_resource_relative_diagnostics(yaml_result.diagnostics, resource_file))
-        if not yaml_result.succeeded:
-            continue
-
-        contract_result = parse_contract_resource(resource_file, yaml_result.data)
-        diagnostics.extend(contract_result.diagnostics)
-        contracts.extend(contract_result.contracts)
-
-    return contracts
 
 
 def _write_compiled_artifacts(
@@ -190,15 +160,6 @@ def _compiled_artifact_runtime_error(
                 ),
             ),
         ),
-    )
-
-
-def _resource_relative_diagnostics(
-    diagnostics: tuple[Diagnostic, ...],
-    resource_file: ResourceFile,
-) -> tuple[Diagnostic, ...]:
-    return tuple(
-        replace(diagnostic, path=resource_file.relative_path) for diagnostic in diagnostics
     )
 
 

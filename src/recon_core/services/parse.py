@@ -1,19 +1,11 @@
 """Parse command service."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 from recon_core.artifacts import ManifestWriter
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
-from recon_core.parser import (
-    AuthoredContract,
-    ManifestProject,
-    ResourceFile,
-    build_manifest,
-    discover_contract_files,
-    load_yaml_file,
-    parse_contract_resource,
-)
+from recon_core.parser import ManifestProject, build_manifest, load_parsed_project
 from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
 
@@ -38,12 +30,7 @@ class ParseService:
         assert context_result.context is not None
         context = context_result.context
 
-        discovery_result = discover_contract_files(
-            context.project_root,
-            context.paths.contract_paths,
-        )
-        diagnostics = list(discovery_result.diagnostics)
-        contracts = _parse_contract_files(discovery_result.files, diagnostics)
+        parsed_project = load_parsed_project(context)
 
         manifest = build_manifest(
             project=ManifestProject(
@@ -51,9 +38,9 @@ class ParseService:
                 config_version=context.config.config_version,
                 version=context.config.version,
             ),
-            files=discovery_result.files,
-            contracts=tuple(contracts),
-            diagnostics=tuple(diagnostics),
+            files=parsed_project.files,
+            contracts=parsed_project.contracts,
+            diagnostics=parsed_project.diagnostics,
         )
         try:
             manifest_path = ManifestWriter().write(manifest, context.paths.target_path)
@@ -93,34 +80,6 @@ class ParseService:
             ),
             diagnostics=manifest.diagnostics,
         )
-
-
-def _parse_contract_files(
-    resource_files: tuple[ResourceFile, ...],
-    diagnostics: list[Diagnostic],
-) -> list[AuthoredContract]:
-    contracts: list[AuthoredContract] = []
-
-    for resource_file in resource_files:
-        yaml_result = load_yaml_file(resource_file.path)
-        diagnostics.extend(_resource_relative_diagnostics(yaml_result.diagnostics, resource_file))
-        if not yaml_result.succeeded:
-            continue
-
-        contract_result = parse_contract_resource(resource_file, yaml_result.data)
-        diagnostics.extend(contract_result.diagnostics)
-        contracts.extend(contract_result.contracts)
-
-    return contracts
-
-
-def _resource_relative_diagnostics(
-    diagnostics: tuple[Diagnostic, ...],
-    resource_file: ResourceFile,
-) -> tuple[Diagnostic, ...]:
-    return tuple(
-        replace(diagnostic, path=resource_file.relative_path) for diagnostic in diagnostics
-    )
 
 
 def _pluralize(count: int, noun: str) -> str:
