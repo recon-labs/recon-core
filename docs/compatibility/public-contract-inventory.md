@@ -37,7 +37,8 @@ Use this policy:
 - keep `MANIFEST_ARTIFACT_VERSION` because `target/manifest.json` is implemented,
 - keep `COMPILED_ARTIFACT_VERSION` because compiled artifact writers are
   implemented,
-- add `TYPED_CHECK_PLAN_VERSION` when typed check-plan models land,
+- add `TYPED_CHECK_PLAN_VERSION` only if typed check plans become independently
+  versioned from compiled artifact schemas,
 - add `ADAPTER_API_VERSION` when the adapter API exists in code,
 - add `RUN_RESULT_VERSION` when `target/run_results.json` is implemented,
 - avoid placeholder constants that imply a stable API before the surface exists.
