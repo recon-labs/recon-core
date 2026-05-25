@@ -57,6 +57,14 @@ Examples:
 
 Each locked validation rule should have tests.
 
+Milestone 5 validation tests should assert the diagnostic code, severity, and
+phase ownership defined in
+`docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
+Future validation expansions for sampling, tolerance, columns, check-pack
+config, resource references, adapters, results, or evidence should lock their
+rule-specific diagnostics before implementation and test those diagnostics
+explicitly.
+
 Rules include:
 
 - no silent all-column comparison,

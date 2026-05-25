@@ -504,14 +504,15 @@ silently changing comparison semantics.
 
 ## Diagnostics
 
-Validation should produce structured diagnostics with stable codes.
+Validation should produce structured diagnostics with stable codes. Diagnostic
+timing and code ownership are locked in
+`docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
 
 Examples:
 
 ```text
 RC_COMPILE_UNKNOWN_CHECK_PACK
 RC_COMPILE_EMPTY_CHECK_PACK
-RC_VALIDATE_ROW_CHECK_REQUIRES_KEYS
 RC_VALIDATE_CHECK_REQUIRES_GRAIN_KEYS
 RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS
 RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
@@ -520,9 +521,13 @@ RC_VALIDATE_NO_COMPILED_CHECKS
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED
 RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE
-RC_VALIDATE_MISSING_SAMPLE_POLICY
-RC_VALIDATE_UNSUPPORTED_ADAPTER_CAPABILITY
+RC_COMPILE_UNKNOWN_SAMPLE_POLICY
+RC_ADAPTER_CAPABILITY_UNSUPPORTED
 ```
+
+Use `RC_COMPILE_*` for compiler resolution problems and `RC_VALIDATE_*` for
+semantic safety rules that run during compile. Use `RC_ADAPTER_*` for adapter
+type, capability, metadata, rendering, or query failures.
 
 ## Compiled artifact requirements
 

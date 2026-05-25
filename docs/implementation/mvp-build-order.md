@@ -148,7 +148,8 @@ Build:
 
 Required gates:
 
-- resolve the validation timing and diagnostic code catalog gate,
+- validation timing and diagnostic code catalog gate is satisfied by
+  `docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`,
 - resolve the check-pack invocation config and overrides gate before supporting
   check-pack config or non-error empty expansion behavior,
 - resolve the column model and value-comparison surface gate before validating
@@ -162,6 +163,9 @@ Required gates:
 Tests:
 
 - each locked validation rule has passing and failing tests.
+- future sampling, tolerance, column, check-pack config, and resource-reference
+  validation expansions must reuse ADR 0016 phase ownership/code-family rules
+  and lock their rule-specific diagnostics before implementation.
 
 ## Milestone 6: local/dev adapter
 

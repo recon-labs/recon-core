@@ -144,6 +144,9 @@ Run errors should be about execution failure or check failure.
 Blocked checks should be represented as skipped check results with explicit
 prerequisite context, not as hidden omissions.
 
+Validation timing and diagnostic code ownership are defined in
+`docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
+
 ## Design principle
 
 Parse understands the project. Compile decides exactly what will run. Run executes and records what happened.

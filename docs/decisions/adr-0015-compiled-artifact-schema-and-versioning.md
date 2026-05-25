@@ -506,6 +506,10 @@ Compiled artifacts must embed structured diagnostics.
 Root-level diagnostics describe contract-level or artifact-level issues.
 Check-level diagnostics describe a specific compiled check.
 
+ADR 0016 supersedes this section for diagnostic timing and code-family
+ownership. The codes below were the compiler-artifact recommendation at the time
+of this decision; use ADR 0016 when implementing new validation diagnostics.
+
 Recommended compiler diagnostic codes:
 
 ```text
