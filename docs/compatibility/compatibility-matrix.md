@@ -22,13 +22,21 @@ adapter test kit, Hub metadata, and integrations.
 | Check-pack invocation config | Strings and `{name}` mappings implemented; `config` and `on_empty` design locked by ADR 0018. | `config`, `on_empty: warn`, and `on_empty: skip` are not implemented yet. |
 | Column and value comparison | Raw authored columns preserved; typed column surface locked by ADR 0019. | Typed column validation, row-level value checks, and all-column expansion are not implemented yet. |
 | Tolerance, null, and normalization | High-level fields exist; MVP policy surface locked by ADR 0009. | Full typed resolver, reusable policy files, row-level execution, adapter rendering, results, and evidence are not implemented yet. |
+| Endpoint resources and query execution | Planned | Endpoint refs and executable query endpoints are gated before implementation. |
+| Selectors and subset execution | Planned | `selectors.yml`, `--select`, `--exclude`, partial compile, and partial run are not implemented yet. |
+| Sampling execution and stateful policies | Planned | Deterministic execution, anchor-side semantics, persisted samples, and previous-failure samples are gated. |
+| CDC policy and delete semantics | Planned | First CDC execution and asymmetric delete representation are gated before implementation. |
+| Semi-structured comparison | Planned | JSON path and semi-structured projection semantics are not implemented yet. |
 | Adapter API | Planned | No stable adapter API version released yet. |
 | Capability catalog | Draft | Compiler enums exist; no production adapter declarations yet. |
 | Adapter packages | Planned | No official external adapter packages released yet. |
 | Adapter test kit | Planned | No test-kit package or workflow exists yet. |
+| CLI command and option behavior | MVP commands are pre-alpha | Future commands/options are gated before becoming automation contracts. |
 | Check and policy packages | Planned | No official external packages released yet. |
 | Run results | Planned | No stable result artifact version yet. |
 | Evidence reports | Planned | No stable evidence format yet. |
+| Hub and integration metadata | Planned | No Hub index, action, orchestrator, catalog, issue, or vault metadata contract exists yet. |
+| Diagnostic source locations | Path-level only | Line, column, span, and range output is gated before artifact shape changes. |
 
 ## Future adapter matrix format
 

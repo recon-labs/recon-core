@@ -353,6 +353,11 @@ checklist before any 0.1 version bump, tag, or publish step.
 Do not start treating roadmap work as 0.2 scope until the 0.1 release decision
 has been made.
 
+The post-MVP milestones below are concrete capability homes and gate anchors.
+Before starting a post-MVP milestone, reconcile the requested capability with
+`docs/planning/roadmap.md` and update this build-order document if a capability
+must be pulled earlier, delayed, or split.
+
 ## Post-MVP Milestone 11: aggregate metrics expansion
 
 Build this after Milestones 1-10 are complete and after the 0.1
@@ -595,6 +600,502 @@ Recommended commit message:
 feat: load package resources
 ```
 
+## Post-MVP Milestone 17: endpoint resources and endpoint references
+
+Build this after relation-based contracts and the shared resource loader are
+stable.
+
+Goal:
+
+- let contracts reuse named local endpoints without hiding source or target
+  assumptions,
+- keep endpoint references explicit in authored YAML and compiled artifacts,
+- keep endpoint resources local-only until package endpoint semantics are
+  separately designed.
+
+Build:
+
+- `endpoint-paths` project config if still needed,
+- endpoint resource schema,
+- endpoint reference syntax and resolution,
+- validation for missing, duplicate, or ambiguous endpoint references,
+- compiled artifact visibility for resolved relation/query endpoint fields.
+
+Required gate:
+
+- resolve the endpoint resources and references gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add endpoint resource references
+```
+
+## Post-MVP Milestone 18: executable query endpoints
+
+Build this after adapter query execution boundaries and compiled SQL visibility
+are locked.
+
+Goal:
+
+- run contracts whose source or target is an authored SQL query,
+- keep query wrapping, safety, capabilities, artifacts, results, and evidence
+  explicit.
+
+Build:
+
+- query endpoint execution through adapters,
+- query safety validation,
+- query wrapping rules for comparison subqueries,
+- adapter capabilities for query metadata and execution,
+- compiled SQL and evidence visibility for query-based checks.
+
+Required gate:
+
+- resolve the query endpoint support boundary gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: execute query endpoints
+```
+
+## Post-MVP Milestone 19: selectors and subset execution
+
+Build this after manifest metadata and run result scope fields can accurately
+describe partial work.
+
+Goal:
+
+- support `--select`, `--exclude`, and `selectors.yml` without producing
+  misleading partial artifacts or evidence.
+
+Build:
+
+- selector syntax and named selector schema,
+- contract and optional check selection semantics,
+- partial compile/run behavior,
+- selected-scope metadata in artifacts and run results,
+- diagnostics for empty or invalid selections.
+
+Required gate:
+
+- resolve the selectors and contract selection semantics gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add contract selectors
+```
+
+## Post-MVP Milestone 20: defaults and inheritance boundaries
+
+Build this after project loading, compiled artifact provenance, and validation
+timing can show where inherited behavior came from.
+
+Goal:
+
+- support project/file defaults safely,
+- keep deep inheritance and template behavior out until explicitly designed.
+
+Build:
+
+- resolved default precedence for supported contract fields,
+- artifact provenance for inherited defaults,
+- validation for unsupported deep inheritance or template syntax,
+- tests proving authored behavior is not silently changed by hidden defaults.
+
+Required gate:
+
+- resolve the defaults, inheritance, and template boundary gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: resolve authored defaults
+```
+
+## Post-MVP Milestone 21: row-level value check execution
+
+Build this after column resolution, tolerance/null/normalization resolution,
+adapter metadata, and key safety checks are executable.
+
+Goal:
+
+- execute exact and numeric row-level comparisons without guessing keys,
+  columns, types, or normalization behavior.
+
+Build:
+
+- `exact_value_match`,
+- `numeric_tolerance_match`,
+- prerequisite blocking for null/duplicate keys,
+- resolved column and policy payloads in typed plans,
+- result, failure-detail, and evidence output for value mismatches.
+
+Required gate:
+
+- resolve the row-level value check execution gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: execute row-level value checks
+```
+
+## Post-MVP Milestone 22: timestamp tolerance and timezone execution
+
+Build this after adapters can expose timestamp metadata and render timestamp
+operations safely.
+
+Goal:
+
+- compare timestamp/date/time values only when units, timezone behavior,
+  metadata, adapter capabilities, results, and evidence are explicit.
+
+Build:
+
+- timestamp tolerance policy execution,
+- timezone policy validation,
+- typed timestamp-diff payloads,
+- adapter capability and test expectations,
+- result and evidence fields for timestamp comparisons.
+
+Required gate:
+
+- resolve the timestamp tolerance and timezone execution gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: execute timestamp tolerance checks
+```
+
+## Post-MVP Milestone 23: row hash and canonical hash comparison
+
+Build this only after hash canonicalization and adapter compatibility are
+designed.
+
+Goal:
+
+- support row hash comparison without assuming cross-database hash equality.
+
+Build:
+
+- canonical row-hash payload design,
+- adapter capability and compatibility rules,
+- typed hash operations,
+- diagnostics for unsafe cross-system hash comparisons,
+- result and evidence visibility for hash inputs and assumptions.
+
+Required gate:
+
+- resolve the row hash and canonical hash comparison gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add safe row hash checks
+```
+
+## Post-MVP Milestone 24: sampling execution modes
+
+Build this after sampling policy resolution, adapter capability requirements,
+and evidence fields are locked for each mode.
+
+Goal:
+
+- execute sampled checks without allowing independent source and target samples
+  to look comparable.
+
+Build:
+
+- deterministic numeric modulo sampling where valid,
+- deterministic hash sampling only when portable behavior is proven,
+- explicit anchor-side semantics,
+- sampled check artifact and evidence visibility,
+- future mode diagnostics for random, previous-failure, stratified, and
+  high-value samples until their state requirements are implemented.
+
+Required gate:
+
+- resolve the sampling execution modes gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: execute deterministic sampling policies
+```
+
+## Post-MVP Milestone 25: state, watermarks, and persisted samples
+
+Build this after run lifecycle, result semantics, and local artifact storage
+rules are stable.
+
+Goal:
+
+- make recurring validation reproducible through explicit state and safe
+  watermark advancement.
+
+Build:
+
+- state backend shape,
+- local state artifact format,
+- watermark bootstrap and advancement rules,
+- persisted sample-key records,
+- previous-failure key records,
+- compatibility/versioning rules for state formats.
+
+Required gate:
+
+- resolve the state, watermarks, and persisted samples gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add local reconciliation state
+```
+
+## Post-MVP Milestone 26: first CDC implementation
+
+Build this after state/window behavior, CDC key semantics, adapter execution,
+run results, and evidence can explain CDC scope.
+
+Goal:
+
+- implement the first narrow CDC path without assuming all CDC tools behave the
+  same way.
+
+Build:
+
+- first supported CDC mode and window model,
+- freshness lag,
+- latest window count,
+- incremental key coverage,
+- explicit `cdc.keys` validation,
+- CDC result and evidence fields.
+
+Required gate:
+
+- resolve the CDC first implementation scope gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add first CDC checks
+```
+
+## Post-MVP Milestone 27: asymmetric CDC delete representation
+
+Build this only after the first CDC implementation exists and delete behavior
+needs to support different source and target representations.
+
+Goal:
+
+- model source hard delete, source soft delete, target soft delete, and
+  operation-column delete behavior without one-size-fits-all assumptions.
+
+Build:
+
+- side-specific delete representation syntax,
+- validation for supported and unsupported combinations,
+- compiled artifact fields for both sides,
+- delete propagation result and evidence fields.
+
+Required gate:
+
+- resolve the asymmetric CDC delete representation gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add asymmetric CDC delete checks
+```
+
+## Post-MVP Milestone 28: future CLI commands and options
+
+Build each command or option only after its underlying service semantics are
+stable.
+
+Goal:
+
+- add CLI ergonomics without making command behavior a hidden product decision.
+
+Build:
+
+- `recon list`,
+- `recon clean`,
+- `recon debug`,
+- `recon build`,
+- retry/resume commands,
+- documented behavior for `--vars`, `--quiet`, and richer `--debug` output.
+
+Required gate:
+
+- resolve the future CLI commands and options gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` for the
+  specific command or option being implemented.
+
+Recommended commit message:
+
+```text
+feat: add recon list command
+```
+
+## Post-MVP Milestone 29: adapter test kit and adapter package split
+
+Build this after the adapter API, typed check-plan payloads, capability
+catalog, and local/dev adapter behavior are stable enough to externalize.
+
+Goal:
+
+- let adapter repositories evolve independently without drifting from core
+  semantics.
+
+Build:
+
+- adapter compliance test kit,
+- adapter compatibility matrix entries,
+- package split criteria,
+- adapter migration/version guidance,
+- first official adapter package preparation.
+
+Required gate:
+
+- resolve the adapter test kit and adapter package split gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add adapter compliance tests
+```
+
+## Post-MVP Milestone 30: semi-structured and JSON comparison
+
+Build this after adapter metadata and typed operation payloads can represent
+semi-structured projections safely.
+
+Goal:
+
+- compare JSON or semi-structured fields without hiding path semantics,
+  type coercion, or adapter differences.
+
+Build:
+
+- JSON path syntax and validation,
+- semi-structured projection typed operations,
+- adapter capability and test-kit expectations,
+- result and evidence visibility for projected values.
+
+Required gate:
+
+- resolve the semi-structured and JSON comparison gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add semi-structured comparisons
+```
+
+## Post-MVP Milestone 31: advanced evidence and reports
+
+Build this after basic evidence, run results, failure details, and sensitive
+data defaults are stable.
+
+Goal:
+
+- expand evidence without leaking data or overstating sampled/partial results.
+
+Build:
+
+- masking and redaction policies,
+- evidence templates,
+- approval/sign-off artifacts,
+- richer report levels,
+- optional evidence vault integration boundaries.
+
+Required gate:
+
+- resolve the advanced evidence, redaction, templates, and sign-off gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add evidence redaction policies
+```
+
+## Post-MVP Milestone 32: Hub and external integrations
+
+Build this only after package, adapter, artifact, and compatibility contracts
+are stable enough for external automation.
+
+Goal:
+
+- connect Recon to ecosystem workflows without making integrations define core
+  semantics.
+
+Build:
+
+- Recon Hub index metadata,
+- GitHub Action,
+- Airflow provider/operator,
+- Dagster integration,
+- dbt integration patterns,
+- data catalog and issue/ticket integration boundaries.
+
+Required gate:
+
+- resolve the Hub and external integrations gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define hub index metadata
+```
+
+## Post-MVP Milestone 33: source-location diagnostics
+
+Build this after parser diagnostics and artifact diagnostic shapes can preserve
+more precise source ranges.
+
+Goal:
+
+- report line, column, and range information without changing diagnostic
+  artifacts casually.
+
+Build:
+
+- parser source range model,
+- diagnostic line/column/range fields where supported,
+- artifact compatibility review for diagnostic shape changes,
+- tests for YAML, contract, and resource diagnostics.
+
+Required gate:
+
+- resolve the source-location diagnostics gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add source-location diagnostics
+```
+
 ## Deferral list
 
 Do not block MVP on:
@@ -615,8 +1116,22 @@ Do not block MVP on:
 - macro reference validation,
 - macro rendering or execution,
 - package macro loading,
+- endpoint resources and endpoint refs,
+- executable query endpoints,
+- selectors and partial execution,
+- deep inheritance or templates,
+- row-level value check execution beyond locked MVP scope,
+- timestamp tolerance execution,
+- row hash comparison,
+- sampling modes beyond explicitly locked MVP behavior,
+- state, watermarks, persisted samples, and previous-failure state,
+- CDC execution and asymmetric delete representation,
+- future CLI commands and options beyond the MVP command set,
+- adapter package split and external adapter test kit,
+- semi-structured and JSON comparison,
+- advanced evidence workflows,
+- source-location diagnostic ranges,
 - SCD2 CDC,
-- advanced evidence redaction,
 - orchestration integrations.
 
 ## Design principle
