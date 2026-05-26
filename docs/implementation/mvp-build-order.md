@@ -562,13 +562,15 @@ Recommended commit message:
 feat: add macro-assisted SQL rendering
 ```
 
-## Post-MVP Milestone 16: package resource loading and package macros
+## Post-MVP Milestone 16: local and package resource loading
 
-Build this only after package/dependency behavior is designed and after local
-resource loading is stable.
+Build this only after local resource schemas and package/dependency behavior
+are designed and after ADR 0017 resource indexing is stable.
 
 Goal:
 
+- implement local custom check-pack and reusable policy resources through the
+  shared resource catalog,
 - load package-provided resources through the same resource catalog as local
   resources,
 - keep package namespaces explicit and compatibility ranges documented,
@@ -577,6 +579,10 @@ Goal:
 
 Build:
 
+- local custom check-pack file schema, validation, expansion behavior, and
+  compiled artifact visibility,
+- local sampling, tolerance, and schema policy file schemas plus reference
+  resolution when the relevant execution engine exists,
 - package/dependency model and lock-file behavior,
 - package resource schema and compatibility range validation,
 - package namespace validation,
@@ -591,13 +597,15 @@ Do not build:
 
 Required gate:
 
+- resolve the local custom check-pack resource semantics gate,
+- resolve the reusable local policy file resources gate,
 - resolve the packages, deps, and package macro resources gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
 
 Recommended commit message:
 
 ```text
-feat: load package resources
+feat: load reusable project resources
 ```
 
 ## Post-MVP Milestone 17: endpoint resources and endpoint references
@@ -847,12 +855,17 @@ Goal:
 
 Build:
 
-- state backend shape,
+- local state backend shape,
 - local state artifact format,
 - watermark bootstrap and advancement rules,
 - persisted sample-key records,
 - previous-failure key records,
 - compatibility/versioning rules for state formats.
+
+Do not build:
+
+- remote or database-backed state before Post-MVP Milestone 37 locks storage,
+  locking, migration, and credential behavior.
 
 Required gate:
 
@@ -967,6 +980,8 @@ Build:
 
 - adapter compliance test kit,
 - adapter compatibility matrix entries,
+- adapter distribution strategy for separate adapter packages versus optional
+  `recon-core[...]` extras,
 - package split criteria,
 - adapter migration/version guidance,
 - first official adapter package preparation.
@@ -974,7 +989,9 @@ Build:
 Required gate:
 
 - resolve the adapter test kit and adapter package split gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+- resolve the adapter install extras and packaging strategy gate before
+  publishing adapter packages or documenting adapter extras.
 
 Recommended commit message:
 
@@ -1010,17 +1027,21 @@ Recommended commit message:
 feat: add semi-structured comparisons
 ```
 
-## Post-MVP Milestone 31: advanced evidence and reports
+## Post-MVP Milestone 31: advanced evidence, result stores, and reports
 
 Build this after basic evidence, run results, failure details, and sensitive
 data defaults are stable.
 
 Goal:
 
-- expand evidence without leaking data or overstating sampled/partial results.
+- expand evidence and durable result storage without leaking data or overstating
+  sampled/partial results.
 
 Build:
 
+- result table writer design and implementation,
+- failure detail JSONL or streaming format for large mismatch sets,
+- large-result pagination, row limits, and truncation semantics,
 - masking and redaction policies,
 - evidence templates,
 - approval/sign-off artifacts,
@@ -1030,12 +1051,16 @@ Build:
 Required gate:
 
 - resolve the advanced evidence, redaction, templates, and sign-off gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+- resolve the result table writer gate before adding database/table result
+  storage,
+- resolve the failure detail JSONL and large result handling gate before adding
+  non-CSV or streaming failure-detail formats.
 
 Recommended commit message:
 
 ```text
-feat: add evidence redaction policies
+feat: add advanced evidence outputs
 ```
 
 ## Post-MVP Milestone 32: Hub and external integrations
@@ -1096,6 +1121,235 @@ Recommended commit message:
 feat: add source-location diagnostics
 ```
 
+## Post-MVP Milestone 34: named identities and multi-grain contracts
+
+Build this only after simple contract-level `grain.keys` and `cdc.keys`
+behavior is stable and after a concrete advanced check-pack or CDC need exists.
+
+Goal:
+
+- support contracts that need multiple comparison or CDC identities without
+  repeating raw key lists or guessing identity roles.
+
+Build:
+
+- authored `identities` YAML shape,
+- identity role binding for checks and check packs,
+- validation for unknown, wrong-kind, missing, or unsupported identity roles,
+- compiled artifact, result, and evidence visibility for authored identity
+  names and resolved keys.
+
+Required gate:
+
+- resolve the named identities and multi-grain contracts gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add named contract identities
+```
+
+## Post-MVP Milestone 35: public contract schema stabilization
+
+Build this before any 1.0 release decision, even if it is scheduled before
+some other post-MVP capability work.
+
+Goal:
+
+- stabilize the authored contract YAML schema as Recon Core's primary public
+  API.
+
+Build:
+
+- contract schema versioning rules,
+- machine-readable schema or equivalent validation reference,
+- public compatibility promises for accepted contract syntax,
+- migration policy for schema changes,
+- compatibility docs and tests for schema-version behavior.
+
+Required gate:
+
+- resolve the public contract schema stabilization gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: stabilize public contract schema
+```
+
+## Post-MVP Milestone 36: deprecation and migration policy
+
+Build this before 1.0 stabilization or before introducing any breaking public
+contract change that needs migration guidance.
+
+Goal:
+
+- make public behavior changes predictable for users and automation.
+
+Build:
+
+- deprecation lifecycle policy,
+- warning and diagnostic conventions for deprecated behavior,
+- migration guide location and required content,
+- changelog and compatibility-doc expectations,
+- tests for deprecation warnings where behavior is implemented.
+
+Required gate:
+
+- resolve the deprecation and migration policy gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define deprecation policy
+```
+
+## Post-MVP Milestone 37: remote and database state backend
+
+Build this after local state, run lifecycle, connection/profile handling, and
+adapter execution are stable.
+
+Goal:
+
+- support production recurring runs with shared state without hiding storage,
+  locking, migration, or credential assumptions.
+
+Build:
+
+- remote or database-backed state backend interface,
+- state table/schema versioning and migrations,
+- locking and concurrency behavior,
+- credential and profile handling,
+- compatibility, result, and evidence references for remote state.
+
+Required gate:
+
+- resolve the remote and database state backend gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add database state backend
+```
+
+## Post-MVP Milestone 38: official package content releases
+
+Build this only after package loading, compatibility ranges, and Hub metadata
+are stable enough for supported packages.
+
+Goal:
+
+- publish official reusable check, policy, and evidence-template packages
+  without making package contents hidden core behavior.
+
+Build:
+
+- first official package content scope,
+- package resource schemas and compatibility ranges,
+- package docs, examples, tests, and release process,
+- support policy for official package versions.
+
+Required gate:
+
+- resolve the official package content release gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define official package release scope
+```
+
+## Post-MVP Milestone 39: documentation site and examples repo split
+
+Build this only when in-repo docs or examples become heavy enough that a repo
+split improves maintenance.
+
+Goal:
+
+- split docs or large examples without breaking contributor workflow,
+  compatibility examples, or release coordination.
+
+Build:
+
+- docs-site ownership and publish workflow,
+- examples repo scope and CI expectations,
+- cross-repo versioning and release coordination,
+- contribution guidance for docs and examples.
+
+Required gate:
+
+- resolve the documentation site and examples repo split gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: plan docs and examples split
+```
+
+## Post-MVP Milestone 40: hosted service, UI, and enterprise controls
+
+Build this only if product direction explicitly expands beyond the open-source
+core framework.
+
+Goal:
+
+- keep cloud, UI, and enterprise policy work from redefining Recon Core's
+  local-first framework contracts by accident.
+
+Build:
+
+- explicit product boundary for hosted or UI behavior,
+- policy-control model and compatibility impact,
+- security, privacy, tenancy, and evidence-storage boundaries,
+- integration points that depend only on public CLI, artifact, adapter, package,
+  or evidence contracts.
+
+Required gate:
+
+- resolve the hosted service, UI, and enterprise policy controls gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define hosted product boundaries
+```
+
+## Post-MVP Milestone 41: domain-specific package boundaries
+
+Build this only after generic package loading and official package release
+rules are stable.
+
+Goal:
+
+- allow domain packages such as finance checks without turning core into a
+  domain workflow, statistical matching, or MDM platform.
+
+Build:
+
+- domain-package acceptance criteria,
+- package-owned versus core-owned semantics,
+- compatibility, testing, and support expectations,
+- explicit non-goal boundaries for fuzzy matching, automated repair,
+  statistical reconciliation, and MDM-style behavior.
+
+Required gate:
+
+- resolve the domain-specific package boundaries gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define domain package boundaries
+```
+
 ## Deferral list
 
 Do not block MVP on:
@@ -1113,6 +1367,8 @@ Do not block MVP on:
 - aggregate metric expansion beyond explicit `sum`,
 - `recon_core.aggregate_equivalence`,
 - schema policy checks,
+- local custom check-pack resource execution beyond built-in packs,
+- reusable local sampling, tolerance, and schema policy file resolution,
 - macro reference validation,
 - macro rendering or execution,
 - package macro loading,
@@ -1130,6 +1386,17 @@ Do not block MVP on:
 - adapter package split and external adapter test kit,
 - semi-structured and JSON comparison,
 - advanced evidence workflows,
+- result table writers,
+- failure detail JSONL or streaming large-result handling,
+- remote or database-backed state,
+- named identities and multi-grain contracts,
+- public contract schema freeze or 1.0 stabilization,
+- deprecation and migration policy enforcement,
+- official package content releases,
+- adapter install extras and final adapter packaging strategy,
+- documentation-site or examples-repo split,
+- hosted service, UI, or enterprise policy controls,
+- domain-specific package families,
 - source-location diagnostic ranges,
 - SCD2 CDC,
 - orchestration integrations.
