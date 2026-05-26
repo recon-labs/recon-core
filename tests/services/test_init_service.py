@@ -20,6 +20,8 @@ def test_init_service_creates_safe_starter_project(tmp_path: Path) -> None:
 
     for directory in (
         "contracts",
+        "check_packs",
+        "macros",
         "sample_policies",
         "tolerances",
         "schema_policies",
@@ -39,6 +41,8 @@ def test_init_service_writes_project_config(tmp_path: Path) -> None:
     assert config["name"] == "ecommerce_recon"
     assert config["config-version"] == 1
     assert config["contract-paths"] == ["contracts"]
+    assert config["check-pack-paths"] == ["check_packs"]
+    assert config["macro-paths"] == ["macros"]
     assert config["target-path"] == "target"
     assert config["report-path"] == "reports"
     assert config["state-path"] == "state"
