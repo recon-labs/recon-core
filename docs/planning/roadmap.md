@@ -121,9 +121,11 @@ Recon to infer renamed columns.
 
 Sampling:
 
-- deterministic hash or safe numeric modulo,
-- incremental window,
-- persisted sample keys design.
+- deterministic sampling execution design,
+- safe numeric modulo or proven portable hash execution only after the Post-MVP
+  Milestone 24 sampling gate is resolved,
+- incremental-window and persisted sample-key design only; stateful execution
+  belongs to Version 0.3 / Post-MVP Milestone 25.
 
 CDC:
 

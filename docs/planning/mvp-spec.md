@@ -160,10 +160,15 @@ Required modes:
 
 Recommended implementation:
 
-- numeric modulo sampling when compatible,
-- deterministic hash only when adapter behavior is safe.
+- preserve and validate authored sampling config for supported current behavior,
+- show sampling scope in compiled artifacts and evidence,
+- document numeric modulo and deterministic hash requirements, but do not execute
+  those modes until the Post-MVP Milestone 24 sampling execution gate is
+  resolved.
 
-Persisted random and previous failures should be designed but can be implemented later.
+Persisted random, previous failures, incremental-watermark execution, and
+sample-key state should be designed for future milestones. Their stateful
+implementation belongs to v0.3 / Post-MVP Milestone 25.
 
 ### Tolerances
 

@@ -209,9 +209,15 @@ Reports must clearly state whether results are full-data or sampled.
 
 ## MVP recommendation
 
-v0.1 should support full-data mode, deterministic hash or numeric modulo, incremental window design, and sample evidence model.
+v0.1 should support full-data mode, authored sampling metadata, deterministic
+sampling design, and a sample evidence model. It should not execute
+deterministic hash or numeric modulo sampling until the Post-MVP Milestone 24
+sampling execution gate is resolved.
 
-v0.2 should add persisted random and previous failures.
+v0.2 may refine deterministic sampling and incremental-window design after the
+0.1 release decision. Persisted random samples, previous-failure samples,
+sample-key state, and watermark-backed execution belong to the v0.3 / Post-MVP
+Milestone 25 state work.
 
 ## Design principle
 

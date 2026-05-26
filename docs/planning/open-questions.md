@@ -1,10 +1,14 @@
-# Open Questions
+# Open Questions And Resolved Decisions
 
 ## Purpose
 
-This document tracks unresolved product and implementation questions.
+This document tracks unresolved product and implementation questions plus
+resolved decisions that were originally tracked here.
 
 Open questions should be resolved through design discussion, implementation learning, or ADRs when the decision becomes durable.
+
+Entries marked `Decision` or `Locked by ADR` are not open questions. Future
+agents should treat the referenced ADRs and framework docs as authoritative.
 
 ## Contract schema
 
