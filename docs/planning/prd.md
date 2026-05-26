@@ -190,13 +190,15 @@ Recon should feel:
 
 ### Project initialization
 
-Recon should provide a future `recon init` command that creates a starter project.
+Recon should provide a `recon init` command that creates a starter project.
 
 Expected structure includes:
 
 - `recon_project.yml`,
 - `connections/profiles.yml.example`,
 - `contracts/`,
+- `check_packs/`,
+- `macros/`,
 - `sample_policies/`,
 - `tolerances/`,
 - `schema_policies/`.

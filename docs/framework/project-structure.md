@@ -195,7 +195,12 @@ Local state. Should be gitignored.
 
 ## `recon init`
 
-The future command should create a starter project structure.
+`recon init` creates the starter project structure for a new Recon project.
+
+The starter includes the current contract-loading paths plus future
+local-resource directories such as `check_packs/` and `macros/`. Those
+directories are created for project consistency, but current parse/compile
+behavior still loads contract files only.
 
 ## Design principle
 
