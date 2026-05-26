@@ -38,6 +38,8 @@ recon_packages/
 PROJECT_DIRECTORIES = (
     "connections",
     "contracts",
+    "check_packs",
+    "macros",
     "sample_policies",
     "tolerances",
     "schema_policies",
@@ -104,6 +106,8 @@ def _render_project_config(project_name: str) -> str:
         "config-version": 1,
         "profile": "dev",
         "contract-paths": ["contracts"],
+        "check-pack-paths": ["check_packs"],
+        "macro-paths": ["macros"],
         "sample-policy-paths": ["sample_policies"],
         "tolerance-policy-paths": ["tolerances"],
         "schema-policy-paths": ["schema_policies"],
