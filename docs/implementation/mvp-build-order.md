@@ -358,6 +358,38 @@ Before starting a post-MVP milestone, reconcile the requested capability with
 `docs/planning/roadmap.md` and update this build-order document if a capability
 must be pulled earlier, delayed, or split.
 
+## Post-MVP Milestone 10.5: artifact freshness and cache optimization
+
+Build this only after Milestones 1-10 are complete and after the 0.1
+release-readiness decision.
+
+Goal:
+
+- avoid stale generated artifacts without making hidden cache behavior a source
+  of misleading evidence.
+
+Build:
+
+- artifact freshness model for manifest, compiled artifacts, compiled SQL, run
+  results, and evidence,
+- cache/invalidation keys based on authored files, project config, relevant
+  resource checksums, command options, and adapter-capability inputs,
+- stale-artifact diagnostics and safe fallback behavior,
+- optional skip-unchanged behavior that is visible in terminal output and
+  machine-readable artifacts,
+- compatibility rules for any freshness metadata added to generated artifacts.
+
+Required gate:
+
+- resolve the artifact freshness and cache optimization gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add artifact freshness checks
+```
+
 ## Post-MVP Milestone 11: aggregate metrics expansion
 
 Build this after Milestones 1-10 are complete and after the 0.1
@@ -608,6 +640,38 @@ Recommended commit message:
 feat: load reusable project resources
 ```
 
+## Post-MVP Milestone 16.5: package dependency installer and lock workflow
+
+Build this only after local/package resource loading semantics are stable
+enough that installed packages have a meaningful resource model.
+
+Goal:
+
+- implement `recon deps` without making package installation, updates, or lock
+  files a hidden source of resource behavior.
+
+Build:
+
+- `packages.yml` schema,
+- dependency resolution and install/update behavior,
+- package lock file shape and compatibility expectations,
+- supported package sources such as registry, git, or local path,
+- install path rules for `recon_packages/`,
+- checksum, version, and namespace validation,
+- diagnostics for unsupported sources, conflicting packages, invalid locks, and
+  unsafe updates.
+
+Required gate:
+
+- resolve the package dependency installer and lock workflow gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add package dependency installer
+```
+
 ## Post-MVP Milestone 17: endpoint resources and endpoint references
 
 Build this after relation-based contracts and the shared resource loader are
@@ -843,6 +907,38 @@ Recommended commit message:
 feat: execute deterministic sampling policies
 ```
 
+## Post-MVP Milestone 24.5: multi-policy sampling composition
+
+Build this after individual sampling modes, sample-key references, state
+behavior, and evidence fields are stable enough to show exactly which records
+were checked.
+
+Goal:
+
+- allow a contract or check to combine multiple explicit sampling policies
+  without losing reproducibility or overstating coverage.
+
+Build:
+
+- authored YAML shape for multiple sampling policies,
+- composition semantics such as union, intersection, ordering, deduplication,
+  and per-check narrowing,
+- validation for incompatible sampling modes and unsafe independent source/target
+  samples,
+- compiled artifact, run result, state, and evidence visibility for each policy
+  and the combined selected scope.
+
+Required gate:
+
+- resolve the multi-policy sampling composition gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: compose sampling policies
+```
+
 ## Post-MVP Milestone 25: state, watermarks, and persisted samples
 
 Build this after run lifecycle, result semantics, and local artifact storage
@@ -876,6 +972,37 @@ Recommended commit message:
 
 ```text
 feat: add local reconciliation state
+```
+
+## Post-MVP Milestone 25.5: production result tables
+
+Build this after run result semantics, basic evidence, local state shape, and
+profile/adapter execution boundaries are stable.
+
+Goal:
+
+- make recurring runs queryable by production workflows without mixing result,
+  evidence, and state semantics.
+
+Build:
+
+- result table writer design and implementation,
+- table schema/versioning and migration rules,
+- write modes, retention, idempotency, and retry behavior,
+- adapter/profile requirements and credential-safe diagnostics,
+- links between result tables, `run_results.json`, evidence artifacts, failure
+  details, and state records,
+- privacy rules for sensitive values written to tables.
+
+Required gate:
+
+- resolve the result table writer gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add production result tables
 ```
 
 ## Post-MVP Milestone 26: first CDC implementation
@@ -936,6 +1063,39 @@ Recommended commit message:
 feat: add asymmetric CDC delete checks
 ```
 
+## Post-MVP Milestone 27.5: advanced CDC modes and propagation checks
+
+Build this after the first CDC implementation and delete representation rules
+are stable enough that advanced CDC checks can report exactly which movement
+patterns they validate.
+
+Goal:
+
+- expand CDC beyond the first narrow path without turning all CDC systems into
+  one implicit model.
+
+Build:
+
+- operation-column CDC mode and operation mapping,
+- `operation_count_diff`,
+- update propagation checks,
+- tombstone delete/event handling,
+- SCD2 current/history model checks when explicitly designed,
+- ordering/window requirements for each advanced CDC mode,
+- compiled artifact, state, result, and evidence visibility for supported and
+  intentionally unsupported CDC behavior.
+
+Required gate:
+
+- resolve the advanced CDC modes and propagation checks gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: expand CDC propagation checks
+```
+
 ## Post-MVP Milestone 28: future CLI commands and options
 
 Build each command or option only after its underlying service semantics are
@@ -951,14 +1111,20 @@ Build:
 - `recon clean`,
 - `recon debug`,
 - `recon build`,
+- documentation generation command,
 - retry/resume commands,
+- explicit `recon init` overwrite/force behavior,
 - documented behavior for `--vars`, `--quiet`, and richer `--debug` output.
 
 Required gate:
 
 - resolve the future CLI commands and options gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` for the
-  specific command or option being implemented.
+  specific command or option being implemented,
+- resolve the documentation generation command gate before adding docs
+  generation behavior,
+- resolve the `recon init` overwrite/force safety gate before adding any
+  overwrite option.
 
 Recommended commit message:
 
@@ -1027,19 +1193,17 @@ Recommended commit message:
 feat: add semi-structured comparisons
 ```
 
-## Post-MVP Milestone 31: advanced evidence, result stores, and reports
+## Post-MVP Milestone 31: advanced evidence and reports
 
 Build this after basic evidence, run results, failure details, and sensitive
 data defaults are stable.
 
 Goal:
 
-- expand evidence and durable result storage without leaking data or overstating
-  sampled/partial results.
+- expand evidence without leaking data or overstating sampled/partial results.
 
 Build:
 
-- result table writer design and implementation,
 - failure detail JSONL or streaming format for large mismatch sets,
 - large-result pagination, row limits, and truncation semantics,
 - masking and redaction policies,
@@ -1052,8 +1216,6 @@ Required gate:
 
 - resolve the advanced evidence, redaction, templates, and sign-off gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
-- resolve the result table writer gate before adding database/table result
-  storage,
 - resolve the failure detail JSONL and large result handling gate before adding
   non-CSV or streaming failure-detail formats.
 
@@ -1361,6 +1523,7 @@ Do not block MVP on:
 - `recon list`,
 - `recon clean`,
 - documentation generation command,
+- `recon init` overwrite or force behavior,
 - many adapters,
 - hosted UI,
 - persisted random sample,
@@ -1380,9 +1543,14 @@ Do not block MVP on:
 - timestamp tolerance execution,
 - row hash comparison,
 - sampling modes beyond explicitly locked MVP behavior,
+- multi-policy sampling composition,
 - state, watermarks, persisted samples, and previous-failure state,
+- artifact freshness and cache optimization,
 - CDC execution and asymmetric delete representation,
+- advanced CDC modes such as operation-column CDC, update propagation, operation
+  count diff, tombstone CDC, and SCD2 CDC,
 - future CLI commands and options beyond the MVP command set,
+- package dependency installer and lock workflow,
 - adapter package split and external adapter test kit,
 - semi-structured and JSON comparison,
 - advanced evidence workflows,
@@ -1398,7 +1566,6 @@ Do not block MVP on:
 - hosted service, UI, or enterprise policy controls,
 - domain-specific package families,
 - source-location diagnostic ranges,
-- SCD2 CDC,
 - orchestration integrations.
 
 ## Design principle

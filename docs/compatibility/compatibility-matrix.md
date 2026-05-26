@@ -20,6 +20,7 @@ adapter test kit, Hub metadata, and integrations.
 | Manifest artifact | `artifact_version: 1` | Implemented for `recon parse`; pre-alpha compatibility. |
 | Compiled contract artifact | `artifact_version: 1` | Implemented for `recon compile`; pre-alpha compatibility. |
 | Compiled checks artifact | `artifact_version: 1` | Implemented for `recon compile`; pre-alpha compatibility. |
+| Artifact freshness and cache semantics | Planned | Cache optimization and skip-unchanged behavior are gated before generated artifacts can be reused silently. |
 | Typed check plan | Draft typed operation catalog | Produced in compiled checks artifacts; not stable before 1.0. |
 | Check-pack invocation config | Strings and `{name}` mappings implemented; `config` and `on_empty` design locked by ADR 0018. | `config`, `on_empty: warn`, and `on_empty: skip` are not implemented yet. |
 | Local custom check-pack resources | Planned | Local check-pack file schema, config schema, expansion, diagnostics, and artifact visibility are gated. |
@@ -28,16 +29,17 @@ adapter test kit, Hub metadata, and integrations.
 | Tolerance, null, and normalization | High-level fields exist; MVP policy surface locked by ADR 0009. | Full typed resolver, reusable policy files, row-level execution, adapter rendering, results, and evidence are not implemented yet. |
 | Endpoint resources and query execution | Planned | Endpoint refs and executable query endpoints are gated before implementation. |
 | Selectors and subset execution | Planned | `selectors.yml`, `--select`, `--exclude`, partial compile, and partial run are not implemented yet. |
-| Sampling execution and stateful policies | Planned | Deterministic execution, anchor-side semantics, persisted samples, and previous-failure samples are gated. |
-| CDC policy and delete semantics | Planned | First CDC execution and asymmetric delete representation are gated before implementation. |
+| Sampling execution and stateful policies | Planned | Deterministic execution, anchor-side semantics, persisted samples, previous-failure samples, and multi-policy composition are gated. |
+| CDC policy and delete semantics | Planned | First CDC execution, asymmetric delete representation, and advanced CDC modes are gated before implementation. |
 | Semi-structured comparison | Planned | JSON path and semi-structured projection semantics are not implemented yet. |
 | Adapter API | Planned | No stable adapter API version released yet. |
 | Capability catalog | Draft | Compiler enums exist; no production adapter declarations yet. |
 | Adapter install extras and packaging strategy | Planned | Separate adapter packages versus optional `recon-core[...]` extras is not locked yet. |
 | Adapter packages | Planned | No official external adapter packages released yet. |
 | Adapter test kit | Planned | No test-kit package or workflow exists yet. |
-| CLI command and option behavior | MVP commands are pre-alpha | Future commands/options are gated before becoming automation contracts. |
+| CLI command and option behavior | MVP commands are pre-alpha | Future commands/options, documentation generation, and destructive init overwrite behavior are gated before becoming automation contracts. |
 | Check and policy packages | Planned | Package loading, official package content releases, and domain-package boundaries are gated. |
+| Package dependency installer and lock workflow | Planned | `recon deps`, `packages.yml`, package locks, and install/update behavior are not implemented yet. |
 | Run results | Planned | No stable result artifact version yet. |
 | Evidence reports | Planned | No stable evidence format yet. |
 | Result table writer | Planned | No database/table result writer schema exists yet. |
@@ -78,11 +80,13 @@ Update this matrix when any of the following change:
 - supported `recon-core` versions,
 - contract schema compatibility,
 - artifact schema versions,
+- artifact freshness or cache semantics,
 - typed check-plan versions or operation support,
 - adapter API versions,
 - adapter capability support,
 - adapter test-kit compatibility,
 - package resource compatibility,
+- package lock or installer compatibility,
 - official adapter, package, Hub, or integration release status.
 
 If a new compatibility dimension appears later, add it to this matrix rather
