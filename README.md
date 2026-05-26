@@ -110,6 +110,8 @@ ecommerce_recon/
   connections/
     profiles.yml.example
   contracts/
+  check_packs/
+  macros/
   sample_policies/
   tolerances/
   schema_policies/
@@ -118,9 +120,8 @@ ecommerce_recon/
   state/
 ```
 
-The broader recommended project structure also includes `check_packs/` and
-`macros/`. Those directories are part of the future local resource-loading
-surface and are not required by current parse/compile behavior.
+`check_packs/` and `macros/` are scaffolded for future local resource-loading
+work. Current parse/compile behavior still loads contract files only.
 
 `recon parse` performs structural project parsing and writes
 `target/manifest.json`. `recon compile` expands the currently supported check

@@ -37,6 +37,8 @@ recon_project.yml
 .gitignore
 connections/profiles.yml.example
 contracts/
+check_packs/
+macros/
 sample_policies/
 tolerances/
 schema_policies/
@@ -45,9 +47,8 @@ reports/
 state/
 ```
 
-The recommended full project structure also includes `check_packs/` and
-`macros/`. Those directories are future local resource-loading surfaces and are
-not required by current parse/compile behavior.
+`check_packs/` and `macros/` are scaffolded for future local resource-loading
+work. Current parse/compile behavior still loads contract files only.
 
 `recon init` should not overwrite an existing path unless an explicit overwrite option is added later.
 

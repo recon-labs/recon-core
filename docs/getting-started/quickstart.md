@@ -29,6 +29,8 @@ recon_project.yml
 connections/
   profiles.yml.example
 contracts/
+check_packs/
+macros/
 sample_policies/
 tolerances/
 schema_policies/
