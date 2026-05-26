@@ -209,7 +209,7 @@ Preferred direction:
 
 ### How should SQL Server empty string to Snowflake null be handled?
 
-Preferred direction:
+Locked by ADR 0009:
 
 - strict by default,
 - configurable via null policy at project, contract, column, and check level,
@@ -217,10 +217,14 @@ Preferred direction:
 
 ### Should timezone policy be required for timestamp comparisons?
 
-Preferred direction:
+Locked by ADR 0009:
 
-- warn initially when missing,
-- require explicit timezone behavior in strict mode.
+- timestamp tolerance execution is future gated,
+- timestamp comparison must not silently convert timezones,
+- missing timezone behavior is an error when conversion is required and
+  metadata proves the ambiguity,
+- unresolved metadata must be visible as deferred validation before evidence is
+  trusted.
 
 ## Schema policies
 

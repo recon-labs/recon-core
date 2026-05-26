@@ -171,9 +171,10 @@ A reusable definition of acceptable differences.
 
 Examples:
 
-- currency tolerance of 0.01,
-- timestamp tolerance of 5 seconds,
-- percentage tolerance of 0.0001.
+- numeric absolute tolerance of 0.01.
+
+Future examples may include timestamp or percentage tolerance after their
+semantics are explicitly designed.
 
 ## Evidence
 

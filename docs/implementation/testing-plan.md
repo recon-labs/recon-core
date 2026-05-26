@@ -76,6 +76,13 @@ should cover duplicate declarations, unknown categories, undeclared references,
 invalid selectors, check/category incompatibility, unused declared columns,
 metadata-deferred validation, and resolved column artifact visibility.
 
+Tolerance, null, and normalization tests should follow ADR 0009. Before
+accepting policy resolution or execution, tests should cover numeric shorthand
+and object equivalence, invalid tolerance shapes, unsupported relative or
+timestamp tolerance in the current milestone, invalid null policy values,
+invalid normalization operations, type incompatibility, precedence, and
+resolved policy artifact visibility.
+
 Rules include:
 
 - no silent all-column comparison,

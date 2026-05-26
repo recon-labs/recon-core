@@ -172,7 +172,6 @@ columns:
       tolerance: 0.01
   timestamp:
     - name: updated_at
-      tolerance: 5 seconds
 
 metrics: []
 
@@ -180,6 +179,10 @@ policies:
   sampling:
     default_policy: latest_changed_records
   tolerance: null
+  nulls:
+    empty_string_equals_null: false
+  normalization:
+    operations: []
   schema:
     ignore_target_columns:
       - _dms_operation
@@ -474,6 +477,10 @@ Example compiled check:
   tolerance:
     type: absolute
     value: 0.01
+  nulls:
+    empty_string_equals_null: false
+  normalization:
+    operations: []
   prerequisites: []
   blocking_policy:
     on_prerequisite_failure: skipped

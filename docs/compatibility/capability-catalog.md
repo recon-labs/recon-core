@@ -66,6 +66,10 @@ adapter API is stable.
 | `semi_structured_projection` | Adapter can project semi-structured data into comparable fields. |
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
+Future tolerance or normalization execution may require additional granular
+capabilities after typed policy payloads are implemented. Do not add capability
+names to this catalog without updating the code enum, adapter docs, and tests.
+
 ## Hash compatibility warning
 
 `safe_hash_expression` and `portable_hash_compatible` are different.

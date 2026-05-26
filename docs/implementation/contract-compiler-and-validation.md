@@ -264,7 +264,7 @@ checks:
       config:
         severity: error
         sampling: full
-        tolerance: strict
+        tolerance: null
         params: {}
         checks:
           row_count_diff:
@@ -434,25 +434,68 @@ Sampling does not remove non-null or uniqueness requirements for row-level check
 
 ## Tolerance and null resolution
 
-Tolerance precedence:
+Tolerance, null, and normalization behavior is governed by ADR 0009.
+
+Resolve each policy family independently.
+
+Precedence:
 
 ```text
 check-level
 column-level
-contract-level policy
-project-level policy
+contract-level inline policy
+named contract policy reference
+project-level default policy
 framework default
 ```
 
-Null and normalization rules follow the same precedence.
+Milestone 5 may validate and resolve MVP policy shapes, but named tolerance
+policy references require the ADR 0017 resource loader before they can be
+resolved.
 
-Compiled checks should show resolved tolerance and null behavior.
+Compiled checks should show resolved tolerance, null, and normalization
+behavior when that policy affects a compiled check.
+
+MVP numeric tolerance supports absolute tolerance only:
+
+```yaml
+tolerance: 0.01
+```
+
+or:
+
+```yaml
+tolerance:
+  type: absolute
+  value: 0.01
+```
+
+Relative tolerance, percentage tolerance, and timestamp tolerance execution are
+future gated and must not be silently accepted as executable behavior.
 
 Default null behavior:
 
 ```text
 NULL != ''
 ```
+
+Resolved comparisons use null-safe equality: two null values compare equal, one
+null and one non-null value compare different, and empty string remains
+different from null unless `empty_string_equals_null: true` is explicit.
+
+String normalization defaults to no operations. The supported explicit shape is:
+
+```yaml
+normalization:
+  operations:
+    - trim
+    - collapse_whitespace
+    - lower
+```
+
+Allowed operations are `trim`, `collapse_whitespace`, `lower`, and `upper`.
+Duplicate operations, `lower` with `upper`, arbitrary SQL, regex rules, macro
+references, and locale-specific behavior must fail until separately designed.
 
 ## Schema policy resolution
 

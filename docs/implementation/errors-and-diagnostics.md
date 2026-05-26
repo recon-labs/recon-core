@@ -199,6 +199,10 @@ RC_VALIDATE_CDC_CONFIG_REQUIRED
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED
 RC_VALIDATE_SCHEMA_IGNORE_INVALID
+RC_VALIDATE_INVALID_TOLERANCE
+RC_VALIDATE_INVALID_NULL_POLICY
+RC_VALIDATE_INVALID_NORMALIZATION
+RC_VALIDATE_TIMESTAMP_TIMEZONE_REQUIRED
 ```
 
 Milestone 5 should use these locked diagnostics for the validation rulebook:
@@ -221,6 +225,10 @@ Milestone 5 should use these locked diagnostics for the validation rulebook:
 | `RC_VALIDATE_CDC_DELETE_MODE_REQUIRED` | compile validation | error |
 | `RC_VALIDATE_CDC_ORDERING_REQUIRED` | compile validation | error |
 | `RC_VALIDATE_SCHEMA_IGNORE_INVALID` | compile validation | error |
+| `RC_VALIDATE_INVALID_TOLERANCE` | compile validation | error |
+| `RC_VALIDATE_INVALID_NULL_POLICY` | compile validation | error |
+| `RC_VALIDATE_INVALID_NORMALIZATION` | compile validation | error |
+| `RC_VALIDATE_TIMESTAMP_TIMEZONE_REQUIRED` | compile or adapter metadata validation | error |
 | `RC_VALIDATE_METADATA_VALIDATION_DEFERRED` | adapter metadata validation | warning |
 | `RC_VALIDATE_UNUSED_DECLARED_COLUMN` | compile validation | warning |
 

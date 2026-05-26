@@ -174,7 +174,8 @@ Required:
 Recommended:
 
 - explicit null comparison default,
-- `NULL != ''` unless configured.
+- `NULL != ''` unless configured,
+- no relative, percentage, or timestamp tolerance execution in MVP.
 
 ### Schema policies
 

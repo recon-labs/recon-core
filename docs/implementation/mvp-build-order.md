@@ -163,8 +163,11 @@ Required gates:
   typed column declarations, all-column expansion, or row-level value checks
   still requires implementation of typed models, metadata validation, and
   artifact visibility,
-- resolve the tolerance, null, and normalization resolution gate before
-  applying comparison policy precedence,
+- tolerance, null, and normalization resolution design is satisfied by
+  `docs/decisions/adr-0009-tolerance-normalization-and-null-equivalence.md`;
+  Milestone 5 should validate only the MVP policy surface and must not treat
+  future timestamp, relative tolerance, reusable policy files, or custom
+  normalization as executable behavior,
 - do not validate references to local check packs, sampling policies, tolerance
   policies, schema policies, endpoint resources, or macros until those resource
   kinds are loaded through the shared ADR 0017 resource model.

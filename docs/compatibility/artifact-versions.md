@@ -100,6 +100,13 @@ must not appear in typed check plans. Changing existing `columns` field meaning,
 required-column semantics, stable check IDs, or typed operation payloads may
 require a compiled artifact version bump.
 
+Adding resolved tolerance, null, or normalization policy fields to compiled
+artifacts should follow ADR 0009 and
+`docs/compatibility/tolerance-null-normalization.md`. Changing existing
+`tolerance` field meaning, policy precedence, null defaults, typed operation
+payloads, result fields, or evidence semantics may require a compatibility
+review and artifact version bump.
+
 ## Package version relationship
 
 `recon_version` identifies the Recon Core package version that wrote the

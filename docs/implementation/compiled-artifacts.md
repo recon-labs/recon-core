@@ -130,6 +130,8 @@ It should include:
 - resolved defaults,
 - resolved sampling policy,
 - resolved tolerance policy,
+- resolved null policy,
+- resolved normalization policy,
 - resolved schema policy,
 - resolved CDC policy,
 - resolved evidence policy,
@@ -212,6 +214,8 @@ Every compiled check should include:
 - blocking policy,
 - resolved sampling,
 - resolved tolerance when applicable,
+- resolved null policy when applicable,
+- resolved normalization policy when applicable,
 - typed check plan,
 - rendering metadata,
 - diagnostics.
@@ -479,6 +483,10 @@ Example:
   tolerance:
     type: absolute
     value: 0.01
+  nulls:
+    empty_string_equals_null: false
+  normalization:
+    operations: []
   plan:
     id: plan.cdc_validation.orders_cdc.revenue_by_month
     operations:

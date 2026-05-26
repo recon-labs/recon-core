@@ -86,6 +86,11 @@ Column selectors must be resolved before typed plans are emitted. Per ADR 0019,
 raw wildcard selectors such as `columns: "*"` must not appear in typed
 operation payloads; value operations should use concrete column names only.
 
+Tolerance, null, and normalization policies must also be resolved before typed
+plans are emitted. Per ADR 0009, typed operation payloads must use structured
+policy fields and must not carry raw YAML strings such as `5 seconds` or
+`trim_lower`.
+
 `null_key` is the typed operation for side-specific key null checks. It is a
 data check over declared comparison identity keys, not a schema nullability
 check.

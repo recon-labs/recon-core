@@ -160,13 +160,28 @@ checks:
 
 ## Tolerances
 
-Tolerance precedence should be:
+MVP tolerance support is numeric absolute tolerance:
+
+```yaml
+columns:
+  numeric:
+    - name: revenue
+      tolerance: 0.01
+```
+
+Tolerance, null, and normalization behavior follows ADR 0009.
+
+Precedence is:
 
 1. check-level,
 2. column-level,
-3. contract-level,
-4. project-level,
-5. framework default.
+3. contract-level inline policy,
+4. named contract policy reference,
+5. project-level default policy,
+6. framework default.
+
+Default null behavior is strict: `NULL != ''`. Timestamp tolerance, relative
+tolerance, reusable policy files, and custom normalization are future behavior.
 
 ## Schema policy
 

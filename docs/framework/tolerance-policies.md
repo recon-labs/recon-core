@@ -2,171 +2,221 @@
 
 ## Purpose
 
-This document defines tolerance, normalization, and null-equivalence policies.
+Tolerance policies define acceptable source-target value differences.
 
-A tolerance policy defines acceptable differences between source and target values.
+They also cover null equivalence and string normalization because those rules
+change whether two values are considered equal.
 
-## Why tolerances matter
-
-Equivalent data may not be byte-for-byte identical because of decimal precision, currency rounding, timestamp precision, timezone conversion, string normalization, null handling, type casting, file format behavior, or ingestion/CDC transformations.
-
-Recon needs explicit rules for acceptable differences.
+Policy behavior is governed by
+`docs/decisions/adr-0009-tolerance-normalization-and-null-equivalence.md`.
 
 ## Principle
 
-Tolerances should be reusable, visible, and overrideable.
+Tolerance, null, and normalization rules must be explicit, resolved before
+execution, visible in generated artifacts, and reviewable in evidence.
 
-Recon should not silently coerce incompatible types or assume fuzzy equivalence.
+Recon must not silently coerce incompatible types or assume fuzzy equivalence.
 
-## Recommended location
+## MVP Scope
 
-```text
-tolerances/
-  default.yml
-  finance.yml
-  timestamps.yml
-```
+MVP policy support should stay narrow:
 
-## Example policy
+- numeric absolute tolerance,
+- explicit null policy with `empty_string_equals_null`,
+- explicit string normalization shape,
+- strict defaults,
+- validation diagnostics for malformed or unsupported policy config.
+
+Future support may add relative tolerance, percentage tolerance, timestamp
+tolerance execution, reusable policy files, project-level defaults,
+locale-aware string handling, regex normalization, or adapter-specific
+optimizations.
+
+Unsupported future policy config must fail validation when Recon can see it. It
+must not be silently ignored.
+
+## Precedence
+
+Resolve tolerance, null, and normalization independently.
+
+Precedence:
+
+1. check-level override,
+2. column-level setting,
+3. contract-level inline policy,
+4. named contract policy reference,
+5. project-level default policy,
+6. framework default.
+
+Named tolerance policy files are future behavior and require the ADR 0017
+resource-loading model before references can be validated or resolved.
+
+## Numeric Tolerance
+
+MVP numeric tolerance is absolute tolerance.
+
+Shorthand:
 
 ```yaml
-name: finance
+tolerance: 0.01
+```
 
-numeric:
-  default_tolerance: 0.01
-  currency_tolerance: 0.01
-  percentage_tolerance: 0.0001
+is equivalent to:
 
-timestamp:
-  default_tolerance: 5 seconds
+```yaml
+tolerance:
+  type: absolute
+  value: 0.01
+```
+
+Rules:
+
+- the value must be finite and non-negative,
+- `0` means exact numeric equality,
+- numeric tolerance may apply only to numeric-compatible columns or metrics,
+- relative tolerance, percentage tolerance, and decimal-scale-specific rules
+  are future gated.
+
+Precision/scale compatibility is schema policy behavior, not numeric value
+tolerance.
+
+## Timestamp Tolerance
+
+Timestamp tolerance execution is future behavior.
+
+When implemented, timestamp tolerance should use typed units rather than raw
+duration strings:
+
+```yaml
+tolerance:
+  type: absolute_time
+  value: 5
+  unit: second
   timezone: UTC
+```
 
-strings:
-  trim: true
-  case_sensitive: false
+Timestamp comparison must not silently convert timezones. If source and target
+timestamp semantics differ, users should canonicalize through compare views or
+queries, or configure explicit timezone behavior once timestamp tolerance is
+implemented.
 
+## Null Equivalence
+
+Default null behavior is strict:
+
+```yaml
 nulls:
   empty_string_equals_null: false
 ```
 
-## Precedence
+Resolved comparisons use null-safe equality:
 
-Recommended precedence:
+- `NULL` equals `NULL`,
+- `NULL` does not equal a non-null value,
+- `NULL` does not equal `''` unless `empty_string_equals_null: true` is
+  explicit.
 
-1. check-level override,
-2. column-level setting,
-3. contract-level policy,
-4. project-level default,
-5. framework default.
+`empty_string_equals_null: true` is for string-like value comparison. Numeric or
+timestamp blank handling should be done through canonical compare views or a
+future typed normalization feature.
 
-## Numeric tolerances
+## String Normalization
 
-Initial support should focus on absolute tolerance.
-
-Future support may include relative tolerance, percentage tolerance, and decimal-scale rules.
-
-A numeric tolerance should only be applied to numeric-compatible columns.
-
-## Precision and scale
-
-Precision/scale compatibility is a schema concern, not the same as numeric value tolerance.
-
-Value tolerance answers whether actual values differ acceptably.
-
-Schema precision/scale checks answer whether types are compatible.
-
-## Timestamp tolerances
-
-Timestamp tolerance handles precision and lag.
+Default normalization is none:
 
 ```yaml
-columns:
-  timestamp:
-    - name: updated_at
-      tolerance: 5 seconds
+normalization:
+  operations: []
 ```
 
-Recon should distinguish event-time equivalence, ingestion-time lag, target processing time, and CDC arrival time.
+Supported explicit shape:
 
-Timezone behavior should be explicit when systems differ.
+```yaml
+normalization:
+  operations:
+    - trim
+    - collapse_whitespace
+    - lower
+```
 
-## String normalization
+Allowed operations:
 
-Possible rules include trim, lower, upper, collapse whitespace, case sensitivity, and empty-string/null behavior.
+- `trim`,
+- `collapse_whitespace`,
+- `lower`,
+- `upper`.
 
-## Null equivalence
+`lower` and `upper` are mutually exclusive. Duplicate operations are invalid.
+Locale-specific case folding, regex normalization, macros, and arbitrary SQL
+expressions are future gated.
 
-Null rules must be explicit.
-
-Default should be strict:
+Resolved artifacts should show normalization in stable canonical order:
 
 ```text
-NULL != ''
+trim
+collapse_whitespace
+lower or upper
+empty-string/null equivalence
 ```
 
-Example scenario:
-
-```text
-SQL Server table contains empty string ''
-AWS DMS writes staged files
-Snowflake file format loads empty field as NULL
-```
-
-Recon should support this explicitly:
-
-```yaml
-nulls:
-  empty_string_equals_null: true
-```
-
-## Scope of null/normalization policy
-
-Null and normalization rules should be configurable at multiple levels.
-
-Project or contract level:
-
-```yaml
-nulls:
-  empty_string_equals_null: true
-```
+## Scope Examples
 
 Column level:
 
 ```yaml
 columns:
-  exact:
-    - name: middle_name
-      nulls:
-        empty_string_equals_null: true
+  numeric:
+    - name: revenue
+      tolerance: 0.01
 ```
 
 Check level:
 
 ```yaml
 checks:
-  - type: exact_value_match
+  - type: numeric_tolerance_match
     columns:
-      - middle_name
-    nulls:
-      empty_string_equals_null: true
+      - revenue
+    tolerance:
+      type: absolute
+      value: 0.01
+```
+
+String/null policy:
+
+```yaml
+columns:
+  string:
+    - name: middle_name
+      normalization:
+        operations:
+          - trim
+      nulls:
+        empty_string_equals_null: true
 ```
 
 ## Evidence
 
-Reports should show tolerance and normalization rules used in comparisons.
+Reports and failure details should show:
+
+- resolved tolerance,
+- resolved null policy,
+- resolved normalization operations,
+- raw source and target values when evidence policy allows,
+- normalized values when normalization changed comparison,
+- diff values,
+- whether validation was deferred or blocked.
 
 ## Errors
 
-Invalid tolerance usage should fail validation.
+Invalid policy usage should fail validation.
 
-Examples include numeric tolerance on text column, timestamp tolerance on non-timestamp column, invalid tolerance syntax, and ambiguous timezone behavior in strict mode.
+Examples:
 
-## MVP recommendation
-
-v0.1 should support numeric absolute tolerance, column-level overrides, and explicit null comparison rules.
-
-v0.2 can add reusable policy files, relative tolerance, timestamp tolerance, string normalization macros, and project-level default policies.
-
-## Design principle
-
-Tolerance policies make Recon practical while keeping comparison rules explicit, reviewable, and visible in compiled artifacts.
+- numeric tolerance on a non-numeric column,
+- negative tolerance,
+- unsupported relative or percentage tolerance in MVP,
+- malformed timestamp tolerance,
+- missing timezone behavior when timestamp conversion is required,
+- non-boolean `empty_string_equals_null`,
+- duplicate or incompatible normalization operations.

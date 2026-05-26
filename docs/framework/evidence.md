@@ -68,6 +68,12 @@ target/failures/customer_revenue__row_diff.csv
 
 Fields may include run id, contract name, check name, key values, column name, source value, target value, normalized values, diff value, tolerance, and severity.
 
+When tolerance, null, or normalization policy affects a value comparison,
+failure details and reports should show the resolved policy. Evidence should
+not imply that relative tolerance, timestamp tolerance, or string normalization
+was applied unless the compiled check and adapter execution actually used that
+resolved policy.
+
 For key safety checks, failure details may include bounded examples of null or duplicate keys when evidence settings allow them.
 
 ### HTML report

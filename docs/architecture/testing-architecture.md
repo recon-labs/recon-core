@@ -48,6 +48,8 @@ Examples:
 - check packs expand,
 - check-pack invocation config follows ADR 0018 before it is accepted,
 - column and value-comparison behavior follows ADR 0019 before it is accepted,
+- tolerance, null, and normalization behavior follows ADR 0009 before it is
+  accepted,
 - metrics compile into checks,
 - empty expansion errors,
 - sampling override wins,

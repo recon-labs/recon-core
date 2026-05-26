@@ -108,19 +108,28 @@ category exactly.
 
 ### `numeric_tolerance_match`
 
-Compares numeric values within tolerance. It must run only on numeric-compatible columns.
+Compares numeric values within tolerance. MVP tolerance is absolute numeric
+tolerance only. It must run only on numeric-compatible columns.
 
 ### `timestamp_tolerance_match`
 
-Compares timestamps within tolerance. Timestamp checks should distinguish event time, ingestion time, and target processing time.
+Compares timestamps within tolerance. Timestamp tolerance execution is future
+gated. When implemented, timestamp checks should distinguish event time,
+ingestion time, and target processing time, and must not silently convert
+timezones.
 
 ### `normalized_string_match`
 
-Compares strings after explicit normalization such as trim, lower, upper, or whitespace canonicalization.
+Compares strings after explicit normalization. Allowed normalization operations
+are `trim`, `collapse_whitespace`, `lower`, and `upper`. Locale-specific case
+folding, regex normalization, arbitrary SQL, and macro-based normalization are
+future gated.
 
 ### `null_equivalence`
 
-Defines how nulls, blanks, and empty strings compare. Default should be strict: `NULL != ''`.
+Defines how nulls, blanks, and empty strings compare. Default is strict:
+`NULL != ''`. Resolved comparisons use null-safe equality: `NULL` equals
+`NULL`, but one null and one non-null value differ.
 
 ### `row_hash_match`
 

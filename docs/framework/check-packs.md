@@ -214,7 +214,7 @@ checks:
       config:
         severity: error
         sampling: full
-        tolerance: strict
+        tolerance: null
         params: {}
         checks:
           row_count_diff:

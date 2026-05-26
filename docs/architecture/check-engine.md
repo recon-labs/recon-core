@@ -98,6 +98,11 @@ and returned as `skipped` with `blocked_by` and `skip_reason`.
 Row-level value checks should not execute with unresolved wildcard selectors;
 column resolution follows ADR 0019.
 
+Row-level value checks also should not execute with unresolved tolerance, null,
+or normalization policy. Policy resolution follows ADR 0009, and adapter
+capability validation must happen before rendering policy-dependent typed
+operations.
+
 ## Aggregate checks
 
 Aggregate checks can run without row-level keys when they have explicit metrics or aggregate definitions.

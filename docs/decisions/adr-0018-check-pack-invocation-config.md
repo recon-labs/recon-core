@@ -55,7 +55,7 @@ checks:
       config:
         severity: error
         sampling: full
-        tolerance: strict
+        tolerance: null
         params:
           include_columns:
             - amount

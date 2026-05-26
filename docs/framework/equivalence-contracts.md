@@ -228,14 +228,21 @@ columns:
 
   timestamp:
     - name: updated_at
-      tolerance: 5 seconds
 
   string:
     - name: customer_name
-      normalization: trim_lower
+      normalization:
+        operations:
+          - trim
+          - lower
 ```
 
 Supported categories are `exact`, `numeric`, `timestamp`, and `string`.
+
+MVP value policy support is intentionally narrow. Numeric absolute tolerance is
+supported as the initial tolerance surface. Timestamp tolerance execution,
+relative tolerance, percentage tolerance, reusable policy files, and richer
+normalization require later design or implementation gates.
 
 String entries are shorthand for `{name: <column_name>}`.
 
@@ -407,7 +414,7 @@ checks:
       config:
         severity: error
         sampling: full
-        tolerance: strict
+        tolerance: null
         params: {}
         checks:
           row_count_diff:
@@ -479,6 +486,9 @@ Contracts may reference a tolerance policy:
 tolerance_policy: finance
 ```
 
+Named tolerance policy references require the ADR 0017 resource-loading model
+before they can be validated or resolved.
+
 Column-level tolerance:
 
 ```yaml
@@ -501,11 +511,18 @@ Recommended precedence:
 
 1. check-level override,
 2. column-level setting,
-3. contract-level policy,
-4. project-level default,
-5. framework default.
+3. contract-level inline policy,
+4. named contract policy reference,
+5. project-level default policy,
+6. framework default.
 
-Null and empty-string behavior should be explicit. Default should be strict: `NULL != ''`.
+MVP tolerance supports numeric absolute tolerance only. Relative tolerance,
+percentage tolerance, timestamp tolerance execution, and reusable policy files
+are future gated.
+
+Null and empty-string behavior should be explicit. Default is strict:
+`NULL != ''`. Resolved comparisons use null-safe equality, so `NULL` equals
+`NULL`, but one null and one non-null value differ.
 
 ```yaml
 nulls:
@@ -513,6 +530,16 @@ nulls:
 ```
 
 This is important for pipelines where systems such as SQL Server, AWS DMS, file formats, and Snowflake may handle empty strings differently.
+
+String normalization defaults to no operations. Supported explicit operations
+are `trim`, `collapse_whitespace`, `lower`, and `upper`:
+
+```yaml
+normalization:
+  operations:
+    - trim
+    - lower
+```
 
 ## Schema policy
 

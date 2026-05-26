@@ -81,6 +81,11 @@ validation, all-column expansion, and row-level value checks require typed
 column models, adapter metadata validation, and resolved column artifact
 visibility before implementation.
 
+Tolerance, null, and normalization behavior is governed by ADR 0009. Numeric
+absolute tolerance, strict null defaults, and explicit normalization shape are
+the MVP policy surface. Relative tolerance, timestamp tolerance execution,
+reusable policy files, and custom normalization remain future gated.
+
 Compiled contract and compiled checks directories are regenerated as snapshots.
 After project configuration loads and `target-path` is known, Recon removes
 existing top-level `*.yml` files from `target/compiled_contracts/` and
