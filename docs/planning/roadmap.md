@@ -41,6 +41,7 @@ Contract capabilities:
 
 - relation-based source/target,
 - one contract per file,
+- simple `contracts:` multi-contract files,
 - explicit columns,
 - explicit metrics,
 - `grain.keys`,
@@ -85,7 +86,6 @@ not merely after an arbitrary milestone branch.
 
 Capabilities:
 
-- multiple contracts per file,
 - file-level defaults,
 - reusable endpoints,
 - query-based source/target,
