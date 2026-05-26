@@ -72,7 +72,9 @@ When tolerance, null, or normalization policy affects a value comparison,
 failure details and reports should show the resolved policy. Evidence should
 not imply that relative tolerance, timestamp tolerance, or string normalization
 was applied unless the compiled check and adapter execution actually used that
-resolved policy.
+resolved policy. When a string value becomes null because of
+`nulls.treat_as_null`, evidence should show the sentinel rule that caused it
+when evidence policy allows that detail.
 
 For key safety checks, failure details may include bounded examples of null or duplicate keys when evidence settings allow them.
 

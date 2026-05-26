@@ -119,7 +119,10 @@ They help explain warnings, skips, runtime problems, and validation behavior.
 Value-comparison results should include resolved tolerance, null, and
 normalization policy when those policies affected the check. If normalization
 changed a compared value and evidence policy allows value capture, results or
-linked failure details should distinguish raw and normalized values.
+linked failure details should distinguish raw and normalized values. If a value
+became null because of `nulls.treat_as_null`, linked failure details should be
+able to identify the sentinel value or regex rule when evidence policy allows
+that detail.
 
 ## JSON artifact
 

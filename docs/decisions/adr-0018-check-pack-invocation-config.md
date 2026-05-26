@@ -101,6 +101,8 @@ compiled checks, `RC_VALIDATE_NO_COMPILED_CHECKS` still applies.
 | `severity` | Pack-wide default severity for generated checks. |
 | `sampling` | Pack-wide sampling override, using the same resolved sampling model as checks once sampling is fully implemented. |
 | `tolerance` | Pack-wide tolerance override, using the same resolved tolerance model as checks once tolerance is fully implemented. |
+| `nulls` | Pack-wide null policy override, using the ADR 0009 `treat_as_null` model once null policy overrides are implemented. |
+| `normalization` | Pack-wide normalization override, using ADR 0009 ordered `steps` once normalization overrides are implemented. |
 | `params` | Pack-specific parameters declared by the check pack schema. |
 | `checks` | Per-generated-check overrides keyed by generated check name. |
 

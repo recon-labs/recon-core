@@ -232,7 +232,7 @@ columns:
   string:
     - name: customer_name
       normalization:
-        operations:
+        steps:
           - trim
           - lower
 ```
@@ -526,20 +526,33 @@ Null and empty-string behavior should be explicit. Default is strict:
 
 ```yaml
 nulls:
-  empty_string_equals_null: true
+  treat_as_null:
+    values:
+      - ""
+      - "NULL"
+      - "N/A"
+    regex:
+      - "^\\s*$"
 ```
 
 This is important for pipelines where systems such as SQL Server, AWS DMS, file formats, and Snowflake may handle empty strings differently.
 
-String normalization defaults to no operations. Supported explicit operations
-are `trim`, `collapse_whitespace`, `lower`, and `upper`:
+String normalization defaults to no steps. Supported simple steps are `trim`,
+`collapse_whitespace`, `lower`, and `upper`. MVP also supports limited
+`regex_replace` normalization with literal replacements:
 
 ```yaml
 normalization:
-  operations:
+  steps:
     - trim
     - lower
+    - regex_replace:
+        pattern: "\\s+-+$"
+        replacement: ""
 ```
+
+Normalization steps run in authored order. Sentinel matching runs after
+normalization and applies only to string-like value comparison.
 
 ## Schema policy
 

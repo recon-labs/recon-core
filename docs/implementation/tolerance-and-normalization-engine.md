@@ -45,11 +45,12 @@ class NumericTolerance:
 
 @dataclass(frozen=True)
 class NullPolicy:
-    empty_string_equals_null: bool = False
+    treat_as_null_values: tuple[str, ...] = ()
+    treat_as_null_regex: tuple[str, ...] = ()
 
 @dataclass(frozen=True)
 class NormalizationPolicy:
-    operations: tuple[Literal["trim", "collapse_whitespace", "lower", "upper"], ...] = ()
+    steps: tuple[NormalizationStep, ...] = ()
 
 @dataclass(frozen=True)
 class ResolvedComparisonPolicy:
@@ -129,17 +130,37 @@ Default:
 
 ```yaml
 nulls:
-  empty_string_equals_null: false
+  treat_as_null:
+    values: []
+    regex: []
 ```
 
 Runtime comparison should use null-safe equality:
 
 - both null passes,
 - one null and one non-null fails,
-- empty string remains different from null unless explicitly configured.
+- configured string sentinels such as `""`, `" "`, `"NULL"`, or `"N/A"`
+  become null only when explicitly configured.
 
-`empty_string_equals_null: true` should be applied only to string-like value
-comparison unless a future typed conversion feature expands the scope.
+Supported string-like sentinel shape:
+
+```yaml
+nulls:
+  treat_as_null:
+    values:
+      - ""
+      - "NULL"
+    regex:
+      - "^\\s*$"
+```
+
+Validation:
+
+- reject non-string literal sentinels,
+- reject invalid regex sentinels,
+- reject duplicate sentinels after normalization,
+- reject string sentinels on non-string column categories unless a future typed
+  conversion feature expands the scope.
 
 ## String Normalization
 
@@ -147,34 +168,60 @@ Default:
 
 ```yaml
 normalization:
-  operations: []
+  steps: []
 ```
 
-Allowed operations:
+Allowed simple steps:
 
 - `trim`,
 - `collapse_whitespace`,
 - `lower`,
 - `upper`.
 
+Allowed regex step:
+
+```yaml
+regex_replace:
+  pattern: "\\s+-+$"
+  replacement: ""
+```
+
 Validation:
 
-- reject unknown operations,
-- reject duplicates,
+- reject unknown steps,
+- reject duplicate simple steps,
 - reject `lower` with `upper`,
-- reject arbitrary SQL, macro references, regex rules, and locale-specific
-  rules until those features are designed.
+- reject regex syntax outside the MVP regex profile,
+- reject regex replacement backreferences,
+- reject arbitrary SQL, macro references, custom expressions, and
+  locale-specific rules until those features are designed.
 
-Resolved operation order should be canonical:
+Resolved operation order is authored order:
 
 ```text
-trim
-collapse_whitespace
-lower or upper
-empty-string/null equivalence
+normalization.steps
+nulls.treat_as_null matching
+null-safe equality
 ```
 
 Adapters render these operations from typed operations. Core owns the semantics.
+
+## MVP Regex Profile
+
+MVP regex may be used only for:
+
+- `nulls.treat_as_null.regex`,
+- `normalization.steps[].regex_replace.pattern`.
+
+The MVP profile should accept a portable subset: literals, escaped characters,
+character classes, anchors, grouping, non-capturing grouping, alternation,
+basic quantifiers, and common whitespace escapes such as `\s`.
+
+Reject lookahead, lookbehind, backreferences, named groups, inline flags,
+adapter-specific regex extensions, custom SQL, and dynamic expressions.
+
+`regex_replace` replacement strings are literals. Replacement backreferences
+are future gated.
 
 ## Diagnostics
 
@@ -184,7 +231,9 @@ Policy validation uses ADR 0016 diagnostic ownership.
 | --- | --- | --- |
 | `RC_VALIDATE_INVALID_TOLERANCE` | compile validation | error |
 | `RC_VALIDATE_INVALID_NULL_POLICY` | compile validation | error |
+| `RC_VALIDATE_INVALID_NULL_SENTINEL` | compile validation | error |
 | `RC_VALIDATE_INVALID_NORMALIZATION` | compile validation | error |
+| `RC_VALIDATE_INVALID_REGEX_NORMALIZATION` | compile validation | error |
 | `RC_VALIDATE_TIMESTAMP_TIMEZONE_REQUIRED` | compile or adapter metadata validation | error |
 | `RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE` | compile or adapter metadata validation | error |
 | `RC_VALIDATE_METADATA_VALIDATION_DEFERRED` | adapter metadata validation | warning |
@@ -201,25 +250,30 @@ tolerance:
   type: absolute
   value: 0.01
 nulls:
-  empty_string_equals_null: false
+  treat_as_null:
+    values: []
+    regex: []
 normalization:
-  operations: []
+  steps: []
 ```
 
 Per-column value checks should show resolved policy per compared column when
 different columns use different policies.
 
-Raw strings such as `5 seconds` or `trim_lower` must not appear in typed check
-plan payloads.
+Raw strings such as `5 seconds` or `trim_lower` must not appear as unresolved
+policy in typed check plan payloads. Regex normalization must appear as typed
+steps with explicit pattern and replacement fields.
 
 ## SQL Generation
 
 Adapters may need dialect-specific rendering for:
 
 - null-safe equality,
+- string sentinel matching,
 - numeric difference expressions,
 - timestamp difference expressions,
-- trim/lower/upper/collapse-whitespace operations.
+- trim/lower/upper/collapse-whitespace operations,
+- limited regex replacement.
 
 Capability validation must fail before execution when a required operation is
 not supported by the selected adapter.
@@ -231,6 +285,7 @@ Run results, failure details, and reports should show:
 - resolved policy,
 - raw values when evidence policy permits,
 - normalized values when normalization applies,
+- whether a normalized value became null due to a sentinel rule,
 - diff values,
 - tolerance values,
 - blocked or deferred validation.
@@ -247,7 +302,9 @@ Implementation should add tests for:
 - invalid numeric tolerance values,
 - unsupported relative/percentage/timestamp tolerance in current scope,
 - invalid null policy shape,
-- invalid normalization operations,
+- invalid or duplicate null sentinels,
+- invalid normalization steps,
+- invalid or unsupported MVP regex,
 - type incompatibility diagnostics,
 - artifact payloads for resolved policies,
 - deferred metadata validation where adapter facts are required.

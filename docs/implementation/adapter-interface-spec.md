@@ -156,6 +156,7 @@ Adapters should provide dialect-specific SQL for:
 - casts,
 - timestamp differences,
 - null-safe equality,
+- future limited regex replacement,
 - hashing when supported.
 
 Examples of core-owned typed operations:

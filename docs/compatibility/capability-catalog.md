@@ -67,8 +67,10 @@ adapter API is stable.
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
 Future tolerance or normalization execution may require additional granular
-capabilities after typed policy payloads are implemented. Do not add capability
-names to this catalog without updating the code enum, adapter docs, and tests.
+capabilities after typed policy payloads are implemented. ADR 0009 locks
+limited regex replacement as an MVP policy surface, so the implementation phase
+must add a granular regex capability only when it also updates the code enum,
+adapter docs, and tests.
 
 ## Hash compatibility warning
 

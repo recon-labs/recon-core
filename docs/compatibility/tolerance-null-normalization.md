@@ -45,8 +45,9 @@ must not be silently ignored.
 MVP policy behavior:
 
 - numeric absolute tolerance only,
-- `empty_string_equals_null` null policy,
-- explicit normalization operations shape,
+- explicit string-like null sentinels by literal value and limited regex,
+- explicit ordered string normalization steps,
+- limited regex replacement normalization,
 - strict defaults,
 - resolved policy visibility before execution evidence is trusted.
 
@@ -56,7 +57,8 @@ Future behavior:
 - percentage tolerance,
 - timestamp tolerance execution,
 - locale-aware string handling,
-- regex or custom SQL normalization,
+- unrestricted regex features,
+- custom SQL or macro normalization,
 - reusable policy files,
 - project-level default policy files.
 
@@ -69,18 +71,23 @@ tolerance:
   type: absolute
   value: 0.01
 nulls:
-  empty_string_equals_null: false
+  treat_as_null:
+    values: []
+    regex: []
 normalization:
-  operations: []
+  steps: []
 ```
 
 Typed plans must carry structured resolved policy data or reference resolved
 compiled-check policy data. Raw authored strings such as `5 seconds` or
-`trim_lower` must not be typed operation payloads.
+`trim_lower` must not be typed operation payloads. Regex normalization must
+appear as typed steps with explicit pattern and replacement fields.
 
 Run results and evidence should show resolved policies when they affect a
 check, and should distinguish raw and normalized values when evidence policy
-allows value capture.
+allows value capture. If a string value becomes null because of
+`nulls.treat_as_null`, generated evidence should identify the literal sentinel
+or regex rule when evidence policy allows that detail.
 
 ## Diagnostics
 
@@ -90,7 +97,9 @@ Policy diagnostics are locked by ADR 0009 and follow ADR 0016 phase ownership.
 | --- | --- | --- |
 | `RC_VALIDATE_INVALID_TOLERANCE` | compile validation | error |
 | `RC_VALIDATE_INVALID_NULL_POLICY` | compile validation | error |
+| `RC_VALIDATE_INVALID_NULL_SENTINEL` | compile validation | error |
 | `RC_VALIDATE_INVALID_NORMALIZATION` | compile validation | error |
+| `RC_VALIDATE_INVALID_REGEX_NORMALIZATION` | compile validation | error |
 | `RC_VALIDATE_TIMESTAMP_TIMEZONE_REQUIRED` | compile or adapter metadata validation | error |
 | `RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE` | compile or adapter metadata validation | error |
 | `RC_VALIDATE_METADATA_VALIDATION_DEFERRED` | adapter metadata validation | warning |

@@ -101,7 +101,7 @@ column resolution follows ADR 0019.
 Row-level value checks also should not execute with unresolved tolerance, null,
 or normalization policy. Policy resolution follows ADR 0009, and adapter
 capability validation must happen before rendering policy-dependent typed
-operations.
+operations, including limited regex replacement.
 
 ## Aggregate checks
 

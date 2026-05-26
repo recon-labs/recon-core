@@ -212,7 +212,8 @@ Preferred direction:
 Locked by ADR 0009:
 
 - strict by default,
-- configurable via null policy at project, contract, column, and check level,
+- configurable through `nulls.treat_as_null` literal and limited regex
+  sentinels at project, contract, column, and check level,
 - compiled artifacts must show the resolved null policy.
 
 ### Should timezone policy be required for timestamp comparisons?

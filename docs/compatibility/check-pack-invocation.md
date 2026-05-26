@@ -4,7 +4,7 @@
 
 Check-pack invocation is a public contract surface because it controls which
 checks are generated and how generated checks inherit severity, sampling,
-tolerance, and pack-specific parameters.
+tolerance, null policy, normalization policy, and pack-specific parameters.
 
 ## Current Status
 
@@ -29,6 +29,7 @@ When check-pack config support is implemented:
 - unknown invocation fields are errors,
 - unknown config keys are errors,
 - package check packs must declare config schemas before accepting config,
+- tolerance, null, and normalization config must reuse ADR 0009 policy shapes,
 - config that cannot apply to generated checks is an error,
 - `on_empty` must be visible in compiled artifacts,
 - non-error empty expansion must not hide that no checks were generated,

@@ -274,7 +274,9 @@ Milestone 5 should use the following code catalog unless a later ADR changes it.
 | `RC_VALIDATE_SCHEMA_IGNORE_INVALID` | compile validation | error | Schema ignore configuration is malformed or unsafe. |
 | `RC_VALIDATE_INVALID_TOLERANCE` | compile validation | error | Tolerance config is malformed or unsupported in the current milestone. |
 | `RC_VALIDATE_INVALID_NULL_POLICY` | compile validation | error | Null policy config is malformed or uses unsupported keys or values. |
+| `RC_VALIDATE_INVALID_NULL_SENTINEL` | compile validation | error | A string-like null sentinel is malformed, duplicated after normalization, or unsupported for the target column category. |
 | `RC_VALIDATE_INVALID_NORMALIZATION` | compile validation | error | Normalization config is malformed or uses unsupported/incompatible operations. |
+| `RC_VALIDATE_INVALID_REGEX_NORMALIZATION` | compile validation | error | A regex null sentinel or regex replacement uses invalid syntax or features outside the MVP regex profile. |
 | `RC_VALIDATE_TIMESTAMP_TIMEZONE_REQUIRED` | compile or adapter metadata validation | error | Timestamp comparison requires explicit timezone behavior but none was provided. |
 | `RC_VALIDATE_METADATA_VALIDATION_DEFERRED` | adapter metadata validation | warning | A metadata-dependent rule cannot be checked until adapter metadata is available. |
 | `RC_VALIDATE_UNUSED_DECLARED_COLUMN` | compile validation | warning | A declared column is not used by any compiled check. |

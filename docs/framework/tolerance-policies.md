@@ -22,15 +22,16 @@ Recon must not silently coerce incompatible types or assume fuzzy equivalence.
 MVP policy support should stay narrow:
 
 - numeric absolute tolerance,
-- explicit null policy with `empty_string_equals_null`,
-- explicit string normalization shape,
+- explicit string-like null sentinels by literal value and limited regex,
+- explicit ordered string normalization steps,
+- limited regex replacement normalization,
 - strict defaults,
 - validation diagnostics for malformed or unsupported policy config.
 
 Future support may add relative tolerance, percentage tolerance, timestamp
 tolerance execution, reusable policy files, project-level defaults,
-locale-aware string handling, regex normalization, or adapter-specific
-optimizations.
+locale-aware string handling, unrestricted regex features, custom SQL/macros,
+or adapter-specific optimizations.
 
 Unsupported future policy config must fail validation when Recon can see it. It
 must not be silently ignored.
@@ -106,19 +107,37 @@ Default null behavior is strict:
 
 ```yaml
 nulls:
-  empty_string_equals_null: false
+  treat_as_null:
+    values: []
+    regex: []
 ```
 
 Resolved comparisons use null-safe equality:
 
 - `NULL` equals `NULL`,
 - `NULL` does not equal a non-null value,
-- `NULL` does not equal `''` unless `empty_string_equals_null: true` is
-  explicit.
+- `NULL` does not equal `''`, `' '`, `'NULL'`, `'N/A'`, or another sentinel
+  unless that sentinel is explicit.
 
-`empty_string_equals_null: true` is for string-like value comparison. Numeric or
-timestamp blank handling should be done through canonical compare views or a
-future typed normalization feature.
+String-like null sentinels:
+
+```yaml
+nulls:
+  treat_as_null:
+    values:
+      - ""
+      - "NULL"
+      - "N/A"
+    regex:
+      - "^\\s*$"
+```
+
+Sentinel matching applies only to string-like value comparison. Literal
+sentinels and data values are compared after normalization steps run. Regex
+sentinels match the full normalized value.
+
+Numeric or timestamp blank handling should be done through canonical compare
+views or a future typed normalization feature.
 
 ## String Normalization
 
@@ -126,37 +145,50 @@ Default normalization is none:
 
 ```yaml
 normalization:
-  operations: []
+  steps: []
 ```
 
 Supported explicit shape:
 
 ```yaml
 normalization:
-  operations:
+  steps:
     - trim
     - collapse_whitespace
     - lower
+    - regex_replace:
+        pattern: "\\s+-+$"
+        replacement: ""
 ```
 
-Allowed operations:
+Allowed simple steps:
 
 - `trim`,
 - `collapse_whitespace`,
 - `lower`,
 - `upper`.
 
-`lower` and `upper` are mutually exclusive. Duplicate operations are invalid.
-Locale-specific case folding, regex normalization, macros, and arbitrary SQL
-expressions are future gated.
+Allowed regex step:
 
-Resolved artifacts should show normalization in stable canonical order:
+```yaml
+regex_replace:
+  pattern: "\\s+-+$"
+  replacement: ""
+```
+
+Steps run in authored order. `lower` and `upper` are mutually exclusive.
+Duplicate simple steps are invalid.
+
+MVP regex is limited to literal replacement with a portable regex subset.
+Lookahead, lookbehind, backreferences, named groups, inline flags, custom SQL,
+macros, and arbitrary expressions are future gated.
+
+Resolved artifacts should show normalization in authored order:
 
 ```text
-trim
-collapse_whitespace
-lower or upper
-empty-string/null equivalence
+normalization.steps
+nulls.treat_as_null matching
+null-safe equality
 ```
 
 ## Scope Examples
@@ -189,10 +221,30 @@ columns:
   string:
     - name: middle_name
       normalization:
-        operations:
+        steps:
           - trim
+          - lower
       nulls:
-        empty_string_equals_null: true
+        treat_as_null:
+          values:
+            - ""
+            - "null"
+            - "n/a"
+```
+
+Concatenation cleanup:
+
+```yaml
+columns:
+  string:
+    - name: availability_status
+      normalization:
+        steps:
+          - trim
+          - regex_replace:
+              pattern: "\\s+-+$"
+              replacement: ""
+          - trim
 ```
 
 ## Evidence
@@ -201,7 +253,8 @@ Reports and failure details should show:
 
 - resolved tolerance,
 - resolved null policy,
-- resolved normalization operations,
+- resolved normalization steps,
+- whether a string value became null because of a sentinel or regex rule,
 - raw source and target values when evidence policy allows,
 - normalized values when normalization changed comparison,
 - diff values,
@@ -218,5 +271,7 @@ Examples:
 - unsupported relative or percentage tolerance in MVP,
 - malformed timestamp tolerance,
 - missing timezone behavior when timestamp conversion is required,
-- non-boolean `empty_string_equals_null`,
-- duplicate or incompatible normalization operations.
+- malformed null sentinel values or regexes,
+- duplicate sentinel values after normalization,
+- duplicate or incompatible normalization steps,
+- unsupported regex features.

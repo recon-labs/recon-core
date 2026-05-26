@@ -484,9 +484,11 @@ Example:
     type: absolute
     value: 0.01
   nulls:
-    empty_string_equals_null: false
+    treat_as_null:
+      values: []
+      regex: []
   normalization:
-    operations: []
+    steps: []
   plan:
     id: plan.cdc_validation.orders_cdc.revenue_by_month
     operations:

@@ -480,22 +480,44 @@ NULL != ''
 ```
 
 Resolved comparisons use null-safe equality: two null values compare equal, one
-null and one non-null value compare different, and empty string remains
-different from null unless `empty_string_equals_null: true` is explicit.
+null and one non-null value compare different, and string sentinels such as
+`''`, `' '`, `'NULL'`, or `'N/A'` remain different from null unless
+`nulls.treat_as_null` explicitly configures them.
 
-String normalization defaults to no operations. The supported explicit shape is:
+String normalization defaults to no steps. The supported explicit shape is
+ordered:
 
 ```yaml
 normalization:
-  operations:
+  steps:
     - trim
     - collapse_whitespace
     - lower
+    - regex_replace:
+        pattern: "\\s+-+$"
+        replacement: ""
 ```
 
-Allowed operations are `trim`, `collapse_whitespace`, `lower`, and `upper`.
-Duplicate operations, `lower` with `upper`, arbitrary SQL, regex rules, macro
-references, and locale-specific behavior must fail until separately designed.
+Allowed simple steps are `trim`, `collapse_whitespace`, `lower`, and `upper`.
+Allowed MVP regex is limited `regex_replace` with literal replacement.
+Duplicate simple steps, `lower` with `upper`, unsupported regex features,
+arbitrary SQL, macro references, and locale-specific behavior must fail until
+separately designed.
+
+String-like null sentinels are configured as:
+
+```yaml
+nulls:
+  treat_as_null:
+    values:
+      - ""
+      - "NULL"
+    regex:
+      - "^\\s*$"
+```
+
+Sentinel matching runs after normalization steps and applies only to
+string-like value comparison.
 
 ## Schema policy resolution
 

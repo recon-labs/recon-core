@@ -82,9 +82,10 @@ column models, adapter metadata validation, and resolved column artifact
 visibility before implementation.
 
 Tolerance, null, and normalization behavior is governed by ADR 0009. Numeric
-absolute tolerance, strict null defaults, and explicit normalization shape are
-the MVP policy surface. Relative tolerance, timestamp tolerance execution,
-reusable policy files, and custom normalization remain future gated.
+absolute tolerance, strict null defaults, explicit string-like null sentinels,
+ordered normalization steps, and limited regex replacement are the MVP policy
+surface. Relative tolerance, timestamp tolerance execution, reusable policy
+files, unrestricted regex features, custom SQL, and macros remain future gated.
 
 Compiled contract and compiled checks directories are regenerated as snapshots.
 After project configuration loads and `target-path` is known, Recon removes

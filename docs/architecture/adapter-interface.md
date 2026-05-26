@@ -130,6 +130,10 @@ json_path
 semi_structured_projection
 ```
 
+Additional policy-dependent capabilities, such as limited regex replacement,
+should be added only with typed-plan payloads, adapter tests, and compatibility
+docs.
+
 ## Metadata
 
 Column metadata should include:

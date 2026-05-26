@@ -227,6 +227,8 @@ implemented:
 - unknown invocation fields must fail,
 - unknown config keys must fail,
 - package check packs must declare config schemas before accepting config,
+- tolerance, null, and normalization overrides must use ADR 0009 policy
+  shapes,
 - config that cannot apply to generated checks must fail,
 - `on_empty` must be visible in compiled artifacts,
 - config must not disable required safety checks unless a later ADR explicitly

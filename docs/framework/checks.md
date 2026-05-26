@@ -120,10 +120,11 @@ timezones.
 
 ### `normalized_string_match`
 
-Compares strings after explicit normalization. Allowed normalization operations
-are `trim`, `collapse_whitespace`, `lower`, and `upper`. Locale-specific case
-folding, regex normalization, arbitrary SQL, and macro-based normalization are
-future gated.
+Compares strings after explicit normalization. Allowed simple normalization
+steps are `trim`, `collapse_whitespace`, `lower`, and `upper`. MVP also
+supports limited `regex_replace` normalization with literal replacements.
+Locale-specific case folding, unrestricted regex features, arbitrary SQL, and
+macro-based normalization are future gated.
 
 ### `null_equivalence`
 

@@ -180,8 +180,10 @@ Precedence is:
 5. project-level default policy,
 6. framework default.
 
-Default null behavior is strict: `NULL != ''`. Timestamp tolerance, relative
-tolerance, reusable policy files, and custom normalization are future behavior.
+Default null behavior is strict: `NULL != ''`. String-like sentinels such as
+`""`, `"NULL"`, or whitespace are null only when `nulls.treat_as_null` says so.
+Timestamp tolerance, relative tolerance, reusable policy files, unrestricted
+regex features, and custom SQL/macros are future behavior.
 
 ## Schema policy
 

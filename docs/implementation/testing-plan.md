@@ -80,8 +80,10 @@ Tolerance, null, and normalization tests should follow ADR 0009. Before
 accepting policy resolution or execution, tests should cover numeric shorthand
 and object equivalence, invalid tolerance shapes, unsupported relative or
 timestamp tolerance in the current milestone, invalid null policy values,
-invalid normalization operations, type incompatibility, precedence, and
-resolved policy artifact visibility.
+invalid or duplicate null sentinels, invalid normalization steps, invalid or
+unsupported MVP regex, adapter capability blocking for regex-dependent
+execution, type incompatibility, precedence, and resolved policy artifact
+visibility.
 
 Rules include:
 

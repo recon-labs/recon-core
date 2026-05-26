@@ -180,9 +180,11 @@ policies:
     default_policy: latest_changed_records
   tolerance: null
   nulls:
-    empty_string_equals_null: false
+    treat_as_null:
+      values: []
+      regex: []
   normalization:
-    operations: []
+    steps: []
   schema:
     ignore_target_columns:
       - _dms_operation
@@ -478,9 +480,11 @@ Example compiled check:
     type: absolute
     value: 0.01
   nulls:
-    empty_string_equals_null: false
+    treat_as_null:
+      values: []
+      regex: []
   normalization:
-    operations: []
+    steps: []
   prerequisites: []
   blocking_policy:
     on_prerequisite_failure: skipped

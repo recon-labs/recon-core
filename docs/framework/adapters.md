@@ -100,6 +100,10 @@ json_path
 semi_structured_projection
 ```
 
+Policy-dependent value checks may later require additional granular
+capabilities such as limited regex replacement. Add those capabilities only
+with matching typed-plan payloads, adapter docs, and tests.
+
 Adapters should also declare the adapter API version they support.
 
 ## Capability validation

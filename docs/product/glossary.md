@@ -171,7 +171,9 @@ A reusable definition of acceptable differences.
 
 Examples:
 
-- numeric absolute tolerance of 0.01.
+- numeric absolute tolerance of 0.01,
+- explicit string-like null sentinels such as `""` or `"NULL"`,
+- ordered string normalization steps.
 
 Future examples may include timestamp or percentage tolerance after their
 semantics are explicitly designed.

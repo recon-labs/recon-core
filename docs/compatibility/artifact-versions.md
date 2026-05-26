@@ -103,9 +103,10 @@ require a compiled artifact version bump.
 Adding resolved tolerance, null, or normalization policy fields to compiled
 artifacts should follow ADR 0009 and
 `docs/compatibility/tolerance-null-normalization.md`. Changing existing
-`tolerance` field meaning, policy precedence, null defaults, typed operation
-payloads, result fields, or evidence semantics may require a compatibility
-review and artifact version bump.
+`tolerance` field meaning, policy precedence, null defaults, null sentinel
+matching, normalization step ordering, regex payloads, typed operation payloads,
+result fields, or evidence semantics may require a compatibility review and
+artifact version bump.
 
 ## Package version relationship
 
