@@ -134,6 +134,60 @@ Recommended commit message:
 refactor: share parsed project loading across services
 ```
 
+## Milestone 4.6: non-contract resource discovery and indexing
+
+Build this only after Milestone 4.5 is complete and only if Milestone 5 needs
+validated references to local non-contract resources.
+
+Goal:
+
+- discover non-contract project resources through the shared parsed-project
+  loading pipeline,
+- keep one source of truth for parse and compile resource visibility,
+- record resource files, paths, namespaces, source locations, and checksums,
+- avoid parsing or executing resources whose semantics are not implemented yet.
+
+Build:
+
+- catalog entries for supported non-contract resource kinds,
+- optional default path behavior and explicit missing-path diagnostics from ADR
+  0017,
+- deterministic discovery and checksum metadata,
+- duplicate resource-name validation for implemented resource kinds,
+- manifest or internal parsed-project resource summaries where needed by
+  Milestone 5 validation,
+- macro file discovery and checksumming as source files only.
+
+Do not build:
+
+- macro parsing,
+- macro rendering,
+- macro execution,
+- macro reference validation,
+- package macro loading.
+
+Tests:
+
+- default optional resource paths may be absent,
+- explicitly configured optional resource paths fail when missing,
+- resource discovery is deterministic,
+- checksums are stable,
+- duplicate resource names fail within resource kind and namespace,
+- macro files are discovered only as source files and do not create executable
+  behavior.
+
+Required gates:
+
+- resolve the local resource loading and precedence gate,
+- resolve the macro discovery and indexing gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: index non-contract project resources
+```
+
 ## Milestone 5: validation rulebook
 
 Build:
@@ -154,6 +208,9 @@ Required gates:
   `docs/decisions/adr-0017-project-resource-loading-and-precedence.md`, but
   actual reference validation still requires the relevant resource loader to be
   implemented,
+- macro discovery/indexing, if included before Milestone 5, is source-file
+  metadata only; Milestone 5 must not validate, parse, render, or execute macro
+  references,
 - check-pack invocation config and override design is satisfied by
   `docs/decisions/adr-0018-check-pack-invocation-config.md`; supporting
   `config`, `on_empty: warn`, or `on_empty: skip` still requires implementation
@@ -423,6 +480,121 @@ Recommended commit message:
 feat: add explicit source-target column mapping
 ```
 
+## Post-MVP Milestone 14: macro reference semantics and validation
+
+Build this only after the MVP release-readiness decision and after the resource
+loader can index macro files without executing them.
+
+Goal:
+
+- decide whether Recon contracts may reference macros at all,
+- define the public YAML surfaces where macro references are allowed,
+- validate macro references without making macros the comparison engine.
+
+Build:
+
+- a macro-semantics ADR before implementation,
+- authored reference syntax and namespace rules,
+- argument and type rules for allowed macro references,
+- diagnostics for unknown, ambiguous, unsupported, or invalid macro references,
+- compiled artifact visibility for any accepted macro reference,
+- tests that prove unsupported macro references fail clearly.
+
+Do not build:
+
+- macro rendering,
+- macro execution,
+- dbt-style macro dispatch as the primary comparison engine,
+- arbitrary custom SQL behavior hidden behind macro names.
+
+Required gate:
+
+- resolve the macro reference semantics gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: validate macro references
+```
+
+## Post-MVP Milestone 15: macro-assisted rendering helpers
+
+Build this only after adapter APIs, typed plans, compiled SQL artifacts, run
+results, and evidence semantics are stable enough to show exactly what will
+run.
+
+Goal:
+
+- allow limited macro or template helpers only as implementation details for
+  rendering typed plans,
+- keep reconciliation semantics in core-owned typed check plans and validation,
+- keep rendered SQL and evidence inspectable.
+
+Build:
+
+- a macro execution/rendering ADR or ADR 0013 update,
+- execution/rendering boundary rules,
+- deterministic rendering and sandbox/security restrictions,
+- adapter capability and adapter test-kit expectations,
+- compiled SQL, result, and evidence visibility for rendered behavior,
+- diagnostics for rendering failures and unsupported macro helper features.
+
+Do not build:
+
+- macros that define checks or reconciliation semantics,
+- side-effectful macro execution,
+- hidden adapter behavior that bypasses typed check plans.
+
+Required gate:
+
+- resolve the macro execution and rendering boundary gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add macro-assisted SQL rendering
+```
+
+## Post-MVP Milestone 16: package resource loading and package macros
+
+Build this only after package/dependency behavior is designed and after local
+resource loading is stable.
+
+Goal:
+
+- load package-provided resources through the same resource catalog as local
+  resources,
+- keep package namespaces explicit and compatibility ranges documented,
+- allow package macro files only under the macro semantics already locked by
+  Milestones 14 and 15.
+
+Build:
+
+- package/dependency model and lock-file behavior,
+- package resource schema and compatibility range validation,
+- package namespace validation,
+- package resource discovery for check packs, policies, and macro files,
+- compatibility documentation for package resource schemas and macro behavior.
+
+Do not build:
+
+- package macros that override local or `recon_core` behavior by search
+  precedence,
+- package macro execution before macro execution semantics are locked.
+
+Required gate:
+
+- resolve the packages, deps, and package macro resources gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: load package resources
+```
+
 ## Deferral list
 
 Do not block MVP on:
@@ -440,6 +612,9 @@ Do not block MVP on:
 - aggregate metric expansion beyond explicit `sum`,
 - `recon_core.aggregate_equivalence`,
 - schema policy checks,
+- macro reference validation,
+- macro rendering or execution,
+- package macro loading,
 - SCD2 CDC,
 - advanced evidence redaction,
 - orchestration integrations.

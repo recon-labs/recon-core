@@ -40,6 +40,15 @@ Future resource-loading implementation must preserve these rules:
 - non-contract reference validation may run only for resource kinds loaded by
   the shared resource model.
 
+Macro compatibility is staged:
+
+- macro discovery may record source-file metadata and checksums only,
+- macro reference validation requires a separate macro-semantics decision,
+- macro rendering or execution requires an adapter/rendering compatibility
+  review,
+- package macro loading requires package namespace, schema, and compatibility
+  rules before implementation.
+
 ## Artifact Impact
 
 Adding non-contract resource summaries to `target/manifest.json` is a public
