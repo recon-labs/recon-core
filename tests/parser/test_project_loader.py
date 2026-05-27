@@ -9,10 +9,13 @@ def write_project(
     project_root: Path,
     *,
     contract_paths: tuple[str, ...] = ("contracts",),
+    check_pack_paths: tuple[str, ...] | None = None,
     target_path: str = "target",
     include_contract_dir: bool = True,
+    include_check_pack_paths: bool = False,
 ) -> None:
     contract_paths_yaml = "\n".join(f"  - {contract_path}" for contract_path in contract_paths)
+    check_pack_paths_yaml = _path_list_yaml("check-pack-paths", check_pack_paths)
     project_root.joinpath("recon_project.yml").write_text(
         f"""
 name: ecommerce_recon
@@ -20,6 +23,7 @@ version: 0.1.0
 config-version: 1
 contract-paths:
 {contract_paths_yaml}
+{check_pack_paths_yaml}
 target-path: {target_path}
 """.lstrip(),
         encoding="utf-8",
@@ -27,6 +31,16 @@ target-path: {target_path}
     if include_contract_dir:
         for contract_path in contract_paths:
             (project_root / contract_path).mkdir(parents=True, exist_ok=True)
+    if include_check_pack_paths and check_pack_paths is not None:
+        for check_pack_path in check_pack_paths:
+            (project_root / check_pack_path).mkdir(parents=True, exist_ok=True)
+
+
+def _path_list_yaml(field_name: str, paths: tuple[str, ...] | None) -> str:
+    if paths is None:
+        return ""
+    path_items = "\n".join(f"  - {path}" for path in paths)
+    return f"{field_name}:\n{path_items}"
 
 
 def write_contract(
@@ -92,6 +106,81 @@ def test_load_parsed_project_returns_context_files_contracts_and_no_diagnostics(
         "contracts/customer_revenue.yml",
         "contracts/orders.yml",
     ]
+
+
+def test_load_parsed_project_indexes_non_contract_files_without_parsing_them(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    (tmp_path / "check_packs").mkdir()
+    (tmp_path / "sample_policies").mkdir()
+    (tmp_path / "tolerances").mkdir()
+    (tmp_path / "schema_policies").mkdir()
+    (tmp_path / "macros").mkdir()
+    (tmp_path / "check_packs" / "company.yml").write_text(
+        "this is not valid: [\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sample_policies" / "stable.yml").write_text(
+        "name: stable\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "tolerances" / "default.yaml").write_text(
+        "name: default\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "schema_policies" / "cdc.yml").write_text(
+        "name: cdc\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "macros" / "normalize.sql").write_text(
+        "lower(trim({{ column }}))\n",
+        encoding="utf-8",
+    )
+    context = load_context(tmp_path)
+
+    parsed_project = load_parsed_project(context)
+
+    assert parsed_project.succeeded
+    assert [
+        (resource.relative_path, resource.resource_type.value) for resource in parsed_project.files
+    ] == [
+        ("check_packs/company.yml", "check_pack"),
+        ("contracts/customer_revenue.yml", "contract"),
+        ("macros/normalize.sql", "macro_file"),
+        ("sample_policies/stable.yml", "sample_policy"),
+        ("schema_policies/cdc.yml", "schema_policy"),
+        ("tolerances/default.yaml", "tolerance_policy"),
+    ]
+    assert [contract.name for contract in parsed_project.contracts] == ["customer_revenue"]
+    assert parsed_project.diagnostics == ()
+
+
+def test_load_parsed_project_reports_explicit_missing_non_contract_path(
+    tmp_path: Path,
+) -> None:
+    write_project(
+        tmp_path,
+        check_pack_paths=("custom_packs",),
+        include_check_pack_paths=False,
+    )
+    write_contract(tmp_path)
+    context = load_context(tmp_path)
+
+    parsed_project = load_parsed_project(context)
+
+    assert not parsed_project.succeeded
+    assert [resource.relative_path for resource in parsed_project.files] == [
+        "contracts/customer_revenue.yml"
+    ]
+    assert [contract.name for contract in parsed_project.contracts] == ["customer_revenue"]
+    assert len(parsed_project.diagnostics) == 1
+
+    diagnostic = parsed_project.diagnostics[0]
+    assert diagnostic.code == "RC_PARSE_RESOURCE_PATH_NOT_FOUND"
+    assert diagnostic.resource_type == "check_pack_path"
+    assert diagnostic.path == str(tmp_path / "custom_packs")
 
 
 def test_load_parsed_project_reports_missing_contract_path(tmp_path: Path) -> None:

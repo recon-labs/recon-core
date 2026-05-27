@@ -88,6 +88,55 @@ def test_parse_service_writes_manifest_for_valid_project(tmp_path: Path) -> None
     assert manifest["diagnostics"] == []
 
 
+def test_parse_service_manifest_includes_indexed_non_contract_files(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    (tmp_path / "check_packs").mkdir()
+    (tmp_path / "sample_policies").mkdir()
+    (tmp_path / "tolerances").mkdir()
+    (tmp_path / "schema_policies").mkdir()
+    (tmp_path / "macros").mkdir()
+    (tmp_path / "check_packs" / "company.yml").write_text(
+        "this is not valid: [\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sample_policies" / "stable.yml").write_text(
+        "name: stable\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "tolerances" / "default.yml").write_text(
+        "name: default\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "schema_policies" / "cdc.yml").write_text(
+        "name: cdc\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "macros" / "normalize.sql").write_text(
+        "lower(trim({{ column }}))\n",
+        encoding="utf-8",
+    )
+
+    result = ParseService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.diagnostics == ()
+
+    manifest = read_manifest(tmp_path)
+    assert {path: file_info["resource_type"] for path, file_info in manifest["files"].items()} == {
+        "check_packs/company.yml": "check_pack",
+        "contracts/customer_revenue.yml": "contract",
+        "macros/normalize.sql": "macro_file",
+        "sample_policies/stable.yml": "sample_policy",
+        "schema_policies/cdc.yml": "schema_policy",
+        "tolerances/default.yml": "tolerance_policy",
+    }
+    assert list(manifest["contracts"]) == ["customer_revenue"]
+    assert manifest["diagnostics"] == []
+
+
 def test_parse_service_writes_manifest_with_diagnostics_for_invalid_contract(
     tmp_path: Path,
 ) -> None:

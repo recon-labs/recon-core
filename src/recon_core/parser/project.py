@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 
 from recon_core.diagnostics import Diagnostic
 from recon_core.parser.contracts import AuthoredContract, parse_contract_resource
-from recon_core.parser.files import ResourceFile, discover_contract_files
+from recon_core.parser.files import ResourceFile, ResourceType, discover_resource_files
 from recon_core.parser.yaml_loader import load_yaml_file
 from recon_core.project import ProjectContext
 
@@ -25,18 +25,26 @@ class ParsedProject:
 
 def load_parsed_project(context: ProjectContext) -> ParsedProject:
     """Load authored contract resources into parsed in-memory models."""
-    discovery_result = discover_contract_files(
+    discovery_result = discover_resource_files(
         context.project_root,
-        context.paths.contract_paths,
+        context.paths.resource_path_entries,
     )
     diagnostics = list(discovery_result.diagnostics)
-    contracts = _parse_contract_files(discovery_result.files, diagnostics)
+    contracts = _parse_contract_files(_contract_files(discovery_result.files), diagnostics)
 
     return ParsedProject(
         context=context,
         files=discovery_result.files,
         contracts=tuple(contracts),
         diagnostics=tuple(diagnostics),
+    )
+
+
+def _contract_files(resource_files: tuple[ResourceFile, ...]) -> tuple[ResourceFile, ...]:
+    return tuple(
+        resource_file
+        for resource_file in resource_files
+        if resource_file.resource_type is ResourceType.CONTRACT
     )
 
 
