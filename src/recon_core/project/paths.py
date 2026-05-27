@@ -5,6 +5,15 @@ from pathlib import Path
 
 from recon_core.config import ConfiguredPath, PathOrigin, ProjectConfig
 
+_DEFAULT_RESOURCE_PATH_VALUES: dict[str, tuple[str, ...]] = {
+    "contract-paths": ("contracts",),
+    "sample-policy-paths": ("sample_policies",),
+    "tolerance-policy-paths": ("tolerances",),
+    "schema-policy-paths": ("schema_policies",),
+    "check-pack-paths": ("check_packs",),
+    "macro-paths": ("macros",),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class ResolvedResourcePath:
@@ -77,14 +86,7 @@ def _resolve_resource_path_entries(
     for field_name, values in _resource_path_values(config):
         configured_entries = config.path_entries_for(field_name)
         if not configured_entries:
-            configured_entries = tuple(
-                ConfiguredPath(
-                    value=value,
-                    origin=PathOrigin.AUTHORED,
-                    field_name=field_name,
-                )
-                for value in values
-            )
+            configured_entries = _fallback_configured_entries(field_name, values)
 
         entries.extend(
             ResolvedResourcePath(
@@ -96,6 +98,20 @@ def _resolve_resource_path_entries(
         )
 
     return tuple(entries)
+
+
+def _fallback_configured_entries(
+    field_name: str,
+    values: tuple[str, ...],
+) -> tuple[ConfiguredPath, ...]:
+    origin = (
+        PathOrigin.DEFAULTED
+        if values == _DEFAULT_RESOURCE_PATH_VALUES[field_name]
+        else PathOrigin.AUTHORED
+    )
+    return tuple(
+        ConfiguredPath(value=value, origin=origin, field_name=field_name) for value in values
+    )
 
 
 def _resource_path_values(config: ProjectConfig) -> tuple[tuple[str, tuple[str, ...]], ...]:

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from recon_core.config import ConfiguredPath, PathOrigin, ProjectConfig, load_project_config
+from recon_core.config import PathOrigin, ProjectConfig, load_project_config
 from recon_core.project import ProjectPaths, ResolvedResourcePath, resolve_project_paths
 
 
@@ -137,18 +137,10 @@ macro-paths:
     )
 
 
-def test_resolve_project_paths_falls_back_to_authored_origin_for_manual_config(
+def test_resolve_project_paths_infers_default_origin_for_manual_config_defaults(
     tmp_path: Path,
 ) -> None:
-    config = make_project_config(
-        resource_path_entries=(
-            ConfiguredPath(
-                value="contracts",
-                origin=PathOrigin.DEFAULTED,
-                field_name="contract-paths",
-            ),
-        )
-    )
+    config = make_project_config()
 
     paths = resolve_project_paths(tmp_path, config)
 
@@ -162,6 +154,39 @@ def test_resolve_project_paths_falls_back_to_authored_origin_for_manual_config(
     assert paths.path_entries_for("macro-paths") == (
         ResolvedResourcePath(
             path=tmp_path / "macros",
+            origin=PathOrigin.DEFAULTED,
+            field_name="macro-paths",
+        ),
+    )
+
+
+def test_resolve_project_paths_infers_authored_origin_for_manual_custom_paths(
+    tmp_path: Path,
+) -> None:
+    config = make_project_config(
+        contract_paths=("recon_contracts",),
+        macro_paths=("sql_helpers",),
+    )
+
+    paths = resolve_project_paths(tmp_path, config)
+
+    assert paths.path_entries_for("contract-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "recon_contracts",
+            origin=PathOrigin.AUTHORED,
+            field_name="contract-paths",
+        ),
+    )
+    assert paths.path_entries_for("sample-policy-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "sample_policies",
+            origin=PathOrigin.DEFAULTED,
+            field_name="sample-policy-paths",
+        ),
+    )
+    assert paths.path_entries_for("macro-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "sql_helpers",
             origin=PathOrigin.AUTHORED,
             field_name="macro-paths",
         ),

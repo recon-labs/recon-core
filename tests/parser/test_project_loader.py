@@ -1,8 +1,9 @@
 from pathlib import Path
 
+from recon_core.config import ProjectConfig
 from recon_core.diagnostics import DiagnosticSeverity
 from recon_core.parser import ParsedProject, load_parsed_project
-from recon_core.project import ProjectContext, load_project_context
+from recon_core.project import ProjectContext, load_project_context, resolve_project_paths
 
 
 def write_project(
@@ -181,6 +182,44 @@ def test_load_parsed_project_reports_explicit_missing_non_contract_path(
     assert diagnostic.code == "RC_PARSE_RESOURCE_PATH_NOT_FOUND"
     assert diagnostic.resource_type == "check_pack_path"
     assert diagnostic.path == str(tmp_path / "custom_packs")
+
+
+def test_load_parsed_project_skips_missing_default_optional_paths_for_manual_config(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "contracts").mkdir()
+    write_contract(tmp_path)
+    config = ProjectConfig(
+        name="ecommerce_recon",
+        version="0.1.0",
+        config_version=1,
+        profile=None,
+        contract_paths=("contracts",),
+        sample_policy_paths=("sample_policies",),
+        tolerance_policy_paths=("tolerances",),
+        schema_policy_paths=("schema_policies",),
+        check_pack_paths=("check_packs",),
+        macro_paths=("macros",),
+        target_path="target",
+        report_path="reports",
+        state_path="state",
+    )
+    context = ProjectContext(
+        project_root=tmp_path,
+        project_file=tmp_path / "recon_project.yml",
+        config=config,
+        paths=resolve_project_paths(tmp_path, config),
+        profile_paths=(),
+    )
+
+    parsed_project = load_parsed_project(context)
+
+    assert parsed_project.succeeded
+    assert [resource.relative_path for resource in parsed_project.files] == [
+        "contracts/customer_revenue.yml"
+    ]
+    assert [contract.name for contract in parsed_project.contracts] == ["customer_revenue"]
+    assert parsed_project.diagnostics == ()
 
 
 def test_load_parsed_project_reports_missing_contract_path(tmp_path: Path) -> None:
