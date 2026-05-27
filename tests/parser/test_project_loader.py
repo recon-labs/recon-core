@@ -222,6 +222,32 @@ def test_load_parsed_project_skips_missing_default_optional_paths_for_manual_con
     assert parsed_project.diagnostics == ()
 
 
+def test_load_parsed_project_reports_ambiguous_cross_kind_resource_file(
+    tmp_path: Path,
+) -> None:
+    write_project(
+        tmp_path,
+        contract_paths=("resources",),
+        check_pack_paths=("resources",),
+        include_check_pack_paths=True,
+    )
+    (tmp_path / "resources" / "company.yml").write_text(
+        "this is not valid: [\n",
+        encoding="utf-8",
+    )
+    context = load_context(tmp_path)
+
+    parsed_project = load_parsed_project(context)
+
+    assert not parsed_project.succeeded
+    assert parsed_project.files == ()
+    assert parsed_project.contracts == ()
+    assert [diagnostic.code for diagnostic in parsed_project.diagnostics] == [
+        "RC_PARSE_AMBIGUOUS_RESOURCE_FILE"
+    ]
+    assert parsed_project.diagnostics[0].path == "resources/company.yml"
+
+
 def test_load_parsed_project_reports_missing_contract_path(tmp_path: Path) -> None:
     write_project(tmp_path, include_contract_dir=False)
     context = load_context(tmp_path)

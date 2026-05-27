@@ -11,6 +11,7 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.project import ResolvedResourcePath
 
 RESOURCE_PATH_NOT_FOUND = "RC_PARSE_RESOURCE_PATH_NOT_FOUND"
+AMBIGUOUS_RESOURCE_FILE = "RC_PARSE_AMBIGUOUS_RESOURCE_FILE"
 _YAML_SUFFIXES = frozenset({".yaml", ".yml"})
 
 
@@ -124,6 +125,13 @@ class ResourceDiscoveryResult:
         return not self.diagnostics
 
 
+@dataclass(frozen=True, slots=True)
+class _ResourceCandidate:
+    path: Path
+    relative_path: str
+    definition: ResourceKindDefinition
+
+
 def discover_contract_files(
     project_root: Path, contract_paths: tuple[Path, ...]
 ) -> ResourceDiscoveryResult:
@@ -150,7 +158,7 @@ def discover_resource_files(
 ) -> ResourceDiscoveryResult:
     """Discover authored resource files from cataloged project resource paths."""
     diagnostics: list[Diagnostic] = []
-    discovered_by_real_path: dict[Path, ResourceFile] = {}
+    candidates_by_real_path: dict[Path, list[_ResourceCandidate]] = {}
     definitions_by_field = {definition.path_field: definition for definition in definitions}
 
     for resource_path in resource_paths:
@@ -185,23 +193,73 @@ def discover_resource_files(
 
         for path in _iter_resource_files(resource_path.path, definition.suffixes):
             real_path = path.resolve()
-            if real_path in discovered_by_real_path:
-                continue
-            discovered_by_real_path[real_path] = ResourceFile(
-                path=path,
-                relative_path=_relative_posix_path(project_root, path),
-                resource_type=definition.resource_type,
-                checksum=_file_checksum(path),
+            candidates_by_real_path.setdefault(real_path, []).append(
+                _ResourceCandidate(
+                    path=path,
+                    relative_path=_relative_posix_path(project_root, path),
+                    definition=definition,
+                )
             )
+
+    resource_files: list[ResourceFile] = []
+    for candidates in candidates_by_real_path.values():
+        candidates_by_type = _candidates_by_resource_type(candidates)
+        if len(candidates_by_type) > 1:
+            diagnostics.append(_ambiguous_resource_file_diagnostic(candidates_by_type))
+            continue
+
+        candidate = next(iter(candidates_by_type.values()))
+        resource_files.append(
+            ResourceFile(
+                path=candidate.path,
+                relative_path=candidate.relative_path,
+                resource_type=candidate.definition.resource_type,
+                checksum=_file_checksum(candidate.path),
+            )
+        )
 
     files = tuple(
         sorted(
-            discovered_by_real_path.values(),
+            resource_files,
             key=lambda resource: resource.relative_path,
         )
     )
 
     return ResourceDiscoveryResult(files=files, diagnostics=tuple(diagnostics))
+
+
+def _candidates_by_resource_type(
+    candidates: list[_ResourceCandidate],
+) -> dict[ResourceType, _ResourceCandidate]:
+    candidates_by_type: dict[ResourceType, _ResourceCandidate] = {}
+    for candidate in candidates:
+        candidates_by_type.setdefault(candidate.definition.resource_type, candidate)
+    return candidates_by_type
+
+
+def _ambiguous_resource_file_diagnostic(
+    candidates_by_type: dict[ResourceType, _ResourceCandidate],
+) -> Diagnostic:
+    candidates = sorted(
+        candidates_by_type.values(),
+        key=lambda candidate: candidate.definition.resource_type.value,
+    )
+    path_fields = ", ".join(f"`{candidate.definition.path_field}`" for candidate in candidates)
+    resource_types = ", ".join(
+        f"`{candidate.definition.resource_type.value}`" for candidate in candidates
+    )
+    relative_path = candidates[0].relative_path
+    return Diagnostic(
+        code=AMBIGUOUS_RESOURCE_FILE,
+        severity=DiagnosticSeverity.ERROR,
+        message=(
+            f"Resource file {relative_path} matches multiple resource kinds "
+            f"through {path_fields}: {resource_types}."
+        ),
+        resource_type="resource_file",
+        path=relative_path,
+        hint="Move the file under exactly one resource kind path or update the overlapping paths.",
+    )
 
 
 def _missing_path_is_allowed(

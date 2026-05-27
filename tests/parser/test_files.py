@@ -231,6 +231,32 @@ def test_discover_resource_files_deduplicates_overlapping_resource_paths(
     ]
 
 
+def test_discover_resource_files_reports_cross_kind_overlapping_resource_file(
+    tmp_path: Path,
+) -> None:
+    write_file(tmp_path / "resources" / "company.yml")
+
+    result = discover_resource_files(
+        tmp_path,
+        (
+            resolved_path("contract-paths", tmp_path / "resources"),
+            resolved_path("check-pack-paths", tmp_path / "resources"),
+        ),
+    )
+
+    assert not result.succeeded
+    assert result.files == ()
+    assert len(result.diagnostics) == 1
+
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_PARSE_AMBIGUOUS_RESOURCE_FILE"
+    assert diagnostic.severity is DiagnosticSeverity.ERROR
+    assert diagnostic.resource_type == "resource_file"
+    assert diagnostic.path == "resources/company.yml"
+    assert "contract-paths" in diagnostic.message
+    assert "check-pack-paths" in diagnostic.message
+
+
 def test_discover_resource_files_uses_case_insensitive_suffix_matching(
     tmp_path: Path,
 ) -> None:

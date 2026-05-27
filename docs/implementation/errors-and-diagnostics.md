@@ -103,6 +103,7 @@ RC_PARSE_MISSING_REQUIRED_FIELD
 RC_PARSE_DUPLICATE_CONTRACT
 RC_PARSE_INVALID_ENDPOINT
 RC_PARSE_RESOURCE_PATH_NOT_FOUND
+RC_PARSE_AMBIGUOUS_RESOURCE_FILE
 RC_PARSE_UNKNOWN_FIELD
 ```
 
@@ -111,13 +112,16 @@ Resource loading diagnostics locked by ADR 0017:
 | Code | Timing | Severity |
 | --- | --- | --- |
 | `RC_PARSE_RESOURCE_PATH_NOT_FOUND` | parse | error |
+| `RC_PARSE_AMBIGUOUS_RESOURCE_FILE` | parse | error |
 | `RC_PARSE_DUPLICATE_RESOURCE_NAME` | parse | error |
 
 Milestone 4.6 source-file indexing should use
 `RC_PARSE_RESOURCE_PATH_NOT_FOUND` for missing or non-directory required paths
-and explicitly configured optional paths. `RC_PARSE_DUPLICATE_RESOURCE_NAME`
-should be used only after a resource kind has a parsed, named resource model;
-index-only files do not have resource names.
+and explicitly configured optional paths. It should use
+`RC_PARSE_AMBIGUOUS_RESOURCE_FILE` when one source file is reachable through
+multiple resource kinds. `RC_PARSE_DUPLICATE_RESOURCE_NAME` should be used only
+after a resource kind has a parsed, named resource model; index-only files do
+not have resource names.
 
 Check-pack resource schema diagnostics locked by ADR 0018:
 

@@ -51,6 +51,11 @@ executed, reference-validated, or summarized as named resources. Duplicate
 resource-name validation applies only after a resource kind has a parsed model
 with a locked name field.
 
+Same-kind overlapping resource paths may deduplicate the same real file, but a
+source file reachable through multiple resource kinds must fail with
+`RC_PARSE_AMBIGUOUS_RESOURCE_FILE`. The loader must not silently classify one
+file as the first matching kind.
+
 ## Manifest responsibilities
 
 The manifest should contain:

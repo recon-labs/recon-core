@@ -40,6 +40,7 @@ Future resource-loading implementation must preserve these rules:
 - `recon_core` is reserved for framework built-ins,
 - package namespaces must be unique,
 - resource names are unique within resource kind and namespace,
+- the same source file must not be reachable through multiple resource kinds,
 - configurable check-pack resources must follow ADR 0018 config-schema rules,
 - macros must not become the primary comparison engine,
 - non-contract reference validation may run only for resource kinds loaded by

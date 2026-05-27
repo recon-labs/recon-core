@@ -13,6 +13,7 @@ from recon_core.parser.contracts import (
     parse_contract_resource,
 )
 from recon_core.parser.files import (
+    AMBIGUOUS_RESOURCE_FILE,
     LOCAL_RESOURCE_KIND_DEFINITIONS,
     RESOURCE_PATH_NOT_FOUND,
     ResourceDiscoveryResult,
@@ -51,6 +52,7 @@ __all__ = [
     "DUPLICATE_CONTRACT",
     "MANIFEST_ARTIFACT_TYPE",
     "MANIFEST_ARTIFACT_VERSION",
+    "AMBIGUOUS_RESOURCE_FILE",
     "LOCAL_RESOURCE_KIND_DEFINITIONS",
     "RESOURCE_PATH_NOT_FOUND",
     "UNKNOWN_FIELD",

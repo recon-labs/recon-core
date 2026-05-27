@@ -57,6 +57,8 @@ This project follows semantic versioning once public package releases begin.
   artifact IDs.
 - `recon parse` now rejects symlinked manifest output paths instead of following
   them when writing `target/manifest.json`.
+- `recon parse` now rejects source files reachable through multiple resource
+  kinds instead of silently classifying them as the first matching kind.
 - Typed operation models now reject payload fields that are not valid for the
   selected operation type.
 
