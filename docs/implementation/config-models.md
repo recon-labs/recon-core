@@ -44,6 +44,20 @@ path was authored or defaulted. ADR 0017 requires this so missing default
 optional resource directories can be skipped while explicitly configured missing
 paths can fail clearly.
 
+Recommended implementation shape:
+
+```python
+@dataclass(frozen=True)
+class ConfiguredPath:
+    value: str
+    origin: Literal["defaulted", "authored"]
+    field_name: str
+```
+
+Path resolution should carry this metadata forward instead of reducing resource
+paths to bare `Path` values before discovery. Public config serialization should
+continue to expose documented path strings, not Python implementation details.
+
 ## Profiles config
 
 Profiles should describe connection definitions.
@@ -98,6 +112,11 @@ resource_kind + namespace + resource_name
 Unqualified references resolve only in the root project namespace. Package and
 framework references use `<namespace>.<resource_name>`. The `recon_core`
 namespace is reserved for framework built-ins.
+
+Milestone 4.6 should not introduce typed config models for local check-pack,
+sampling-policy, tolerance-policy, schema-policy, or macro resources. It should
+index those files as source-file metadata only until each resource schema is
+locked and implemented.
 
 ```python
 @dataclass(frozen=True)

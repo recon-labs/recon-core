@@ -113,6 +113,12 @@ Resource loading diagnostics locked by ADR 0017:
 | `RC_PARSE_RESOURCE_PATH_NOT_FOUND` | parse | error |
 | `RC_PARSE_DUPLICATE_RESOURCE_NAME` | parse | error |
 
+Milestone 4.6 source-file indexing should use
+`RC_PARSE_RESOURCE_PATH_NOT_FOUND` for missing or non-directory required paths
+and explicitly configured optional paths. `RC_PARSE_DUPLICATE_RESOURCE_NAME`
+should be used only after a resource kind has a parsed, named resource model;
+index-only files do not have resource names.
+
 Check-pack resource schema diagnostics locked by ADR 0018:
 
 | Code | Timing | Severity |

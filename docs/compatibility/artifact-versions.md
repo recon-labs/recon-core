@@ -82,10 +82,13 @@ Version-impacting changes include:
 Additive optional fields may keep the same `artifact_version` when readers can
 ignore unknown fields safely and the meaning of existing fields does not change.
 
-Adding non-contract project resource summaries to `target/manifest.json` should
-follow ADR 0017 and `docs/compatibility/resource-loading.md`. Package resource
-file keys or namespace-qualified source-file IDs require compatibility review
-because they may change manifest reader assumptions.
+Adding non-contract project resource file records to the existing
+`target/manifest.json.files` map may keep the current artifact version when the
+change is additive and existing file key, field, and checksum meanings do not
+change. Adding parsed non-contract resource summaries to `target/manifest.json`
+should follow ADR 0017 and `docs/compatibility/resource-loading.md`. Package
+resource file keys or namespace-qualified source-file IDs require
+compatibility review because they may change manifest reader assumptions.
 
 Adding check-pack invocation summaries to compiled artifacts should follow ADR
 0018 and `docs/compatibility/check-pack-invocation.md`. Accepting check-pack

@@ -37,6 +37,18 @@ Resource discovery should be catalog-driven rather than a set of ad hoc loops.
 The shared loader should remain the single source of truth for parse and
 compile.
 
+Milestone 4.6 should introduce non-contract resource indexing as file metadata,
+not resource semantics. The shared loader should discover local check-pack,
+sample-policy, tolerance-policy, schema-policy, and macro files through a
+catalog, compute deterministic checksums, and include those source files in the
+parsed-project file list. It should continue to parse only contract resources
+until each non-contract resource schema is implemented.
+
+Index-only non-contract resources should not be YAML-validated, rendered,
+executed, reference-validated, or summarized as named resources. Duplicate
+resource-name validation applies only after a resource kind has a parsed model
+with a locked name field.
+
 ## Manifest responsibilities
 
 The manifest should contain:
@@ -51,6 +63,29 @@ The manifest should contain:
 
 Future parser milestones may add policy summaries, check pack summaries,
 endpoint summaries, selectors, and richer resource graph metadata.
+
+For Milestone 4.6, non-contract local files should appear only in the existing
+`files` map with the current file-record shape:
+
+```json
+{
+  "path": "macros/normalize_email.sql",
+  "resource_type": "macro_file",
+  "checksum": "..."
+}
+```
+
+Expected resource types for file-level indexing are:
+
+- `contract`,
+- `check_pack`,
+- `sample_policy`,
+- `tolerance_policy`,
+- `schema_policy`,
+- `macro_file`.
+
+Endpoint resource files remain out of scope until `endpoint-paths` and endpoint
+reference semantics are locked.
 
 When package resources are implemented, resource files should have
 namespace-qualified in-memory IDs such as:

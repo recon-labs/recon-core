@@ -114,6 +114,11 @@ The loader should be catalog-driven. Each resource kind should define its path
 field, accepted suffixes, parser or indexer, required/default path behavior,
 packageability, manifest inclusion, and reference-resolution behavior.
 
+Before non-contract discovery is implemented, project configuration and path
+resolution should preserve whether each resource path was authored or defaulted.
+The loader needs that origin to skip missing default optional directories while
+failing explicitly configured missing optional paths.
+
 The loader should discover resources from configured paths:
 
 - contracts,
@@ -149,6 +154,13 @@ Locked design:
   resources are loaded,
 - macros may be discovered and checksummed but are not parsed or executed until
   macro semantics are locked.
+
+Milestone 4.6 should implement local non-contract resource discovery as
+source-file indexing only. It should add file metadata for check packs, sample
+policies, tolerance policies, schema policies, and macros to the shared parsed
+project and manifest `files` map, but it should not create parsed resource
+summaries, validate references, expand custom check packs, load endpoint
+resources, or introduce package loading.
 
 Milestone 5 validation should not validate references to local check packs,
 sampling policies, tolerance policies, schema policies, endpoint resources, or

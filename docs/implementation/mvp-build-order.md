@@ -153,13 +153,29 @@ Build:
 - optional default path behavior and explicit missing-path diagnostics from ADR
   0017,
 - deterministic discovery and checksum metadata,
-- duplicate resource-name validation for implemented resource kinds,
-- manifest or internal parsed-project resource summaries where needed by
-  Milestone 5 validation,
+- manifest `files` entries for local non-contract source files using the
+  existing file-record shape,
 - macro file discovery and checksumming as source files only.
+
+The first implementation should index these local resource kinds:
+
+- `check_pack`,
+- `sample_policy`,
+- `tolerance_policy`,
+- `schema_policy`,
+- `macro_file`.
+
+It should continue to parse only `contract` files. Duplicate resource-name
+validation, local resource reference validation, and parsed resource summaries
+belong to the milestone that implements each resource kind's schema and
+semantics.
 
 Do not build:
 
+- endpoint resource loading,
+- package resource loading,
+- parsed local check-pack or policy resource models,
+- local check-pack or policy reference validation,
 - macro parsing,
 - macro rendering,
 - macro execution,
