@@ -5,6 +5,7 @@ from recon_core.diagnostics import DiagnosticSeverity
 from recon_core.parser import (
     LOCAL_RESOURCE_KIND_DEFINITIONS,
     ResourceFile,
+    ResourceKindDefinition,
     ResourceType,
     discover_contract_files,
     discover_resource_files,
@@ -188,6 +189,35 @@ def test_discover_resource_files_reports_explicit_missing_optional_path(
     assert diagnostic.resource_type == "check_pack_path"
     assert diagnostic.path == str(tmp_path / "custom_packs")
     assert diagnostic.hint == "Create the directory or update `check-pack-paths`."
+
+
+def test_discover_resource_files_honors_catalog_explicit_missing_path_policy(
+    tmp_path: Path,
+) -> None:
+    optional_definition = ResourceKindDefinition(
+        resource_type=ResourceType.CHECK_PACK,
+        path_field="check-pack-paths",
+        suffixes=frozenset({".yaml", ".yml"}),
+        required_by_default=False,
+        explicit_missing_is_error=False,
+        handling="index",
+    )
+
+    result = discover_resource_files(
+        tmp_path,
+        (
+            resolved_path(
+                "check-pack-paths",
+                tmp_path / "optional_packs",
+                PathOrigin.AUTHORED,
+            ),
+        ),
+        definitions=(optional_definition,),
+    )
+
+    assert result.succeeded
+    assert result.files == ()
+    assert result.diagnostics == ()
 
 
 def test_discover_resource_files_reports_explicit_file_configured_as_optional_path(

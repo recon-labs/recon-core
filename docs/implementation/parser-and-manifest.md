@@ -46,6 +46,11 @@ catalog, computes deterministic checksums, and includes those source files in
 the parsed-project file list. It continues to parse only contract resources
 until each non-contract resource schema is implemented.
 
+The resource catalog controls missing path behavior separately for defaulted
+paths and authored paths. `required_by_default` controls missing default paths;
+`explicit_missing_is_error` controls missing authored paths. Existing files that
+are not directories remain invalid resource paths.
+
 Index-only non-contract resources should not be YAML-validated, rendered,
 executed, reference-validated, or summarized as named resources. Duplicate
 resource-name validation applies only after a resource kind has a parsed model

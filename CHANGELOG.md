@@ -59,6 +59,8 @@ This project follows semantic versioning once public package releases begin.
   them when writing `target/manifest.json`.
 - `recon parse` now rejects source files reachable through multiple resource
   kinds instead of silently classifying them as the first matching kind.
+- Resource discovery now honors catalog entries that allow missing authored
+  paths through `explicit_missing_is_error: false`.
 - Typed operation models now reject payload fields that are not valid for the
   selected operation type.
 

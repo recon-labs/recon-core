@@ -266,7 +266,9 @@ def _missing_path_is_allowed(
     resource_path: ResolvedResourcePath,
     definition: ResourceKindDefinition,
 ) -> bool:
-    return resource_path.origin is PathOrigin.DEFAULTED and not definition.required_by_default
+    if resource_path.origin is PathOrigin.DEFAULTED:
+        return not definition.required_by_default
+    return not definition.explicit_missing_is_error
 
 
 def _iter_yaml_files(path: Path) -> tuple[Path, ...]:

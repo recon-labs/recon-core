@@ -39,6 +39,8 @@ Milestone 4.6 resource-indexing tests should cover:
 - missing default optional non-contract paths are skipped,
 - explicitly configured missing optional paths fail with
   `RC_PARSE_RESOURCE_PATH_NOT_FOUND`,
+- catalog entries with `explicit_missing_is_error: false` skip missing authored
+  paths,
 - non-contract source-file discovery is deterministic,
 - overlapping configured paths deduplicate by real path,
 - file checksums are stable,
