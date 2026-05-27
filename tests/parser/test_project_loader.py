@@ -109,6 +109,54 @@ def test_load_parsed_project_returns_context_files_contracts_and_no_diagnostics(
     ]
 
 
+def test_load_parsed_project_discovers_multiple_authored_contract_paths(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, contract_paths=("contracts", "shared/contracts"))
+    write_contract(tmp_path, "contracts/orders.yml", name="orders")
+    write_contract(tmp_path, "shared/contracts/customers.yml", name="customers")
+    context = load_context(tmp_path)
+
+    parsed_project = load_parsed_project(context)
+
+    assert parsed_project.succeeded
+    assert [resource.relative_path for resource in parsed_project.files] == [
+        "contracts/orders.yml",
+        "shared/contracts/customers.yml",
+    ]
+    assert [contract.name for contract in parsed_project.contracts] == [
+        "orders",
+        "customers",
+    ]
+    assert parsed_project.diagnostics == ()
+
+
+def test_load_parsed_project_reports_missing_one_of_multiple_authored_contract_paths(
+    tmp_path: Path,
+) -> None:
+    write_project(
+        tmp_path,
+        contract_paths=("contracts", "shared/contracts"),
+        include_contract_dir=False,
+    )
+    write_contract(tmp_path)
+    context = load_context(tmp_path)
+
+    parsed_project = load_parsed_project(context)
+
+    assert not parsed_project.succeeded
+    assert [resource.relative_path for resource in parsed_project.files] == [
+        "contracts/customer_revenue.yml"
+    ]
+    assert [contract.name for contract in parsed_project.contracts] == ["customer_revenue"]
+    assert len(parsed_project.diagnostics) == 1
+
+    diagnostic = parsed_project.diagnostics[0]
+    assert diagnostic.code == "RC_PARSE_RESOURCE_PATH_NOT_FOUND"
+    assert diagnostic.resource_type == "contract_path"
+    assert diagnostic.path == str(tmp_path / "shared/contracts")
+
+
 def test_load_parsed_project_indexes_non_contract_files_without_parsing_them(
     tmp_path: Path,
 ) -> None:
@@ -182,6 +230,40 @@ def test_load_parsed_project_reports_explicit_missing_non_contract_path(
     assert diagnostic.code == "RC_PARSE_RESOURCE_PATH_NOT_FOUND"
     assert diagnostic.resource_type == "check_pack_path"
     assert diagnostic.path == str(tmp_path / "custom_packs")
+
+
+def test_load_parsed_project_reports_missing_one_of_multiple_authored_optional_paths(
+    tmp_path: Path,
+) -> None:
+    write_project(
+        tmp_path,
+        check_pack_paths=("check_packs", "shared/check_packs"),
+        include_check_pack_paths=False,
+    )
+    write_contract(tmp_path)
+    (tmp_path / "check_packs").mkdir()
+    (tmp_path / "check_packs" / "company.yml").write_text(
+        "this is not valid: [\n",
+        encoding="utf-8",
+    )
+    context = load_context(tmp_path)
+
+    parsed_project = load_parsed_project(context)
+
+    assert not parsed_project.succeeded
+    assert [
+        (resource.relative_path, resource.resource_type.value) for resource in parsed_project.files
+    ] == [
+        ("check_packs/company.yml", "check_pack"),
+        ("contracts/customer_revenue.yml", "contract"),
+    ]
+    assert [contract.name for contract in parsed_project.contracts] == ["customer_revenue"]
+    assert len(parsed_project.diagnostics) == 1
+
+    diagnostic = parsed_project.diagnostics[0]
+    assert diagnostic.code == "RC_PARSE_RESOURCE_PATH_NOT_FOUND"
+    assert diagnostic.resource_type == "check_pack_path"
+    assert diagnostic.path == str(tmp_path / "shared/check_packs")
 
 
 def test_load_parsed_project_skips_missing_default_optional_paths_for_manual_config(

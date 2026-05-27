@@ -84,9 +84,11 @@ def _resolve_resource_path_entries(
     entries: list[ResolvedResourcePath] = []
 
     for field_name, values in _resource_path_values(config):
-        configured_entries = config.path_entries_for(field_name)
-        if not configured_entries:
-            configured_entries = _fallback_configured_entries(field_name, values)
+        configured_entries = _configured_entries_for_values(
+            field_name,
+            values,
+            config.path_entries_for(field_name),
+        )
 
         entries.extend(
             ResolvedResourcePath(
@@ -100,18 +102,46 @@ def _resolve_resource_path_entries(
     return tuple(entries)
 
 
+def _configured_entries_for_values(
+    field_name: str,
+    values: tuple[str, ...],
+    entries: tuple[ConfiguredPath, ...],
+) -> tuple[ConfiguredPath, ...]:
+    if not entries:
+        return _fallback_configured_entries(field_name, values)
+
+    if tuple(entry.value for entry in entries) == values:
+        return entries
+
+    origin_by_value: dict[str, PathOrigin] = {}
+    for entry in entries:
+        origin_by_value.setdefault(entry.value, entry.origin)
+
+    fallback_origin = _fallback_origin(field_name, values)
+    return tuple(
+        ConfiguredPath(
+            value=value,
+            origin=origin_by_value.get(value, fallback_origin),
+            field_name=field_name,
+        )
+        for value in values
+    )
+
+
 def _fallback_configured_entries(
     field_name: str,
     values: tuple[str, ...],
 ) -> tuple[ConfiguredPath, ...]:
-    origin = (
-        PathOrigin.DEFAULTED
-        if values == _DEFAULT_RESOURCE_PATH_VALUES[field_name]
-        else PathOrigin.AUTHORED
-    )
+    origin = _fallback_origin(field_name, values)
     return tuple(
         ConfiguredPath(value=value, origin=origin, field_name=field_name) for value in values
     )
+
+
+def _fallback_origin(field_name: str, values: tuple[str, ...]) -> PathOrigin:
+    if values == _DEFAULT_RESOURCE_PATH_VALUES[field_name]:
+        return PathOrigin.DEFAULTED
+    return PathOrigin.AUTHORED
 
 
 def _resource_path_values(config: ProjectConfig) -> tuple[tuple[str, tuple[str, ...]], ...]:

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from recon_core.config import PathOrigin, ProjectConfig, load_project_config
+from recon_core.config import ConfiguredPath, PathOrigin, ProjectConfig, load_project_config
 from recon_core.project import ProjectPaths, ResolvedResourcePath, resolve_project_paths
 
 
@@ -189,5 +189,35 @@ def test_resolve_project_paths_infers_authored_origin_for_manual_custom_paths(
             path=tmp_path / "sql_helpers",
             origin=PathOrigin.AUTHORED,
             field_name="macro-paths",
+        ),
+    )
+
+
+def test_resolve_project_paths_reconciles_partial_resource_path_metadata(
+    tmp_path: Path,
+) -> None:
+    config = make_project_config(
+        contract_paths=("contracts", "shared/contracts"),
+        resource_path_entries=(
+            ConfiguredPath(
+                value="contracts",
+                origin=PathOrigin.AUTHORED,
+                field_name="contract-paths",
+            ),
+        ),
+    )
+
+    paths = resolve_project_paths(tmp_path, config)
+
+    assert paths.path_entries_for("contract-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "contracts",
+            origin=PathOrigin.AUTHORED,
+            field_name="contract-paths",
+        ),
+        ResolvedResourcePath(
+            path=tmp_path / "shared/contracts",
+            origin=PathOrigin.AUTHORED,
+            field_name="contract-paths",
         ),
     )
