@@ -114,10 +114,9 @@ The loader should be catalog-driven. Each resource kind should define its path
 field, accepted suffixes, parser or indexer, required/default path behavior,
 packageability, manifest inclusion, and reference-resolution behavior.
 
-Before non-contract discovery is implemented, project configuration and path
-resolution should preserve whether each resource path was authored or defaulted.
-The loader needs that origin to skip missing default optional directories while
-failing explicitly configured missing optional paths.
+Project configuration and path resolution preserve whether each resource path
+was authored or defaulted. The loader needs that origin to skip missing default
+optional directories while failing explicitly configured missing optional paths.
 
 The loader should discover resources from configured paths:
 
@@ -136,9 +135,11 @@ paths yet.
 Current implementation status:
 
 - project configuration preserves path fields for these resource categories,
-- parse and compile currently discover and load contract files only,
-- non-contract local resource loading is designed by ADR 0017 but is not
-  implemented yet.
+- parse and compile discover local non-contract source files for file-level
+  indexing,
+- parse and compile currently parse semantic resource models for contracts only,
+- local check-pack, policy, endpoint, package, and macro semantics remain
+  future implementation work under ADR 0017.
 
 Locked design:
 
@@ -155,12 +156,12 @@ Locked design:
 - macros may be discovered and checksummed but are not parsed or executed until
   macro semantics are locked.
 
-Milestone 4.6 should implement local non-contract resource discovery as
-source-file indexing only. It should add file metadata for check packs, sample
-policies, tolerance policies, schema policies, and macros to the shared parsed
-project and manifest `files` map, but it should not create parsed resource
-summaries, validate references, expand custom check packs, load endpoint
-resources, or introduce package loading.
+Milestone 4.6 implements local non-contract resource discovery as source-file
+indexing only. It adds file metadata for check packs, sample policies,
+tolerance policies, schema policies, and macros to the shared parsed project and
+manifest `files` map, but it does not create parsed resource summaries, validate
+references, expand custom check packs, load endpoint resources, or introduce
+package loading.
 
 Milestone 5 validation should not validate references to local check packs,
 sampling policies, tolerance policies, schema policies, endpoint resources, or

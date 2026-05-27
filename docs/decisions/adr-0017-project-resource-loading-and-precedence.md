@@ -6,8 +6,11 @@ Recon project config already exposes path fields for contracts, check packs,
 sampling policies, tolerance policies, schema policies, and macros. Public docs
 also describe endpoint resources and future packages.
 
-Current implementation loads contract files only. Before Milestone 5 validates
-references to non-contract resources, Recon needs a durable rule for:
+When this ADR was written, the current implementation loaded contract files
+only. Milestone 4.6 now implements the first resource-loading step by indexing
+local non-contract source files in the manifest while still parsing semantic
+resource models for contracts only. Before Milestone 5 validates references to
+non-contract resources, Recon needs a durable rule for:
 
 - which resource kinds are loadable,
 - how resource files are discovered,

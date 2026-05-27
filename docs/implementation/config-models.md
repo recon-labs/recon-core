@@ -35,14 +35,16 @@ Default paths may be applied by the config loader.
 Current implementation status:
 
 - `ProjectConfig` stores the configured resource path fields,
-- contract paths are actively used by parse and compile,
-- non-contract resource path fields are preserved configuration surface until
-  non-contract resource loading is implemented through ADR 0017.
+- path-origin metadata records whether resource paths were authored or
+  defaulted,
+- contract paths are parsed by parse and compile,
+- non-contract resource path fields are used for source-file indexing only
+  until their semantic resource loaders are implemented through ADR 0017.
 
-Future non-contract resource loading should preserve whether each configured
-path was authored or defaulted. ADR 0017 requires this so missing default
-optional resource directories can be skipped while explicitly configured missing
-paths can fail clearly.
+Non-contract resource loading should preserve whether each configured path was
+authored or defaulted. ADR 0017 requires this so missing default optional
+resource directories can be skipped while explicitly configured missing paths
+can fail clearly.
 
 Recommended implementation shape:
 
