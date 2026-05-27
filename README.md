@@ -223,12 +223,17 @@ behavior such as authored checks, full sampling policy resolution, tolerance
 precedence, schema policy resolution, CDC validation, adapter checks, and
 row-level key non-null/uniqueness is still future work.
 
-Expected generated artifacts:
+Current generated artifacts:
 
 ```text
 target/manifest.json
 target/compiled_contracts/
 target/compiled_checks/
+```
+
+Planned future run and evidence artifacts:
+
+```text
 target/compiled_sql/       # when adapter SQL rendering is available
 target/run_results.json
 target/failures/

@@ -16,35 +16,44 @@ Evidence should show:
 - pass/fail/warn/error status,
 - failure details where configured.
 
-## Machine-readable evidence
+Current implementation writes manifest and compiled YAML artifacts. Run results,
+failure details, reports, compiled SQL, and stateful evidence outputs are
+planned but not implemented yet.
 
-Expected files:
+## Current Machine-Readable Artifacts
 
 ```text
 target/manifest.json
-target/run_results.json
 ```
 
-These are useful for automation, CI, orchestration, and future integrations.
+The manifest is useful for automation, CI, orchestration, and future
+integrations.
 
-## Human-readable evidence
-
-Expected files:
+## Current Human-Readable Artifacts
 
 ```text
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/
-reports/
 ```
 
 Compiled artifacts explain what Recon will run.
 
-Reports explain what Recon did run.
+## Planned Run Evidence
+
+Future run and evidence generation should write:
+
+```text
+target/compiled_sql/
+target/run_results.json
+target/failures/
+reports/
+```
+
+Reports will explain what Recon did run.
 
 ## Failure details
 
-Failure details may be written under:
+Future failure details may be written under:
 
 ```text
 target/failures/

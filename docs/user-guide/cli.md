@@ -162,7 +162,7 @@ Executes checks. This command is not implemented yet.
 recon run
 ```
 
-Expected output:
+Planned future output:
 
 ```text
 target/run_results.json
