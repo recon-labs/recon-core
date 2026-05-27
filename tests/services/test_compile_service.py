@@ -41,6 +41,75 @@ def test_compile_service_writes_compiled_artifacts_for_valid_project(tmp_path: P
     assert checks_artifact["checks"][-1]["plan"]["operations"][-1] == {"type": "compare_aggregates"}
 
 
+def test_compile_service_ignores_indexed_non_contract_files_for_compiled_output(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    (tmp_path / "check_packs").mkdir()
+    (tmp_path / "sample_policies").mkdir()
+    (tmp_path / "tolerances").mkdir()
+    (tmp_path / "schema_policies").mkdir()
+    (tmp_path / "macros").mkdir()
+    (tmp_path / "check_packs" / "company.yml").write_text(
+        "this is not valid: [\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sample_policies" / "stable.yml").write_text(
+        "name: stable\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "tolerances" / "default.yml").write_text(
+        "name: default\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "schema_policies" / "cdc.yml").write_text(
+        "name: cdc\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "macros" / "normalize.sql").write_text(
+        "lower(trim({{ column }}))\n",
+        encoding="utf-8",
+    )
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.diagnostics == ()
+    assert (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").is_file()
+    assert (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").is_file()
+    assert not (tmp_path / "target" / "compiled_contracts" / "company.yml").exists()
+    assert not (tmp_path / "target" / "compiled_checks" / "company.yml").exists()
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_compile_service_removes_stale_artifacts_for_explicit_missing_resource_path(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+
+    first_result = CompileService(start_path=tmp_path).execute()
+
+    assert first_result.exit_category is ExitCategory.SUCCESS
+    assert (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").is_file()
+    assert (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").is_file()
+
+    write_project(tmp_path, check_pack_paths=("custom_packs",))
+
+    second_result = CompileService(start_path=tmp_path).execute()
+
+    assert second_result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert second_result.message == "Compile failed during project parsing."
+    assert [diagnostic.code for diagnostic in second_result.diagnostics] == [
+        "RC_PARSE_RESOURCE_PATH_NOT_FOUND"
+    ]
+    assert second_result.diagnostics[0].resource_type == "check_pack_path"
+    assert second_result.diagnostics[0].path == str(tmp_path / "custom_packs")
+    assert not (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").exists()
+    assert not (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").exists()
+
+
 def test_compile_service_overwrites_previous_compiled_artifacts(tmp_path: Path) -> None:
     write_project(tmp_path)
     write_contract(tmp_path)
@@ -399,8 +468,14 @@ def test_compile_service_writes_no_artifacts_when_project_root_is_missing(
     assert not (tmp_path / "target" / "compiled_checks").exists()
 
 
-def write_project(project_root: Path, *, project_name: str = "ecommerce_recon") -> None:
-    project_root.joinpath("contracts").mkdir()
+def write_project(
+    project_root: Path,
+    *,
+    project_name: str = "ecommerce_recon",
+    check_pack_paths: tuple[str, ...] | None = None,
+) -> None:
+    check_pack_paths_yaml = _path_list_yaml("check-pack-paths", check_pack_paths)
+    project_root.joinpath("contracts").mkdir(exist_ok=True)
     project_root.joinpath("recon_project.yml").write_text(
         f"""
 name: {project_name}
@@ -408,10 +483,18 @@ version: 0.1.0
 config-version: 1
 contract-paths:
   - contracts
+{check_pack_paths_yaml}
 target-path: target
 """.lstrip(),
         encoding="utf-8",
     )
+
+
+def _path_list_yaml(field_name: str, paths: tuple[str, ...] | None) -> str:
+    if paths is None:
+        return ""
+    path_items = "\n".join(f"  - {path}" for path in paths)
+    return f"{field_name}:\n{path_items}"
 
 
 def write_contract(

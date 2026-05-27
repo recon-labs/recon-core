@@ -13,7 +13,8 @@ docs/decisions/adr-0017-project-resource-loading-and-precedence.md
 
 ## Current Status
 
-Current code discovers and parses contract resources only.
+Current code discovers local resource source files and parses contract resources
+only.
 
 Project config already preserves path fields for:
 
@@ -23,15 +24,12 @@ Project config already preserves path fields for:
 - check packs,
 - macros.
 
-Those non-contract resource paths are not loaded by current parse or compile
-behavior.
-
-The next local implementation step is file-level indexing for non-contract
-resources. That step should discover local check-pack, sampling-policy,
-tolerance-policy, schema-policy, and macro files, add them to the parsed-project
-file list, and expose them in `target/manifest.json.files`. It must not parse
-those files into named resources, validate references to them, render macros,
-execute macros, or add endpoint/package resource behavior.
+Those non-contract resource paths are loaded for file-level indexing only.
+Current parse behavior discovers local check-pack, sampling-policy,
+tolerance-policy, schema-policy, and macro files, adds them to the
+parsed-project file list, and exposes them in `target/manifest.json.files`. It
+does not parse those files into named resources, validate references to them,
+render macros, execute macros, or add endpoint/package resource behavior.
 
 ## Compatibility Rules
 

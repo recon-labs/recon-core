@@ -136,6 +136,12 @@ refactor: share parsed project loading across services
 
 ## Milestone 4.6: non-contract resource discovery and indexing
 
+Status:
+
+- implemented for local source-file indexing,
+- not implemented for parsed local resource schemas, reference validation,
+  endpoint resources, packages, or macro semantics.
+
 Build this only after Milestone 4.5 is complete and only if Milestone 5 needs
 validated references to local non-contract resources.
 
@@ -188,7 +194,6 @@ Tests:
 - explicitly configured optional resource paths fail when missing,
 - resource discovery is deterministic,
 - checksums are stable,
-- duplicate resource names fail within resource kind and namespace,
 - macro files are discovered only as source files and do not create executable
   behavior.
 

@@ -16,7 +16,8 @@ recon run
 Current implementation status:
 
 - `recon init` is implemented.
-- `recon parse` is implemented for structural parsing and manifest generation.
+- `recon parse` is implemented for structural contract parsing, local resource
+  file indexing, and manifest generation.
 - `recon compile` is implemented for the current compiler scope.
 - `recon run` is registered but not implemented yet.
 
@@ -47,8 +48,10 @@ reports/
 state/
 ```
 
-`check_packs/` and `macros/` are scaffolded for future local resource-loading
-work. Current parse/compile behavior still loads contract files only.
+`check_packs/`, `sample_policies/`, `tolerances/`, `schema_policies/`, and
+`macros/` are indexed by `recon parse` as source-file metadata in
+`target/manifest.json`. Recon still parses contract YAML only; local
+check-pack, policy, and macro semantics remain future work.
 
 `recon init` should not overwrite an existing path unless an explicit overwrite option is added later.
 
@@ -74,13 +77,15 @@ target/manifest.json
 Current `parse` behavior:
 
 - loads `recon_project.yml`,
-- discovers configured contract files,
+- discovers configured contract files and indexable local resource files,
 - loads duplicate-key-safe YAML,
 - parses single-contract files and simple `contracts:` multi-contract files,
 - validates required contract fields,
 - validates source and target endpoint shape,
 - rejects unknown top-level contract fields,
 - detects duplicate contract names,
+- records local check-pack, sampling-policy, tolerance-policy, schema-policy,
+  and macro source files in `target/manifest.json.files`,
 - writes parse diagnostics into `target/manifest.json`.
 
 If project config loads but contract parsing fails, `recon parse` still writes
@@ -98,9 +103,10 @@ a runtime diagnostic.
 `recon parse` rejects symlinked manifest output paths instead of following them
 when writing `target/manifest.json`.
 
-`recon parse` does not compile checks, expand check packs, resolve sampling or
-tolerances, validate adapter capabilities, execute queries, or produce
-evidence.
+`recon parse` does not parse local check-pack or policy files into named
+resources, validate references to them, render or execute macros, compile
+checks, expand check packs, resolve sampling or tolerances, validate adapter
+capabilities, execute queries, or produce evidence.
 
 ## `recon compile`
 
@@ -125,7 +131,8 @@ available.
 Current `compile` behavior:
 
 - loads project configuration,
-- discovers and parses contract files through the existing parser,
+- discovers local resource files through the shared parser and parses contract
+  files only,
 - expands `recon_core.basic_equivalence`,
 - compiles explicit `sum` metrics into aggregate comparison checks,
 - removes old top-level compiled contract and compiled checks YAML files once

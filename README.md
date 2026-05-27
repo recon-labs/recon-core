@@ -31,6 +31,7 @@ Implemented today:
 - `recon compile`,
 - duplicate-key-safe YAML loading for authored resources,
 - structural equivalence contract parsing,
+- local non-contract resource source-file indexing in `target/manifest.json`,
 - `target/manifest.json` generation,
 - compiled contract and compiled checks YAML artifacts,
 - built-in `recon_core.basic_equivalence` expansion,
@@ -120,8 +121,10 @@ ecommerce_recon/
   state/
 ```
 
-`check_packs/` and `macros/` are scaffolded for future local resource-loading
-work. Current parse/compile behavior still loads contract files only.
+`check_packs/`, `sample_policies/`, `tolerances/`, `schema_policies/`, and
+`macros/` are indexed by `recon parse` as source-file metadata in
+`target/manifest.json`. Recon still parses contract YAML only; local
+check-pack, policy, and macro semantics remain future work.
 
 `recon parse` performs structural project parsing and writes
 `target/manifest.json`. `recon compile` expands the currently supported check
@@ -208,7 +211,8 @@ authored project files
 
 The intended command responsibilities are:
 
-- `recon parse` validates project files and writes `target/manifest.json`.
+- `recon parse` validates contract files, indexes local resource source files,
+  and writes `target/manifest.json`.
 - `recon compile` expands contracts, defaults, check packs, metrics, sampling,
   tolerances, schema policies, and CDC settings into explicit artifacts.
 - `recon run` executes compiled checks and writes results and evidence.

@@ -20,6 +20,10 @@ This project follows semantic versioning once public package releases begin.
   aggregate comparison typed plans.
 - `recon compile` artifact generation for compiled contract and compiled checks
   YAML under `target/`.
+- `recon parse` now indexes local check-pack, sampling-policy,
+  tolerance-policy, schema-policy, and macro source files in
+  `target/manifest.json.files` without parsing, validating references to,
+  rendering, or executing those resources.
 
 ### Changed
 

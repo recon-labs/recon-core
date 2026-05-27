@@ -25,7 +25,9 @@ The parser should not expand check packs or compile metrics into checks.
 
 Current implementation status:
 
-- the shared parsed-project loader discovers and parses contract resources only,
+- the shared parsed-project loader discovers contract, local check-pack,
+  sampling-policy, tolerance-policy, schema-policy, and macro source files,
+- the shared parsed-project loader parses contract resources only,
 - parse and compile use authored files as the source of truth rather than
   requiring `recon compile` to read `target/manifest.json`,
 - source locations are currently path-level; best-effort line and column
@@ -37,11 +39,11 @@ Resource discovery should be catalog-driven rather than a set of ad hoc loops.
 The shared loader should remain the single source of truth for parse and
 compile.
 
-Milestone 4.6 should introduce non-contract resource indexing as file metadata,
-not resource semantics. The shared loader should discover local check-pack,
+Milestone 4.6 introduces non-contract resource indexing as file metadata, not
+resource semantics. The shared loader discovers local check-pack,
 sample-policy, tolerance-policy, schema-policy, and macro files through a
-catalog, compute deterministic checksums, and include those source files in the
-parsed-project file list. It should continue to parse only contract resources
+catalog, computes deterministic checksums, and includes those source files in
+the parsed-project file list. It continues to parse only contract resources
 until each non-contract resource schema is implemented.
 
 Index-only non-contract resources should not be YAML-validated, rendered,
@@ -64,8 +66,8 @@ The manifest should contain:
 Future parser milestones may add policy summaries, check pack summaries,
 endpoint summaries, selectors, and richer resource graph metadata.
 
-For Milestone 4.6, non-contract local files should appear only in the existing
-`files` map with the current file-record shape:
+For Milestone 4.6, non-contract local files appear only in the existing `files`
+map with the current file-record shape:
 
 ```json
 {
