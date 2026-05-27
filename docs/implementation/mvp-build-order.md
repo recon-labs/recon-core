@@ -134,6 +134,60 @@ Recommended commit message:
 refactor: share parsed project loading across services
 ```
 
+## Milestone 4.6: non-contract resource discovery and indexing
+
+Build this only after Milestone 4.5 is complete and only if Milestone 5 needs
+validated references to local non-contract resources.
+
+Goal:
+
+- discover non-contract project resources through the shared parsed-project
+  loading pipeline,
+- keep one source of truth for parse and compile resource visibility,
+- record resource files, paths, namespaces, source locations, and checksums,
+- avoid parsing or executing resources whose semantics are not implemented yet.
+
+Build:
+
+- catalog entries for supported non-contract resource kinds,
+- optional default path behavior and explicit missing-path diagnostics from ADR
+  0017,
+- deterministic discovery and checksum metadata,
+- duplicate resource-name validation for implemented resource kinds,
+- manifest or internal parsed-project resource summaries where needed by
+  Milestone 5 validation,
+- macro file discovery and checksumming as source files only.
+
+Do not build:
+
+- macro parsing,
+- macro rendering,
+- macro execution,
+- macro reference validation,
+- package macro loading.
+
+Tests:
+
+- default optional resource paths may be absent,
+- explicitly configured optional resource paths fail when missing,
+- resource discovery is deterministic,
+- checksums are stable,
+- duplicate resource names fail within resource kind and namespace,
+- macro files are discovered only as source files and do not create executable
+  behavior.
+
+Required gates:
+
+- resolve the local resource loading and precedence gate,
+- resolve the macro discovery and indexing gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: index non-contract project resources
+```
+
 ## Milestone 5: validation rulebook
 
 Build:
@@ -148,17 +202,39 @@ Build:
 
 Required gates:
 
-- resolve the validation timing and diagnostic code catalog gate,
-- resolve the check-pack invocation config and overrides gate before supporting
-  check-pack config or non-error empty expansion behavior,
-- resolve the column model and value-comparison surface gate before validating
-  column eligibility or all-column selection,
-- resolve the tolerance, null, and normalization resolution gate before
-  applying comparison policy precedence.
+- validation timing and diagnostic code catalog gate is satisfied by
+  `docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`,
+- local resource loading and precedence design gate is satisfied by
+  `docs/decisions/adr-0017-project-resource-loading-and-precedence.md`, but
+  actual reference validation still requires the relevant resource loader to be
+  implemented,
+- macro discovery/indexing, if included before Milestone 5, is source-file
+  metadata only; Milestone 5 must not validate, parse, render, or execute macro
+  references,
+- check-pack invocation config and override design is satisfied by
+  `docs/decisions/adr-0018-check-pack-invocation-config.md`; supporting
+  `config`, `on_empty: warn`, or `on_empty: skip` still requires implementation
+  of typed invocation models, schema validation, and artifact visibility,
+- column model and value-comparison surface design is satisfied by
+  `docs/decisions/adr-0019-column-and-value-comparison-surface.md`; supporting
+  typed column declarations, all-column expansion, or row-level value checks
+  still requires implementation of typed models, metadata validation, and
+  artifact visibility,
+- tolerance, null, and normalization resolution design is satisfied by
+  `docs/decisions/adr-0009-tolerance-normalization-and-null-equivalence.md`;
+  Milestone 5 should validate only the MVP policy surface and must not treat
+  future timestamp, relative tolerance, reusable policy files, unrestricted
+  regex features, custom SQL, or macros as executable behavior,
+- do not validate references to local check packs, sampling policies, tolerance
+  policies, schema policies, endpoint resources, or macros until those resource
+  kinds are loaded through the shared ADR 0017 resource model.
 
 Tests:
 
 - each locked validation rule has passing and failing tests.
+- future sampling, tolerance, column, check-pack config, and resource-reference
+  validation expansions must reuse ADR 0016 phase ownership/code-family rules
+  and lock their rule-specific diagnostics before implementation.
 
 ## Milestone 6: local/dev adapter
 
@@ -277,6 +353,43 @@ checklist before any 0.1 version bump, tag, or publish step.
 Do not start treating roadmap work as 0.2 scope until the 0.1 release decision
 has been made.
 
+The post-MVP milestones below are concrete capability homes and gate anchors.
+Before starting a post-MVP milestone, reconcile the requested capability with
+`docs/planning/roadmap.md` and update this build-order document if a capability
+must be pulled earlier, delayed, or split.
+
+## Post-MVP Milestone 10.5: artifact freshness and cache optimization
+
+Build this only after Milestones 1-10 are complete and after the 0.1
+release-readiness decision.
+
+Goal:
+
+- avoid stale generated artifacts without making hidden cache behavior a source
+  of misleading evidence.
+
+Build:
+
+- artifact freshness model for manifest, compiled artifacts, compiled SQL, run
+  results, and evidence,
+- cache/invalidation keys based on authored files, project config, relevant
+  resource checksums, command options, and adapter-capability inputs,
+- stale-artifact diagnostics and safe fallback behavior,
+- optional skip-unchanged behavior that is visible in terminal output and
+  machine-readable artifacts,
+- compatibility rules for any freshness metadata added to generated artifacts.
+
+Required gate:
+
+- resolve the artifact freshness and cache optimization gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add artifact freshness checks
+```
+
 ## Post-MVP Milestone 11: aggregate metrics expansion
 
 Build this after Milestones 1-10 are complete and after the 0.1
@@ -359,6 +472,1046 @@ Recommended commit message:
 feat: add schema policy checks
 ```
 
+## Post-MVP Milestone 13: explicit source-target column mapping
+
+Build this after the adapter metadata model, resolved column artifacts, schema
+policy behavior, run results, and evidence model are stable enough to show
+exactly which source and target columns were compared.
+
+Goal:
+
+- support real projects where comparable source and target fields have
+  different names,
+- keep every mapping explicit in authored config and generated artifacts,
+- avoid inferred, fuzzy, or silent source-target mapping.
+
+Build:
+
+- authored YAML shape for explicit source-target column mappings,
+- resolved column model fields for canonical, source, and target column names,
+- validation for mapped value-check columns and mapped key columns when the
+  mapping design includes keys,
+- interaction with check-level column selection, `columns.include: "*"`, schema
+  policies, ignored columns, adapter metadata, and type compatibility,
+- typed check-plan, result, failure-detail, and evidence visibility for mapped
+  column names.
+
+Tests:
+
+- same-name MVP behavior remains unchanged,
+- missing, duplicate, ambiguous, or undeclared mappings produce diagnostics,
+- mapped columns resolve consistently across compiler, typed plans, adapter
+  calls, results, and evidence,
+- all-column expansion never guesses renamed columns,
+- schema/type validation uses the explicit mapping and reports both sides.
+
+Required gate:
+
+- resolve the source-target column mapping gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  implementation.
+
+Recommended commit message:
+
+```text
+feat: add explicit source-target column mapping
+```
+
+## Post-MVP Milestone 14: macro reference semantics and validation
+
+Build this only after the MVP release-readiness decision and after the resource
+loader can index macro files without executing them.
+
+Goal:
+
+- decide whether Recon contracts may reference macros at all,
+- define the public YAML surfaces where macro references are allowed,
+- validate macro references without making macros the comparison engine.
+
+Build:
+
+- a macro-semantics ADR before implementation,
+- authored reference syntax and namespace rules,
+- argument and type rules for allowed macro references,
+- diagnostics for unknown, ambiguous, unsupported, or invalid macro references,
+- compiled artifact visibility for any accepted macro reference,
+- tests that prove unsupported macro references fail clearly.
+
+Do not build:
+
+- macro rendering,
+- macro execution,
+- dbt-style macro dispatch as the primary comparison engine,
+- arbitrary custom SQL behavior hidden behind macro names.
+
+Required gate:
+
+- resolve the macro reference semantics gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: validate macro references
+```
+
+## Post-MVP Milestone 15: macro-assisted rendering helpers
+
+Build this only after adapter APIs, typed plans, compiled SQL artifacts, run
+results, and evidence semantics are stable enough to show exactly what will
+run.
+
+Goal:
+
+- allow limited macro or template helpers only as implementation details for
+  rendering typed plans,
+- keep reconciliation semantics in core-owned typed check plans and validation,
+- keep rendered SQL and evidence inspectable.
+
+Build:
+
+- a macro execution/rendering ADR or ADR 0013 update,
+- execution/rendering boundary rules,
+- deterministic rendering and sandbox/security restrictions,
+- adapter capability and adapter test-kit expectations,
+- compiled SQL, result, and evidence visibility for rendered behavior,
+- diagnostics for rendering failures and unsupported macro helper features.
+
+Do not build:
+
+- macros that define checks or reconciliation semantics,
+- side-effectful macro execution,
+- hidden adapter behavior that bypasses typed check plans.
+
+Required gate:
+
+- resolve the macro execution and rendering boundary gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add macro-assisted SQL rendering
+```
+
+## Post-MVP Milestone 16: local and package resource loading
+
+Build this only after local resource schemas and package/dependency behavior
+are designed and after ADR 0017 resource indexing is stable.
+
+Goal:
+
+- implement local custom check-pack and reusable policy resources through the
+  shared resource catalog,
+- load package-provided resources through the same resource catalog as local
+  resources,
+- keep package namespaces explicit and compatibility ranges documented,
+- allow package macro files only under the macro semantics already locked by
+  Milestones 14 and 15.
+
+Build:
+
+- local custom check-pack file schema, validation, expansion behavior, and
+  compiled artifact visibility,
+- local sampling, tolerance, and schema policy file schemas plus reference
+  resolution when the relevant execution engine exists,
+- package/dependency model and lock-file behavior,
+- package resource schema and compatibility range validation,
+- package namespace validation,
+- package resource discovery for check packs, policies, and macro files,
+- compatibility documentation for package resource schemas and macro behavior.
+
+Do not build:
+
+- package macros that override local or `recon_core` behavior by search
+  precedence,
+- package macro execution before macro execution semantics are locked.
+
+Required gate:
+
+- resolve the local custom check-pack resource semantics gate,
+- resolve the reusable local policy file resources gate,
+- resolve the packages, deps, and package macro resources gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: load reusable project resources
+```
+
+## Post-MVP Milestone 16.5: package dependency installer and lock workflow
+
+Build this only after local/package resource loading semantics are stable
+enough that installed packages have a meaningful resource model.
+
+Goal:
+
+- implement `recon deps` without making package installation, updates, or lock
+  files a hidden source of resource behavior.
+
+Build:
+
+- `packages.yml` schema,
+- dependency resolution and install/update behavior,
+- package lock file shape and compatibility expectations,
+- supported package sources such as registry, git, or local path,
+- install path rules for `recon_packages/`,
+- checksum, version, and namespace validation,
+- diagnostics for unsupported sources, conflicting packages, invalid locks, and
+  unsafe updates.
+
+Required gate:
+
+- resolve the package dependency installer and lock workflow gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add package dependency installer
+```
+
+## Post-MVP Milestone 17: endpoint resources and endpoint references
+
+Build this after relation-based contracts and the shared resource loader are
+stable.
+
+Goal:
+
+- let contracts reuse named local endpoints without hiding source or target
+  assumptions,
+- keep endpoint references explicit in authored YAML and compiled artifacts,
+- keep endpoint resources local-only until package endpoint semantics are
+  separately designed.
+
+Build:
+
+- `endpoint-paths` project config if still needed,
+- endpoint resource schema,
+- endpoint reference syntax and resolution,
+- validation for missing, duplicate, or ambiguous endpoint references,
+- compiled artifact visibility for resolved relation/query endpoint fields.
+
+Required gate:
+
+- resolve the endpoint resources and references gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add endpoint resource references
+```
+
+## Post-MVP Milestone 18: executable query endpoints
+
+Build this after adapter query execution boundaries and compiled SQL visibility
+are locked.
+
+Goal:
+
+- run contracts whose source or target is an authored SQL query,
+- keep query wrapping, safety, capabilities, artifacts, results, and evidence
+  explicit.
+
+Build:
+
+- query endpoint execution through adapters,
+- query safety validation,
+- query wrapping rules for comparison subqueries,
+- adapter capabilities for query metadata and execution,
+- compiled SQL and evidence visibility for query-based checks.
+
+Required gate:
+
+- resolve the query endpoint support boundary gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: execute query endpoints
+```
+
+## Post-MVP Milestone 19: selectors and subset execution
+
+Build this after manifest metadata and run result scope fields can accurately
+describe partial work.
+
+Goal:
+
+- support `--select`, `--exclude`, and `selectors.yml` without producing
+  misleading partial artifacts or evidence.
+
+Build:
+
+- selector syntax and named selector schema,
+- contract and optional check selection semantics,
+- partial compile/run behavior,
+- selected-scope metadata in artifacts and run results,
+- diagnostics for empty or invalid selections.
+
+Required gate:
+
+- resolve the selectors and contract selection semantics gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add contract selectors
+```
+
+## Post-MVP Milestone 20: defaults and inheritance boundaries
+
+Build this after project loading, compiled artifact provenance, and validation
+timing can show where inherited behavior came from.
+
+Goal:
+
+- support project/file defaults safely,
+- keep deep inheritance and template behavior out until explicitly designed.
+
+Build:
+
+- resolved default precedence for supported contract fields,
+- artifact provenance for inherited defaults,
+- validation for unsupported deep inheritance or template syntax,
+- tests proving authored behavior is not silently changed by hidden defaults.
+
+Required gate:
+
+- resolve the defaults, inheritance, and template boundary gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: resolve authored defaults
+```
+
+## Post-MVP Milestone 21: row-level value check execution
+
+Build this after column resolution, tolerance/null/normalization resolution,
+adapter metadata, and key safety checks are executable.
+
+Goal:
+
+- execute exact and numeric row-level comparisons without guessing keys,
+  columns, types, or normalization behavior.
+
+Build:
+
+- `exact_value_match`,
+- `numeric_tolerance_match`,
+- prerequisite blocking for null/duplicate keys,
+- resolved column and policy payloads in typed plans,
+- result, failure-detail, and evidence output for value mismatches.
+
+Required gate:
+
+- resolve the row-level value check execution gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: execute row-level value checks
+```
+
+## Post-MVP Milestone 22: timestamp tolerance and timezone execution
+
+Build this after adapters can expose timestamp metadata and render timestamp
+operations safely.
+
+Goal:
+
+- compare timestamp/date/time values only when units, timezone behavior,
+  metadata, adapter capabilities, results, and evidence are explicit.
+
+Build:
+
+- timestamp tolerance policy execution,
+- timezone policy validation,
+- typed timestamp-diff payloads,
+- adapter capability and test expectations,
+- result and evidence fields for timestamp comparisons.
+
+Required gate:
+
+- resolve the timestamp tolerance and timezone execution gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: execute timestamp tolerance checks
+```
+
+## Post-MVP Milestone 23: row hash and canonical hash comparison
+
+Build this only after hash canonicalization and adapter compatibility are
+designed.
+
+Goal:
+
+- support row hash comparison without assuming cross-database hash equality.
+
+Build:
+
+- canonical row-hash payload design,
+- adapter capability and compatibility rules,
+- typed hash operations,
+- diagnostics for unsafe cross-system hash comparisons,
+- result and evidence visibility for hash inputs and assumptions.
+
+Required gate:
+
+- resolve the row hash and canonical hash comparison gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add safe row hash checks
+```
+
+## Post-MVP Milestone 24: sampling execution modes
+
+Build this after sampling policy resolution, adapter capability requirements,
+and evidence fields are locked for each mode.
+
+Goal:
+
+- execute sampled checks without allowing independent source and target samples
+  to look comparable.
+
+Build:
+
+- deterministic numeric modulo sampling where valid,
+- deterministic hash sampling only when portable behavior is proven,
+- explicit anchor-side semantics,
+- sampled check artifact and evidence visibility,
+- future mode diagnostics for random, previous-failure, stratified, and
+  high-value samples until their state requirements are implemented.
+
+Required gate:
+
+- resolve the sampling execution modes gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: execute deterministic sampling policies
+```
+
+## Post-MVP Milestone 24.5: multi-policy sampling composition
+
+Build this after individual sampling modes, sample-key references, state
+behavior, and evidence fields are stable enough to show exactly which records
+were checked.
+
+Goal:
+
+- allow a contract or check to combine multiple explicit sampling policies
+  without losing reproducibility or overstating coverage.
+
+Build:
+
+- authored YAML shape for multiple sampling policies,
+- composition semantics such as union, intersection, ordering, deduplication,
+  and per-check narrowing,
+- validation for incompatible sampling modes and unsafe independent source/target
+  samples,
+- compiled artifact, run result, state, and evidence visibility for each policy
+  and the combined selected scope.
+
+Required gate:
+
+- resolve the multi-policy sampling composition gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: compose sampling policies
+```
+
+## Post-MVP Milestone 25: state, watermarks, and persisted samples
+
+Build this after run lifecycle, result semantics, and local artifact storage
+rules are stable.
+
+Goal:
+
+- make recurring validation reproducible through explicit state and safe
+  watermark advancement.
+
+Build:
+
+- local state backend shape,
+- local state artifact format,
+- watermark bootstrap and advancement rules,
+- persisted sample-key records,
+- previous-failure key records,
+- compatibility/versioning rules for state formats.
+
+Do not build:
+
+- remote or database-backed state before Post-MVP Milestone 37 locks storage,
+  locking, migration, and credential behavior.
+
+Required gate:
+
+- resolve the state, watermarks, and persisted samples gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add local reconciliation state
+```
+
+## Post-MVP Milestone 25.5: production result tables
+
+Build this after run result semantics, basic evidence, local state shape, and
+profile/adapter execution boundaries are stable.
+
+Goal:
+
+- make recurring runs queryable by production workflows without mixing result,
+  evidence, and state semantics.
+
+Build:
+
+- result table writer design and implementation,
+- table schema/versioning and migration rules,
+- write modes, retention, idempotency, and retry behavior,
+- adapter/profile requirements and credential-safe diagnostics,
+- links between result tables, `run_results.json`, evidence artifacts, failure
+  details, and state records,
+- privacy rules for sensitive values written to tables.
+
+Required gate:
+
+- resolve the result table writer gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add production result tables
+```
+
+## Post-MVP Milestone 26: first CDC implementation
+
+Build this after state/window behavior, CDC key semantics, adapter execution,
+run results, and evidence can explain CDC scope.
+
+Goal:
+
+- implement the first narrow CDC path without assuming all CDC tools behave the
+  same way.
+
+Build:
+
+- first supported CDC mode and window model,
+- freshness lag,
+- latest window count,
+- incremental key coverage,
+- explicit `cdc.keys` validation,
+- CDC result and evidence fields.
+
+Required gate:
+
+- resolve the CDC first implementation scope gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add first CDC checks
+```
+
+## Post-MVP Milestone 27: asymmetric CDC delete representation
+
+Build this only after the first CDC implementation exists and delete behavior
+needs to support different source and target representations.
+
+Goal:
+
+- model source hard delete, source soft delete, target soft delete, and
+  operation-column delete behavior without one-size-fits-all assumptions.
+
+Build:
+
+- side-specific delete representation syntax,
+- validation for supported and unsupported combinations,
+- compiled artifact fields for both sides,
+- delete propagation result and evidence fields.
+
+Required gate:
+
+- resolve the asymmetric CDC delete representation gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add asymmetric CDC delete checks
+```
+
+## Post-MVP Milestone 27.5: advanced CDC modes and propagation checks
+
+Build this after the first CDC implementation and delete representation rules
+are stable enough that advanced CDC checks can report exactly which movement
+patterns they validate.
+
+Goal:
+
+- expand CDC beyond the first narrow path without turning all CDC systems into
+  one implicit model.
+
+Build:
+
+- operation-column CDC mode and operation mapping,
+- `operation_count_diff`,
+- update propagation checks,
+- tombstone delete/event handling,
+- SCD2 current/history model checks when explicitly designed,
+- ordering/window requirements for each advanced CDC mode,
+- compiled artifact, state, result, and evidence visibility for supported and
+  intentionally unsupported CDC behavior.
+
+Required gate:
+
+- resolve the advanced CDC modes and propagation checks gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: expand CDC propagation checks
+```
+
+## Post-MVP Milestone 28: future CLI commands and options
+
+Build each command or option only after its underlying service semantics are
+stable.
+
+Goal:
+
+- add CLI ergonomics without making command behavior a hidden product decision.
+
+Build:
+
+- `recon list`,
+- `recon clean`,
+- `recon debug`,
+- `recon build`,
+- documentation generation command,
+- retry/resume commands,
+- explicit `recon init` overwrite/force behavior,
+- documented behavior for `--vars`, `--quiet`, and richer `--debug` output.
+
+Required gate:
+
+- resolve the future CLI commands and options gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` for the
+  specific command or option being implemented,
+- resolve the documentation generation command gate before adding docs
+  generation behavior,
+- resolve the `recon init` overwrite/force safety gate before adding any
+  overwrite option.
+
+Recommended commit message:
+
+```text
+feat: add recon list command
+```
+
+## Post-MVP Milestone 29: adapter test kit and adapter package split
+
+Build this after the adapter API, typed check-plan payloads, capability
+catalog, and local/dev adapter behavior are stable enough to externalize.
+
+Goal:
+
+- let adapter repositories evolve independently without drifting from core
+  semantics.
+
+Build:
+
+- adapter compliance test kit,
+- adapter compatibility matrix entries,
+- adapter distribution strategy for separate adapter packages versus optional
+  `recon-core[...]` extras,
+- package split criteria,
+- adapter migration/version guidance,
+- first official adapter package preparation.
+
+Required gate:
+
+- resolve the adapter test kit and adapter package split gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+- resolve the adapter install extras and packaging strategy gate before
+  publishing adapter packages or documenting adapter extras.
+
+Recommended commit message:
+
+```text
+feat: add adapter compliance tests
+```
+
+## Post-MVP Milestone 30: semi-structured and JSON comparison
+
+Build this after adapter metadata and typed operation payloads can represent
+semi-structured projections safely.
+
+Goal:
+
+- compare JSON or semi-structured fields without hiding path semantics,
+  type coercion, or adapter differences.
+
+Build:
+
+- JSON path syntax and validation,
+- semi-structured projection typed operations,
+- adapter capability and test-kit expectations,
+- result and evidence visibility for projected values.
+
+Required gate:
+
+- resolve the semi-structured and JSON comparison gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add semi-structured comparisons
+```
+
+## Post-MVP Milestone 31: advanced evidence and reports
+
+Build this after basic evidence, run results, failure details, and sensitive
+data defaults are stable.
+
+Goal:
+
+- expand evidence without leaking data or overstating sampled/partial results.
+
+Build:
+
+- failure detail JSONL or streaming format for large mismatch sets,
+- large-result pagination, row limits, and truncation semantics,
+- masking and redaction policies,
+- evidence templates,
+- approval/sign-off artifacts,
+- richer report levels,
+- optional evidence vault integration boundaries.
+
+Required gate:
+
+- resolve the advanced evidence, redaction, templates, and sign-off gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+- resolve the failure detail JSONL and large result handling gate before adding
+  non-CSV or streaming failure-detail formats.
+
+Recommended commit message:
+
+```text
+feat: add advanced evidence outputs
+```
+
+## Post-MVP Milestone 32: Hub and external integrations
+
+Build this only after package, adapter, artifact, and compatibility contracts
+are stable enough for external automation.
+
+Goal:
+
+- connect Recon to ecosystem workflows without making integrations define core
+  semantics.
+
+Build:
+
+- Recon Hub index metadata,
+- GitHub Action,
+- Airflow provider/operator,
+- Dagster integration,
+- dbt integration patterns,
+- data catalog and issue/ticket integration boundaries.
+
+Required gate:
+
+- resolve the Hub and external integrations gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define hub index metadata
+```
+
+## Post-MVP Milestone 33: source-location diagnostics
+
+Build this after parser diagnostics and artifact diagnostic shapes can preserve
+more precise source ranges.
+
+Goal:
+
+- report line, column, and range information without changing diagnostic
+  artifacts casually.
+
+Build:
+
+- parser source range model,
+- diagnostic line/column/range fields where supported,
+- artifact compatibility review for diagnostic shape changes,
+- tests for YAML, contract, and resource diagnostics.
+
+Required gate:
+
+- resolve the source-location diagnostics gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add source-location diagnostics
+```
+
+## Post-MVP Milestone 34: named identities and multi-grain contracts
+
+Build this only after simple contract-level `grain.keys` and `cdc.keys`
+behavior is stable and after a concrete advanced check-pack or CDC need exists.
+
+Goal:
+
+- support contracts that need multiple comparison or CDC identities without
+  repeating raw key lists or guessing identity roles.
+
+Build:
+
+- authored `identities` YAML shape,
+- identity role binding for checks and check packs,
+- validation for unknown, wrong-kind, missing, or unsupported identity roles,
+- compiled artifact, result, and evidence visibility for authored identity
+  names and resolved keys.
+
+Required gate:
+
+- resolve the named identities and multi-grain contracts gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add named contract identities
+```
+
+## Post-MVP Milestone 35: public contract schema stabilization
+
+Build this before any 1.0 release decision, even if it is scheduled before
+some other post-MVP capability work.
+
+Goal:
+
+- stabilize the authored contract YAML schema as Recon Core's primary public
+  API.
+
+Build:
+
+- contract schema versioning rules,
+- machine-readable schema or equivalent validation reference,
+- public compatibility promises for accepted contract syntax,
+- migration policy for schema changes,
+- compatibility docs and tests for schema-version behavior.
+
+Required gate:
+
+- resolve the public contract schema stabilization gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: stabilize public contract schema
+```
+
+## Post-MVP Milestone 36: deprecation and migration policy
+
+Build this before 1.0 stabilization or before introducing any breaking public
+contract change that needs migration guidance.
+
+Goal:
+
+- make public behavior changes predictable for users and automation.
+
+Build:
+
+- deprecation lifecycle policy,
+- warning and diagnostic conventions for deprecated behavior,
+- migration guide location and required content,
+- changelog and compatibility-doc expectations,
+- tests for deprecation warnings where behavior is implemented.
+
+Required gate:
+
+- resolve the deprecation and migration policy gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define deprecation policy
+```
+
+## Post-MVP Milestone 37: remote and database state backend
+
+Build this after local state, run lifecycle, connection/profile handling, and
+adapter execution are stable.
+
+Goal:
+
+- support production recurring runs with shared state without hiding storage,
+  locking, migration, or credential assumptions.
+
+Build:
+
+- remote or database-backed state backend interface,
+- state table/schema versioning and migrations,
+- locking and concurrency behavior,
+- credential and profile handling,
+- compatibility, result, and evidence references for remote state.
+
+Required gate:
+
+- resolve the remote and database state backend gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+feat: add database state backend
+```
+
+## Post-MVP Milestone 38: official package content releases
+
+Build this only after package loading, compatibility ranges, and Hub metadata
+are stable enough for supported packages.
+
+Goal:
+
+- publish official reusable check, policy, and evidence-template packages
+  without making package contents hidden core behavior.
+
+Build:
+
+- first official package content scope,
+- package resource schemas and compatibility ranges,
+- package docs, examples, tests, and release process,
+- support policy for official package versions.
+
+Required gate:
+
+- resolve the official package content release gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define official package release scope
+```
+
+## Post-MVP Milestone 39: documentation site and examples repo split
+
+Build this only when in-repo docs or examples become heavy enough that a repo
+split improves maintenance.
+
+Goal:
+
+- split docs or large examples without breaking contributor workflow,
+  compatibility examples, or release coordination.
+
+Build:
+
+- docs-site ownership and publish workflow,
+- examples repo scope and CI expectations,
+- cross-repo versioning and release coordination,
+- contribution guidance for docs and examples.
+
+Required gate:
+
+- resolve the documentation site and examples repo split gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: plan docs and examples split
+```
+
+## Post-MVP Milestone 40: hosted service, UI, and enterprise controls
+
+Build this only if product direction explicitly expands beyond the open-source
+core framework.
+
+Goal:
+
+- keep cloud, UI, and enterprise policy work from redefining Recon Core's
+  local-first framework contracts by accident.
+
+Build:
+
+- explicit product boundary for hosted or UI behavior,
+- policy-control model and compatibility impact,
+- security, privacy, tenancy, and evidence-storage boundaries,
+- integration points that depend only on public CLI, artifact, adapter, package,
+  or evidence contracts.
+
+Required gate:
+
+- resolve the hosted service, UI, and enterprise policy controls gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define hosted product boundaries
+```
+
+## Post-MVP Milestone 41: domain-specific package boundaries
+
+Build this only after generic package loading and official package release
+rules are stable.
+
+Goal:
+
+- allow domain packages such as finance checks without turning core into a
+  domain workflow, statistical matching, or MDM platform.
+
+Build:
+
+- domain-package acceptance criteria,
+- package-owned versus core-owned semantics,
+- compatibility, testing, and support expectations,
+- explicit non-goal boundaries for fuzzy matching, automated repair,
+  statistical reconciliation, and MDM-style behavior.
+
+Required gate:
+
+- resolve the domain-specific package boundaries gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+
+Recommended commit message:
+
+```text
+docs: define domain package boundaries
+```
+
 ## Deferral list
 
 Do not block MVP on:
@@ -370,14 +1523,49 @@ Do not block MVP on:
 - `recon list`,
 - `recon clean`,
 - documentation generation command,
+- `recon init` overwrite or force behavior,
 - many adapters,
 - hosted UI,
 - persisted random sample,
 - aggregate metric expansion beyond explicit `sum`,
 - `recon_core.aggregate_equivalence`,
 - schema policy checks,
-- SCD2 CDC,
-- advanced evidence redaction,
+- local custom check-pack resource execution beyond built-in packs,
+- reusable local sampling, tolerance, and schema policy file resolution,
+- macro reference validation,
+- macro rendering or execution,
+- package macro loading,
+- endpoint resources and endpoint refs,
+- executable query endpoints,
+- selectors and partial execution,
+- deep inheritance or templates,
+- row-level value check execution beyond locked MVP scope,
+- timestamp tolerance execution,
+- row hash comparison,
+- sampling modes beyond explicitly locked MVP behavior,
+- multi-policy sampling composition,
+- state, watermarks, persisted samples, and previous-failure state,
+- artifact freshness and cache optimization,
+- CDC execution and asymmetric delete representation,
+- advanced CDC modes such as operation-column CDC, update propagation, operation
+  count diff, tombstone CDC, and SCD2 CDC,
+- future CLI commands and options beyond the MVP command set,
+- package dependency installer and lock workflow,
+- adapter package split and external adapter test kit,
+- semi-structured and JSON comparison,
+- advanced evidence workflows,
+- result table writers,
+- failure detail JSONL or streaming large-result handling,
+- remote or database-backed state,
+- named identities and multi-grain contracts,
+- public contract schema freeze or 1.0 stabilization,
+- deprecation and migration policy enforcement,
+- official package content releases,
+- adapter install extras and final adapter packaging strategy,
+- documentation-site or examples-repo split,
+- hosted service, UI, or enterprise policy controls,
+- domain-specific package families,
+- source-location diagnostic ranges,
 - orchestration integrations.
 
 ## Design principle

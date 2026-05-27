@@ -32,11 +32,27 @@ class ProjectConfig:
 
 Default paths may be applied by the config loader.
 
+Current implementation status:
+
+- `ProjectConfig` stores the configured resource path fields,
+- contract paths are actively used by parse and compile,
+- non-contract resource path fields are preserved configuration surface until
+  non-contract resource loading is implemented through ADR 0017.
+
+Future non-contract resource loading should preserve whether each configured
+path was authored or defaulted. ADR 0017 requires this so missing default
+optional resource directories can be skipped while explicitly configured missing
+paths can fail clearly.
+
 ## Profiles config
 
 Profiles should describe connection definitions.
 
 Real profiles should not be committed.
+
+Profile loading, environment-variable resolution, connection validation, and
+secret-safe adapter configuration are future work. They should be implemented
+before adapter execution, not folded into project config loading implicitly.
 
 Suggested model:
 
@@ -70,6 +86,18 @@ Resources include:
 - macros.
 
 Each resource should include a stable name and source location.
+
+Resource loading and reference resolution should follow
+`docs/decisions/adr-0017-project-resource-loading-and-precedence.md`.
+Resource identity is:
+
+```text
+resource_kind + namespace + resource_name
+```
+
+Unqualified references resolve only in the root project namespace. Package and
+framework references use `<namespace>.<resource_name>`. The `recon_core`
+namespace is reserved for framework built-ins.
 
 ```python
 @dataclass(frozen=True)
@@ -108,6 +136,9 @@ class AuthoredContract:
     source_location: SourceLocation
 ```
 
+`AuthoredColumns` should follow ADR 0019 when typed column parsing is
+implemented. Current code preserves authored `columns` as raw contract data.
+
 `AuthoredCdcPolicy` should preserve CDC identity separately from `grain`.
 `cdc.keys` may declare explicit keys or `same_as: grain`; it should not be
 resolved by the parser.
@@ -133,7 +164,9 @@ Policy names should be unique per policy type.
 
 ## Source locations
 
-All parsed resources should preserve file path and best-effort line/column information.
+All parsed resources should preserve file path. The current implementation
+preserves path-level locations. Best-effort line and column information is a
+future diagnostic improvement.
 
 This enables actionable diagnostics.
 

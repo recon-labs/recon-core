@@ -23,6 +23,20 @@ The parser should:
 
 The parser should not expand check packs or compile metrics into checks.
 
+Current implementation status:
+
+- the shared parsed-project loader discovers and parses contract resources only,
+- parse and compile use authored files as the source of truth rather than
+  requiring `recon compile` to read `target/manifest.json`,
+- source locations are currently path-level; best-effort line and column
+  locations are future diagnostic improvements.
+
+Future non-contract resource loading should follow
+`docs/decisions/adr-0017-project-resource-loading-and-precedence.md`.
+Resource discovery should be catalog-driven rather than a set of ad hoc loops.
+The shared loader should remain the single source of truth for parse and
+compile.
+
 ## Manifest responsibilities
 
 The manifest should contain:
@@ -37,6 +51,16 @@ The manifest should contain:
 
 Future parser milestones may add policy summaries, check pack summaries,
 endpoint summaries, selectors, and richer resource graph metadata.
+
+When package resources are implemented, resource files should have
+namespace-qualified in-memory IDs such as:
+
+```text
+<namespace>://<relative_path>
+```
+
+Manifest changes for non-contract resources must follow compatibility rules in
+`docs/compatibility/artifact-versions.md`.
 
 ## Manifest shape
 
@@ -90,10 +114,23 @@ Parse-time validation should catch:
 - invalid top-level resource shape,
 - missing required project config,
 - duplicate contract names,
-- duplicate policy names,
 - invalid scalar/list/object types,
 - unknown resource type,
 - missing required contract fields that do not require compile-time resolution.
+
+Future parser milestones should add duplicate-resource validation for policy,
+check-pack, endpoint, and macro resources after the non-contract resource loader
+is designed.
+
+Per ADR 0017, duplicate names are errors within the same resource kind and
+namespace. Unqualified package references should not be resolved by search
+precedence; package and framework resources must be referenced with their
+namespace.
+
+When check-pack resources are loaded, package-provided check packs that accept
+invocation config must declare valid config schemas. Invalid schemas should fail
+parse with `RC_PARSE_INVALID_CHECK_PACK_CONFIG_SCHEMA` before the compiler tries
+to validate contract invocations.
 
 ## Multi-contract files
 
@@ -128,7 +165,8 @@ The manifest may record defaults as authored resources.
 
 ## Diagnostics
 
-Diagnostics should include file path and resource name.
+Diagnostics should include file path and resource name. Line and column fields
+may be added when parser source-location support is expanded.
 
 Example:
 

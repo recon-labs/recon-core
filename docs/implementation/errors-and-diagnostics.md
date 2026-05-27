@@ -4,6 +4,9 @@
 
 Diagnostics provide structured errors and warnings across parse, compile, run, and evidence.
 
+Validation timing and diagnostic code ownership are locked by
+`docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
+
 ## Diagnostic model
 
 Suggested model:
@@ -56,6 +59,38 @@ RC_RUNTIME_*
 RC_EVIDENCE_*
 ```
 
+Code ownership:
+
+| Family | Primary owner | Use for |
+| --- | --- | --- |
+| `RC_CONFIG_*` | configuration phase | project discovery, project config, future profiles, env vars, command setup |
+| `RC_PARSE_*` | parse phase | authored-file discovery, YAML loading, structural resource validation |
+| `RC_COMPILE_*` | compile resolution | expansion, resolution, unsupported compiler input, generated compiled structure |
+| `RC_VALIDATE_*` | validation rules | semantic safety rules and public validation behavior, usually during compile |
+| `RC_ADAPTER_*` | adapter phase | adapter type, API compatibility, capabilities, metadata, rendering, query execution |
+| `RC_RUNTIME_*` | run phase | run lifecycle, prerequisite blocking, state/failure-detail writes |
+| `RC_EVIDENCE_*` | evidence phase | evidence/report rendering, redaction, evidence artifact writes |
+
+Do not add codes from a new family unless that phase owns the failure.
+
+## Validation timing
+
+| Timing | Should validate | Should not validate |
+| --- | --- | --- |
+| Configuration | project root, `recon_project.yml`, supported config fields, future profile/env-var shape | authored contract semantics, check expansion, adapter metadata |
+| Parse | file reads, duplicate-safe YAML, structural contract shape, loaded-resource duplicate names | check-pack expansion, metric compilation, sampling/tolerance precedence, adapter capabilities |
+| Compile resolution | defaults/refs, supported check-pack invocation shape, check-pack expansion, explicit metrics, stable IDs, no contracts/checks | query execution, data-dependent key uniqueness/null checks |
+| Compile validation | missing required keys, invalid semantic combinations, unsupported current behavior, malformed sampling/CDC/schema policy config once supported | adapter metadata facts that are unavailable without an adapter |
+| Adapter validation | adapter type/API/capabilities, metadata availability, metadata-derived column/type checks | core reconciliation semantics |
+| Run | compiled artifact loading, adapter execution, data-dependent safety checks, prerequisite blocking | raw authored YAML interpretation |
+| Evidence | evidence/report/failure-detail output and redaction | validation rules that should have failed before execution |
+
+Deferred validation is allowed only when the required information is unavailable
+in the current phase, such as adapter metadata or execution results. Deferred
+validation must be visible in generated artifacts or run results before users
+trust evidence. Unknown fields, unsupported check-pack config, missing keys,
+and ambiguous CDC behavior should fail rather than defer.
+
 ## Parse diagnostics
 
 Examples:
@@ -71,6 +106,19 @@ RC_PARSE_RESOURCE_PATH_NOT_FOUND
 RC_PARSE_UNKNOWN_FIELD
 ```
 
+Resource loading diagnostics locked by ADR 0017:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_PARSE_RESOURCE_PATH_NOT_FOUND` | parse | error |
+| `RC_PARSE_DUPLICATE_RESOURCE_NAME` | parse | error |
+
+Check-pack resource schema diagnostics locked by ADR 0018:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_PARSE_INVALID_CHECK_PACK_CONFIG_SCHEMA` | parse | error |
+
 ## Configuration diagnostics
 
 Examples:
@@ -82,6 +130,14 @@ RC_CONFIG_INVALID_PROJECT_CONFIG
 RC_CONFIG_INIT_PATH_EXISTS
 RC_CONFIG_INIT_INVALID_PROJECT_NAME
 ```
+
+Future package/resource namespace diagnostics locked by ADR 0017:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_CONFIG_RESERVED_RESOURCE_NAMESPACE` | config | error |
+| `RC_CONFIG_DUPLICATE_PACKAGE_NAMESPACE` | config | error |
+| `RC_CONFIG_PACKAGE_NOT_INSTALLED` | config | error |
 
 ## Compile diagnostics
 
@@ -95,14 +151,28 @@ RC_COMPILE_UNSUPPORTED_EXPLICIT_CHECKS
 RC_COMPILE_UNKNOWN_SAMPLE_POLICY
 RC_COMPILE_UNKNOWN_TOLERANCE_POLICY
 RC_COMPILE_UNKNOWN_SCHEMA_POLICY
+RC_COMPILE_UNKNOWN_ENDPOINT
+RC_COMPILE_EMPTY_CHECK_PACK_ALLOWED
+RC_COMPILE_EMPTY_CHECK_PACK_SKIPPED
 ```
+
+Unknown macro-reference diagnostics are not locked yet. Macro reference
+validation requires a future macro-semantics decision.
+
+Check-pack invocation diagnostics locked by ADR 0018:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG` | compile resolution | error |
+| `RC_COMPILE_EMPTY_CHECK_PACK` | compile resolution | error |
+| `RC_COMPILE_EMPTY_CHECK_PACK_ALLOWED` | compile resolution | warning |
+| `RC_COMPILE_EMPTY_CHECK_PACK_SKIPPED` | compile resolution | info |
 
 ## Validation diagnostics
 
 Examples:
 
 ```text
-RC_VALIDATE_ROW_CHECK_REQUIRES_KEYS
 RC_VALIDATE_CHECK_REQUIRES_GRAIN_KEYS
 RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS
 RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
@@ -118,12 +188,67 @@ RC_VALIDATE_UNKNOWN_METRIC_FIELD
 RC_VALIDATE_UNSUPPORTED_METRIC_TYPE
 RC_VALIDATE_DUPLICATE_METRIC_NAME
 RC_VALIDATE_METRIC_REQUIRES_NUMERIC_COLUMN
+RC_VALIDATE_INVALID_COLUMN_DECLARATION
+RC_VALIDATE_DUPLICATE_COLUMN_NAME
+RC_VALIDATE_UNDECLARED_COLUMN_REFERENCE
+RC_VALIDATE_INVALID_COLUMN_SELECTION
+RC_VALIDATE_COLUMN_NOT_ELIGIBLE_FOR_CHECK
+RC_VALIDATE_ALL_COLUMNS_REQUIRES_METADATA
 RC_VALIDATE_RANDOM_SAMPLE_REQUIRES_PERSISTED_KEYS
 RC_VALIDATE_CDC_CONFIG_REQUIRED
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED
 RC_VALIDATE_SCHEMA_IGNORE_INVALID
+RC_VALIDATE_INVALID_TOLERANCE
+RC_VALIDATE_INVALID_NULL_POLICY
+RC_VALIDATE_INVALID_NULL_SENTINEL
+RC_VALIDATE_INVALID_NORMALIZATION
+RC_VALIDATE_INVALID_REGEX_NORMALIZATION
+RC_VALIDATE_TIMESTAMP_TIMEZONE_REQUIRED
 ```
+
+Milestone 5 should use these locked diagnostics for the validation rulebook:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_VALIDATE_CHECK_REQUIRES_GRAIN_KEYS` | compile validation | error |
+| `RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS` | compile validation | error |
+| `RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS` | compile validation | error |
+| `RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE` | compile or adapter metadata validation | error |
+| `RC_VALIDATE_INVALID_COLUMN_DECLARATION` | compile validation | error |
+| `RC_VALIDATE_DUPLICATE_COLUMN_NAME` | compile validation | error |
+| `RC_VALIDATE_UNDECLARED_COLUMN_REFERENCE` | compile validation | error |
+| `RC_VALIDATE_INVALID_COLUMN_SELECTION` | compile validation | error |
+| `RC_VALIDATE_COLUMN_NOT_ELIGIBLE_FOR_CHECK` | compile validation | error |
+| `RC_VALIDATE_ALL_COLUMNS_REQUIRES_METADATA` | adapter metadata validation | error |
+| `RC_VALIDATE_INVALID_SAMPLING` | compile validation | error |
+| `RC_VALIDATE_RANDOM_SAMPLE_REQUIRES_PERSISTED_KEYS` | compile validation | error |
+| `RC_VALIDATE_CDC_CONFIG_REQUIRED` | compile validation | error |
+| `RC_VALIDATE_CDC_DELETE_MODE_REQUIRED` | compile validation | error |
+| `RC_VALIDATE_CDC_ORDERING_REQUIRED` | compile validation | error |
+| `RC_VALIDATE_SCHEMA_IGNORE_INVALID` | compile validation | error |
+| `RC_VALIDATE_INVALID_TOLERANCE` | compile validation | error |
+| `RC_VALIDATE_INVALID_NULL_POLICY` | compile validation | error |
+| `RC_VALIDATE_INVALID_NULL_SENTINEL` | compile validation | error |
+| `RC_VALIDATE_INVALID_NORMALIZATION` | compile validation | error |
+| `RC_VALIDATE_INVALID_REGEX_NORMALIZATION` | compile validation | error |
+| `RC_VALIDATE_TIMESTAMP_TIMEZONE_REQUIRED` | compile or adapter metadata validation | error |
+| `RC_VALIDATE_METADATA_VALIDATION_DEFERRED` | adapter metadata validation | warning |
+| `RC_VALIDATE_UNUSED_DECLARED_COLUMN` | compile validation | warning |
+
+Additional check-pack invocation validation diagnostics locked by ADR 0018:
+
+| Code | Timing | Severity |
+| --- | --- | --- |
+| `RC_VALIDATE_DUPLICATE_CHECK_PACK_INVOCATION` | compile validation | error |
+| `RC_VALIDATE_INVALID_CHECK_PACK_ON_EMPTY` | compile validation | error |
+| `RC_VALIDATE_INVALID_CHECK_PACK_CONFIG` | compile validation | error |
+| `RC_VALIDATE_UNKNOWN_CHECK_PACK_CONFIG_KEY` | compile validation | error |
+| `RC_VALIDATE_UNUSED_CHECK_PACK_CONFIG` | compile validation | error |
+
+Data-dependent null-key and duplicate-key problems are runtime check results,
+not compile-time validation diagnostics. They should fail the corresponding
+safety check and block dependent row-level value checks.
 
 ## Adapter diagnostics
 

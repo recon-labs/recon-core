@@ -172,7 +172,6 @@ columns:
       tolerance: 0.01
   timestamp:
     - name: updated_at
-      tolerance: 5 seconds
 
 metrics: []
 
@@ -180,6 +179,12 @@ policies:
   sampling:
     default_policy: latest_changed_records
   tolerance: null
+  nulls:
+    treat_as_null:
+      values: []
+      regex: []
+  normalization:
+    steps: []
   schema:
     ignore_target_columns:
       - _dms_operation
@@ -418,6 +423,14 @@ aggregate checks without needing the aggregate check pack.
 
 Empty check-pack expansion is an error.
 
+Check-pack invocation config and non-error empty expansion are governed by ADR
+0018. Compiled artifacts must include invocation summaries before accepting
+`config`, `on_empty: warn`, or `on_empty: skip`.
+
+Column/value comparison and all-column expansion are governed by ADR 0019.
+Compiled artifacts must expose resolved column metadata before executing value
+checks or accepting raw wildcard column selectors as resolved behavior.
+
 ## Metric Compilation Scope
 
 Explicit metrics compile into aggregate checks.
@@ -466,6 +479,12 @@ Example compiled check:
   tolerance:
     type: absolute
     value: 0.01
+  nulls:
+    treat_as_null:
+      values: []
+      regex: []
+  normalization:
+    steps: []
   prerequisites: []
   blocking_policy:
     on_prerequisite_failure: skipped
@@ -505,6 +524,10 @@ Compiled artifacts must embed structured diagnostics.
 
 Root-level diagnostics describe contract-level or artifact-level issues.
 Check-level diagnostics describe a specific compiled check.
+
+ADR 0016 supersedes this section for diagnostic timing and code-family
+ownership. The codes below were the compiler-artifact recommendation at the time
+of this decision; use ADR 0016 when implementing new validation diagnostics.
 
 Recommended compiler diagnostic codes:
 

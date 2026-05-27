@@ -107,6 +107,13 @@ selector decision.
 
 ## Resource discovery
 
+Resource loading and precedence are locked by
+`docs/decisions/adr-0017-project-resource-loading-and-precedence.md`.
+
+The loader should be catalog-driven. Each resource kind should define its path
+field, accepted suffixes, parser or indexer, required/default path behavior,
+packageability, manifest inclusion, and reference-resolution behavior.
+
 The loader should discover resources from configured paths:
 
 - contracts,
@@ -116,6 +123,37 @@ The loader should discover resources from configured paths:
 - schema policies,
 - endpoints,
 - macros.
+
+`endpoint-paths` is a future config field. Endpoint resources are documented as
+a target resource kind, but current `ProjectConfig` does not load endpoint
+paths yet.
+
+Current implementation status:
+
+- project configuration preserves path fields for these resource categories,
+- parse and compile currently discover and load contract files only,
+- non-contract local resource loading is designed by ADR 0017 but is not
+  implemented yet.
+
+Locked design:
+
+- `contract-paths` are required,
+- default non-contract resource paths are optional and may be absent,
+- explicitly configured non-contract resource paths must exist and be
+  directories,
+- unqualified resource references resolve only in the root project namespace,
+- package and framework resources must be referenced as
+  `<namespace>.<resource_name>`,
+- `recon_core` is reserved for framework built-ins,
+- check-pack invocation config schemas follow ADR 0018 when check-pack
+  resources are loaded,
+- macros may be discovered and checksummed but are not parsed or executed until
+  macro semantics are locked.
+
+Milestone 5 validation should not validate references to local check packs,
+sampling policies, tolerance policies, schema policies, endpoint resources, or
+macros until those resources are loaded through one shared project-loading
+model.
 
 ## Configuration precedence
 
@@ -127,6 +165,10 @@ Recommended precedence:
 4. project-level setting,
 5. package default,
 6. framework default.
+
+This precedence applies to resolved settings and defaults. Resource reference
+resolution is stricter: local unqualified references resolve only locally, while
+package and framework references must be qualified.
 
 ## Validation
 

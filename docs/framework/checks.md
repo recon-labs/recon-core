@@ -65,7 +65,8 @@ Duplicate keys often indicate grain mismatch, join explosion, or incorrect canon
 
 ## Row-level value checks
 
-Row-level value checks compare source and target values after matching rows by key.
+Row-level value checks compare source and target values after matching rows by
+key. Column selection and compatibility are governed by ADR 0019.
 
 Examples:
 
@@ -82,7 +83,8 @@ These checks require:
 - non-null grain keys,
 - unique keys in source,
 - unique keys in target,
-- declared eligible columns or explicit check-level columns.
+- declared eligible columns or explicit check-level columns,
+- concrete column names before execution.
 
 If keys are null or duplicated, row-level value checks should be blocked rather than guessed.
 
@@ -101,28 +103,43 @@ For CDC latest-window checks, non-null and uniqueness requirements must hold ins
 ### `exact_value_match`
 
 Compares exact values such as status, category, country, or flags.
+It should use `exact` columns unless the check explicitly supports another
+category exactly.
 
 ### `numeric_tolerance_match`
 
-Compares numeric values within tolerance. It must run only on numeric-compatible columns.
+Compares numeric values within tolerance. MVP tolerance is absolute numeric
+tolerance only. It must run only on numeric-compatible columns.
 
 ### `timestamp_tolerance_match`
 
-Compares timestamps within tolerance. Timestamp checks should distinguish event time, ingestion time, and target processing time.
+Compares timestamps within tolerance. Timestamp tolerance execution is future
+gated. When implemented, timestamp checks should distinguish event time,
+ingestion time, and target processing time, and must not silently convert
+timezones.
 
 ### `normalized_string_match`
 
-Compares strings after explicit normalization such as trim, lower, upper, or whitespace canonicalization.
+Compares strings after explicit normalization. Allowed simple normalization
+steps are `trim`, `collapse_whitespace`, `lower`, and `upper`. MVP also
+supports limited `regex_replace` normalization with literal replacements.
+Locale-specific case folding, unrestricted regex features, arbitrary SQL, and
+macro-based normalization are future gated.
 
 ### `null_equivalence`
 
-Defines how nulls, blanks, and empty strings compare. Default should be strict: `NULL != ''`.
+Defines how nulls, blanks, and empty strings compare. Default is strict:
+`NULL != ''`. Resolved comparisons use null-safe equality: `NULL` equals
+`NULL`, but one null and one non-null value differ.
 
 ### `row_hash_match`
 
 Compares hashes of selected columns.
 
 Hash functions differ across systems. Recon must not assume hashes are portable unless adapters declare safe behavior or sample keys are persisted.
+
+Cross-database row hashes require a future adapter/canonicalization decision
+before they can be trusted.
 
 ## Aggregate checks
 
@@ -243,7 +260,10 @@ Errors should include row-level checks without keys, row-level checks with dupli
 
 CDC propagation checks without required `cdc.keys`, CDC checks without required delete mode, and CDC checks without required ordering should also be errors.
 
-Warnings may include defined columns not used by any compiled check, target freshness lag making row comparison unreliable, or timestamp comparison without explicit timezone policy in non-strict mode.
+Warnings may include defined columns not used by any compiled check, deferred
+adapter metadata validation, target freshness lag making row comparison
+unreliable, or timestamp comparison without explicit timezone policy in
+non-strict mode.
 
 ## Execution order
 

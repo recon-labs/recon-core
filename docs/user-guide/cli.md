@@ -37,6 +37,8 @@ recon_project.yml
 .gitignore
 connections/profiles.yml.example
 contracts/
+check_packs/
+macros/
 sample_policies/
 tolerances/
 schema_policies/
@@ -44,6 +46,9 @@ target/
 reports/
 state/
 ```
+
+`check_packs/` and `macros/` are scaffolded for future local resource-loading
+work. Current parse/compile behavior still loads contract files only.
 
 `recon init` should not overwrite an existing path unless an explicit overwrite option is added later.
 
@@ -157,7 +162,7 @@ Executes checks. This command is not implemented yet.
 recon run
 ```
 
-Expected output:
+Planned future output:
 
 ```text
 target/run_results.json

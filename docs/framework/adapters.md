@@ -100,6 +100,10 @@ json_path
 semi_structured_projection
 ```
 
+Policy-dependent value checks may later require additional granular
+capabilities such as limited regex replacement. Add those capabilities only
+with matching typed-plan payloads, adapter docs, and tests.
+
 Adapters should also declare the adapter API version they support.
 
 ## Capability validation
@@ -123,9 +127,12 @@ and evidence must show the resolved anchor side and key-set reference.
 
 ## Type and schema metadata
 
-Adapters should expose normalized metadata where possible: column name, logical type, physical type, nullable, precision, scale, and timezone behavior when known.
+Adapters should expose normalized metadata where possible: column name, logical
+type, physical type, nullable, precision, scale, and timezone behavior when
+known.
 
-This supports schema checks and validation.
+This supports schema checks, ADR 0019 all-column expansion, and column/type
+validation.
 
 ## Semi-structured adapters
 

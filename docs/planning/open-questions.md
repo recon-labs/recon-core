@@ -1,10 +1,14 @@
-# Open Questions
+# Open Questions And Resolved Decisions
 
 ## Purpose
 
-This document tracks unresolved product and implementation questions.
+This document tracks unresolved product and implementation questions plus
+resolved decisions that were originally tracked here.
 
 Open questions should be resolved through design discussion, implementation learning, or ADRs when the decision becomes durable.
+
+Entries marked `Decision` or `Locked by ADR` are not open questions. Future
+agents should treat the referenced ADRs and framework docs as authoritative.
 
 ## Contract schema
 
@@ -82,32 +86,41 @@ Decision:
 Decision:
 
 - default to error,
-- allow `on_empty: warn` or `on_empty: skip` later only when explicitly configured.
-- see ADR 0015.
+- allow `on_empty: warn` or `on_empty: skip` later only when explicitly
+  configured and visible in compiled artifacts,
+- see ADR 0015 and ADR 0018.
 
 ## Columns and metrics
 
 ### Should undefined columns be allowed in checks?
 
-Preferred direction:
+Decision:
 
-- no, fail validation unless the check explicitly supports expressions.
+- if a contract has a `columns` block, checks and metrics should stay inside
+  that declared surface,
+- if no `columns` block exists, explicit checks and metrics may name columns
+  directly and adapter metadata should validate existence/type,
+- see ADR 0019.
 
 ### Should `columns.include: "*"` be supported?
 
-Preferred direction:
+Decision:
 
 - yes later,
 - never make it implicit,
-- compile the actual resolved column list into artifacts.
+- compile the actual resolved column list into artifacts,
+- raw `*` must never appear in typed check plans,
+- see ADR 0019.
 
 ### Should metrics require columns to be declared?
 
-Preferred direction:
+Decision:
 
 - metrics may reference output columns directly,
 - validation should confirm the referenced column exists and is type-compatible,
-- docs should explain whether metric columns must also appear under `columns`.
+- metric columns must be declared only when the contract has an explicit
+  `columns` block,
+- see ADR 0019.
 
 ## Grain and uniqueness
 
@@ -200,18 +213,23 @@ Preferred direction:
 
 ### How should SQL Server empty string to Snowflake null be handled?
 
-Preferred direction:
+Locked by ADR 0009:
 
 - strict by default,
-- configurable via null policy at project, contract, column, and check level,
+- configurable through `nulls.treat_as_null` literal and limited regex
+  sentinels at project, contract, column, and check level,
 - compiled artifacts must show the resolved null policy.
 
 ### Should timezone policy be required for timestamp comparisons?
 
-Preferred direction:
+Locked by ADR 0009:
 
-- warn initially when missing,
-- require explicit timezone behavior in strict mode.
+- timestamp tolerance execution is future gated,
+- timestamp comparison must not silently convert timezones,
+- missing timezone behavior is an error when conversion is required and
+  metadata proves the ambiguity,
+- unresolved metadata must be visible as deferred validation before evidence is
+  trusted.
 
 ## Schema policies
 

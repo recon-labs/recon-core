@@ -1,8 +1,30 @@
 # Package Layout
 
-## Python package shape
+## Current Python package shape
 
-Recommended initial source layout:
+The current implementation is intentionally smaller than the target
+architecture. Current source packages are:
+
+```text
+src/
+  recon_core/
+    __init__.py
+    cli/
+    project/
+    config/
+    parser/
+    compiler/
+    artifacts/
+    diagnostics/
+    services/
+```
+
+Do not add empty packages only to match the target layout. Add a package when
+there is an implemented responsibility and tests for that responsibility.
+
+## Target Python package shape
+
+Recommended target layout:
 
 ```text
 src/
@@ -24,6 +46,9 @@ src/
     diagnostics/
     utils/
 ```
+
+The target layout is a design direction, not a claim that every package exists
+today.
 
 ## `cli/`
 

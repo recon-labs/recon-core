@@ -52,6 +52,16 @@ The compile service should:
 
 Compile should make hidden behavior visible.
 
+Check-pack invocation config is governed by ADR 0018. Until typed invocation
+models, schema validation, and artifact visibility exist, compile should reject
+`config`, `on_empty`, and unknown invocation fields rather than applying them
+partially.
+
+Column and value-comparison behavior is governed by ADR 0019. Until typed
+column models, metadata validation, and artifact visibility exist, compile
+should not expand raw wildcard selectors or execute value checks without
+concrete resolved columns.
+
 Typed check plans are the core execution intent. Rendered SQL is an
 adapter-specific artifact derived from those plans.
 
@@ -68,6 +78,11 @@ introduce manifest freshness or caching rules.
 
 This preserves authored YAML and `recon_project.yml` as the source of truth
 while avoiding drift between `recon parse` and `recon compile`.
+
+Current implementation status: the shared parsed-project loading pipeline is
+contract-only. Non-contract resource loading and precedence are locked by ADR
+0017, but reference validation must wait until the relevant resource kinds are
+loaded through that shared model.
 
 ## Run service
 
@@ -121,6 +136,7 @@ They should answer:
 - which checks will run,
 - why they exist,
 - which columns they use,
+- whether all-column requests resolved to concrete columns,
 - which sampling they use,
 - which tolerance they use,
 - which schema ignores apply,
@@ -138,6 +154,9 @@ Run errors should be about execution failure or check failure.
 
 Blocked checks should be represented as skipped check results with explicit
 prerequisite context, not as hidden omissions.
+
+Validation timing and diagnostic code ownership are defined in
+`docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
 
 ## Design principle
 

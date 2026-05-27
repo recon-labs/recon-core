@@ -68,6 +68,14 @@ target/failures/customer_revenue__row_diff.csv
 
 Fields may include run id, contract name, check name, key values, column name, source value, target value, normalized values, diff value, tolerance, and severity.
 
+When tolerance, null, or normalization policy affects a value comparison,
+failure details and reports should show the resolved policy. Evidence should
+not imply that relative tolerance, timestamp tolerance, or string normalization
+was applied unless the compiled check and adapter execution actually used that
+resolved policy. When a string value becomes null because of
+`nulls.treat_as_null`, evidence should show the sentinel rule that caused it
+when evidence policy allows that detail.
+
 For key safety checks, failure details may include bounded examples of null or duplicate keys when evidence settings allow them.
 
 ### HTML report
@@ -96,7 +104,9 @@ Possible levels are `summary`, `detailed`, and `debug`.
 
 ## Full versus sampled evidence
 
-Reports must clearly state whether each check ran on full data, deterministic sample, incremental window, random persisted sample, or previous failure set.
+When a check uses an implemented sampling or window mode, reports must clearly
+state whether it ran on full data, deterministic sample, incremental window,
+random persisted sample, or previous failure set.
 
 Sampled evidence should never imply full-data equivalence.
 
@@ -122,7 +132,12 @@ Warnings may be configurable.
 
 v0.1 should produce terminal summary, manifest, compiled checks/contracts where feasible, JSON run result, basic HTML report, and limited failure details.
 
-v0.2 should add richer compiled SQL artifacts, result table writer, sample key persistence, and richer reports.
+v0.2 should improve compiled SQL artifacts, basic reports, and evidence clarity
+for supported checks.
+
+v0.3 / Post-MVP Milestones 25 and 25.5 should add sample-key persistence
+visibility and production result table writing after state and result table
+schemas are locked.
 
 ## Design principle
 

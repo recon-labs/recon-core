@@ -125,10 +125,13 @@ It should include:
 - comparison identity from `grain.keys`,
 - CDC identity from `cdc.keys` when relevant,
 - columns,
+- resolved column metadata after ADR 0019 is implemented,
 - metrics,
 - resolved defaults,
 - resolved sampling policy,
 - resolved tolerance policy,
+- resolved null policy,
+- resolved normalization policy,
 - resolved schema policy,
 - resolved CDC policy,
 - resolved evidence policy,
@@ -211,6 +214,8 @@ Every compiled check should include:
 - blocking policy,
 - resolved sampling,
 - resolved tolerance when applicable,
+- resolved null policy when applicable,
+- resolved normalization policy when applicable,
 - typed check plan,
 - rendering metadata,
 - diagnostics.
@@ -294,6 +299,37 @@ Generated safety checks for null and duplicate keys should use
 the same safety checks come directly from `recon_core.basic_equivalence`, their
 origin is the check pack.
 
+## Check-pack invocation visibility
+
+Current compiled artifacts show generated checks and their `check_pack` origin.
+They do not yet include check-pack invocation summaries because `config`,
+`on_empty: warn`, and `on_empty: skip` are not implemented.
+
+Before Recon accepts check-pack invocation config, compiled artifacts must add
+visibility for each invocation:
+
+```yaml
+check_pack_invocations:
+  - name: recon_core.some_pack
+    on_empty: error
+    authored_config: {}
+    resolved_config: {}
+    generated_check_ids:
+      - check.project.contract.row_count_diff
+    diagnostics: []
+```
+
+Invocation summaries should follow ADR 0018 and
+`docs/compatibility/check-pack-invocation.md`. They must show authored config,
+resolved config, generated check IDs, empty-expansion status when applicable,
+and diagnostics attached to the invocation.
+
+Adding optional invocation summaries may keep the same compiled artifact
+version only when existing readers can ignore them safely and existing field
+meanings do not change. Changing check origin, stable check IDs, or generated
+check semantics requires compatibility review and may require an artifact
+version bump.
+
 ## Built-in check-pack expansion
 
 `recon_core.basic_equivalence` expands exactly to:
@@ -316,6 +352,9 @@ and duplicate grain-key checks report key safety failures separately.
 
 Empty check-pack expansion is an error. A contract that compiles into no checks
 is also an error.
+
+Future `on_empty: warn` and `on_empty: skip` behavior is locked by ADR 0018 but
+requires invocation summaries before implementation.
 
 Example null-key check plan:
 
@@ -444,6 +483,12 @@ Example:
   tolerance:
     type: absolute
     value: 0.01
+  nulls:
+    treat_as_null:
+      values: []
+      regex: []
+  normalization:
+    steps: []
   plan:
     id: plan.cdc_validation.orders_cdc.revenue_by_month
     operations:
@@ -470,6 +515,34 @@ Example:
 `recon_core.aggregate_equivalence` must not infer aggregate checks from numeric
 columns unless a future decision explicitly enables that behavior. Explicit
 metrics remain the first aggregate path.
+
+## Column visibility
+
+Current compiled contract artifacts preserve raw authored `columns`.
+
+Before row-level value checks, all-column expansion, or column/type validation
+are treated as implemented, compiled artifacts must also expose resolved column
+metadata:
+
+```yaml
+resolved_columns:
+  declared:
+    - name: revenue
+      category: numeric
+  all_columns_request: false
+  resolved_value_columns:
+    - revenue
+  excluded_identity_columns:
+    - customer_id
+  ignored_columns: []
+  metadata_validation:
+    status: deferred
+    diagnostics: []
+```
+
+Typed check plans must contain concrete column names only. Raw `*` selectors
+must be resolved before execution or reported as deferred/invalid through
+diagnostics.
 
 ## Row-level prerequisites
 

@@ -214,12 +214,13 @@ future decision.
 ## Columns
 
 Columns define value comparison rules and eligible comparison surface.
+Column behavior is governed by ADR 0019.
 
 ```yaml
 columns:
   exact:
     - customer_status
-    - country_code
+    - name: country_code
 
   numeric:
     - name: lifetime_value
@@ -227,10 +228,34 @@ columns:
 
   timestamp:
     - name: updated_at
-      tolerance: 5 seconds
+
+  string:
+    - name: customer_name
+      normalization:
+        steps:
+          - trim
+          - lower
 ```
 
-Defined columns are the only columns eligible for value and aggregate inference.
+Supported categories are `exact`, `numeric`, `timestamp`, and `string`.
+
+MVP value policy support is intentionally narrow. Numeric absolute tolerance is
+supported as the initial tolerance surface. Timestamp tolerance execution,
+relative tolerance, percentage tolerance, reusable policy files, and richer
+normalization require later design or implementation gates.
+
+String entries are shorthand for `{name: <column_name>}`.
+
+Columns do not create checks. They define the columns that generated,
+metric-derived, or explicit value checks may use.
+
+If a contract has no `columns` block, explicit metrics and explicit checks may
+still name columns directly. Existence and physical type validation may be
+deferred until adapter metadata is available.
+
+If a contract has a `columns` block, that block is the explicit comparison
+surface. Explicit checks and metrics that reference columns outside that
+surface should fail validation.
 
 Recon should never silently compare all columns. If users want all columns, they must request it explicitly:
 
@@ -247,6 +272,14 @@ checks:
     columns: "*"
 ```
 
+All-column comparison requires adapter metadata and compiled artifact
+visibility. Raw `*` must never appear in typed check plans; it must resolve to
+concrete column names before execution.
+
+For MVP behavior, source and target comparable outputs should expose the same
+canonical column names. Source-target column mapping is a future feature and
+must be explicit if added.
+
 ## Column-level check eligibility
 
 A column may optionally specify which checks it participates in.
@@ -262,6 +295,10 @@ columns:
 ```
 
 This is useful when a numeric column should be included in aggregate checks but excluded from row-level value comparison, or vice versa.
+
+Column-level `checks` is a filter. It does not create checks. A generated,
+metric-derived, or explicit check that uses the column should be one of the
+listed check types.
 
 ## Metrics
 
@@ -357,7 +394,37 @@ checks:
       on_empty: warn
 ```
 
-Default should remain strict.
+ADR 0018 locks future `on_empty` values as `error`, `warn`, and `skip`.
+Default behavior remains strict. Non-error empty expansion must be visible in
+compiled artifacts and must not suppress invalid config, missing required keys,
+or other safety validation failures.
+
+## Check-pack invocation config
+
+Check-pack invocation config is designed by ADR 0018 but is not implemented
+yet. Current compilation accepts strings and mappings with only `name`.
+
+Locked future shape:
+
+```yaml
+checks:
+  use:
+    - name: recon_core.some_pack
+      on_empty: error
+      config:
+        severity: error
+        sampling: full
+        tolerance: null
+        params: {}
+        checks:
+          row_count_diff:
+            severity: warn
+```
+
+Unknown invocation fields and unknown config keys must fail. Package check
+packs must declare config schemas before accepting config. Config must not
+disable required safety checks unless a later ADR explicitly allows that
+behavior.
 
 ## Explicit check configuration
 
@@ -419,6 +486,9 @@ Contracts may reference a tolerance policy:
 tolerance_policy: finance
 ```
 
+Named tolerance policy references require the ADR 0017 resource-loading model
+before they can be validated or resolved.
+
 Column-level tolerance:
 
 ```yaml
@@ -441,18 +511,48 @@ Recommended precedence:
 
 1. check-level override,
 2. column-level setting,
-3. contract-level policy,
-4. project-level default,
-5. framework default.
+3. contract-level inline policy,
+4. named contract policy reference,
+5. project-level default policy,
+6. framework default.
 
-Null and empty-string behavior should be explicit. Default should be strict: `NULL != ''`.
+MVP tolerance supports numeric absolute tolerance only. Relative tolerance,
+percentage tolerance, timestamp tolerance execution, and reusable policy files
+are future gated.
+
+Null and empty-string behavior should be explicit. Default is strict:
+`NULL != ''`. Resolved comparisons use null-safe equality, so `NULL` equals
+`NULL`, but one null and one non-null value differ.
 
 ```yaml
 nulls:
-  empty_string_equals_null: true
+  treat_as_null:
+    values:
+      - ""
+      - "NULL"
+      - "N/A"
+    regex:
+      - "^\\s*$"
 ```
 
 This is important for pipelines where systems such as SQL Server, AWS DMS, file formats, and Snowflake may handle empty strings differently.
+
+String normalization defaults to no steps. Supported simple steps are `trim`,
+`collapse_whitespace`, `lower`, and `upper`. MVP also supports limited
+`regex_replace` normalization with literal replacements:
+
+```yaml
+normalization:
+  steps:
+    - trim
+    - lower
+    - regex_replace:
+        pattern: "\\s+-+$"
+        replacement: ""
+```
+
+Normalization steps run in authored order. Sentinel matching runs after
+normalization and applies only to string-like value comparison.
 
 ## Schema policy
 
@@ -611,6 +711,9 @@ Recon should validate contracts before execution:
 - CDC delete behavior is explicit when CDC checks are used,
 - checks must be compatible with column types,
 - metrics must be compatible with referenced columns,
+- metric/check column references must stay inside the declared column surface
+  when `columns` is present,
+- all-column requests must resolve to concrete column names before execution,
 - referenced sample policies exist,
 - referenced check packs exist,
 - tolerance syntax is valid,
@@ -627,6 +730,8 @@ The compiled plan should show:
 - which metrics compiled into checks,
 - which atomic checks will run,
 - which columns each check uses,
+- which declared columns were selected, ignored, or excluded as identity
+  columns,
 - which sampling policy each check uses,
 - which tolerances and null rules each check uses,
 - which schema ignore rules apply,

@@ -24,6 +24,12 @@ results and evidence
 
 It should read project files, validate YAML syntax, validate basic schema, discover contracts and reusable resources, resolve file paths, identify duplicate contract names, validate that refs point to known resources, and produce a machine-oriented manifest.
 
+Current implementation status: parse discovers and loads contract resources
+only. Reusable resource loading for local check packs, sampling policies,
+tolerance policies, schema policies, endpoint resources, and macros should
+follow the ADR 0017 shared resource-loading model. Reference validation to
+those resources should wait for that shared loader.
+
 Main output:
 
 ```text
@@ -63,6 +69,23 @@ typed plans and mark rendering as `not_rendered`.
 Current implementation writes compiled contract and compiled checks artifacts
 for supported check-pack and metric behavior. `target/compiled_sql/` is not
 written until adapter SQL rendering exists.
+
+Current check-pack support is intentionally strict: `checks.use` may reference
+a pack by string or by a mapping with `name`, and unsupported invocation fields
+such as `config` or `on_empty` fail validation. Check-pack config and non-error
+empty-expansion behavior are designed by ADR 0018 but require typed invocation
+models, schema validation, and artifact visibility before implementation.
+
+Column and value-comparison behavior is designed by ADR 0019. Typed column
+validation, all-column expansion, and row-level value checks require typed
+column models, adapter metadata validation, and resolved column artifact
+visibility before implementation.
+
+Tolerance, null, and normalization behavior is governed by ADR 0009. Numeric
+absolute tolerance, strict null defaults, explicit string-like null sentinels,
+ordered normalization steps, and limited regex replacement are the MVP policy
+surface. Relative tolerance, timestamp tolerance execution, reusable policy
+files, unrestricted regex features, custom SQL, and macros remain future gated.
 
 Compiled contract and compiled checks directories are regenerated as snapshots.
 After project configuration loads and `target-path` is known, Recon removes

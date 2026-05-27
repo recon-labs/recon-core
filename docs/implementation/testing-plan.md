@@ -57,6 +57,34 @@ Examples:
 
 Each locked validation rule should have tests.
 
+Milestone 5 validation tests should assert the diagnostic code, severity, and
+phase ownership defined in
+`docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
+Future validation expansions for sampling, tolerance, columns, check-pack
+config, resource references, adapters, results, or evidence should lock their
+rule-specific diagnostics before implementation and test those diagnostics
+explicitly.
+
+Check-pack invocation config tests should follow ADR 0018. Before accepting
+`config`, `on_empty: warn`, or `on_empty: skip`, tests should cover typed
+invocation parsing, schema validation, unknown keys, duplicate invocations,
+empty-expansion diagnostics, precedence, and compiled artifact visibility.
+
+Column and value-comparison tests should follow ADR 0019. Before accepting
+typed column validation, all-column expansion, or row-level value checks, tests
+should cover duplicate declarations, unknown categories, undeclared references,
+invalid selectors, check/category incompatibility, unused declared columns,
+metadata-deferred validation, and resolved column artifact visibility.
+
+Tolerance, null, and normalization tests should follow ADR 0009. Before
+accepting policy resolution or execution, tests should cover numeric shorthand
+and object equivalence, invalid tolerance shapes, unsupported relative or
+timestamp tolerance in the current milestone, invalid null policy values,
+invalid or duplicate null sentinels, invalid normalization steps, invalid or
+unsupported MVP regex, adapter capability blocking for regex-dependent
+execution, type incompatibility, precedence, and resolved policy artifact
+visibility.
+
 Rules include:
 
 - no silent all-column comparison,

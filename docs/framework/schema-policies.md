@@ -95,6 +95,10 @@ Schema checks may inspect all columns, minus explicit ignore rules.
 
 This means extra target CDC columns do not affect row-level value comparison, but they may fail schema checks unless ignored.
 
+For ADR 0019 all-column value expansion, explicit schema/value ignore rules
+are part of the resolved column surface. Recon must not silently compare only
+the source-target intersection while ignoring extra columns.
+
 ## Type compatibility
 
 Type compatibility should be adapter-aware.

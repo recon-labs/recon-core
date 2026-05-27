@@ -99,9 +99,12 @@ A failure CSV is evidence. A previous-failure key table is state.
 
 ## MVP recommendation
 
-v0.1 can start with local artifacts.
+v0.1 can start with local generated artifacts and no stateful run behavior.
 
-v0.2 should add state for incremental windows, previous failures, and sample keys.
+v0.2 should keep state, watermark, previous-failure, and sample-key behavior at
+the design/gate level where needed. v0.3 / Post-MVP Milestone 25 should add
+local state for incremental windows, previous failures, persisted sample keys,
+and watermark advancement.
 
 ## Design principle
 

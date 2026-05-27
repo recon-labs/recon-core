@@ -123,6 +123,10 @@ endpoints:
 
 Contracts may reference endpoints later.
 
+Endpoint reference syntax and execution semantics are future work. Initial
+endpoint resources are local-only because endpoints usually contain
+project-specific connection names and relation/query assumptions.
+
 ## `contracts/`
 
 Contains equivalence contracts.
@@ -135,6 +139,10 @@ separate future CLI design.
 ## `check_packs/`
 
 Local reusable check packs.
+
+Package and framework check packs must be referenced with a namespace, such as
+`recon_core.basic_equivalence`. Unqualified resource references resolve only to
+local project resources.
 
 ## `sample_policies/`
 
@@ -155,6 +163,11 @@ Useful for ignoring known CDC/ingestion metadata columns.
 ## `macros/`
 
 Reusable SQL snippets or templates for normalization.
+
+Macro files are a future extension surface. They may be discovered and
+checksummed by the resource loader later, but Recon does not parse, render, or
+execute macros until macro semantics are locked. Macros must not become the
+primary comparison engine.
 
 ## `reports/`
 
@@ -182,7 +195,12 @@ Local state. Should be gitignored.
 
 ## `recon init`
 
-The future command should create a starter project structure.
+`recon init` creates the starter project structure for a new Recon project.
+
+The starter includes the current contract-loading paths plus future
+local-resource directories such as `check_packs/` and `macros/`. Those
+directories are created for project consistency, but current parse/compile
+behavior still loads contract files only.
 
 ## Design principle
 

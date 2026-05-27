@@ -15,6 +15,9 @@ plans for their system. They should not define Recon's comparison semantics.
 
 Recon resource packages are installed by a future `recon deps` command. They provide check packs, sampling policies, tolerance policies, schema policies, macros, evidence templates, and examples.
 
+Project resource loading and package precedence are locked by
+`docs/decisions/adr-0017-project-resource-loading-and-precedence.md`.
+
 ## Why packages matter
 
 Packages let the community share reconciliation standards such as CDC check packs, finance tolerance policies, medallion checks, migration validation packs, evidence templates, and schema ignore templates for common CDC tools.
@@ -42,6 +45,10 @@ recon_packages/
 
 This should be gitignored.
 
+Package loading is not implemented yet. When it is implemented, package
+namespaces must be unique, must not equal the root project namespace, and must
+not use the reserved `recon_core` namespace.
+
 ## Package structure
 
 ```text
@@ -60,6 +67,19 @@ recon-checks-cdc/
   docs/
     README.md
 ```
+
+Package resources should be referenced with qualified names:
+
+```text
+<package_namespace>.<resource_name>
+```
+
+Unqualified references resolve only to local project resources. Packages should
+not silently override local resources or framework built-ins.
+
+Package-provided check packs that accept invocation `config` must declare a
+data-only config schema, as defined by ADR 0018. Recon Core validates package
+config schemas and invocation config without executing package code.
 
 ## Official packages
 

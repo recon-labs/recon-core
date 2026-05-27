@@ -149,6 +149,14 @@ def test_init_command_creates_project() -> None:
         assert "ecommerce_recon" in result.output
         assert "Error:" not in result.output
 
+        project_dir = Path("ecommerce_recon")
+        assert (project_dir / "check_packs").is_dir()
+        assert (project_dir / "macros").is_dir()
+
+        config = yaml.safe_load((project_dir / "recon_project.yml").read_text(encoding="utf-8"))
+        assert config["check-pack-paths"] == ["check_packs"]
+        assert config["macro-paths"] == ["macros"]
+
 
 def test_init_command_requires_project_name() -> None:
     result = CliRunner().invoke(main, ["init"])

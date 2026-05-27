@@ -81,6 +81,8 @@ recon_project.yml
 .gitignore
 connections/profiles.yml.example
 contracts/
+check_packs/
+macros/
 sample_policies/
 tolerances/
 schema_policies/
@@ -88,6 +90,9 @@ target/
 reports/
 state/
 ```
+
+`check_packs/` and `macros/` are scaffolded for future local resource-loading
+work. Current parse/compile behavior still loads contract files only.
 
 The generated project should include safe placeholder examples and no secrets.
 It should not overwrite an existing path unless explicit overwrite behavior is added later.

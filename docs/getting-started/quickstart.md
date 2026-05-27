@@ -29,6 +29,8 @@ recon_project.yml
 connections/
   profiles.yml.example
 contracts/
+check_packs/
+macros/
 sample_policies/
 tolerances/
 schema_policies/
@@ -159,7 +161,7 @@ This command is planned but not implemented yet.
 recon run
 ```
 
-Expected output:
+Planned future output:
 
 ```text
 target/run_results.json
@@ -169,7 +171,7 @@ reports/
 
 ## Review evidence
 
-Review:
+After run and evidence generation are implemented, review:
 
 ```text
 target/run_results.json
@@ -183,7 +185,7 @@ The report should show:
 - whether each check used full data or sampling,
 - which tolerances applied,
 - which schema ignores applied,
-- which rows or metrics failed.
+- which rows or metrics failed,
 - which checks were blocked by key safety checks.
 
 ## Important safety rules

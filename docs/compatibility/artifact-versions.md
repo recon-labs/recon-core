@@ -82,6 +82,32 @@ Version-impacting changes include:
 Additive optional fields may keep the same `artifact_version` when readers can
 ignore unknown fields safely and the meaning of existing fields does not change.
 
+Adding non-contract project resource summaries to `target/manifest.json` should
+follow ADR 0017 and `docs/compatibility/resource-loading.md`. Package resource
+file keys or namespace-qualified source-file IDs require compatibility review
+because they may change manifest reader assumptions.
+
+Adding check-pack invocation summaries to compiled artifacts should follow ADR
+0018 and `docs/compatibility/check-pack-invocation.md`. Accepting check-pack
+`config`, `on_empty: warn`, or `on_empty: skip` before those summaries exist
+would make compiled artifacts incomplete. Changing existing check origin,
+stable check IDs, or generated check semantics may require a compiled artifact
+version bump.
+
+Adding resolved column metadata to compiled artifacts should follow ADR 0019
+and `docs/compatibility/column-value-comparison.md`. Raw wildcard selectors
+must not appear in typed check plans. Changing existing `columns` field meaning,
+required-column semantics, stable check IDs, or typed operation payloads may
+require a compiled artifact version bump.
+
+Adding resolved tolerance, null, or normalization policy fields to compiled
+artifacts should follow ADR 0009 and
+`docs/compatibility/tolerance-null-normalization.md`. Changing existing
+`tolerance` field meaning, policy precedence, null defaults, null sentinel
+matching, normalization step ordering, regex payloads, typed operation payloads,
+result fields, or evidence semantics may require a compatibility review and
+artifact version bump.
+
 ## Package version relationship
 
 `recon_version` identifies the Recon Core package version that wrote the
@@ -143,6 +169,7 @@ Durable artifact format decisions require an ADR or ADR update.
 ## Related docs
 
 - `docs/architecture/artifact-model.md`
+- `docs/compatibility/resource-loading.md`
 - `docs/implementation/compiled-artifacts.md`
 - `docs/decisions/adr-0003-parse-compile-run-artifact-model.md`
 - `docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`

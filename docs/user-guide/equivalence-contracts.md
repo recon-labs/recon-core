@@ -83,7 +83,8 @@ For MVP behavior, expose canonical key column names through compare views or que
 
 ## Columns
 
-Columns define eligible comparison fields.
+Columns define eligible comparison fields. They do not run checks by
+themselves.
 
 ```yaml
 columns:
@@ -95,9 +96,11 @@ columns:
       tolerance: 0.01
 ```
 
-Columns do not run checks by themselves.
-
 They are used by compatible checks or check packs.
+
+If a contract has a `columns` block, explicit checks and metrics should stay
+inside that declared surface. All-column comparison must be requested
+explicitly and must resolve to concrete column names before execution.
 
 ## Metrics
 
@@ -135,6 +138,10 @@ checks:
     - recon_core.basic_equivalence
 ```
 
+The current compiler accepts check-pack entries as strings or mappings with
+only `name`. Future `config` and `on_empty` support is designed by ADR 0018 but
+is not implemented yet.
+
 ## Sampling
 
 Sampling can be defined once and overridden per check.
@@ -153,13 +160,30 @@ checks:
 
 ## Tolerances
 
-Tolerance precedence should be:
+MVP tolerance support is numeric absolute tolerance:
+
+```yaml
+columns:
+  numeric:
+    - name: revenue
+      tolerance: 0.01
+```
+
+Tolerance, null, and normalization behavior follows ADR 0009.
+
+Precedence is:
 
 1. check-level,
 2. column-level,
-3. contract-level,
-4. project-level,
-5. framework default.
+3. contract-level inline policy,
+4. named contract policy reference,
+5. project-level default policy,
+6. framework default.
+
+Default null behavior is strict: `NULL != ''`. String-like sentinels such as
+`""`, `"NULL"`, or whitespace are null only when `nulls.treat_as_null` says so.
+Timestamp tolerance, relative tolerance, reusable policy files, unrestricted
+regex features, and custom SQL/macros are future behavior.
 
 ## Schema policy
 

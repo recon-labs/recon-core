@@ -114,11 +114,38 @@ Metrics do create checks.
 
 Check packs create checks through expansion.
 
+## Column validation and value-comparison surface
+
+Column behavior is governed by ADR 0019.
+
+If no `columns` block is defined, explicit metrics and explicit checks may name
+columns directly. Existence and physical type validation may be deferred until
+adapter metadata is available.
+
+If a `columns` block is defined, it is the explicit comparison surface.
+Explicit checks and metrics that reference columns outside that surface should
+fail validation.
+
+Metric columns must be declared only when the contract has a `columns` block.
+Group-by columns follow the same rule as metric value columns.
+
+Check-level column selections narrow the declared surface. They do not mutate
+contract-level column declarations.
+
+Column validation should include:
+
+- invalid column declarations,
+- duplicate canonical column names,
+- undeclared column references when a declared surface exists,
+- invalid check-level selectors,
+- column/check eligibility conflicts,
+- incompatible authored column categories,
+- unused declared columns as warnings.
+
+Adapter metadata validation should cover physical column existence, physical
+types, and unresolved all-column expansion.
+
 ## No silent all-column comparison
-
-If one or more columns are defined, only those columns are eligible for value and aggregate inference.
-
-If no columns are defined, value checks requiring columns should fail unless the check explicitly defines columns.
 
 All-column comparison must be explicit:
 
@@ -137,6 +164,10 @@ checks:
 
 When `*` is used, the compiler should resolve and write the actual column list into compiled artifacts when metadata is available.
 
+Raw `*` must never appear in typed check plans. If adapter metadata is not
+available, all-column expansion must remain deferred and visible through
+diagnostics/artifacts; checks that need concrete columns must not execute.
+
 ## Check-pack expansion
 
 Check packs must expand into explicit compiled checks.
@@ -151,8 +182,8 @@ checks:
 
 The current compiler supports check-pack names as strings and object entries
 with only a `name` field. Check-pack invocation config and overrides are gated
-for later design work; fields other than `name` must fail validation instead of
-being silently ignored.
+by ADR 0018; fields other than `name` must fail validation instead of being
+silently ignored until full support is implemented.
 
 Contracts must compile into at least one check from supported check packs or
 explicit metrics.
@@ -215,7 +246,45 @@ Diagnostic:
 recon_core.some_future_pack expanded to no checks.
 ```
 
-Optional future config may support `on_empty: warn` or `on_empty: skip`, but the default remains error.
+ADR 0018 locks future `on_empty` values as `error`, `warn`, and `skip`. The
+default remains error. `warn` and `skip` must not suppress invalid config,
+missing required keys, unknown packs, or other safety validation failures.
+
+## Check-pack invocation config
+
+The future typed invocation model should normalize both supported authored
+forms into one internal model:
+
+```yaml
+checks:
+  use:
+    - recon_core.basic_equivalence
+    - name: recon_core.some_pack
+      on_empty: error
+      config:
+        severity: error
+        sampling: full
+        tolerance: null
+        params: {}
+        checks:
+          row_count_diff:
+            severity: warn
+```
+
+Implementation rules:
+
+- keep current strict rejection until typed invocation config is implemented,
+- accept only `name`, `on_empty`, and `config` as invocation fields,
+- validate `on_empty` before expansion,
+- validate `config` against the check pack schema before expansion,
+- reject unknown config keys, unknown `params`, unknown generated check names,
+  and config that cannot apply to generated checks,
+- apply pack-wide config before `config.checks.<generated_check_name>`
+  overrides,
+- never let config bypass required grain keys, required CDC keys, key safety
+  checks, adapter capability checks, or explicit schema-ignore rules,
+- write invocation and resolved-config details into compiled artifacts before
+  accepting `config`, `on_empty: warn`, or `on_empty: skip`.
 
 ## Metric compilation
 
@@ -321,7 +390,11 @@ The first compiler implementation supports explicit `sum` metrics. Metric
 names must be unique within a contract; duplicate names fail validation with
 `RC_VALIDATE_DUPLICATE_METRIC_NAME`.
 
-Metric column types must be compatible with metric type.
+Metric column references follow ADR 0019. When a contract declares a `columns`
+block, metric value and group-by columns must be inside that declared surface.
+Metric column types must be compatible with metric type, using authored column
+categories during compile validation and adapter metadata when physical types
+are required.
 
 Explicit metrics are the first aggregate compilation path. The compiler must
 not infer aggregate checks from eligible numeric columns unless a future
@@ -361,25 +434,90 @@ Sampling does not remove non-null or uniqueness requirements for row-level check
 
 ## Tolerance and null resolution
 
-Tolerance precedence:
+Tolerance, null, and normalization behavior is governed by ADR 0009.
+
+Resolve each policy family independently.
+
+Precedence:
 
 ```text
 check-level
 column-level
-contract-level policy
-project-level policy
+contract-level inline policy
+named contract policy reference
+project-level default policy
 framework default
 ```
 
-Null and normalization rules follow the same precedence.
+Milestone 5 may validate and resolve MVP policy shapes, but named tolerance
+policy references require the ADR 0017 resource loader before they can be
+resolved.
 
-Compiled checks should show resolved tolerance and null behavior.
+Compiled checks should show resolved tolerance, null, and normalization
+behavior when that policy affects a compiled check.
+
+MVP numeric tolerance supports absolute tolerance only:
+
+```yaml
+tolerance: 0.01
+```
+
+or:
+
+```yaml
+tolerance:
+  type: absolute
+  value: 0.01
+```
+
+Relative tolerance, percentage tolerance, and timestamp tolerance execution are
+future gated and must not be silently accepted as executable behavior.
 
 Default null behavior:
 
 ```text
 NULL != ''
 ```
+
+Resolved comparisons use null-safe equality: two null values compare equal, one
+null and one non-null value compare different, and string sentinels such as
+`''`, `' '`, `'NULL'`, or `'N/A'` remain different from null unless
+`nulls.treat_as_null` explicitly configures them.
+
+String normalization defaults to no steps. The supported explicit shape is
+ordered:
+
+```yaml
+normalization:
+  steps:
+    - trim
+    - collapse_whitespace
+    - lower
+    - regex_replace:
+        pattern: "\\s+-+$"
+        replacement: ""
+```
+
+Allowed simple steps are `trim`, `collapse_whitespace`, `lower`, and `upper`.
+Allowed MVP regex is limited `regex_replace` with literal replacement.
+Duplicate simple steps, `lower` with `upper`, unsupported regex features,
+arbitrary SQL, macro references, and locale-specific behavior must fail until
+separately designed.
+
+String-like null sentinels are configured as:
+
+```yaml
+nulls:
+  treat_as_null:
+    values:
+      - ""
+      - "NULL"
+    regex:
+      - "^\\s*$"
+```
+
+Sentinel matching runs after normalization steps and applies only to
+string-like value comparison.
 
 ## Schema policy resolution
 
@@ -504,14 +642,15 @@ silently changing comparison semantics.
 
 ## Diagnostics
 
-Validation should produce structured diagnostics with stable codes.
+Validation should produce structured diagnostics with stable codes. Diagnostic
+timing and code ownership are locked in
+`docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
 
 Examples:
 
 ```text
 RC_COMPILE_UNKNOWN_CHECK_PACK
 RC_COMPILE_EMPTY_CHECK_PACK
-RC_VALIDATE_ROW_CHECK_REQUIRES_KEYS
 RC_VALIDATE_CHECK_REQUIRES_GRAIN_KEYS
 RC_VALIDATE_CHECK_REQUIRES_CDC_KEYS
 RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
@@ -520,9 +659,13 @@ RC_VALIDATE_NO_COMPILED_CHECKS
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED
 RC_VALIDATE_INCOMPATIBLE_COLUMN_TYPE
-RC_VALIDATE_MISSING_SAMPLE_POLICY
-RC_VALIDATE_UNSUPPORTED_ADAPTER_CAPABILITY
+RC_COMPILE_UNKNOWN_SAMPLE_POLICY
+RC_ADAPTER_CAPABILITY_UNSUPPORTED
 ```
+
+Use `RC_COMPILE_*` for compiler resolution problems and `RC_VALIDATE_*` for
+semantic safety rules that run during compile. Use `RC_ADAPTER_*` for adapter
+type, capability, metadata, rendering, or query failures.
 
 ## Compiled artifact requirements
 

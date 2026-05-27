@@ -14,6 +14,19 @@ checks:
     - recon_core.basic_equivalence
 ```
 
+Current implementation supports check-pack use entries as either strings or
+mappings with only `name`:
+
+```yaml
+checks:
+  use:
+    - name: recon_core.basic_equivalence
+```
+
+Invocation fields such as `config`, `on_empty`, or package-specific overrides
+are designed by ADR 0018 but are not implemented yet. Current compilation
+rejects unsupported invocation fields instead of ignoring them.
+
 ## Why check packs exist
 
 Check packs let organizations standardize reconciliation behavior across contracts.
@@ -40,7 +53,9 @@ Default result:
 ERROR: recon_core.some_future_pack expanded to no checks.
 ```
 
-A future escape hatch may support `on_empty: warn`, but default should remain strict.
+ADR 0018 locks future `on_empty` values as `error`, `warn`, and `skip`. The
+default remains `error`. `warn` and `skip` require compiled artifact visibility
+before implementation.
 
 ## Built-in check packs
 
@@ -80,9 +95,10 @@ Requirements:
 - `grain.keys`,
 - non-null keys in source and target,
 - unique keys in source and target,
-- eligible columns or explicit check-level columns.
+- eligible columns or explicit check-level columns resolved through ADR 0019.
 
-This pack must not compare all columns unless explicitly configured.
+This pack must not compare all columns unless explicitly configured. All-column
+requests must resolve to concrete column names before execution.
 
 If required null-key or duplicate-key safety checks are not authored explicitly, the compiler should generate visible safety checks before value checks.
 
@@ -185,19 +201,42 @@ future decision before CDC delete propagation checks are implemented.
 
 Tombstone events and SCD2 history can be added later.
 
-## Overrides
+## Invocation config
 
-Contracts should be able to override pack defaults.
+Contracts should eventually be able to override pack defaults through the ADR
+0018 invocation model. The locked public shape is:
 
 ```yaml
 checks:
   use:
     - name: recon_core.basic_equivalence
+      on_empty: error
       config:
-        row_count:
-          tolerance: 10
-          severity: warn
+        severity: error
+        sampling: full
+        tolerance: null
+        params: {}
+        checks:
+          row_count_diff:
+            severity: warn
 ```
+
+Current compilation still rejects `config` and `on_empty`. When support is
+implemented:
+
+- unknown invocation fields must fail,
+- unknown config keys must fail,
+- package check packs must declare config schemas before accepting config,
+- tolerance, null, and normalization overrides must use ADR 0009 policy
+  shapes,
+- config that cannot apply to generated checks must fail,
+- `on_empty` must be visible in compiled artifacts,
+- config must not disable required safety checks unless a later ADR explicitly
+  allows that behavior.
+
+Per-check overrides under `config.checks` apply only to generated check names
+declared by the check pack. The locked shape does not include `enabled`,
+`exclude`, `only`, `except`, `alias`, or `as`.
 
 ## Design rules
 

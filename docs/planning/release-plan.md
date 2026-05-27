@@ -81,6 +81,7 @@ Included:
 - basic contract validation,
 - basic check packs,
 - basic aggregate metric checks,
+- simple multi-contract files,
 - manifest artifact,
 - compiled checks artifact,
 - run results artifact,
@@ -102,7 +103,6 @@ Release purpose:
 Included:
 
 - query-based contracts,
-- multiple contracts per file,
 - defaults,
 - endpoint refs,
 - tolerance policy files,

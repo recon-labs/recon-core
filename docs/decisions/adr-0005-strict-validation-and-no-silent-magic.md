@@ -65,3 +65,5 @@ Compiled artifacts must show resolved behavior.
 Evidence must show full versus sampled scope and any ignored schema elements.
 
 Convenience features are allowed only when explicit.
+
+Column and all-column comparison safety is detailed in ADR 0019.

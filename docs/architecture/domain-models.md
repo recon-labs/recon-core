@@ -78,6 +78,11 @@ Compiled checks should include identity and requirement metadata, including
 whether they use comparison identity from `grain.keys`, CDC identity from
 `cdc.keys`, or no key identity.
 
+Column/value comparison models should follow ADR 0019. Authored column models
+define the comparison surface; resolved column models should show concrete
+column names, all-column expansion state, ignored/excluded columns, and adapter
+metadata validation status before value checks execute.
+
 The current compiled model should assume one default comparison identity and
 one default CDC identity per contract. Future named identities should be modeled
 explicitly rather than by passing raw key lists through checks.

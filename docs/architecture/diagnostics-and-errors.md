@@ -42,27 +42,99 @@ skipped
 
 ## Error categories
 
-### Parse errors
+### Configuration diagnostics
+
+Project discovery, project config loading, future profile loading, environment
+variable resolution, and command setup failures.
+
+Code family:
+
+```text
+RC_CONFIG_*
+```
+
+Configuration errors prevent parse, compile, or run from continuing because
+Recon does not have safe project context.
+
+### Parse diagnostics
 
 Invalid YAML, invalid shape, missing required fields, duplicate resource names.
 
-### Compile errors
+Parse diagnostics are structural and authored-file oriented. Parse should not
+expand check packs, compile metrics, resolve policies, validate adapter
+capabilities, or execute queries.
+
+Code family:
+
+```text
+RC_PARSE_*
+```
+
+### Compile and validation diagnostics
 
 Invalid resolved behavior, unknown refs, unknown check packs, empty check-pack expansion, incompatible check/column types, missing policies.
-
-### Validation errors
 
 Unsafe or ambiguous behavior, such as row-level checks without keys, CDC
 propagation checks without CDC keys, CDC checks without required delete mode or
 ordering, or unsupported adapter capabilities.
 
-### Runtime errors
+Use `RC_COMPILE_*` for compiler resolution, expansion, unsupported compiler
+input, or generated-structure problems.
+
+Use `RC_VALIDATE_*` for semantic safety rules or public validation rules, even
+when those rules execute during `recon compile`.
+
+Compile may write diagnostic-bearing compiled artifacts when they are safe and
+useful for inspection, but error diagnostics prevent run.
+
+### Adapter diagnostics
+
+Adapter type resolution, adapter API compatibility, declared capabilities,
+metadata availability, metadata-derived validation, SQL rendering support, and
+query execution.
+
+Code family:
+
+```text
+RC_ADAPTER_*
+```
+
+Unsupported capabilities should fail before run when known. Metadata-dependent
+validation may be deferred only when generated artifacts or run results visibly
+record the deferred condition.
+
+### Runtime diagnostics
 
 Connection failures, query failures, adapter failures, metadata failures.
+
+Runtime diagnostics also include run lifecycle failures, state writes, failure
+detail writes, and prerequisite blocking.
+
+Code family:
+
+```text
+RC_RUNTIME_*
+```
 
 ### Check failures
 
 Checks ran successfully and found mismatches.
+
+Check failures are not validation diagnostics. For example, null-key and
+duplicate-key checks fail after reading source or target data, and dependent
+row-level checks should be skipped with explicit `blocked_by` and
+`skip_reason`.
+
+### Evidence diagnostics
+
+Evidence writer, report writer, redaction, failure-detail, and evidence
+artifact failures.
+
+Code family:
+
+```text
+RC_EVIDENCE_*
+```
 
 ## Error messages
 
@@ -96,7 +168,9 @@ Column revenue is defined but not used by any compiled check.
 
 ## Error codes
 
-Stable error codes should be introduced as behavior matures.
+Diagnostic codes are public enough for users and automation to rely on during
+pre-1.0 development. Do not reuse a code for a different meaning, and do not
+rename codes without compatibility review.
 
 Example categories:
 
@@ -109,6 +183,9 @@ RC_ADAPTER_*
 RC_RUNTIME_*
 RC_EVIDENCE_*
 ```
+
+Milestone 5 validation timing and diagnostic code ownership are locked in
+`docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
 
 ## CLI rendering
 

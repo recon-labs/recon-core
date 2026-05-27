@@ -47,8 +47,12 @@ class CheckResult:
     message: str | None
     source_value: Any | None
     target_value: Any | None
+    normalized_source_value: Any | None
+    normalized_target_value: Any | None
     diff_value: Any | None
     tolerance: Any | None
+    nulls: Any | None
+    normalization: Any | None
     failure_count: int | None
     blocked_by: list[str]
     skip_reason: str | None
@@ -111,6 +115,14 @@ Example:
 Diagnostics should be included in results.
 
 They help explain warnings, skips, runtime problems, and validation behavior.
+
+Value-comparison results should include resolved tolerance, null, and
+normalization policy when those policies affected the check. If normalization
+changed a compared value and evidence policy allows value capture, results or
+linked failure details should distinguish raw and normalized values. If a value
+became null because of `nulls.treat_as_null`, linked failure details should be
+able to identify the sentinel value or regex rule when evidence policy allows
+that detail.
 
 ## JSON artifact
 
