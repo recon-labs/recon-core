@@ -1,6 +1,7 @@
 """Project configuration loading."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,22 @@ class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
     """YAML safe loader that rejects duplicate mapping keys."""
 
 
+class PathOrigin(StrEnum):
+    """Where a project resource path came from."""
+
+    DEFAULTED = "defaulted"
+    AUTHORED = "authored"
+
+
+@dataclass(frozen=True, slots=True)
+class ConfiguredPath:
+    """Project resource path with authoring origin metadata."""
+
+    value: str
+    origin: PathOrigin
+    field_name: str
+
+
 @dataclass(frozen=True, slots=True)
 class ProjectConfig:
     """Typed project configuration from recon_project.yml."""
@@ -67,6 +84,17 @@ class ProjectConfig:
     target_path: str
     report_path: str
     state_path: str
+    resource_path_entries: tuple[ConfiguredPath, ...] = field(
+        default=(),
+        compare=False,
+        repr=False,
+    )
+
+    def path_entries_for(self, field_name: str) -> tuple[ConfiguredPath, ...]:
+        """Return resource path entries for a project config field."""
+        return tuple(
+            entry for entry in self.resource_path_entries if entry.field_name == field_name
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,14 +217,24 @@ def _project_config_from_mapping(
     profile = _optional_string(raw_config, "profile", project_file, diagnostics)
     config_version = _config_version(raw_config, project_file, diagnostics)
 
-    contract_paths = _path_list(raw_config, "contract-paths", project_file, diagnostics)
-    sample_policy_paths = _path_list(raw_config, "sample-policy-paths", project_file, diagnostics)
-    tolerance_policy_paths = _path_list(
+    contract_paths, contract_path_entries = _path_list(
+        raw_config, "contract-paths", project_file, diagnostics
+    )
+    sample_policy_paths, sample_policy_path_entries = _path_list(
+        raw_config, "sample-policy-paths", project_file, diagnostics
+    )
+    tolerance_policy_paths, tolerance_policy_path_entries = _path_list(
         raw_config, "tolerance-policy-paths", project_file, diagnostics
     )
-    schema_policy_paths = _path_list(raw_config, "schema-policy-paths", project_file, diagnostics)
-    check_pack_paths = _path_list(raw_config, "check-pack-paths", project_file, diagnostics)
-    macro_paths = _path_list(raw_config, "macro-paths", project_file, diagnostics)
+    schema_policy_paths, schema_policy_path_entries = _path_list(
+        raw_config, "schema-policy-paths", project_file, diagnostics
+    )
+    check_pack_paths, check_pack_path_entries = _path_list(
+        raw_config, "check-pack-paths", project_file, diagnostics
+    )
+    macro_paths, macro_path_entries = _path_list(
+        raw_config, "macro-paths", project_file, diagnostics
+    )
 
     target_path = _string_with_default(raw_config, "target-path", project_file, diagnostics)
     report_path = _string_with_default(raw_config, "report-path", project_file, diagnostics)
@@ -220,6 +258,14 @@ def _project_config_from_mapping(
             target_path=target_path,
             report_path=report_path,
             state_path=state_path,
+            resource_path_entries=(
+                contract_path_entries
+                + sample_policy_path_entries
+                + tolerance_policy_path_entries
+                + schema_policy_path_entries
+                + check_pack_path_entries
+                + macro_path_entries
+            ),
         )
     )
 
@@ -346,7 +392,8 @@ def _path_list(
     field_name: str,
     project_file: Path,
     diagnostics: list[Diagnostic],
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], tuple[ConfiguredPath, ...]]:
+    was_authored = field_name in raw_config
     value = raw_config.get(field_name, _PATH_LIST_DEFAULTS[field_name])
     if not isinstance(value, list | tuple):
         diagnostics.append(
@@ -356,7 +403,7 @@ def _path_list(
                 hint=f"Use `{field_name}: [path_name]` or a YAML list.",
             )
         )
-        return _PATH_LIST_DEFAULTS[field_name]
+        return _default_path_list_with_entries(field_name)
 
     paths: list[str] = []
     for item in value:
@@ -368,10 +415,29 @@ def _path_list(
                     hint=f"Remove invalid entries from `{field_name}`.",
                 )
             )
-            return _PATH_LIST_DEFAULTS[field_name]
+            return _default_path_list_with_entries(field_name)
         paths.append(item)
 
-    return tuple(paths)
+    origin = PathOrigin.AUTHORED if was_authored else PathOrigin.DEFAULTED
+    path_values = tuple(paths)
+    return path_values, _configured_path_entries(path_values, origin, field_name)
+
+
+def _default_path_list_with_entries(
+    field_name: str,
+) -> tuple[tuple[str, ...], tuple[ConfiguredPath, ...]]:
+    values = _PATH_LIST_DEFAULTS[field_name]
+    return values, _configured_path_entries(values, PathOrigin.DEFAULTED, field_name)
+
+
+def _configured_path_entries(
+    values: tuple[str, ...],
+    origin: PathOrigin,
+    field_name: str,
+) -> tuple[ConfiguredPath, ...]:
+    return tuple(
+        ConfiguredPath(value=value, origin=origin, field_name=field_name) for value in values
+    )
 
 
 def _string_with_default(

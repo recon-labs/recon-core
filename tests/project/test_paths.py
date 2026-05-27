@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from recon_core.config import ProjectConfig
-from recon_core.project import ProjectPaths, resolve_project_paths
+from recon_core.config import ConfiguredPath, PathOrigin, ProjectConfig, load_project_config
+from recon_core.project import ProjectPaths, ResolvedResourcePath, resolve_project_paths
 
 
 def make_project_config(**overrides: object) -> ProjectConfig:
@@ -93,3 +93,76 @@ def test_resolve_project_paths_resolves_default_generated_paths(tmp_path: Path) 
     assert paths.target_path == tmp_path / "target"
     assert paths.report_path == tmp_path / "reports"
     assert paths.state_path == tmp_path / "state"
+
+
+def test_resolve_project_paths_preserves_resource_path_origin_metadata(
+    tmp_path: Path,
+) -> None:
+    project_file = tmp_path / "recon_project.yml"
+    project_file.write_text(
+        """
+name: finance_recon
+contract-paths:
+  - recon_contracts
+macro-paths:
+  - sql_helpers
+""".lstrip(),
+        encoding="utf-8",
+    )
+    config_result = load_project_config(project_file)
+    assert config_result.config is not None
+
+    paths = resolve_project_paths(tmp_path, config_result.config)
+
+    assert paths.path_entries_for("contract-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "recon_contracts",
+            origin=PathOrigin.AUTHORED,
+            field_name="contract-paths",
+        ),
+    )
+    assert paths.path_entries_for("sample-policy-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "sample_policies",
+            origin=PathOrigin.DEFAULTED,
+            field_name="sample-policy-paths",
+        ),
+    )
+    assert paths.path_entries_for("macro-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "sql_helpers",
+            origin=PathOrigin.AUTHORED,
+            field_name="macro-paths",
+        ),
+    )
+
+
+def test_resolve_project_paths_falls_back_to_authored_origin_for_manual_config(
+    tmp_path: Path,
+) -> None:
+    config = make_project_config(
+        resource_path_entries=(
+            ConfiguredPath(
+                value="contracts",
+                origin=PathOrigin.DEFAULTED,
+                field_name="contract-paths",
+            ),
+        )
+    )
+
+    paths = resolve_project_paths(tmp_path, config)
+
+    assert paths.path_entries_for("contract-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "contracts",
+            origin=PathOrigin.DEFAULTED,
+            field_name="contract-paths",
+        ),
+    )
+    assert paths.path_entries_for("macro-paths") == (
+        ResolvedResourcePath(
+            path=tmp_path / "macros",
+            origin=PathOrigin.AUTHORED,
+            field_name="macro-paths",
+        ),
+    )

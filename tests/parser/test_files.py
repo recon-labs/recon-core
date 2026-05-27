@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from recon_core.diagnostics import DiagnosticSeverity
-from recon_core.parser import ResourceFile, ResourceType, discover_contract_files
+from recon_core.parser import (
+    LOCAL_RESOURCE_KIND_DEFINITIONS,
+    ResourceFile,
+    ResourceType,
+    discover_contract_files,
+)
 
 
 def write_file(path: Path, content: str = "name: customer_revenue\n") -> None:
@@ -96,6 +101,42 @@ def test_discover_contract_files_deduplicates_overlapping_contract_paths(
     assert [resource.relative_path for resource in result.files] == [
         "contracts/nested/customer_revenue.yml"
     ]
+
+
+def test_local_resource_catalog_locks_milestone_4_6_resource_kinds() -> None:
+    definitions = {
+        definition.resource_type: definition for definition in LOCAL_RESOURCE_KIND_DEFINITIONS
+    }
+
+    assert set(definitions) == {
+        ResourceType.CONTRACT,
+        ResourceType.CHECK_PACK,
+        ResourceType.SAMPLE_POLICY,
+        ResourceType.TOLERANCE_POLICY,
+        ResourceType.SCHEMA_POLICY,
+        ResourceType.MACRO_FILE,
+    }
+    assert definitions[ResourceType.CONTRACT].path_field == "contract-paths"
+    assert definitions[ResourceType.CONTRACT].suffixes == frozenset({".yaml", ".yml"})
+    assert definitions[ResourceType.CONTRACT].required_by_default is True
+    assert definitions[ResourceType.CHECK_PACK].path_field == "check-pack-paths"
+    assert definitions[ResourceType.CHECK_PACK].suffixes == frozenset({".yaml", ".yml"})
+    assert definitions[ResourceType.SAMPLE_POLICY].path_field == "sample-policy-paths"
+    assert definitions[ResourceType.TOLERANCE_POLICY].path_field == "tolerance-policy-paths"
+    assert definitions[ResourceType.SCHEMA_POLICY].path_field == "schema-policy-paths"
+    assert definitions[ResourceType.MACRO_FILE].path_field == "macro-paths"
+    assert definitions[ResourceType.MACRO_FILE].suffixes == frozenset({".sql"})
+
+    optional_definitions = [
+        definition
+        for definition in definitions.values()
+        if definition.resource_type is not ResourceType.CONTRACT
+    ]
+    assert optional_definitions
+    assert all(not definition.required_by_default for definition in optional_definitions)
+    assert all(definition.explicit_missing_is_error for definition in definitions.values())
+    assert definitions[ResourceType.CONTRACT].handling == "parse"
+    assert all(definition.handling == "index" for definition in optional_definitions)
 
 
 def test_resource_file_serializes_to_dict(tmp_path: Path) -> None:

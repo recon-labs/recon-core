@@ -16,6 +16,75 @@ class ResourceType(StrEnum):
     """Authored resource file categories."""
 
     CONTRACT = "contract"
+    CHECK_PACK = "check_pack"
+    SAMPLE_POLICY = "sample_policy"
+    TOLERANCE_POLICY = "tolerance_policy"
+    SCHEMA_POLICY = "schema_policy"
+    MACRO_FILE = "macro_file"
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceKindDefinition:
+    """Catalog entry for an authored project resource file kind."""
+
+    resource_type: ResourceType
+    path_field: str
+    suffixes: frozenset[str]
+    required_by_default: bool
+    explicit_missing_is_error: bool
+    handling: str
+
+
+LOCAL_RESOURCE_KIND_DEFINITIONS: tuple[ResourceKindDefinition, ...] = (
+    ResourceKindDefinition(
+        resource_type=ResourceType.CONTRACT,
+        path_field="contract-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=True,
+        explicit_missing_is_error=True,
+        handling="parse",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.CHECK_PACK,
+        path_field="check-pack-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.SAMPLE_POLICY,
+        path_field="sample-policy-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.TOLERANCE_POLICY,
+        path_field="tolerance-policy-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.SCHEMA_POLICY,
+        path_field="schema-policy-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.MACRO_FILE,
+        path_field="macro-paths",
+        suffixes=frozenset({".sql"}),
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+)
 
 
 class ResourceFileDict(TypedDict):
