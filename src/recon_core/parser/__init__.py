@@ -21,6 +21,7 @@ from recon_core.parser.files import (
     ResourceKindDefinition,
     ResourceType,
     discover_contract_files,
+    discover_resource_files,
 )
 from recon_core.parser.manifest import (
     DUPLICATE_CONTRACT,
@@ -74,6 +75,7 @@ __all__ = [
     "YamlLoadResult",
     "build_manifest",
     "discover_contract_files",
+    "discover_resource_files",
     "load_parsed_project",
     "load_yaml_file",
     "load_yaml_text",
