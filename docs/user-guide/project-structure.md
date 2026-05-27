@@ -66,10 +66,11 @@ docs/
 `selectors.yml` is a future project resource. Its syntax is not locked yet, and
 `recon run --select` / `recon compile --select` are not implemented.
 
-Current parse and compile behavior loads contract files only. The other
-versioned resource directories are part of the project structure and future
-resource-loading surface. Their reference validation and precedence rules are
-designed in ADR 0017 but are not implemented yet.
+`recon parse` indexes local check-pack, sampling-policy, tolerance-policy,
+schema-policy, and macro files as source-file metadata in
+`target/manifest.json`. Recon still parses contract YAML only. Local
+check-pack, policy, endpoint, and macro semantics, reference validation, and
+package loading remain future work.
 
 ## Ignored files
 

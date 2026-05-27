@@ -79,10 +79,11 @@ introduce manifest freshness or caching rules.
 This preserves authored YAML and `recon_project.yml` as the source of truth
 while avoiding drift between `recon parse` and `recon compile`.
 
-Current implementation status: the shared parsed-project loading pipeline is
-contract-only. Non-contract resource loading and precedence are locked by ADR
-0017, but reference validation must wait until the relevant resource kinds are
-loaded through that shared model.
+Current implementation status: the shared parsed-project loading pipeline
+discovers local non-contract source files for manifest indexing, but it parses
+semantic resource models for contracts only. Non-contract resource loading and
+precedence are locked by ADR 0017, but reference validation must wait until the
+relevant resource kinds are parsed through that shared model.
 
 ## Run service
 

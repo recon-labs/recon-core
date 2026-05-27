@@ -144,6 +144,10 @@ Package and framework check packs must be referenced with a namespace, such as
 `recon_core.basic_equivalence`. Unqualified resource references resolve only to
 local project resources.
 
+Current `recon parse` behavior indexes local check-pack files as source-file
+metadata in `target/manifest.json`. Local check-pack file schemas and execution
+semantics are future work.
+
 ## `sample_policies/`
 
 Reusable sampling definitions.
@@ -165,9 +169,9 @@ Useful for ignoring known CDC/ingestion metadata columns.
 Reusable SQL snippets or templates for normalization.
 
 Macro files are a future extension surface. They may be discovered and
-checksummed by the resource loader later, but Recon does not parse, render, or
-execute macros until macro semantics are locked. Macros must not become the
-primary comparison engine.
+checksummed by the resource loader as source files, but Recon does not parse,
+render, or execute macros until macro semantics are locked. Macros must not
+become the primary comparison engine.
 
 ## `reports/`
 
@@ -199,8 +203,9 @@ Local state. Should be gitignored.
 
 The starter includes the current contract-loading paths plus future
 local-resource directories such as `check_packs/` and `macros/`. Those
-directories are created for project consistency, but current parse/compile
-behavior still loads contract files only.
+directories are created for project consistency. Current parse behavior indexes
+local resource source files in `target/manifest.json`; compile behavior still
+parses and compiles contract resources only.
 
 ## Design principle
 

@@ -6,9 +6,12 @@ from hashlib import sha256
 from pathlib import Path
 from typing import TypedDict
 
+from recon_core.config import PathOrigin
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
+from recon_core.project import ResolvedResourcePath
 
 RESOURCE_PATH_NOT_FOUND = "RC_PARSE_RESOURCE_PATH_NOT_FOUND"
+AMBIGUOUS_RESOURCE_FILE = "RC_PARSE_AMBIGUOUS_RESOURCE_FILE"
 _YAML_SUFFIXES = frozenset({".yaml", ".yml"})
 
 
@@ -16,6 +19,75 @@ class ResourceType(StrEnum):
     """Authored resource file categories."""
 
     CONTRACT = "contract"
+    CHECK_PACK = "check_pack"
+    SAMPLE_POLICY = "sample_policy"
+    TOLERANCE_POLICY = "tolerance_policy"
+    SCHEMA_POLICY = "schema_policy"
+    MACRO_FILE = "macro_file"
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceKindDefinition:
+    """Catalog entry for an authored project resource file kind."""
+
+    resource_type: ResourceType
+    path_field: str
+    suffixes: frozenset[str]
+    required_by_default: bool
+    explicit_missing_is_error: bool
+    handling: str
+
+
+LOCAL_RESOURCE_KIND_DEFINITIONS: tuple[ResourceKindDefinition, ...] = (
+    ResourceKindDefinition(
+        resource_type=ResourceType.CONTRACT,
+        path_field="contract-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=True,
+        explicit_missing_is_error=True,
+        handling="parse",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.CHECK_PACK,
+        path_field="check-pack-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.SAMPLE_POLICY,
+        path_field="sample-policy-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.TOLERANCE_POLICY,
+        path_field="tolerance-policy-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.SCHEMA_POLICY,
+        path_field="schema-policy-paths",
+        suffixes=_YAML_SUFFIXES,
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+    ResourceKindDefinition(
+        resource_type=ResourceType.MACRO_FILE,
+        path_field="macro-paths",
+        suffixes=frozenset({".sql"}),
+        required_by_default=False,
+        explicit_missing_is_error=True,
+        handling="index",
+    ),
+)
 
 
 class ResourceFileDict(TypedDict):
@@ -53,46 +125,102 @@ class ResourceDiscoveryResult:
         return not self.diagnostics
 
 
+@dataclass(frozen=True, slots=True)
+class _ResourceCandidate:
+    path: Path
+    relative_path: str
+    definition: ResourceKindDefinition
+
+
 def discover_contract_files(
     project_root: Path, contract_paths: tuple[Path, ...]
 ) -> ResourceDiscoveryResult:
     """Discover contract YAML files from configured contract paths."""
+    return discover_resource_files(
+        project_root,
+        tuple(
+            ResolvedResourcePath(
+                path=contract_path,
+                origin=PathOrigin.AUTHORED,
+                field_name="contract-paths",
+            )
+            for contract_path in contract_paths
+        ),
+        definitions=(LOCAL_RESOURCE_KIND_DEFINITIONS[0],),
+    )
+
+
+def discover_resource_files(
+    project_root: Path,
+    resource_paths: tuple[ResolvedResourcePath, ...],
+    *,
+    definitions: tuple[ResourceKindDefinition, ...] = LOCAL_RESOURCE_KIND_DEFINITIONS,
+) -> ResourceDiscoveryResult:
+    """Discover authored resource files from cataloged project resource paths."""
     diagnostics: list[Diagnostic] = []
-    discovered_by_real_path: dict[Path, ResourceFile] = {}
+    candidates_by_real_path: dict[Path, list[_ResourceCandidate]] = {}
+    definitions_by_field = {definition.path_field: definition for definition in definitions}
 
-    for contract_path in contract_paths:
-        if not contract_path.exists():
-            diagnostics.append(
-                _missing_contract_path_diagnostic(
-                    contract_path,
-                    f"Configured contract path does not exist: {contract_path}",
-                )
-            )
+    for resource_path in resource_paths:
+        definition = definitions_by_field.get(resource_path.field_name)
+        if definition is None:
             continue
 
-        if not contract_path.is_dir():
-            diagnostics.append(
-                _missing_contract_path_diagnostic(
-                    contract_path,
-                    f"Configured contract path must be a directory: {contract_path}",
-                )
-            )
-            continue
-
-        for path in _iter_yaml_files(contract_path):
-            real_path = path.resolve()
-            if real_path in discovered_by_real_path:
+        if not resource_path.path.exists():
+            if _missing_path_is_allowed(resource_path, definition):
                 continue
-            discovered_by_real_path[real_path] = ResourceFile(
-                path=path,
-                relative_path=_relative_posix_path(project_root, path),
-                resource_type=ResourceType.CONTRACT,
-                checksum=_file_checksum(path),
+            diagnostics.append(
+                _missing_resource_path_diagnostic(
+                    resource_path,
+                    definition,
+                    f"Configured {definition.path_field} path does not exist: {resource_path.path}",
+                )
             )
+            continue
+
+        if not resource_path.path.is_dir():
+            message = (
+                f"Configured {definition.path_field} path must be a directory: {resource_path.path}"
+            )
+            diagnostics.append(
+                _missing_resource_path_diagnostic(
+                    resource_path,
+                    definition,
+                    message,
+                )
+            )
+            continue
+
+        for path in _iter_resource_files(resource_path.path, definition.suffixes):
+            real_path = path.resolve()
+            candidates_by_real_path.setdefault(real_path, []).append(
+                _ResourceCandidate(
+                    path=path,
+                    relative_path=_relative_posix_path(project_root, path),
+                    definition=definition,
+                )
+            )
+
+    resource_files: list[ResourceFile] = []
+    for candidates in candidates_by_real_path.values():
+        candidates_by_type = _candidates_by_resource_type(candidates)
+        if len(candidates_by_type) > 1:
+            diagnostics.append(_ambiguous_resource_file_diagnostic(candidates_by_type))
+            continue
+
+        candidate = next(iter(candidates_by_type.values()))
+        resource_files.append(
+            ResourceFile(
+                path=candidate.path,
+                relative_path=candidate.relative_path,
+                resource_type=candidate.definition.resource_type,
+                checksum=_file_checksum(candidate.path),
+            )
+        )
 
     files = tuple(
         sorted(
-            discovered_by_real_path.values(),
+            resource_files,
             key=lambda resource: resource.relative_path,
         )
     )
@@ -100,13 +228,60 @@ def discover_contract_files(
     return ResourceDiscoveryResult(files=files, diagnostics=tuple(diagnostics))
 
 
+def _candidates_by_resource_type(
+    candidates: list[_ResourceCandidate],
+) -> dict[ResourceType, _ResourceCandidate]:
+    candidates_by_type: dict[ResourceType, _ResourceCandidate] = {}
+    for candidate in candidates:
+        candidates_by_type.setdefault(candidate.definition.resource_type, candidate)
+    return candidates_by_type
+
+
+def _ambiguous_resource_file_diagnostic(
+    candidates_by_type: dict[ResourceType, _ResourceCandidate],
+) -> Diagnostic:
+    candidates = sorted(
+        candidates_by_type.values(),
+        key=lambda candidate: candidate.definition.resource_type.value,
+    )
+    path_fields = ", ".join(f"`{candidate.definition.path_field}`" for candidate in candidates)
+    resource_types = ", ".join(
+        f"`{candidate.definition.resource_type.value}`" for candidate in candidates
+    )
+    relative_path = candidates[0].relative_path
+    return Diagnostic(
+        code=AMBIGUOUS_RESOURCE_FILE,
+        severity=DiagnosticSeverity.ERROR,
+        message=(
+            f"Resource file {relative_path} matches multiple resource kinds "
+            f"through {path_fields}: {resource_types}."
+        ),
+        resource_type="resource_file",
+        path=relative_path,
+        hint="Move the file under exactly one resource kind path or update the overlapping paths.",
+    )
+
+
+def _missing_path_is_allowed(
+    resource_path: ResolvedResourcePath,
+    definition: ResourceKindDefinition,
+) -> bool:
+    if resource_path.origin is PathOrigin.DEFAULTED:
+        return not definition.required_by_default
+    return not definition.explicit_missing_is_error
+
+
 def _iter_yaml_files(path: Path) -> tuple[Path, ...]:
+    return _iter_resource_files(path, _YAML_SUFFIXES)
+
+
+def _iter_resource_files(path: Path, suffixes: frozenset[str]) -> tuple[Path, ...]:
     return tuple(
         sorted(
             (
                 candidate
                 for candidate in path.rglob("*")
-                if candidate.is_file() and candidate.suffix.lower() in _YAML_SUFFIXES
+                if candidate.is_file() and candidate.suffix.lower() in suffixes
             ),
             key=lambda candidate: candidate.as_posix(),
         )
@@ -124,12 +299,16 @@ def _file_checksum(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
 
-def _missing_contract_path_diagnostic(path: Path, message: str) -> Diagnostic:
+def _missing_resource_path_diagnostic(
+    resource_path: ResolvedResourcePath,
+    definition: ResourceKindDefinition,
+    message: str,
+) -> Diagnostic:
     return Diagnostic(
         code=RESOURCE_PATH_NOT_FOUND,
         severity=DiagnosticSeverity.ERROR,
         message=message,
-        resource_type="contract_path",
-        path=str(path),
-        hint="Create the directory or update `contract-paths`.",
+        resource_type=f"{definition.resource_type.value}_path",
+        path=str(resource_path.path),
+        hint=f"Create the directory or update `{definition.path_field}`.",
     )

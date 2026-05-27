@@ -6,8 +6,11 @@ Recon project config already exposes path fields for contracts, check packs,
 sampling policies, tolerance policies, schema policies, and macros. Public docs
 also describe endpoint resources and future packages.
 
-Current implementation loads contract files only. Before Milestone 5 validates
-references to non-contract resources, Recon needs a durable rule for:
+When this ADR was written, the current implementation loaded contract files
+only. Milestone 4.6 now implements the first resource-loading step by indexing
+local non-contract source files in the manifest while still parsing semantic
+resource models for contracts only. Before Milestone 5 validates references to
+non-contract resources, Recon needs a durable rule for:
 
 - which resource kinds are loadable,
 - how resource files are discovered,
@@ -92,6 +95,18 @@ authored
 
 Until path origin is represented in code, non-contract resource loading should
 not treat missing default optional directories as errors.
+
+## Resource Path Overlap
+
+Overlapping paths are allowed only when they resolve to the same resource kind.
+For example, `check-pack-paths: [check_packs, check_packs/nested]` may discover
+the same check-pack file once.
+
+The same source file must not resolve to multiple resource kinds. If one file is
+reachable through different kind paths, such as both `contract-paths` and
+`check-pack-paths`, parsing must fail with a resource-file ambiguity diagnostic.
+Recon must not silently choose the first matching kind because that could parse
+or index a file under the wrong semantics.
 
 ## Namespaces and Reference Resolution
 
@@ -216,6 +231,7 @@ Recommended diagnostics:
 | Code | Phase | Severity | Meaning |
 | --- | --- | --- | --- |
 | `RC_PARSE_RESOURCE_PATH_NOT_FOUND` | parse | error | A required or explicitly configured resource path is missing or not a directory. |
+| `RC_PARSE_AMBIGUOUS_RESOURCE_FILE` | parse | error | A source file is reachable through multiple resource kinds. |
 | `RC_PARSE_DUPLICATE_RESOURCE_NAME` | parse | error | A resource name is duplicated within the same kind and namespace. |
 | `RC_CONFIG_RESERVED_RESOURCE_NAMESPACE` | config | error | A project or package uses the reserved `recon_core` namespace. |
 | `RC_CONFIG_DUPLICATE_PACKAGE_NAMESPACE` | config | error | Two packages, or a package and root project, share a namespace. |

@@ -91,8 +91,10 @@ reports/
 state/
 ```
 
-`check_packs/` and `macros/` are scaffolded for future local resource-loading
-work. Current parse/compile behavior still loads contract files only.
+`check_packs/`, `sample_policies/`, `tolerances/`, `schema_policies/`, and
+`macros/` are scaffolded as local resource directories. Current parse behavior
+indexes those non-contract source files in `target/manifest.json`; compile
+still parses and compiles contract resources only.
 
 The generated project should include safe placeholder examples and no secrets.
 It should not overwrite an existing path unless explicit overwrite behavior is added later.

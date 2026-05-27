@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from recon_core.config import ProjectConfig, load_project_config
+from recon_core.config import ConfiguredPath, PathOrigin, ProjectConfig, load_project_config
 from recon_core.diagnostics import DiagnosticSeverity
 
 
@@ -31,6 +31,94 @@ def test_load_project_config_applies_documented_defaults(tmp_path: Path) -> None
         target_path="target",
         report_path="reports",
         state_path="state",
+    )
+
+
+def test_load_project_config_preserves_default_resource_path_origins(
+    tmp_path: Path,
+) -> None:
+    project_file = write_project_config(tmp_path, "name: ecommerce_recon\n")
+
+    result = load_project_config(project_file)
+
+    assert result.succeeded
+    assert result.config is not None
+    assert result.config.path_entries_for("contract-paths") == (
+        ConfiguredPath(
+            value="contracts",
+            origin=PathOrigin.DEFAULTED,
+            field_name="contract-paths",
+        ),
+    )
+    assert result.config.path_entries_for("check-pack-paths") == (
+        ConfiguredPath(
+            value="check_packs",
+            origin=PathOrigin.DEFAULTED,
+            field_name="check-pack-paths",
+        ),
+    )
+    assert result.config.path_entries_for("macro-paths") == (
+        ConfiguredPath(
+            value="macros",
+            origin=PathOrigin.DEFAULTED,
+            field_name="macro-paths",
+        ),
+    )
+
+
+def test_load_project_config_preserves_authored_resource_path_origins(
+    tmp_path: Path,
+) -> None:
+    project_file = write_project_config(
+        tmp_path,
+        """
+name: finance_recon
+contract-paths:
+  - recon_contracts
+  - shared/contracts
+check-pack-paths:
+  - packs
+macro-paths:
+  - sql_helpers
+""".lstrip(),
+    )
+
+    result = load_project_config(project_file)
+
+    assert result.succeeded
+    assert result.config is not None
+    assert result.config.path_entries_for("contract-paths") == (
+        ConfiguredPath(
+            value="recon_contracts",
+            origin=PathOrigin.AUTHORED,
+            field_name="contract-paths",
+        ),
+        ConfiguredPath(
+            value="shared/contracts",
+            origin=PathOrigin.AUTHORED,
+            field_name="contract-paths",
+        ),
+    )
+    assert result.config.path_entries_for("check-pack-paths") == (
+        ConfiguredPath(
+            value="packs",
+            origin=PathOrigin.AUTHORED,
+            field_name="check-pack-paths",
+        ),
+    )
+    assert result.config.path_entries_for("sample-policy-paths") == (
+        ConfiguredPath(
+            value="sample_policies",
+            origin=PathOrigin.DEFAULTED,
+            field_name="sample-policy-paths",
+        ),
+    )
+    assert result.config.path_entries_for("macro-paths") == (
+        ConfiguredPath(
+            value="sql_helpers",
+            origin=PathOrigin.AUTHORED,
+            field_name="macro-paths",
+        ),
     )
 
 

@@ -34,6 +34,20 @@ Examples:
 - invalid YAML,
 - unknown fields.
 
+Milestone 4.6 resource-indexing tests should cover:
+
+- missing default optional non-contract paths are skipped,
+- explicitly configured missing optional paths fail with
+  `RC_PARSE_RESOURCE_PATH_NOT_FOUND`,
+- catalog entries with `explicit_missing_is_error: false` skip missing authored
+  paths,
+- non-contract source-file discovery is deterministic,
+- overlapping configured paths deduplicate by real path,
+- file checksums are stable,
+- macro files are indexed only as `macro_file` source files,
+- index-only non-contract YAML files are not parsed as named resources,
+- endpoint files are not loaded before `endpoint-paths` is implemented.
+
 ### Compiler tests
 
 Tests for explicit generated behavior.
@@ -152,6 +166,10 @@ Examples:
 - identity metadata included,
 - blocked checks include `blocked_by` and `skip_reason`,
 - artifact versions included.
+
+Manifest tests for resource indexing should assert that non-contract files are
+included in `files` with path, `resource_type`, and checksum only, and that no
+top-level parsed resource summaries are emitted before those schemas exist.
 
 ### CLI tests
 

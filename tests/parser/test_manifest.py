@@ -14,7 +14,10 @@ from recon_core.parser.models import SourceLocation
 
 
 def make_resource_file(
-    tmp_path: Path, relative_path: str = "contracts/customer.yml", checksum: str = "abc123"
+    tmp_path: Path,
+    relative_path: str = "contracts/customer.yml",
+    checksum: str = "abc123",
+    resource_type: ResourceType = ResourceType.CONTRACT,
 ) -> ResourceFile:
     path = tmp_path / relative_path
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -22,7 +25,7 @@ def make_resource_file(
     return ResourceFile(
         path=path,
         relative_path=relative_path,
-        resource_type=ResourceType.CONTRACT,
+        resource_type=resource_type,
         checksum=checksum,
     )
 
@@ -179,3 +182,59 @@ def test_build_manifest_orders_files_and_contracts_by_key(tmp_path: Path) -> Non
 
     assert list(manifest_dict["files"]) == ["contracts/a.yml", "contracts/z.yml"]
     assert list(manifest_dict["contracts"]) == ["a_contract", "z_contract"]
+
+
+def test_build_manifest_serializes_non_contract_files_without_resource_summaries(
+    tmp_path: Path,
+) -> None:
+    manifest = build_manifest(
+        project=ManifestProject(name="ecommerce_recon", config_version=1),
+        files=(
+            make_resource_file(
+                tmp_path,
+                "contracts/customer.yml",
+                "contract-checksum",
+                ResourceType.CONTRACT,
+            ),
+            make_resource_file(
+                tmp_path,
+                "check_packs/company.yml",
+                "pack-checksum",
+                ResourceType.CHECK_PACK,
+            ),
+            make_resource_file(
+                tmp_path,
+                "macros/normalize.sql",
+                "macro-checksum",
+                ResourceType.MACRO_FILE,
+            ),
+        ),
+        contracts=(make_contract(path="contracts/customer.yml"),),
+        recon_version="0.0.test",
+        generated_at="2026-05-20T12:00:00Z",
+    )
+
+    manifest_dict = manifest.to_dict()
+
+    assert manifest_dict["artifact_version"] == 1
+    assert manifest_dict["files"]["check_packs/company.yml"] == {
+        "path": "check_packs/company.yml",
+        "resource_type": "check_pack",
+        "checksum": "pack-checksum",
+    }
+    assert manifest_dict["files"]["macros/normalize.sql"] == {
+        "path": "macros/normalize.sql",
+        "resource_type": "macro_file",
+        "checksum": "macro-checksum",
+    }
+    assert list(manifest_dict["contracts"]) == ["customer_revenue"]
+    assert set(manifest_dict) == {
+        "artifact_type",
+        "artifact_version",
+        "recon_version",
+        "generated_at",
+        "project",
+        "files",
+        "contracts",
+        "diagnostics",
+    }
