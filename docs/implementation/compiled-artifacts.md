@@ -204,8 +204,8 @@ Current policy field lock:
 
 - `policies.tolerance_policy` is the authored named tolerance policy reference
   when present; it is not a resolved tolerance object.
-- `policies.nulls` should preserve the accepted contract-level null policy
-  once the compiler aligns policy visibility.
+- `policies.nulls` preserves the accepted contract-level null policy when
+  present.
 - `policies.tolerance` is reserved for resolved inline/default tolerance policy
   when a typed resolver exists.
 - `policies.normalization` is reserved for an accepted and resolved

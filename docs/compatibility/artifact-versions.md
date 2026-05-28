@@ -113,8 +113,9 @@ artifact version bump.
 
 Compiled contract policy alignment must preserve existing field meanings. The
 current compiled contract artifact emits `policies.tolerance_policy` as the
-authored named tolerance policy reference. Adding optional fields such as
-`policies.nulls`, `policies.tolerance`, or `policies.normalization` may keep
+authored named tolerance policy reference and `policies.nulls` as the accepted
+contract-level null policy when present. Adding optional fields such as
+`policies.tolerance` or `policies.normalization` may keep
 `COMPILED_ARTIFACT_VERSION = 1` only when the change is additive and existing
 fields keep their meaning. Removing or renaming `policies.tolerance_policy`, or
 changing it from an authored reference into a resolved policy object, requires

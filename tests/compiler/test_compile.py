@@ -60,6 +60,41 @@ def test_compile_project_builds_contract_and_checks_artifacts() -> None:
     ]
 
 
+def test_compile_project_preserves_contract_policy_fields_additively() -> None:
+    nulls = {
+        "treat_as_null": {
+            "values": ["", "NULL"],
+            "regex": ["^\\s*$"],
+        }
+    }
+
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                tolerance_policy="finance",
+                nulls=nulls,
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert result.succeeded
+    contract_artifact = result.contracts[0].contract_artifact.to_dict()
+    assert contract_artifact["artifact_version"] == 1
+    assert contract_artifact["policies"] == {
+        "sampling": {"default_policy": "full"},
+        "tolerance_policy": "finance",
+        "nulls": nulls,
+        "schema": None,
+        "cdc": None,
+        "evidence": None,
+    }
+
+
 def test_compile_project_rejects_empty_contract_set() -> None:
     result = compile_project(
         project_name="ecommerce_recon",
@@ -337,6 +372,8 @@ def _contract(
     source_path: str | None = None,
     checks: object | None = None,
     sampling: dict[str, object] | None = None,
+    tolerance_policy: str | None = None,
+    nulls: dict[str, object] | None = None,
     metrics: tuple[dict[str, object], ...] | None = None,
 ) -> AuthoredContract:
     grain: dict[str, object] | None = None
@@ -364,4 +401,6 @@ def _contract(
             },
         ),
         sampling=sampling if sampling is not None else {"default_policy": "full"},
+        tolerance_policy=tolerance_policy,
+        nulls=nulls,
     )

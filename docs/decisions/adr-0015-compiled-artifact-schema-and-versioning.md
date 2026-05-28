@@ -215,8 +215,7 @@ Policy field compatibility:
   object.
 - `policies.tolerance` is reserved for resolved inline/default tolerance policy
   once a typed resolver exists.
-- `policies.nulls` carries accepted contract-level null policy once compiler
-  policy visibility is aligned.
+- `policies.nulls` carries accepted contract-level null policy when present.
 - `policies.normalization` is reserved for an accepted and resolved
   normalization policy surface. The current contract parser does not accept
   top-level contract `normalization`.

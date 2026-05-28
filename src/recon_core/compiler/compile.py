@@ -174,6 +174,7 @@ def _compile_contract(
             policies=CompiledContractPolicies(
                 sampling=contract.sampling,
                 tolerance_policy=contract.tolerance_policy,
+                nulls=contract.nulls,
                 schema=contract.schema,
                 cdc=contract.cdc,
                 evidence=contract.evidence,

@@ -63,6 +63,8 @@ This project follows semantic versioning once public package releases begin.
   paths through `explicit_missing_is_error: false`.
 - Typed operation models now reject payload fields that are not valid for the
   selected operation type.
+- Compiled contract artifacts now preserve accepted contract-level `nulls`
+  policy under `policies.nulls`.
 
 ## Release format
 
