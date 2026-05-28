@@ -20,8 +20,9 @@ Current implementation status:
 - contracts accept a named `tolerance_policy` reference and contract-level
   `nulls`,
 - contracts do not accept a top-level `normalization` field,
-- compiled contracts currently emit `policies.tolerance_policy`; preserving
-  `nulls` in compiled contract artifacts is a pre-Milestone-5 alignment item,
+- compiled contracts currently emit `policies.tolerance_policy`; compiled
+  artifact policy visibility is additive and must preserve existing field
+  meanings,
 - the full typed policy resolver is not implemented yet,
 - row-level value checks are not implemented yet,
 - reusable tolerance policy resource loading is not implemented yet,
