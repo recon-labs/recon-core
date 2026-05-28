@@ -178,6 +178,7 @@ metrics: []
 policies:
   sampling:
     default_policy: latest_changed_records
+  tolerance_policy: finance
   tolerance: null
   nulls:
     treat_as_null:
@@ -206,6 +207,23 @@ diagnostics: []
 
 The compiled contract artifact records resolved meaning and policies. It should
 not be the primary list of executable checks.
+
+Policy field compatibility:
+
+- `policies.tolerance_policy` is the authored named tolerance policy reference
+  when present. It must not be silently reinterpreted as a resolved tolerance
+  object.
+- `policies.tolerance` is reserved for resolved inline/default tolerance policy
+  once a typed resolver exists.
+- `policies.nulls` carries accepted contract-level null policy once compiler
+  policy visibility is aligned.
+- `policies.normalization` is reserved for an accepted and resolved
+  normalization policy surface. The current contract parser does not accept
+  top-level contract `normalization`.
+- adding optional policy fields can remain `artifact_version: 1` only when the
+  change is additive and existing field meanings stay stable.
+- removing or renaming `policies.tolerance_policy`, or changing its meaning,
+  requires compatibility review and likely a compiled artifact version bump.
 
 ## Compiled Checks Shape
 

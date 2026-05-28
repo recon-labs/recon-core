@@ -24,11 +24,13 @@ results and evidence
 
 It should read project files, validate YAML syntax, validate basic schema, discover contracts and reusable resources, resolve file paths, identify duplicate contract names, validate that refs point to known resources, and produce a machine-oriented manifest.
 
-Current implementation status: parse discovers and loads contract resources
-only. Reusable resource loading for local check packs, sampling policies,
-tolerance policies, schema policies, endpoint resources, and macros should
-follow the ADR 0017 shared resource-loading model. Reference validation to
-those resources should wait for that shared loader.
+Current implementation status: parse discovers contract resources and local
+non-contract source files for check packs, sampling policies, tolerance
+policies, schema policies, and macros. It parses semantic resource models for
+contracts only. Reusable resource loading for local check packs, sampling
+policies, tolerance policies, schema policies, endpoint resources, packages,
+and macros should follow the ADR 0017 shared resource-loading model. Reference
+validation to those resources should wait for their typed loaders.
 
 Main output:
 

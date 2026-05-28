@@ -177,6 +177,14 @@ identity:
 policies:
   sampling:
     default_policy: latest_changed_records
+  tolerance_policy: finance
+  nulls:
+    treat_as_null:
+      values:
+        - ""
+      regex: []
+  tolerance: null
+  normalization: null
   schema:
     ignore_target_columns:
       - _dms_operation
@@ -191,6 +199,22 @@ policies:
 
 diagnostics: []
 ```
+
+Current policy field lock:
+
+- `policies.tolerance_policy` is the authored named tolerance policy reference
+  when present; it is not a resolved tolerance object.
+- `policies.nulls` should preserve the accepted contract-level null policy
+  once the compiler aligns policy visibility.
+- `policies.tolerance` is reserved for resolved inline/default tolerance policy
+  when a typed resolver exists.
+- `policies.normalization` is reserved for an accepted and resolved
+  normalization policy surface. The current contract parser does not accept
+  top-level contract `normalization`.
+- additive optional policy fields may keep `artifact_version: 1` only when
+  existing field meanings do not change.
+- renaming, removing, or changing the meaning of existing policy fields
+  requires compatibility review and likely an artifact version bump.
 
 ## Compiled checks
 

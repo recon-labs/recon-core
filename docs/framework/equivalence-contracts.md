@@ -554,6 +554,12 @@ normalization:
 Normalization steps run in authored order. Sentinel matching runs after
 normalization and applies only to string-like value comparison.
 
+The `normalization` shape is valid only where the currently supported scope
+accepts it, such as string column policy. The current contract parser does not
+accept a top-level contract `normalization` field. Contract-level normalization
+defaults are a future policy-defaults feature and require a separate design and
+compatibility gate before implementation.
+
 ## Schema policy
 
 Contracts may define schema behavior.

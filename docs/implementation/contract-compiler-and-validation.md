@@ -97,6 +97,34 @@ allowing helper APIs to raise unhandled exceptions.
 Compile should fail validation when no contracts are discovered. A successful
 compile must represent at least one authored contract.
 
+## Milestone 5 implementation lock
+
+Milestone 5 validation should follow the same separation used by mature
+manifest-based tools: source-file discovery, parsed models, graph/resource
+lookup, validation, and artifact writing stay separate. For Recon this means
+the parser remains responsible for structural authored-file parsing, while the
+compiler owns validation that depends on compiled intent, check-pack expansion,
+metrics, policies, or identity requirements.
+
+Implementation guidance:
+
+- add focused compiler validation/resolution modules before adding broad logic
+  to `compiler/compile.py`,
+- keep diagnostics structured and aligned with ADR 0016,
+- validate against parsed/typed internal models rather than raw YAML where a
+  typed model exists,
+- preserve current strict rejection for unsupported check-pack invocation
+  fields until ADR 0018 artifact visibility exists,
+- validate duplicate same-pack invocations as errors until invocation aliasing
+  is designed,
+- do not validate references to local check packs, sampling policies,
+  tolerance policies, schema policies, endpoint resources, packages, or macros
+  until those resources have typed loaders under ADR 0017,
+- keep top-level contract `normalization` unsupported in scoped Milestone 5;
+  validate normalization only on surfaces the current parser accepts,
+- keep adapter metadata validation, all-column expansion, row-level value check
+  execution, and CDC execution out of scoped Milestone 5.
+
 ## Columns, metrics, and checks
 
 Compiler rules:
