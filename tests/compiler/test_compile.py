@@ -1,5 +1,6 @@
 from recon_core.compiler import (
     COMPILED_ARTIFACT_FILENAME_COLLISION,
+    DUPLICATE_CHECK_PACK_INVOCATION,
     DUPLICATE_COMPILED_CHECK,
     INVALID_SAMPLING,
     INVALID_STABLE_ID_PART,
@@ -9,8 +10,11 @@ from recon_core.compiler import (
     UNSUPPORTED_EXPLICIT_CHECKS,
     compile_project,
 )
+from recon_core.compiler.cdc import INVALID_CDC_KEYS
 from recon_core.compiler.check_packs import VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
+from recon_core.compiler.columns import UNDECLARED_COLUMN_REFERENCE
 from recon_core.compiler.models import CompiledArtifactType
+from recon_core.compiler.policies import INVALID_NULL_SENTINEL
 from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndpoint
 from recon_core.parser.models import SourceLocation
 
@@ -58,6 +62,65 @@ def test_compile_project_builds_contract_and_checks_artifacts() -> None:
         "total_revenue",
         "revenue_by_month",
     ]
+
+
+def test_compile_project_preserves_contract_policy_fields_additively() -> None:
+    nulls = {
+        "treat_as_null": {
+            "values": ["", "NULL"],
+            "regex": ["^\\s*$"],
+        }
+    }
+
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                tolerance_policy="finance",
+                nulls=nulls,
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert result.succeeded
+    contract_artifact = result.contracts[0].contract_artifact.to_dict()
+    assert contract_artifact["artifact_version"] == 1
+    assert contract_artifact["policies"] == {
+        "sampling": {"default_policy": "full"},
+        "tolerance_policy": "finance",
+        "nulls": nulls,
+        "schema": None,
+        "cdc": None,
+        "evidence": None,
+    }
+
+
+def test_compile_project_preserves_authored_cdc_policy_in_identity_and_policies() -> None:
+    cdc = {
+        "keys": {"same_as": "grain"},
+        "mode": "upsert",
+        "timestamp_column": "updated_at",
+    }
+
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(_contract(cdc=cdc),),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert result.succeeded
+    contract_artifact = result.contracts[0].contract_artifact.to_dict()
+    assert contract_artifact["identity"]["cdc"] == cdc
+    assert contract_artifact["policies"]["cdc"] == cdc
+    assert "declaration" not in contract_artifact["identity"]["cdc"]
+    assert "resolved_keys" not in contract_artifact["identity"]["cdc"]
 
 
 def test_compile_project_rejects_empty_contract_set() -> None:
@@ -251,6 +314,35 @@ def test_compile_project_rejects_unsupported_check_pack_invocation_config() -> N
     assert result.contracts[0].checks_artifact.checks == ()
 
 
+def test_compile_project_rejects_duplicate_check_pack_invocation() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                checks={
+                    "use": [
+                        "recon_core.basic_equivalence",
+                        {"name": "recon_core.basic_equivalence"},
+                    ]
+                },
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        DUPLICATE_CHECK_PACK_INVOCATION
+    ]
+    assert result.diagnostics[0].resource_type == "check_pack"
+    assert result.diagnostics[0].resource_name == "recon_core.basic_equivalence"
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
 def test_compile_project_rejects_invalid_sampling_config() -> None:
     result = compile_project(
         project_name="ecommerce_recon",
@@ -329,6 +421,112 @@ def test_compile_project_rejects_unsupported_non_string_check_field_without_cras
     assert result.contracts[0].checks_artifact.checks == ()
 
 
+def test_compile_project_validates_metric_references_against_declared_columns() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                columns={"numeric": ["revenue"]},
+                metrics=(
+                    {
+                        "name": "margin_by_month",
+                        "type": "sum",
+                        "column": "margin",
+                        "group_by": ["month"],
+                    },
+                ),
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        UNDECLARED_COLUMN_REFERENCE,
+        UNDECLARED_COLUMN_REFERENCE,
+    ]
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
+    assert result.contracts[0].checks_artifact.checks == ()
+    assert [diagnostic.code for diagnostic in result.contracts[0].checks_artifact.diagnostics] == [
+        UNDECLARED_COLUMN_REFERENCE,
+        UNDECLARED_COLUMN_REFERENCE,
+    ]
+
+
+def test_compile_project_validates_contract_level_null_policy() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                nulls={"treat_as_null": {"values": ["", 0]}},
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_NULL_SENTINEL]
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
+def test_compile_project_validates_contract_nulls_after_column_normalization() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                columns={
+                    "string": [
+                        {
+                            "name": "customer_status",
+                            "normalization": {"steps": ["trim", "lower"]},
+                        }
+                    ]
+                },
+                nulls={"treat_as_null": {"values": ["NULL", " null "], "regex": []}},
+                metrics=(),
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_NULL_SENTINEL]
+    assert result.diagnostics[0].resource_type == "column"
+    assert result.diagnostics[0].resource_name == "customer_status"
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
+def test_compile_project_validates_declared_cdc_keys_shape() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                cdc={"keys": "customer_id"},
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_CDC_KEYS]
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
 def _contract(
     *,
     name: str = "customer_revenue",
@@ -336,7 +534,11 @@ def _contract(
     metric_name: str = "total_revenue",
     source_path: str | None = None,
     checks: object | None = None,
+    columns: dict[str, object] | None = None,
     sampling: dict[str, object] | None = None,
+    tolerance_policy: str | None = None,
+    nulls: dict[str, object] | None = None,
+    cdc: dict[str, object] | None = None,
     metrics: tuple[dict[str, object], ...] | None = None,
 ) -> AuthoredContract:
     grain: dict[str, object] | None = None
@@ -351,6 +553,7 @@ def _contract(
         checks=checks if checks is not None else {"use": ["recon_core.basic_equivalence"]},
         source_location=SourceLocation(path=source_path or f"contracts/{name}.yml"),
         grain=grain,
+        columns=columns,
         metrics=metrics
         if metrics is not None
         else (
@@ -364,4 +567,7 @@ def _contract(
             },
         ),
         sampling=sampling if sampling is not None else {"default_policy": "full"},
+        tolerance_policy=tolerance_policy,
+        nulls=nulls,
+        cdc=cdc,
     )

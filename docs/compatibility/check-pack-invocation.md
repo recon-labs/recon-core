@@ -18,6 +18,8 @@ checks:
 ```
 
 Invocation fields other than `name` are rejected by the current compiler.
+Duplicate invocations of the same check pack in one contract are rejected until
+an invocation alias or instance identity is designed.
 
 ADR 0018 locks the future public shape for `config` and `on_empty`, but that
 support is not implemented yet.

@@ -24,6 +24,12 @@ This project follows semantic versioning once public package releases begin.
   tolerance-policy, schema-policy, and macro source files in
   `target/manifest.json.files` without parsing, validating references to,
   rendering, or executing those resources.
+- `recon compile` now validates authored column declarations and current metric
+  column references against declared column surfaces.
+- `recon compile` now validates current sampling and accepted
+  tolerance/null/normalization policy shapes.
+- `recon compile` now rejects duplicate check-pack invocations and validates
+  declared non-empty `cdc.keys` shape.
 
 ### Changed
 
@@ -48,8 +54,8 @@ This project follows semantic versioning once public package releases begin.
   unsupported check-pack invocation config, unknown metric fields, invalid
   sampling config, and path-like standalone compiled artifact names.
 - `recon compile` now rejects symlinked `target-path` ancestry, contracts that
-  compile into no checks, non-string nested `checks` mapping keys, and empty
-  `sampling.default_policy` values.
+  compile into no checks, non-string nested `checks` mapping keys, and missing,
+  null, or empty `sampling.default_policy` values when `sampling` is declared.
 - `recon compile` now rejects projects where no contracts are discovered,
   rejects exact compiled artifact output symlinks even with explicit overwrite,
   and includes contract file paths on compiler diagnostics where available.
@@ -63,6 +69,8 @@ This project follows semantic versioning once public package releases begin.
   paths through `explicit_missing_is_error: false`.
 - Typed operation models now reject payload fields that are not valid for the
   selected operation type.
+- Compiled contract artifacts now preserve accepted contract-level `nulls`
+  policy under `policies.nulls`.
 
 ## Release format
 

@@ -6,7 +6,12 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from recon_core._version import get_version
+from recon_core.compiler.cdc import validate_cdc_policy
 from recon_core.compiler.check_packs import expand_check_pack
+from recon_core.compiler.columns import (
+    validate_columns,
+    validate_contract_nulls_with_column_normalization,
+)
 from recon_core.compiler.ids import (
     build_contract_id,
     invalid_stable_id_part_diagnostic,
@@ -22,17 +27,28 @@ from recon_core.compiler.models import (
     CompiledContractReference,
     CompiledEndpoint,
     CompiledProject,
-    ResolvedSampling,
+)
+from recon_core.compiler.policies import (
+    INVALID_SAMPLING as INVALID_SAMPLING,
+)
+from recon_core.compiler.policies import (
+    validate_null_policy,
+    validate_sampling,
+)
+from recon_core.compiler.validation import (
+    CompilerDiagnosticContext,
+    contract_diagnostic_context,
+    with_default_diagnostic_path,
 )
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndpoint
 
 INVALID_CHECK_PACK_USE = "RC_VALIDATE_INVALID_CHECK_PACK_USE"
 INVALID_GRAIN_KEYS = "RC_VALIDATE_INVALID_GRAIN_KEYS"
-INVALID_SAMPLING = "RC_VALIDATE_INVALID_SAMPLING"
 NO_COMPILED_CHECKS = "RC_VALIDATE_NO_COMPILED_CHECKS"
 NO_CONTRACTS_FOUND = "RC_VALIDATE_NO_CONTRACTS_FOUND"
 COMPILED_ARTIFACT_FILENAME_COLLISION = "RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION"
+DUPLICATE_CHECK_PACK_INVOCATION = "RC_VALIDATE_DUPLICATE_CHECK_PACK_INVOCATION"
 UNSUPPORTED_CHECK_PACK_CONFIG = "RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG"
 UNSUPPORTED_EXPLICIT_CHECKS = "RC_COMPILE_UNSUPPORTED_EXPLICIT_CHECKS"
 DUPLICATE_COMPILED_CHECK = "RC_COMPILE_DUPLICATE_COMPILED_CHECK"
@@ -117,8 +133,41 @@ def _compile_contract(
     recon_version: str,
 ) -> ContractCompilationArtifacts:
     diagnostics: list[Diagnostic] = []
+    contract_context = contract_diagnostic_context(contract)
     grain_keys = _grain_keys(contract, diagnostics)
-    sampling = _resolved_sampling(contract, diagnostics)
+    sampling_validation = validate_sampling(contract.sampling, context=contract_context)
+    diagnostics.extend(sampling_validation.diagnostics)
+    sampling = sampling_validation.sampling
+    contract_nulls_succeeded = True
+    if contract.nulls is not None:
+        contract_nulls_validation = validate_null_policy(
+            contract.nulls,
+            resource_type="contract",
+            resource_name=contract.name,
+            context=contract_context,
+        )
+        diagnostics.extend(contract_nulls_validation.diagnostics)
+        contract_nulls_succeeded = contract_nulls_validation.succeeded
+    diagnostics.extend(
+        validate_cdc_policy(
+            contract.cdc,
+            grain_keys=grain_keys,
+            context=contract_context,
+        ).diagnostics
+    )
+    column_validation = validate_columns(contract.columns)
+    diagnostics.extend(_with_contract_path(column_validation.diagnostics, contract))
+    if contract.nulls is not None and contract_nulls_succeeded and column_validation.succeeded:
+        diagnostics.extend(
+            _with_contract_path(
+                validate_contract_nulls_with_column_normalization(
+                    columns=contract.columns,
+                    contract_nulls=contract.nulls,
+                ),
+                contract,
+            )
+        )
+    column_registry = column_validation.registry if column_validation.succeeded else None
     checks: list[CompiledCheck] = []
 
     check_pack_names = _check_pack_names(contract, diagnostics)
@@ -136,6 +185,7 @@ def _compile_contract(
         contract.metrics,
         project_name=project_name,
         contract_name=contract.name,
+        column_registry=column_registry,
     )
     diagnostics.extend(_with_contract_path(metric_compilation.diagnostics, contract))
     checks.extend(replace(check, sampling=sampling) for check in metric_compilation.checks)
@@ -174,6 +224,7 @@ def _compile_contract(
             policies=CompiledContractPolicies(
                 sampling=contract.sampling,
                 tolerance_policy=contract.tolerance_policy,
+                nulls=contract.nulls,
                 schema=contract.schema,
                 cdc=contract.cdc,
                 evidence=contract.evidence,
@@ -260,17 +311,13 @@ def _compiled_artifact_filename_collision_diagnostics(
         if existing_contract is not None and existing_contract.name != contract.name:
             existing_filename = _compiled_contract_filename(existing_contract.name)
             diagnostics.append(
-                Diagnostic(
+                contract_diagnostic_context(contract).error(
                     code=COMPILED_ARTIFACT_FILENAME_COLLISION,
-                    severity=DiagnosticSeverity.ERROR,
                     message=(
                         f"Contract names {existing_contract.name} and {contract.name} would "
                         "write case-colliding compiled artifact filenames "
                         f"{existing_filename} and {filename}."
                     ),
-                    resource_type="contract",
-                    resource_name=contract.name,
-                    path=contract.source_location.path,
                     hint=("Use contract names that are unique when compared case-insensitively."),
                 )
             )
@@ -285,12 +332,12 @@ def _compiled_contract_filename(contract_name: str) -> str:
 
 
 def _no_contracts_found_diagnostic(project_name: str) -> Diagnostic:
-    return Diagnostic(
-        code=NO_CONTRACTS_FOUND,
-        severity=DiagnosticSeverity.ERROR,
-        message="No contracts were found to compile.",
+    return CompilerDiagnosticContext(
         resource_type="project",
         resource_name=project_name,
+    ).error(
+        code=NO_CONTRACTS_FOUND,
+        message="No contracts were found to compile.",
         hint="Add at least one contract YAML file under a configured contract path.",
     )
 
@@ -299,12 +346,7 @@ def _with_contract_path(
     diagnostics: Sequence[Diagnostic],
     contract: AuthoredContract,
 ) -> tuple[Diagnostic, ...]:
-    return tuple(
-        diagnostic
-        if diagnostic.path is not None
-        else replace(diagnostic, path=contract.source_location.path)
-        for diagnostic in diagnostics
-    )
+    return with_default_diagnostic_path(diagnostics, contract.source_location.path)
 
 
 def _grain_keys(contract: AuthoredContract, diagnostics: list[Diagnostic]) -> tuple[str, ...]:
@@ -314,13 +356,9 @@ def _grain_keys(contract: AuthoredContract, diagnostics: list[Diagnostic]) -> tu
     keys = contract.grain.get("keys")
     if not isinstance(keys, list | tuple) or not all(isinstance(key, str) and key for key in keys):
         diagnostics.append(
-            Diagnostic(
+            contract_diagnostic_context(contract).error(
                 code=INVALID_GRAIN_KEYS,
-                severity=DiagnosticSeverity.ERROR,
                 message="Contract `grain.keys` must be a list of non-empty strings.",
-                resource_type="contract",
-                resource_name=contract.name,
-                path=contract.source_location.path,
                 hint="Use `grain: {keys: [...]}` or a YAML list under `grain.keys`.",
             )
         )
@@ -376,8 +414,13 @@ def _check_pack_use_names(
         return ()
 
     names: list[str] = []
+    seen_names: set[str] = set()
     for item in raw_use:
         if isinstance(item, str) and item:
+            if item in seen_names:
+                diagnostics.append(_duplicate_check_pack_invocation_diagnostic(contract, item))
+                continue
+            seen_names.add(item)
             names.append(item)
             continue
         if isinstance(item, Mapping):
@@ -393,6 +436,10 @@ def _check_pack_use_names(
                         )
                     )
                     continue
+                if name in seen_names:
+                    diagnostics.append(_duplicate_check_pack_invocation_diagnostic(contract, name))
+                    continue
+                seen_names.add(name)
                 names.append(name)
                 continue
         diagnostics.append(_invalid_check_pack_use_diagnostic(contract))
@@ -410,13 +457,11 @@ def _deduplicate_checks(
     for check in checks:
         if check.name in seen_names:
             diagnostics.append(
-                Diagnostic(
+                contract_diagnostic_context(contract).error(
                     code=DUPLICATE_COMPILED_CHECK,
-                    severity=DiagnosticSeverity.ERROR,
                     message=f"Compiled check name {check.name} is generated more than once.",
                     resource_type="check",
                     resource_name=check.name,
-                    path=contract.source_location.path,
                     hint="Rename explicit metrics or checks so compiled check names are unique.",
                 )
             )
@@ -424,37 +469,6 @@ def _deduplicate_checks(
         seen_names.add(check.name)
         deduplicated.append(check)
     return deduplicated
-
-
-def _resolved_sampling(
-    contract: AuthoredContract,
-    diagnostics: list[Diagnostic],
-) -> ResolvedSampling:
-    if contract.sampling is None:
-        return ResolvedSampling()
-
-    unsupported_fields = sorted(set(contract.sampling) - {"default_policy"})
-    if unsupported_fields:
-        diagnostics.append(
-            _invalid_sampling_diagnostic(
-                contract,
-                f"Unsupported `sampling` fields: {', '.join(unsupported_fields)}.",
-            )
-        )
-        return ResolvedSampling()
-
-    default_policy = contract.sampling.get("default_policy")
-    if default_policy is None or default_policy == "full":
-        return ResolvedSampling()
-    if not isinstance(default_policy, str) or not default_policy:
-        diagnostics.append(
-            _invalid_sampling_diagnostic(
-                contract,
-                "Contract `sampling.default_policy` must be `full` or a non-empty string.",
-            )
-        )
-        return ResolvedSampling()
-    return ResolvedSampling(mode=None, policy=default_policy)
 
 
 def _compiled_endpoint(endpoint: AuthoredEndpoint) -> CompiledEndpoint:
@@ -466,13 +480,9 @@ def _compiled_endpoint(endpoint: AuthoredEndpoint) -> CompiledEndpoint:
 
 
 def _invalid_check_pack_use_diagnostic(contract: AuthoredContract) -> Diagnostic:
-    return Diagnostic(
+    return contract_diagnostic_context(contract).error(
         code=INVALID_CHECK_PACK_USE,
-        severity=DiagnosticSeverity.ERROR,
         message="Contract `checks.use` must be a list of check-pack names.",
-        resource_type="contract",
-        resource_name=contract.name,
-        path=contract.source_location.path,
         hint="Use `checks: {use: [recon_core.basic_equivalence]}`.",
     )
 
@@ -482,57 +492,48 @@ def _unsupported_check_pack_config_diagnostic(
     check_pack_name: str,
     unsupported_fields: Sequence[str],
 ) -> Diagnostic:
-    return Diagnostic(
+    return contract_diagnostic_context(contract).error(
         code=UNSUPPORTED_CHECK_PACK_CONFIG,
-        severity=DiagnosticSeverity.ERROR,
         message=(
             f"Check-pack invocation for {check_pack_name} has unsupported fields: "
             f"{', '.join(unsupported_fields)}."
         ),
         resource_type="check_pack",
         resource_name=check_pack_name,
-        path=contract.source_location.path,
         hint=(
             "Only `name` is supported in `checks.use` mappings for the current compiler milestone."
         ),
     )
 
 
+def _duplicate_check_pack_invocation_diagnostic(
+    contract: AuthoredContract,
+    check_pack_name: str,
+) -> Diagnostic:
+    return contract_diagnostic_context(contract).error(
+        code=DUPLICATE_CHECK_PACK_INVOCATION,
+        message=f"Check pack {check_pack_name} is invoked more than once in this contract.",
+        resource_type="check_pack",
+        resource_name=check_pack_name,
+        hint="Invoke each check pack once until invocation aliases are supported.",
+    )
+
+
 def _unsupported_checks_diagnostic(contract: AuthoredContract, message: str) -> Diagnostic:
-    return Diagnostic(
+    return contract_diagnostic_context(contract).error(
         code=UNSUPPORTED_EXPLICIT_CHECKS,
-        severity=DiagnosticSeverity.ERROR,
         message=message,
-        resource_type="contract",
-        resource_name=contract.name,
-        path=contract.source_location.path,
         hint="Use supported check packs and explicit metrics for this compiler milestone.",
     )
 
 
 def _no_compiled_checks_diagnostic(contract: AuthoredContract) -> Diagnostic:
-    return Diagnostic(
+    return contract_diagnostic_context(contract).error(
         code=NO_COMPILED_CHECKS,
-        severity=DiagnosticSeverity.ERROR,
         message="Contract does not compile into any checks.",
-        resource_type="contract",
-        resource_name=contract.name,
-        path=contract.source_location.path,
         hint=(
             "Add a supported check pack under `checks.use` or define at least one supported metric."
         ),
-    )
-
-
-def _invalid_sampling_diagnostic(contract: AuthoredContract, message: str) -> Diagnostic:
-    return Diagnostic(
-        code=INVALID_SAMPLING,
-        severity=DiagnosticSeverity.ERROR,
-        message=message,
-        resource_type="contract",
-        resource_name=contract.name,
-        path=contract.source_location.path,
-        hint="Use `sampling: {default_policy: full}` or a named sampling policy.",
     )
 
 

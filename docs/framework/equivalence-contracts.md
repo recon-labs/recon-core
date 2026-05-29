@@ -244,6 +244,9 @@ supported as the initial tolerance surface. Timestamp tolerance execution,
 relative tolerance, percentage tolerance, reusable policy files, and richer
 normalization require later design or implementation gates.
 
+Column `description` must be text when declared. Column `timezone` is reserved
+for future timestamp policy support and is not accepted by the current compiler.
+
 String entries are shorthand for `{name: <column_name>}`.
 
 Columns do not create checks. They define the columns that generated,
@@ -255,7 +258,7 @@ deferred until adapter metadata is available.
 
 If a contract has a `columns` block, that block is the explicit comparison
 surface. Explicit checks and metrics that reference columns outside that
-surface should fail validation.
+surface fail validation.
 
 Recon should never silently compare all columns. If users want all columns, they must request it explicitly:
 
@@ -274,7 +277,8 @@ checks:
 
 All-column comparison requires adapter metadata and compiled artifact
 visibility. Raw `*` must never appear in typed check plans; it must resolve to
-concrete column names before execution.
+concrete column names before execution. The current compiler rejects
+all-column requests until adapter metadata expansion exists.
 
 For MVP behavior, source and target comparable outputs should expose the same
 canonical column names. Source-target column mapping is a future feature and
@@ -554,6 +558,12 @@ normalization:
 Normalization steps run in authored order. Sentinel matching runs after
 normalization and applies only to string-like value comparison.
 
+The `normalization` shape is valid only where the currently supported scope
+accepts it, such as string column policy. The current contract parser does not
+accept a top-level contract `normalization` field. Contract-level normalization
+defaults are a future policy-defaults feature and require a separate design and
+compatibility gate before implementation.
+
 ## Schema policy
 
 Contracts may define schema behavior.
@@ -633,6 +643,10 @@ The current contract model supports one default CDC identity per contract.
 Future advanced contracts may add optional named CDC identities for checks that
 need different CDC roles, such as event identity and changed-row identity. That
 syntax is not implemented and requires a future decision.
+
+Current compilation validates `cdc.keys` shape when declared. Declared CDC keys
+must be non-empty. Current compilation does not execute CDC checks or validate
+CDC mode, delete behavior, ordering, windows, or state semantics yet.
 
 If delete propagation is intentionally not validated, say so explicitly:
 

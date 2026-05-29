@@ -97,6 +97,37 @@ allowing helper APIs to raise unhandled exceptions.
 Compile should fail validation when no contracts are discovered. A successful
 compile must represent at least one authored contract.
 
+## Compiler validation boundaries
+
+Compiler validation should follow the same separation used by mature
+manifest-based tools: source-file discovery, parsed models, graph/resource
+lookup, validation, and artifact writing stay separate. For Recon, the parser
+remains responsible for structural authored-file parsing, while the compiler
+owns validation that depends on compiled intent, check-pack expansion, metrics,
+policies, or identity requirements.
+
+Implementation guidance:
+
+- add focused compiler validation/resolution modules before adding broad logic
+  to `compiler/compile.py`,
+- keep diagnostics structured and aligned with ADR 0016,
+- validate against parsed/typed internal models rather than raw YAML where a
+  typed model exists,
+- preserve current strict rejection for unsupported check-pack invocation
+  fields until ADR 0018 artifact visibility exists,
+- validate duplicate same-pack invocations as errors until invocation aliasing
+  is designed,
+- do not resolve or validate references to local/package check-pack resources,
+  sampling policies, tolerance policies, schema policies, endpoint resources,
+  packages, or macros until those resources have typed loaders under ADR 0017;
+  unsupported built-in check-pack names still fail validation instead of
+  compiling as silent no-ops,
+- keep top-level contract `normalization` unsupported until contract-level
+  policy defaults are designed; validate normalization only on surfaces the
+  current parser accepts,
+- keep adapter metadata validation, all-column expansion, row-level value check
+  execution, and CDC execution separate from compiler-only validation.
+
 ## Columns, metrics, and checks
 
 Compiler rules:
@@ -142,6 +173,15 @@ Column validation should include:
 - incompatible authored column categories,
 - unused declared columns as warnings.
 
+The current compiler validates the supported authored declaration surface,
+duplicate declared names, unsupported all-column requests, metric references
+against declared columns, and `sum` metrics against declared `numeric` columns.
+Column `description` must be a string when declared. Column `timezone` is
+reserved for future timestamp policy support and is rejected until that gate is
+implemented. The compiler does not yet enforce column-level `checks`
+eligibility, emit unused-column warnings, resolve all-column expansion, or
+validate physical adapter metadata.
+
 Adapter metadata validation should cover physical column existence, physical
 types, and unresolved all-column expansion.
 
@@ -184,6 +224,11 @@ The current compiler supports check-pack names as strings and object entries
 with only a `name` field. Check-pack invocation config and overrides are gated
 by ADR 0018; fields other than `name` must fail validation instead of being
 silently ignored until full support is implemented.
+
+The current compiler also rejects duplicate invocations of the same check pack
+within one contract. Multiple instances require a future invocation alias or
+instance identity so compiled check origins and artifact summaries remain
+unambiguous.
 
 Contracts must compile into at least one check from supported check packs or
 explicit metrics.
@@ -426,7 +471,8 @@ sampling:
 ```
 
 The current compiler supports contract-level `sampling.default_policy` as
-`full` or a non-empty named sampling policy string. Unsupported sampling fields,
+`full` or a non-empty named sampling policy string. When a `sampling` block is
+declared, `default_policy` is required. Unsupported sampling fields, missing or
 non-string `default_policy` values, or empty policy names must fail validation
 instead of compiling as full sampling.
 
@@ -455,6 +501,11 @@ resolved.
 
 Compiled checks should show resolved tolerance, null, and normalization
 behavior when that policy affects a compiled check.
+
+The current compiler validates supported MVP policy shapes but does not resolve
+named policy references or execute row-level policy behavior. Contract-level
+`nulls`, metric tolerance, and column-level tolerance/nulls/normalization are
+validated where those surfaces are currently accepted.
 
 MVP numeric tolerance supports absolute tolerance only:
 
@@ -574,6 +625,12 @@ The current compiler should resolve one default comparison identity and one
 default CDC identity per contract. Multiple named grains, multiple named CDC
 identities, and per-check or per-pack identity role binding require a future
 decision before implementation.
+
+The current compiler validates `cdc.keys` only when that field is declared. It
+accepts explicit non-empty string key lists and `cdc.keys: {same_as: grain}`
+when `grain.keys` exists. Missing, empty, or malformed declared CDC keys fail
+with `RC_VALIDATE_INVALID_CDC_KEYS`. The compiler does not validate CDC modes,
+delete behavior, ordering, windows, or CDC execution semantics yet.
 
 ## Grain and uniqueness validation
 

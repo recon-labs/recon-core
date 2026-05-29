@@ -33,6 +33,12 @@ Outputs:
 The engine must not pass raw YAML dictionaries through compilation or adapter
 execution.
 
+Current compiler implementation validates the accepted MVP policy shapes on
+supported surfaces, including metric tolerance, column-level tolerance/nulls/
+normalization, and contract-level `nulls`. The full typed resolver and
+execution payloads are not implemented yet, so compiled artifacts still expose
+only the currently supported policy fields.
+
 ## Typed Models
 
 Implementation should use typed models equivalent to:

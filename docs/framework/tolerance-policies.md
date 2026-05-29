@@ -52,6 +52,13 @@ Precedence:
 Named tolerance policy files are future behavior and require the ADR 0017
 resource-loading model before references can be validated or resolved.
 
+Current contract YAML accepts a named `tolerance_policy` reference and
+contract-level `nulls`. It does not accept a top-level contract
+`normalization` field. Normalization is currently scoped to surfaces that
+explicitly allow it, such as string column policy. Contract-level policy
+defaults, including contract-level normalization, require a future design and
+compatibility gate before implementation.
+
 ## Numeric Tolerance
 
 MVP numeric tolerance is absolute tolerance.
@@ -275,3 +282,9 @@ Examples:
 - duplicate sentinel values after normalization,
 - duplicate or incompatible normalization steps,
 - unsupported regex features.
+
+Current compiler validation covers the accepted MVP policy shapes on supported
+surfaces: metric tolerance, column-level tolerance/nulls/normalization, and
+contract-level `nulls`. Named tolerance policy references are preserved until
+typed resource loading exists; top-level contract `normalization` remains
+unsupported.

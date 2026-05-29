@@ -221,6 +221,25 @@ def test_parse_contract_resource_reports_unknown_top_level_field(tmp_path: Path)
     assert "unexpected" in diagnostic.message
 
 
+def test_parse_contract_resource_rejects_top_level_normalization(
+    tmp_path: Path,
+) -> None:
+    resource_file = make_resource_file(tmp_path)
+    data = single_contract_data()
+    data["normalization"] = {"steps": ["trim", "lower"]}
+
+    result = parse_contract_resource(resource_file, data)
+
+    assert not result.succeeded
+    assert result.contracts == ()
+    assert len(result.diagnostics) == 1
+
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_PARSE_UNKNOWN_FIELD"
+    assert diagnostic.path == "contracts/customer.yml"
+    assert "normalization" in diagnostic.message
+
+
 def test_parse_contract_resource_reports_invalid_endpoint_shape(tmp_path: Path) -> None:
     resource_file = make_resource_file(tmp_path)
     data = single_contract_data()

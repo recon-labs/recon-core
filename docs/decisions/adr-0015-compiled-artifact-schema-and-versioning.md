@@ -159,10 +159,13 @@ identity:
     keys:
       - order_id
   cdc:
-    declaration:
+    keys:
       same_as: grain
-    resolved_keys:
-      - order_id
+    mode: upsert
+    timestamp_column: updated_at
+    delete_mode: soft_delete
+    source_deleted_column: is_deleted
+    target_deleted_column: is_deleted
 
 columns:
   exact:
@@ -178,19 +181,19 @@ metrics: []
 policies:
   sampling:
     default_policy: latest_changed_records
-  tolerance: null
+  tolerance_policy: finance
   nulls:
     treat_as_null:
       values: []
       regex: []
-  normalization:
-    steps: []
   schema:
     ignore_target_columns:
       - _dms_operation
       - _dms_timestamp
       - _loaded_at
   cdc:
+    keys:
+      same_as: grain
     mode: upsert
     timestamp_column: updated_at
     delete_mode: soft_delete
@@ -206,6 +209,33 @@ diagnostics: []
 
 The compiled contract artifact records resolved meaning and policies. It should
 not be the primary list of executable checks.
+
+Policy field compatibility:
+
+- `policies.tolerance_policy` is the authored named tolerance policy reference
+  when present. It must not be silently reinterpreted as a resolved tolerance
+  object.
+- `policies.tolerance` is a future optional field reserved for resolved
+  inline/default tolerance policy once a typed resolver exists.
+- `policies.nulls` carries accepted contract-level null policy when present.
+- `policies.normalization` is a future optional field reserved for an accepted and resolved
+  normalization policy surface. The current contract parser does not accept
+  top-level contract `normalization`.
+- adding optional policy fields can remain `artifact_version: 1` only when the
+  change is additive and existing field meanings stay stable.
+- removing or renaming `policies.tolerance_policy`, or changing its meaning,
+  requires compatibility review and likely a compiled artifact version bump.
+
+CDC artifact field compatibility:
+
+- current `identity.cdc` preserves the authored CDC policy object when present,
+- current `policies.cdc` preserves the same authored CDC policy object when
+  present,
+- current compiled artifacts do not resolve `same_as: grain` into concrete
+  `identity.cdc.resolved_keys`,
+- adding resolved CDC identity fields such as `identity.cdc.declaration` or
+  `identity.cdc.resolved_keys` requires the CDC execution gate, compatibility
+  review, artifact tests, and result and evidence visibility decisions.
 
 ## Compiled Checks Shape
 

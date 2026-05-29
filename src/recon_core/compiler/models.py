@@ -239,6 +239,7 @@ class CompiledContractIdentityDict(TypedDict):
 class CompiledContractPoliciesDict(TypedDict):
     sampling: object | None
     tolerance_policy: object | None
+    nulls: object | None
     schema: object | None
     cdc: object | None
     evidence: object | None
@@ -375,6 +376,7 @@ class CompiledContractPolicies:
 
     sampling: object | None = None
     tolerance_policy: object | None = None
+    nulls: object | None = None
     schema: object | None = None
     cdc: object | None = None
     evidence: object | None = None
@@ -383,6 +385,7 @@ class CompiledContractPolicies:
         return {
             "sampling": self.sampling,
             "tolerance_policy": self.tolerance_policy,
+            "nulls": self.nulls,
             "schema": self.schema,
             "cdc": self.cdc,
             "evidence": self.evidence,

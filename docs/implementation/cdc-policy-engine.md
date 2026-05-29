@@ -154,6 +154,13 @@ Examples:
 - soft delete mode without deleted columns,
 - incremental validation without bootstrap behavior.
 
+Current compiler validation is intentionally narrower than CDC execution. It
+validates `cdc.keys` only when the field is declared, accepting either a
+non-empty list of non-empty string keys or `same_as: grain` when `grain.keys`
+exists. Empty lists and malformed declared CDC keys fail with
+`RC_VALIDATE_INVALID_CDC_KEYS`. CDC mode, delete behavior, ordering, windows,
+state, and execution validation remain future work.
+
 ## State
 
 CDC policy may use state for:

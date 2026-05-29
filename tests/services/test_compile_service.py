@@ -9,7 +9,13 @@ from recon_core.services.results import ExitCategory
 
 def test_compile_service_writes_compiled_artifacts_for_valid_project(tmp_path: Path) -> None:
     write_project(tmp_path)
-    write_contract(tmp_path)
+    nulls = {
+        "treat_as_null": {
+            "values": ["", "NULL"],
+            "regex": ["^\\s*$"],
+        }
+    }
+    write_contract(tmp_path, tolerance_policy="finance", nulls=nulls)
 
     result = CompileService(start_path=tmp_path).execute()
 
@@ -27,6 +33,10 @@ def test_compile_service_writes_compiled_artifacts_for_valid_project(tmp_path: P
 
     assert contract_artifact["artifact_type"] == "compiled_contract"
     assert contract_artifact["contract"]["id"] == "contract.ecommerce_recon.customer_revenue"
+    assert contract_artifact["artifact_version"] == 1
+    assert contract_artifact["policies"]["tolerance_policy"] == "finance"
+    assert contract_artifact["policies"]["nulls"] == nulls
+    assert "normalization" not in contract_artifact["policies"]
     assert checks_artifact["artifact_type"] == "compiled_checks"
     assert [check["name"] for check in checks_artifact["checks"]] == [
         "row_count_diff",
@@ -503,6 +513,8 @@ def write_contract(
     name: str = "customer_revenue",
     file_name: str = "customer_revenue.yml",
     include_grain: bool = True,
+    tolerance_policy: str | None = None,
+    nulls: dict[str, object] | None = None,
 ) -> None:
     grain_yaml = (
         """
@@ -514,6 +526,12 @@ grain:
         if include_grain
         else ""
     )
+    tolerance_policy_yaml = (
+        yaml.safe_dump({"tolerance_policy": tolerance_policy}, sort_keys=False)
+        if tolerance_policy is not None
+        else ""
+    )
+    nulls_yaml = yaml.safe_dump({"nulls": nulls}, sort_keys=False) if nulls is not None else ""
     project_root.joinpath("contracts", file_name).write_text(
         f"""
 version: 1
@@ -533,6 +551,7 @@ checks:
     - recon_core.basic_equivalence
 sampling:
   default_policy: full
+{tolerance_policy_yaml}{nulls_yaml}
 """.lstrip(),
         encoding="utf-8",
     )

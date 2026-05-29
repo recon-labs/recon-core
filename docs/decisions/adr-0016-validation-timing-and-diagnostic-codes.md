@@ -268,6 +268,7 @@ Milestone 5 should use the following code catalog unless a later ADR changes it.
 | `RC_VALIDATE_ALL_COLUMNS_REQUIRES_METADATA` | adapter metadata validation | error | An all-column request cannot be resolved because source/target metadata is unavailable. |
 | `RC_VALIDATE_INVALID_SAMPLING` | compile validation | error | Sampling config is malformed or unsupported in the current milestone. |
 | `RC_VALIDATE_RANDOM_SAMPLE_REQUIRES_PERSISTED_KEYS` | compile validation | error | Random row-level sampling lacks persisted sample keys. |
+| `RC_VALIDATE_INVALID_CDC_KEYS` | compile validation | error | A declared CDC identity has missing, empty, or malformed `cdc.keys`. |
 | `RC_VALIDATE_CDC_CONFIG_REQUIRED` | compile validation | error | A CDC check requires CDC mode/window config that is missing. |
 | `RC_VALIDATE_CDC_DELETE_MODE_REQUIRED` | compile validation | error | CDC delete propagation is requested without explicit delete behavior. |
 | `RC_VALIDATE_CDC_ORDERING_REQUIRED` | compile validation | error | A CDC check requires ordering or watermark config that is missing. |
@@ -294,7 +295,6 @@ RC_VALIDATE_INVALID_METRIC
 RC_VALIDATE_UNKNOWN_METRIC_FIELD
 RC_VALIDATE_UNSUPPORTED_METRIC_TYPE
 RC_VALIDATE_DUPLICATE_METRIC_NAME
-RC_VALIDATE_METRIC_REQUIRES_NUMERIC_COLUMN
 RC_COMPILE_UNKNOWN_CHECK_PACK
 RC_COMPILE_EMPTY_CHECK_PACK
 RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG

@@ -27,6 +27,9 @@ Invocation fields such as `config`, `on_empty`, or package-specific overrides
 are designed by ADR 0018 but are not implemented yet. Current compilation
 rejects unsupported invocation fields instead of ignoring them.
 
+Current compilation also rejects duplicate invocations of the same check pack
+within one contract until invocation aliases are designed.
+
 ## Why check packs exist
 
 Check packs let organizations standardize reconciliation behavior across contracts.

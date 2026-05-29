@@ -213,13 +213,25 @@ feat: index non-contract project resources
 
 Build:
 
-- row-level checks require keys,
-- CDC propagation checks require CDC keys,
+- row-level check validation requires keys for supported row-level checks,
+- CDC propagation validation requires CDC keys only for supported CDC checks,
 - columns do not create checks,
+- typed authored column declarations are validated without physical adapter
+  metadata,
+- metric value and group-by references are validated against the declared
+  column surface when one exists,
+- duplicate metric names and duplicate same-pack invocations fail validation,
 - no silent all-column comparison,
-- incompatible check/column type errors,
-- sampling policy resolution,
-- tolerance precedence.
+- wildcard column selectors are rejected or deferred until adapter metadata can
+  resolve them into explicit columns,
+- incompatible check/column type combinations fail validation for supported
+  current checks and metrics,
+- contract-level sampling `default_policy` stays limited to `full` or a
+  non-empty named policy reference until policy resources are loaded,
+- MVP tolerance/null/normalization validation applies only to accepted current
+  surfaces,
+- named local policy references are preserved but not resolved until typed
+  resource loading exists.
 
 Required gates:
 
@@ -238,17 +250,27 @@ Required gates:
   of typed invocation models, schema validation, and artifact visibility,
 - column model and value-comparison surface design is satisfied by
   `docs/decisions/adr-0019-column-and-value-comparison-surface.md`; supporting
-  typed column declarations, all-column expansion, or row-level value checks
-  still requires implementation of typed models, metadata validation, and
-  artifact visibility,
+  resolved column metadata, all-column expansion, column-level check
+  eligibility, unused declared-column warnings, adapter metadata validation, or
+  row-level value checks still requires implementation of the relevant typed
+  models, metadata validation, and artifact visibility,
 - tolerance, null, and normalization resolution design is satisfied by
   `docs/decisions/adr-0009-tolerance-normalization-and-null-equivalence.md`;
   Milestone 5 should validate only the MVP policy surface and must not treat
   future timestamp, relative tolerance, reusable policy files, unrestricted
   regex features, custom SQL, or macros as executable behavior,
-- do not validate references to local check packs, sampling policies, tolerance
-  policies, schema policies, endpoint resources, or macros until those resource
-  kinds are loaded through the shared ADR 0017 resource model.
+- top-level contract `normalization` remains unsupported in this milestone;
+  accepting contract-level normalization defaults requires the local policy
+  defaults gate to be resolved first,
+- compiled policy artifact alignment must be additive: preserve
+  `policies.tolerance_policy` as the authored named reference, expose accepted
+  `nulls`, and do not rename or change existing policy field meanings without
+  compatibility review,
+- do not resolve or validate references to local/package check-pack resources,
+  sampling policies, tolerance policies, schema policies, endpoint resources,
+  or macros until those resource kinds are loaded through the shared ADR 0017
+  resource model. Unsupported built-in check-pack names still fail validation
+  instead of compiling as silent no-ops.
 
 Tests:
 
@@ -613,6 +635,48 @@ Recommended commit message:
 
 ```text
 feat: add macro-assisted SQL rendering
+```
+
+## Post-MVP Milestone 15.5: check-pack invocation config and controls
+
+Build this after the validation rulebook enforces current strict invocation
+behavior and before local/package check-pack resources become executable.
+
+Goal:
+
+- support built-in check-pack invocation configuration without silently
+  changing generated checks,
+- make `on_empty: warn` and `on_empty: skip` visible and safe,
+- establish the invocation config rules that package check packs must follow
+  later.
+
+Build:
+
+- typed check-pack invocation model for `name`, `on_empty`, and `config`,
+- built-in check-pack config schema validation,
+- pack-wide severity, sampling, tolerance, null, normalization, params, and
+  per-generated-check override validation where supported,
+- artifact visibility for invocation summaries and resolved generated-check
+  config,
+- diagnostics for unknown invocation keys, unknown config keys, unknown params,
+  unsupported generated-check names, and unsafe empty expansions.
+
+Do not build:
+
+- local custom check-pack resource schemas,
+- package-provided check packs,
+- invocation aliases,
+- config that bypasses key, CDC, adapter capability, or schema safety checks.
+
+Required design lock:
+
+- complete ADR 0018 artifact-visibility, diagnostics, and resolved-config
+  requirements for check-pack invocation summaries before implementation.
+
+Recommended commit message:
+
+```text
+feat: add check-pack invocation config
 ```
 
 ## Post-MVP Milestone 16: local and package resource loading
@@ -1043,6 +1107,8 @@ Build:
 - latest window count,
 - incremental key coverage,
 - explicit `cdc.keys` validation,
+- resolved CDC identity artifact shape, if CDC checks need resolved identity
+  fields instead of the current authored CDC policy snapshot,
 - CDC result and evidence fields.
 
 Required gate:
