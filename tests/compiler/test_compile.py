@@ -476,6 +476,37 @@ def test_compile_project_validates_contract_level_null_policy() -> None:
     assert result.contracts[0].checks_artifact.checks == ()
 
 
+def test_compile_project_validates_contract_nulls_after_column_normalization() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                columns={
+                    "string": [
+                        {
+                            "name": "customer_status",
+                            "normalization": {"steps": ["trim", "lower"]},
+                        }
+                    ]
+                },
+                nulls={"treat_as_null": {"values": ["NULL", " null "], "regex": []}},
+                metrics=(),
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_NULL_SENTINEL]
+    assert result.diagnostics[0].resource_type == "column"
+    assert result.diagnostics[0].resource_name == "customer_status"
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
+    assert result.contracts[0].checks_artifact.checks == ()
+
+
 def test_compile_project_validates_declared_cdc_keys_shape() -> None:
     result = compile_project(
         project_name="ecommerce_recon",

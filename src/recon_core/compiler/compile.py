@@ -8,7 +8,10 @@ from uuid import uuid4
 from recon_core._version import get_version
 from recon_core.compiler.cdc import validate_cdc_policy
 from recon_core.compiler.check_packs import expand_check_pack
-from recon_core.compiler.columns import validate_columns
+from recon_core.compiler.columns import (
+    validate_columns,
+    validate_contract_nulls_with_column_normalization,
+)
 from recon_core.compiler.ids import (
     build_contract_id,
     invalid_stable_id_part_diagnostic,
@@ -135,15 +138,16 @@ def _compile_contract(
     sampling_validation = validate_sampling(contract.sampling, context=contract_context)
     diagnostics.extend(sampling_validation.diagnostics)
     sampling = sampling_validation.sampling
+    contract_nulls_succeeded = True
     if contract.nulls is not None:
-        diagnostics.extend(
-            validate_null_policy(
-                contract.nulls,
-                resource_type="contract",
-                resource_name=contract.name,
-                context=contract_context,
-            ).diagnostics
+        contract_nulls_validation = validate_null_policy(
+            contract.nulls,
+            resource_type="contract",
+            resource_name=contract.name,
+            context=contract_context,
         )
+        diagnostics.extend(contract_nulls_validation.diagnostics)
+        contract_nulls_succeeded = contract_nulls_validation.succeeded
     diagnostics.extend(
         validate_cdc_policy(
             contract.cdc,
@@ -153,6 +157,16 @@ def _compile_contract(
     )
     column_validation = validate_columns(contract.columns)
     diagnostics.extend(_with_contract_path(column_validation.diagnostics, contract))
+    if contract.nulls is not None and contract_nulls_succeeded and column_validation.succeeded:
+        diagnostics.extend(
+            _with_contract_path(
+                validate_contract_nulls_with_column_normalization(
+                    columns=contract.columns,
+                    contract_nulls=contract.nulls,
+                ),
+                contract,
+            )
+        )
     column_registry = column_validation.registry if column_validation.succeeded else None
     checks: list[CompiledCheck] = []
 

@@ -136,6 +136,42 @@ def validate_columns(columns: object | None) -> ColumnValidationResult:
     )
 
 
+def validate_contract_nulls_with_column_normalization(
+    *,
+    columns: object | None,
+    contract_nulls: object,
+) -> tuple[Diagnostic, ...]:
+    """Validate inherited contract null sentinels against column normalization."""
+    if not isinstance(columns, Mapping):
+        return ()
+
+    raw_string_entries = columns.get(ColumnCategory.STRING.value)
+    if not isinstance(raw_string_entries, Sequence) or isinstance(raw_string_entries, str):
+        return ()
+
+    diagnostics: list[Diagnostic] = []
+    for raw_entry in raw_string_entries:
+        if not isinstance(raw_entry, Mapping):
+            continue
+        if "nulls" in raw_entry or "normalization" not in raw_entry:
+            continue
+
+        column_name = raw_entry.get("name")
+        if not isinstance(column_name, str) or not column_name:
+            continue
+
+        diagnostics.extend(
+            validate_normalized_null_sentinels(
+                contract_nulls,
+                raw_entry["normalization"],
+                resource_type="column",
+                resource_name=column_name,
+            ).diagnostics
+        )
+
+    return tuple(diagnostics)
+
+
 def validate_metric_column_references(
     *,
     metric_name: str,
