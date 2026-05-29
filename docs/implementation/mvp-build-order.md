@@ -1104,6 +1104,8 @@ Build:
 - latest window count,
 - incremental key coverage,
 - explicit `cdc.keys` validation,
+- resolved CDC identity artifact shape, if CDC checks need resolved identity
+  fields instead of the current authored CDC policy snapshot,
 - CDC result and evidence fields.
 
 Required gate:

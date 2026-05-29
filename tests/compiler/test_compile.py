@@ -99,6 +99,30 @@ def test_compile_project_preserves_contract_policy_fields_additively() -> None:
     }
 
 
+def test_compile_project_preserves_authored_cdc_policy_in_identity_and_policies() -> None:
+    cdc = {
+        "keys": {"same_as": "grain"},
+        "mode": "upsert",
+        "timestamp_column": "updated_at",
+    }
+
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(_contract(cdc=cdc),),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert result.succeeded
+    contract_artifact = result.contracts[0].contract_artifact.to_dict()
+    assert contract_artifact["identity"]["cdc"] == cdc
+    assert contract_artifact["policies"]["cdc"] == cdc
+    assert "declaration" not in contract_artifact["identity"]["cdc"]
+    assert "resolved_keys" not in contract_artifact["identity"]["cdc"]
+
+
 def test_compile_project_rejects_empty_contract_set() -> None:
     result = compile_project(
         project_name="ecommerce_recon",

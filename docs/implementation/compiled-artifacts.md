@@ -123,7 +123,7 @@ It should include:
 - source endpoint,
 - target endpoint,
 - comparison identity from `grain.keys`,
-- CDC identity from `cdc.keys` when relevant,
+- authored CDC policy under `identity.cdc` when relevant,
 - columns,
 - resolved column metadata after ADR 0019 is implemented,
 - metrics,
@@ -169,10 +169,13 @@ identity:
     keys:
       - order_id
   cdc:
-    declaration:
+    keys:
       same_as: grain
-    resolved_keys:
-      - order_id
+    mode: upsert
+    timestamp_column: updated_at
+    delete_mode: soft_delete
+    source_deleted_column: is_deleted
+    target_deleted_column: is_deleted
 
 policies:
   sampling:
@@ -213,6 +216,16 @@ Current policy field lock:
   existing field meanings do not change.
 - renaming, removing, or changing the meaning of existing policy fields
   requires compatibility review and likely an artifact version bump.
+
+Current CDC identity artifact lock:
+
+- `identity.cdc` preserves the authored CDC policy object when present.
+- The current compiler validates declared `cdc.keys` shape but does not resolve
+  `same_as: grain` into concrete CDC keys in compiled artifacts.
+- Resolved CDC identity fields such as `identity.cdc.declaration` and
+  `identity.cdc.resolved_keys` are future optional fields. Adding them requires
+  the CDC execution gate, compatibility review, artifact tests, and result and
+  evidence visibility decisions.
 
 ## Compiled checks
 

@@ -159,10 +159,13 @@ identity:
     keys:
       - order_id
   cdc:
-    declaration:
+    keys:
       same_as: grain
-    resolved_keys:
-      - order_id
+    mode: upsert
+    timestamp_column: updated_at
+    delete_mode: soft_delete
+    source_deleted_column: is_deleted
+    target_deleted_column: is_deleted
 
 columns:
   exact:
@@ -220,6 +223,15 @@ Policy field compatibility:
   change is additive and existing field meanings stay stable.
 - removing or renaming `policies.tolerance_policy`, or changing its meaning,
   requires compatibility review and likely a compiled artifact version bump.
+
+CDC identity field compatibility:
+
+- current `identity.cdc` preserves the authored CDC policy object when present,
+- current compiled artifacts do not resolve `same_as: grain` into concrete
+  `identity.cdc.resolved_keys`,
+- adding resolved CDC identity fields such as `identity.cdc.declaration` or
+  `identity.cdc.resolved_keys` requires the CDC execution gate, compatibility
+  review, artifact tests, and result and evidence visibility decisions.
 
 ## Compiled Checks Shape
 

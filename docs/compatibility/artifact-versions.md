@@ -121,6 +121,13 @@ fields keep their meaning. Removing or renaming `policies.tolerance_policy`, or
 changing it from an authored reference into a resolved policy object, requires
 compatibility review and likely a compiled artifact version bump.
 
+Current compiled contract artifacts preserve authored CDC policy under
+`identity.cdc` and `policies.cdc`; they do not emit resolved CDC identity
+fields. Adding fields such as `identity.cdc.declaration` or
+`identity.cdc.resolved_keys`, or changing `identity.cdc` from authored policy
+into resolved CDC identity, requires compatibility review and likely a compiled
+artifact version bump.
+
 ## Package version relationship
 
 `recon_version` identifies the Recon Core package version that wrote the
