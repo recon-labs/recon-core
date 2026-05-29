@@ -6,7 +6,11 @@ from recon_core.compiler.columns import (
     ColumnCategory,
     validate_columns,
 )
-from recon_core.compiler.policies import INVALID_NORMALIZATION, INVALID_NULL_POLICY
+from recon_core.compiler.policies import (
+    INVALID_NORMALIZATION,
+    INVALID_NULL_POLICY,
+    INVALID_NULL_SENTINEL,
+)
 from recon_core.diagnostics import DiagnosticSeverity
 
 
@@ -122,3 +126,22 @@ def test_validate_columns_rejects_invalid_normalization_shape() -> None:
     assert not result.succeeded
     assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_NORMALIZATION]
     assert result.diagnostics[0].resource_name == "customer_name"
+
+
+def test_validate_columns_rejects_duplicate_null_sentinels_after_normalization() -> None:
+    result = validate_columns(
+        {
+            "string": [
+                {
+                    "name": "customer_status",
+                    "nulls": {"treat_as_null": {"values": ["NULL", " null "], "regex": []}},
+                    "normalization": {"steps": ["trim", "lower"]},
+                }
+            ]
+        }
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_NULL_SENTINEL]
+    assert result.diagnostics[0].resource_name == "customer_status"
+    assert "normalization" in result.diagnostics[0].message

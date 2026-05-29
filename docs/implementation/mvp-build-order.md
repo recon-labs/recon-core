@@ -250,9 +250,10 @@ Required gates:
   of typed invocation models, schema validation, and artifact visibility,
 - column model and value-comparison surface design is satisfied by
   `docs/decisions/adr-0019-column-and-value-comparison-surface.md`; supporting
-  typed column declarations, all-column expansion, or row-level value checks
-  still requires implementation of typed models, metadata validation, and
-  artifact visibility,
+  resolved column metadata, all-column expansion, column-level check
+  eligibility, unused declared-column warnings, adapter metadata validation, or
+  row-level value checks still requires implementation of the relevant typed
+  models, metadata validation, and artifact visibility,
 - tolerance, null, and normalization resolution design is satisfied by
   `docs/decisions/adr-0009-tolerance-normalization-and-null-equivalence.md`;
   Milestone 5 should validate only the MVP policy surface and must not treat
@@ -265,9 +266,11 @@ Required gates:
   `policies.tolerance_policy` as the authored named reference, expose accepted
   `nulls`, and do not rename or change existing policy field meanings without
   compatibility review,
-- do not validate references to local check packs, sampling policies, tolerance
-  policies, schema policies, endpoint resources, or macros until those resource
-  kinds are loaded through the shared ADR 0017 resource model.
+- do not resolve or validate references to local/package check-pack resources,
+  sampling policies, tolerance policies, schema policies, endpoint resources,
+  or macros until those resource kinds are loaded through the shared ADR 0017
+  resource model. Unsupported built-in check-pack names still fail validation
+  instead of compiling as silent no-ops.
 
 Tests:
 
@@ -665,10 +668,10 @@ Do not build:
 - invocation aliases,
 - config that bypasses key, CDC, adapter capability, or schema safety checks.
 
-Required gate:
+Required design lock:
 
-- resolve the check-pack invocation config and overrides gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+- complete ADR 0018 artifact-visibility, diagnostics, and resolved-config
+  requirements for check-pack invocation summaries before implementation.
 
 Recommended commit message:
 

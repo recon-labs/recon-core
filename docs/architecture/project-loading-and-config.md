@@ -163,10 +163,11 @@ manifest `files` map, but it does not create parsed resource summaries, validate
 references, expand custom check packs, load endpoint resources, or introduce
 package loading.
 
-Milestone 5 validation should not validate references to local check packs,
-sampling policies, tolerance policies, schema policies, endpoint resources, or
-macros until those resources are loaded through one shared project-loading
-model.
+Milestone 5 validation should not resolve or validate references to
+local/package check-pack resources, sampling policies, tolerance policies,
+schema policies, endpoint resources, or macros until those resources are loaded
+through one shared project-loading model. Unsupported built-in check-pack names
+should still fail validation instead of compiling as silent no-ops.
 
 ## Configuration precedence
 

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import TypeAlias
 
 from recon_core.compiler.models import ResolvedSampling
 from recon_core.compiler.validation import CompilerDiagnosticContext
@@ -36,6 +37,7 @@ _UNSUPPORTED_REGEX_TOKENS = (
     "(?L",
     "(?u",
 )
+_NormalizationStep: TypeAlias = str | tuple[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,6 +263,41 @@ def validate_null_policy(
     return PolicyValidationResult(diagnostics=tuple(diagnostics))
 
 
+def validate_normalized_null_sentinels(
+    nulls: object,
+    normalization: object,
+    *,
+    resource_type: str | None,
+    resource_name: str | None,
+) -> PolicyValidationResult:
+    """Validate literal null sentinel uniqueness after string normalization."""
+    values = _literal_null_values(nulls)
+    steps = _normalization_steps(normalization)
+    if values is None or steps is None:
+        return PolicyValidationResult()
+
+    seen_values: dict[str, str] = {}
+    for value in values:
+        normalized_value = _apply_normalization_steps(value, steps)
+        existing_value = seen_values.get(normalized_value)
+        if existing_value is not None:
+            context = CompilerDiagnosticContext(
+                resource_type=resource_type,
+                resource_name=resource_name,
+            )
+            return PolicyValidationResult(
+                diagnostics=(
+                    _null_sentinel_diagnostic(
+                        context,
+                        "Null sentinel values must remain unique after normalization.",
+                    ),
+                )
+            )
+        seen_values[normalized_value] = value
+
+    return PolicyValidationResult()
+
+
 def validate_normalization(
     normalization: object,
     *,
@@ -407,6 +444,92 @@ def _decimal_from_number(value: object) -> Decimal | None:
             return None
         return value
     return None
+
+
+def _literal_null_values(nulls: object) -> tuple[str, ...] | None:
+    if not isinstance(nulls, Mapping):
+        return None
+    treat_as_null = nulls.get("treat_as_null", {})
+    if not isinstance(treat_as_null, Mapping):
+        return None
+    values = treat_as_null.get("values", ())
+    if not isinstance(values, Sequence) or isinstance(values, str):
+        return None
+    if not all(isinstance(value, str) for value in values):
+        return None
+    return tuple(values)
+
+
+def _normalization_steps(normalization: object) -> tuple[_NormalizationStep, ...] | None:
+    if not isinstance(normalization, Mapping):
+        return None
+    raw_steps = normalization.get("steps")
+    if not isinstance(raw_steps, Sequence) or isinstance(raw_steps, str):
+        return None
+
+    steps: list[_NormalizationStep] = []
+    for raw_step in raw_steps:
+        if isinstance(raw_step, str):
+            if raw_step not in _SIMPLE_NORMALIZATION_STEPS:
+                return None
+            steps.append(raw_step)
+            continue
+
+        if not isinstance(raw_step, Mapping):
+            return None
+        regex_step = _regex_replace_step(raw_step)
+        if regex_step is None:
+            return None
+        steps.append(regex_step)
+
+    return tuple(steps)
+
+
+def _regex_replace_step(step: Mapping[object, object]) -> tuple[str, str] | None:
+    if set(step) != {_REGEX_REPLACE_FIELD}:
+        return None
+    value = step[_REGEX_REPLACE_FIELD]
+    if not isinstance(value, Mapping):
+        return None
+    pattern = value.get("pattern")
+    replacement = value.get("replacement")
+    if not isinstance(pattern, str) or not isinstance(replacement, str):
+        return None
+    return (pattern, replacement)
+
+
+def _apply_normalization_steps(
+    value: str,
+    steps: Sequence[_NormalizationStep],
+) -> str:
+    normalized = value
+    for step in steps:
+        if isinstance(step, str):
+            normalized = _apply_simple_normalization_step(normalized, step)
+            continue
+
+        pattern, replacement = step
+        normalized = re.compile(pattern).sub(_literal_regex_replacement(replacement), normalized)
+    return normalized
+
+
+def _literal_regex_replacement(replacement: str) -> Callable[[re.Match[str]], str]:
+    def replace(_match: re.Match[str]) -> str:
+        return replacement
+
+    return replace
+
+
+def _apply_simple_normalization_step(value: str, step: str) -> str:
+    if step == "trim":
+        return value.strip()
+    if step == "collapse_whitespace":
+        return re.sub(r"\s+", " ", value)
+    if step == "lower":
+        return value.lower()
+    if step == "upper":
+        return value.upper()
+    return value
 
 
 def _regex_diagnostic(

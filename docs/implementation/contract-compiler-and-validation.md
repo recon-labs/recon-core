@@ -117,9 +117,11 @@ Implementation guidance:
   fields until ADR 0018 artifact visibility exists,
 - validate duplicate same-pack invocations as errors until invocation aliasing
   is designed,
-- do not validate references to local check packs, sampling policies,
-  tolerance policies, schema policies, endpoint resources, packages, or macros
-  until those resources have typed loaders under ADR 0017,
+- do not resolve or validate references to local/package check-pack resources,
+  sampling policies, tolerance policies, schema policies, endpoint resources,
+  packages, or macros until those resources have typed loaders under ADR 0017;
+  unsupported built-in check-pack names still fail validation instead of
+  compiling as silent no-ops,
 - keep top-level contract `normalization` unsupported until contract-level
   policy defaults are designed; validate normalization only on surfaces the
   current parser accepts,

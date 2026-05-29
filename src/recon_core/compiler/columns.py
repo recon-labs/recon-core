@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from recon_core.compiler.policies import (
+    PolicyValidationResult,
     validate_normalization,
+    validate_normalized_null_sentinels,
     validate_null_policy,
     validate_tolerance,
 )
@@ -308,6 +310,8 @@ def _column_policy_diagnostics(
     raw_entry: Mapping[object, object],
 ) -> tuple[Diagnostic, ...]:
     diagnostics: list[Diagnostic] = []
+    null_result: PolicyValidationResult | None = None
+    normalization_result: PolicyValidationResult | None = None
 
     if "tolerance" in raw_entry:
         tolerance_result = validate_tolerance(
@@ -359,6 +363,22 @@ def _column_policy_diagnostics(
                     required_category=ColumnCategory.STRING,
                 )
             )
+
+    if (
+        category is ColumnCategory.STRING
+        and null_result is not None
+        and null_result.succeeded
+        and normalization_result is not None
+        and normalization_result.succeeded
+    ):
+        diagnostics.extend(
+            validate_normalized_null_sentinels(
+                raw_entry["nulls"],
+                raw_entry["normalization"],
+                resource_type="column",
+                resource_name=column_name,
+            ).diagnostics
+        )
 
     return tuple(diagnostics)
 
