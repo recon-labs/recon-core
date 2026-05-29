@@ -3,6 +3,7 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from recon_core.compiler.columns import ColumnRegistry, validate_metric_column_references
 from recon_core.compiler.ids import (
     INVALID_STABLE_ID_PART,
     STABLE_ID_PART_HINT,
@@ -63,6 +64,7 @@ def compile_metrics(
     *,
     project_name: str,
     contract_name: str,
+    column_registry: ColumnRegistry | None = None,
 ) -> MetricCompilationResult:
     """Compile explicit authored metrics into aggregate comparison checks."""
     parsed_metrics: list[_MetricDefinition] = []
@@ -92,6 +94,17 @@ def compile_metrics(
 
         if metric.metric_type not in SUPPORTED_METRIC_TYPES:
             diagnostics.append(_unsupported_metric_type_diagnostic(metric.name, metric.metric_type))
+            continue
+
+        metric_column_diagnostics = validate_metric_column_references(
+            metric_name=metric.name,
+            metric_type=metric.metric_type,
+            column=metric.column,
+            group_by=metric.group_by,
+            column_registry=column_registry,
+        )
+        if metric_column_diagnostics:
+            diagnostics.extend(metric_column_diagnostics)
             continue
 
         parsed_metrics.append(metric)

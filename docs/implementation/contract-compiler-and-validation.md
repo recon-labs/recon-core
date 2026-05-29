@@ -170,6 +170,12 @@ Column validation should include:
 - incompatible authored column categories,
 - unused declared columns as warnings.
 
+The current compiler validates the supported authored declaration surface,
+duplicate declared names, unsupported all-column requests, metric references
+against declared columns, and `sum` metrics against declared `numeric` columns.
+It does not yet enforce column-level `checks` eligibility, emit unused-column
+warnings, resolve all-column expansion, or validate physical adapter metadata.
+
 Adapter metadata validation should cover physical column existence, physical
 types, and unresolved all-column expansion.
 

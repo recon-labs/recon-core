@@ -255,7 +255,7 @@ deferred until adapter metadata is available.
 
 If a contract has a `columns` block, that block is the explicit comparison
 surface. Explicit checks and metrics that reference columns outside that
-surface should fail validation.
+surface fail validation.
 
 Recon should never silently compare all columns. If users want all columns, they must request it explicitly:
 
@@ -274,7 +274,8 @@ checks:
 
 All-column comparison requires adapter metadata and compiled artifact
 visibility. Raw `*` must never appear in typed check plans; it must resolve to
-concrete column names before execution.
+concrete column names before execution. The current compiler rejects
+all-column requests until adapter metadata expansion exists.
 
 For MVP behavior, source and target comparable outputs should expose the same
 canonical column names. Source-target column mapping is a future feature and

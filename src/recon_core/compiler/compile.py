@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from recon_core._version import get_version
 from recon_core.compiler.check_packs import expand_check_pack
+from recon_core.compiler.columns import validate_columns
 from recon_core.compiler.ids import (
     build_contract_id,
     invalid_stable_id_part_diagnostic,
@@ -124,6 +125,9 @@ def _compile_contract(
     diagnostics: list[Diagnostic] = []
     grain_keys = _grain_keys(contract, diagnostics)
     sampling = _resolved_sampling(contract, diagnostics)
+    column_validation = validate_columns(contract.columns)
+    diagnostics.extend(_with_contract_path(column_validation.diagnostics, contract))
+    column_registry = column_validation.registry if column_validation.succeeded else None
     checks: list[CompiledCheck] = []
 
     check_pack_names = _check_pack_names(contract, diagnostics)
@@ -141,6 +145,7 @@ def _compile_contract(
         contract.metrics,
         project_name=project_name,
         contract_name=contract.name,
+        column_registry=column_registry,
     )
     diagnostics.extend(_with_contract_path(metric_compilation.diagnostics, contract))
     checks.extend(replace(check, sampling=sampling) for check in metric_compilation.checks)

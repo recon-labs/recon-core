@@ -24,6 +24,8 @@ This project follows semantic versioning once public package releases begin.
   tolerance-policy, schema-policy, and macro source files in
   `target/manifest.json.files` without parsing, validating references to,
   rendering, or executing those resources.
+- `recon compile` now validates authored column declarations and current metric
+  column references against declared column surfaces.
 
 ### Changed
 

@@ -10,9 +10,14 @@ scope.
 ## Current Status
 
 Current implementation preserves authored `columns` as raw data in compiled
-contract artifacts. It does not implement typed column declarations,
-all-column expansion, row-level value checks, or adapter metadata column/type
-validation.
+contract artifacts and validates the supported authored column declaration
+surface during compile. It validates supported column categories and fields,
+duplicate declared column names, metric references against an explicit declared
+surface, and `sum` metric compatibility with declared `numeric` columns.
+
+It does not implement resolved column metadata in compiled artifacts,
+all-column expansion, row-level value checks, column-level check eligibility
+enforcement, or adapter metadata column/type validation.
 
 ADR 0019 locks the future column/value comparison surface.
 

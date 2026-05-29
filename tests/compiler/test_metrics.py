@@ -1,3 +1,9 @@
+from recon_core.compiler.columns import (
+    INCOMPATIBLE_COLUMN_TYPE,
+    INVALID_COLUMN_SELECTION,
+    UNDECLARED_COLUMN_REFERENCE,
+    validate_columns,
+)
 from recon_core.compiler.ids import INVALID_STABLE_ID_PART
 from recon_core.compiler.metrics import (
     DUPLICATE_METRIC_NAME,
@@ -211,3 +217,81 @@ def test_metric_compilation_invalid_project_or_contract_id_parts_fail_without_ex
         "project",
         "contract",
     ]
+
+
+def test_metric_columns_must_be_declared_when_column_surface_exists() -> None:
+    column_result = validate_columns({"numeric": ["revenue"]})
+
+    result = compile_metrics(
+        ({"name": "total_margin", "type": "sum", "column": "margin"},),
+        project_name="ecommerce_recon",
+        contract_name="customer_revenue",
+        column_registry=column_result.registry,
+    )
+
+    assert not result.succeeded
+    assert result.checks == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        UNDECLARED_COLUMN_REFERENCE
+    ]
+    assert result.diagnostics[0].resource_type == "metric"
+    assert result.diagnostics[0].resource_name == "total_margin"
+    assert "margin" in result.diagnostics[0].message
+
+
+def test_metric_group_by_columns_must_be_declared_when_column_surface_exists() -> None:
+    column_result = validate_columns({"numeric": ["revenue"]})
+
+    result = compile_metrics(
+        (
+            {
+                "name": "revenue_by_month",
+                "type": "sum",
+                "column": "revenue",
+                "group_by": ["month"],
+            },
+        ),
+        project_name="ecommerce_recon",
+        contract_name="customer_revenue",
+        column_registry=column_result.registry,
+    )
+
+    assert not result.succeeded
+    assert result.checks == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        UNDECLARED_COLUMN_REFERENCE
+    ]
+    assert "month" in result.diagnostics[0].message
+
+
+def test_sum_metric_requires_declared_numeric_value_column() -> None:
+    column_result = validate_columns({"exact": ["status"]})
+
+    result = compile_metrics(
+        ({"name": "status_total", "type": "sum", "column": "status"},),
+        project_name="ecommerce_recon",
+        contract_name="customer_revenue",
+        column_registry=column_result.registry,
+    )
+
+    assert not result.succeeded
+    assert result.checks == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        INCOMPATIBLE_COLUMN_TYPE
+    ]
+    assert "numeric" in result.diagnostics[0].message
+
+
+def test_metric_rejects_unresolved_wildcard_column_reference() -> None:
+    result = compile_metrics(
+        ({"name": "total_revenue", "type": "sum", "column": "*"},),
+        project_name="ecommerce_recon",
+        contract_name="customer_revenue",
+    )
+
+    assert not result.succeeded
+    assert result.checks == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        INVALID_COLUMN_SELECTION
+    ]
+    assert "*" in result.diagnostics[0].message

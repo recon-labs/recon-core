@@ -10,6 +10,7 @@ from recon_core.compiler import (
     compile_project,
 )
 from recon_core.compiler.check_packs import VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
+from recon_core.compiler.columns import UNDECLARED_COLUMN_REFERENCE
 from recon_core.compiler.models import CompiledArtifactType
 from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndpoint
 from recon_core.parser.models import SourceLocation
@@ -364,6 +365,41 @@ def test_compile_project_rejects_unsupported_non_string_check_field_without_cras
     assert result.contracts[0].checks_artifact.checks == ()
 
 
+def test_compile_project_validates_metric_references_against_declared_columns() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                columns={"numeric": ["revenue"]},
+                metrics=(
+                    {
+                        "name": "margin_by_month",
+                        "type": "sum",
+                        "column": "margin",
+                        "group_by": ["month"],
+                    },
+                ),
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        UNDECLARED_COLUMN_REFERENCE,
+        UNDECLARED_COLUMN_REFERENCE,
+    ]
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
+    assert result.contracts[0].checks_artifact.checks == ()
+    assert [diagnostic.code for diagnostic in result.contracts[0].checks_artifact.diagnostics] == [
+        UNDECLARED_COLUMN_REFERENCE,
+        UNDECLARED_COLUMN_REFERENCE,
+    ]
+
+
 def _contract(
     *,
     name: str = "customer_revenue",
@@ -371,6 +407,7 @@ def _contract(
     metric_name: str = "total_revenue",
     source_path: str | None = None,
     checks: object | None = None,
+    columns: dict[str, object] | None = None,
     sampling: dict[str, object] | None = None,
     tolerance_policy: str | None = None,
     nulls: dict[str, object] | None = None,
@@ -388,6 +425,7 @@ def _contract(
         checks=checks if checks is not None else {"use": ["recon_core.basic_equivalence"]},
         source_location=SourceLocation(path=source_path or f"contracts/{name}.yml"),
         grain=grain,
+        columns=columns,
         metrics=metrics
         if metrics is not None
         else (
