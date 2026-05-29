@@ -28,6 +28,8 @@ This project follows semantic versioning once public package releases begin.
   column references against declared column surfaces.
 - `recon compile` now validates current sampling and accepted
   tolerance/null/normalization policy shapes.
+- `recon compile` now rejects duplicate check-pack invocations and validates
+  declared `cdc.keys` shape.
 
 ### Changed
 

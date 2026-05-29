@@ -1,5 +1,10 @@
 """Compiler primitives for resolved Recon execution intent."""
 
+from recon_core.compiler.cdc import (
+    CDC_CONFIG_REQUIRED,
+    CdcValidationResult,
+    validate_cdc_policy,
+)
 from recon_core.compiler.check_packs import (
     BASIC_EQUIVALENCE_CHECK_PACK_NAME,
     UNKNOWN_CHECK_PACK,
@@ -23,6 +28,7 @@ from recon_core.compiler.columns import (
 )
 from recon_core.compiler.compile import (
     COMPILED_ARTIFACT_FILENAME_COLLISION,
+    DUPLICATE_CHECK_PACK_INVOCATION,
     DUPLICATE_COMPILED_CHECK,
     INVALID_CHECK_PACK_USE,
     INVALID_GRAIN_KEYS,
@@ -111,7 +117,9 @@ __all__ = [
     "COMPILED_ARTIFACT_VERSION",
     "BASIC_EQUIVALENCE_CHECK_PACK_NAME",
     "COMPILED_ARTIFACT_FILENAME_COLLISION",
+    "CDC_CONFIG_REQUIRED",
     "DUPLICATE_COLUMN_NAME",
+    "DUPLICATE_CHECK_PACK_INVOCATION",
     "DUPLICATE_METRIC_NAME",
     "DUPLICATE_COMPILED_CHECK",
     "INCOMPATIBLE_COLUMN_TYPE",
@@ -161,6 +169,7 @@ __all__ = [
     "ColumnDeclaration",
     "ColumnRegistry",
     "ColumnValidationResult",
+    "CdcValidationResult",
     "Identity",
     "IdentityDict",
     "IdentityKind",
@@ -195,6 +204,7 @@ __all__ = [
     "expand_check_pack",
     "is_valid_stable_id_part",
     "validate_columns",
+    "validate_cdc_policy",
     "validate_metric_column_references",
     "validate_normalization",
     "validate_null_policy",

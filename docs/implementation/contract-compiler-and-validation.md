@@ -219,6 +219,11 @@ with only a `name` field. Check-pack invocation config and overrides are gated
 by ADR 0018; fields other than `name` must fail validation instead of being
 silently ignored until full support is implemented.
 
+The current compiler also rejects duplicate invocations of the same check pack
+within one contract. Multiple instances require a future invocation alias or
+instance identity so compiled check origins and artifact summaries remain
+unambiguous.
+
 Contracts must compile into at least one check from supported check packs or
 explicit metrics.
 
@@ -613,6 +618,11 @@ The current compiler should resolve one default comparison identity and one
 default CDC identity per contract. Multiple named grains, multiple named CDC
 identities, and per-check or per-pack identity role binding require a future
 decision before implementation.
+
+The current compiler validates `cdc.keys` only when that field is declared. It
+accepts explicit non-empty string key lists and `cdc.keys: {same_as: grain}`
+when `grain.keys` exists. It does not validate CDC modes, delete behavior,
+ordering, windows, or CDC execution semantics yet.
 
 ## Grain and uniqueness validation
 

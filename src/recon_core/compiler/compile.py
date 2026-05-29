@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from recon_core._version import get_version
+from recon_core.compiler.cdc import validate_cdc_policy
 from recon_core.compiler.check_packs import expand_check_pack
 from recon_core.compiler.columns import validate_columns
 from recon_core.compiler.ids import (
@@ -44,6 +45,7 @@ INVALID_GRAIN_KEYS = "RC_VALIDATE_INVALID_GRAIN_KEYS"
 NO_COMPILED_CHECKS = "RC_VALIDATE_NO_COMPILED_CHECKS"
 NO_CONTRACTS_FOUND = "RC_VALIDATE_NO_CONTRACTS_FOUND"
 COMPILED_ARTIFACT_FILENAME_COLLISION = "RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION"
+DUPLICATE_CHECK_PACK_INVOCATION = "RC_VALIDATE_DUPLICATE_CHECK_PACK_INVOCATION"
 UNSUPPORTED_CHECK_PACK_CONFIG = "RC_COMPILE_UNSUPPORTED_CHECK_PACK_CONFIG"
 UNSUPPORTED_EXPLICIT_CHECKS = "RC_COMPILE_UNSUPPORTED_EXPLICIT_CHECKS"
 DUPLICATE_COMPILED_CHECK = "RC_COMPILE_DUPLICATE_COMPILED_CHECK"
@@ -142,6 +144,13 @@ def _compile_contract(
                 context=contract_context,
             ).diagnostics
         )
+    diagnostics.extend(
+        validate_cdc_policy(
+            contract.cdc,
+            grain_keys=grain_keys,
+            context=contract_context,
+        ).diagnostics
+    )
     column_validation = validate_columns(contract.columns)
     diagnostics.extend(_with_contract_path(column_validation.diagnostics, contract))
     column_registry = column_validation.registry if column_validation.succeeded else None
@@ -391,8 +400,13 @@ def _check_pack_use_names(
         return ()
 
     names: list[str] = []
+    seen_names: set[str] = set()
     for item in raw_use:
         if isinstance(item, str) and item:
+            if item in seen_names:
+                diagnostics.append(_duplicate_check_pack_invocation_diagnostic(contract, item))
+                continue
+            seen_names.add(item)
             names.append(item)
             continue
         if isinstance(item, Mapping):
@@ -408,6 +422,10 @@ def _check_pack_use_names(
                         )
                     )
                     continue
+                if name in seen_names:
+                    diagnostics.append(_duplicate_check_pack_invocation_diagnostic(contract, name))
+                    continue
+                seen_names.add(name)
                 names.append(name)
                 continue
         diagnostics.append(_invalid_check_pack_use_diagnostic(contract))
@@ -471,6 +489,19 @@ def _unsupported_check_pack_config_diagnostic(
         hint=(
             "Only `name` is supported in `checks.use` mappings for the current compiler milestone."
         ),
+    )
+
+
+def _duplicate_check_pack_invocation_diagnostic(
+    contract: AuthoredContract,
+    check_pack_name: str,
+) -> Diagnostic:
+    return contract_diagnostic_context(contract).error(
+        code=DUPLICATE_CHECK_PACK_INVOCATION,
+        message=f"Check pack {check_pack_name} is invoked more than once in this contract.",
+        resource_type="check_pack",
+        resource_name=check_pack_name,
+        hint="Invoke each check pack once until invocation aliases are supported.",
     )
 
 

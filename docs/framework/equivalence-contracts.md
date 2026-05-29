@@ -641,6 +641,10 @@ Future advanced contracts may add optional named CDC identities for checks that
 need different CDC roles, such as event identity and changed-row identity. That
 syntax is not implemented and requires a future decision.
 
+Current compilation validates `cdc.keys` shape when declared, but it does not
+execute CDC checks or validate CDC mode, delete behavior, ordering, windows, or
+state semantics yet.
+
 If delete propagation is intentionally not validated, say so explicitly:
 
 ```yaml
