@@ -25,7 +25,7 @@ adapter test kit, Hub metadata, and integrations.
 | Check-pack invocation config | Strings and `{name}` mappings implemented; `config` and `on_empty` design locked by ADR 0018. | `config`, `on_empty: warn`, and `on_empty: skip` are not implemented yet. |
 | Local custom check-pack resources | Planned | Local check-pack file schema, config schema, expansion, diagnostics, and artifact visibility are gated. |
 | Local reusable policy resources | Planned | Local sampling, tolerance, and schema policy file schemas and reference resolution are gated. |
-| Column and value comparison | Raw authored columns preserved; typed column surface locked by ADR 0019. | Typed column validation, row-level value checks, and all-column expansion are not implemented yet. |
+| Column and value comparison | Raw authored columns preserved; current typed column declaration/reference validation implemented under ADR 0019. | Row-level value checks, all-column expansion, resolved column metadata, eligibility enforcement, and adapter metadata validation are not implemented yet. |
 | Tolerance, null, and normalization | High-level fields exist; MVP policy surface locked by ADR 0009. | Full typed resolver, reusable policy files, row-level execution, adapter rendering, results, and evidence are not implemented yet. |
 | Endpoint resources and query execution | Planned | Endpoint refs and executable query endpoints are gated before implementation. |
 | Selectors and subset execution | Planned | `selectors.yml`, `--select`, `--exclude`, partial compile, and partial run are not implemented yet. |

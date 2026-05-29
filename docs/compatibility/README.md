@@ -25,7 +25,7 @@ Current implementation status:
 | Compiled artifacts | Implemented with `artifact_version: 1` for compiled contract and compiled checks YAML. |
 | Typed check plans | Draft typed plans are produced in compiled checks artifacts. |
 | Check-pack invocation config | Strings and `{name}` mappings implemented; future `config` and `on_empty` shape locked, not implemented. |
-| Column and value comparison | Raw authored columns preserved; typed column validation and all-column expansion design locked, not implemented. |
+| Column and value comparison | Raw authored columns preserved; current typed column declaration/reference validation implemented; all-column expansion, row-level value checks, resolved column metadata, eligibility enforcement, and adapter metadata validation are not implemented. |
 | Tolerance, null, and normalization | High-level authored fields exist; MVP policy surface locked by ADR 0009; full resolver and execution not implemented. |
 | Adapter API | Documented as an intended boundary, not stable or implemented yet. |
 | Adapter capabilities | Documented as a draft catalog and represented in compiler enums; no production adapter declarations yet. |
