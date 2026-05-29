@@ -4,6 +4,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
+from recon_core.compiler.policies import (
+    validate_normalization,
+    validate_null_policy,
+    validate_tolerance,
+)
 from recon_core.compiler.validation import CompilerDiagnosticContext
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -242,6 +247,8 @@ def _parse_column_entry(
     if raw_entry.get("checks") is not None and checks is None:
         return None
 
+    diagnostics.extend(_column_policy_diagnostics(category, name, raw_entry))
+
     return ColumnDeclaration(name=name, category=category, checks=checks)
 
 
@@ -265,6 +272,67 @@ def _validate_include(value: object) -> tuple[Diagnostic, ...]:
     return (
         _invalid_column_declaration("Column `include` is only supported as `include: \"*\"`."),
     )
+
+
+def _column_policy_diagnostics(
+    category: ColumnCategory,
+    column_name: str,
+    raw_entry: Mapping[object, object],
+) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+
+    if "tolerance" in raw_entry:
+        tolerance_result = validate_tolerance(
+            raw_entry["tolerance"],
+            resource_type="column",
+            resource_name=column_name,
+        )
+        diagnostics.extend(tolerance_result.diagnostics)
+        if tolerance_result.succeeded and category is not ColumnCategory.NUMERIC:
+            diagnostics.append(
+                _incompatible_column_policy(
+                    column_name=column_name,
+                    policy_name="tolerance",
+                    category=category,
+                    required_category=ColumnCategory.NUMERIC,
+                )
+            )
+
+    if "nulls" in raw_entry:
+        null_result = validate_null_policy(
+            raw_entry["nulls"],
+            resource_type="column",
+            resource_name=column_name,
+        )
+        diagnostics.extend(null_result.diagnostics)
+        if null_result.succeeded and category is not ColumnCategory.STRING:
+            diagnostics.append(
+                _incompatible_column_policy(
+                    column_name=column_name,
+                    policy_name="nulls",
+                    category=category,
+                    required_category=ColumnCategory.STRING,
+                )
+            )
+
+    if "normalization" in raw_entry:
+        normalization_result = validate_normalization(
+            raw_entry["normalization"],
+            resource_type="column",
+            resource_name=column_name,
+        )
+        diagnostics.extend(normalization_result.diagnostics)
+        if normalization_result.succeeded and category is not ColumnCategory.STRING:
+            diagnostics.append(
+                _incompatible_column_policy(
+                    column_name=column_name,
+                    policy_name="normalization",
+                    category=category,
+                    required_category=ColumnCategory.STRING,
+                )
+            )
+
+    return tuple(diagnostics)
 
 
 def _invalid_column_declaration(message: str) -> Diagnostic:
@@ -338,4 +406,22 @@ def _incompatible_metric_column_type(
             f"Move `{column_name}` to `columns.{required_category.value}` "
             "or use a compatible metric."
         ),
+    )
+
+
+def _incompatible_column_policy(
+    *,
+    column_name: str,
+    policy_name: str,
+    category: ColumnCategory,
+    required_category: ColumnCategory,
+) -> Diagnostic:
+    return _COLUMN_CONTEXT.error(
+        code=INCOMPATIBLE_COLUMN_TYPE,
+        message=(
+            f"Column policy `{policy_name}` requires a {required_category.value} column, "
+            f"but {column_name} is declared as {category.value}."
+        ),
+        resource_name=column_name,
+        hint=f"Move `{column_name}` to `columns.{required_category.value}` or remove the policy.",
     )

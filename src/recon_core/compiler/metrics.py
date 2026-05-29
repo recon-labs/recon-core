@@ -26,6 +26,7 @@ from recon_core.compiler.models import (
     OperationSide,
     TypedOperation,
 )
+from recon_core.compiler.policies import validate_tolerance
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 DUPLICATE_METRIC_NAME = "RC_VALIDATE_DUPLICATE_METRIC_NAME"
@@ -95,6 +96,16 @@ def compile_metrics(
         if metric.metric_type not in SUPPORTED_METRIC_TYPES:
             diagnostics.append(_unsupported_metric_type_diagnostic(metric.name, metric.metric_type))
             continue
+
+        if metric.tolerance is not None:
+            tolerance_result = validate_tolerance(
+                metric.tolerance,
+                resource_type="metric",
+                resource_name=metric.name,
+            )
+            if not tolerance_result.succeeded:
+                diagnostics.extend(tolerance_result.diagnostics)
+                continue
 
         metric_column_diagnostics = validate_metric_column_references(
             metric_name=metric.name,

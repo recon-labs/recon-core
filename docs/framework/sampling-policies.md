@@ -214,6 +214,11 @@ sampling design, and a sample evidence model. It should not execute
 deterministic hash or numeric modulo sampling until the Post-MVP Milestone 24
 sampling execution gate is resolved.
 
+Current compiler validation accepts contract-level `sampling.default_policy`
+as `full` or a non-empty named policy reference. Other sampling fields remain
+unsupported until sample policy resources and execution semantics are
+implemented.
+
 v0.2 may refine deterministic sampling and incremental-window design after the
 0.1 release decision. Persisted random samples, previous-failure samples,
 sample-key state, and watermark-backed execution belong to the v0.3 / Post-MVP

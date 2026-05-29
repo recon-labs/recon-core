@@ -282,3 +282,9 @@ Examples:
 - duplicate sentinel values after normalization,
 - duplicate or incompatible normalization steps,
 - unsupported regex features.
+
+Current compiler validation covers the accepted MVP policy shapes on supported
+surfaces: metric tolerance, column-level tolerance/nulls/normalization, and
+contract-level `nulls`. Named tolerance policy references are preserved until
+typed resource loading exists; top-level contract `normalization` remains
+unsupported.

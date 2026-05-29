@@ -490,6 +490,11 @@ resolved.
 Compiled checks should show resolved tolerance, null, and normalization
 behavior when that policy affects a compiled check.
 
+The current compiler validates supported MVP policy shapes but does not resolve
+named policy references or execute row-level policy behavior. Contract-level
+`nulls`, metric tolerance, and column-level tolerance/nulls/normalization are
+validated where those surfaces are currently accepted.
+
 MVP numeric tolerance supports absolute tolerance only:
 
 ```yaml

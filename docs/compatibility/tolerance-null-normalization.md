@@ -23,6 +23,8 @@ Current implementation status:
 - compiled contracts currently emit `policies.tolerance_policy` and
   `policies.nulls`; compiled artifact policy visibility is additive and must
   preserve existing field meanings,
+- the current compiler validates accepted tolerance, null, and normalization
+  policy shapes for supported contract, metric, and column surfaces,
 - the full typed policy resolver is not implemented yet,
 - row-level value checks are not implemented yet,
 - reusable tolerance policy resource loading is not implemented yet,

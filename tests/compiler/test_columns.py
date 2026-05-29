@@ -1,10 +1,12 @@
 from recon_core.compiler.columns import (
     DUPLICATE_COLUMN_NAME,
+    INCOMPATIBLE_COLUMN_TYPE,
     INVALID_COLUMN_DECLARATION,
     INVALID_COLUMN_SELECTION,
     ColumnCategory,
     validate_columns,
 )
+from recon_core.compiler.policies import INVALID_NORMALIZATION, INVALID_NULL_POLICY
 from recon_core.diagnostics import DiagnosticSeverity
 
 
@@ -74,3 +76,45 @@ def test_validate_columns_rejects_wildcard_column_declaration() -> None:
         INVALID_COLUMN_SELECTION
     ]
     assert "all-column" in result.diagnostics[0].message
+
+
+def test_validate_columns_rejects_tolerance_on_non_numeric_column() -> None:
+    result = validate_columns({"exact": [{"name": "status", "tolerance": 0.01}]})
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        INCOMPATIBLE_COLUMN_TYPE
+    ]
+    assert result.diagnostics[0].resource_name == "status"
+
+
+def test_validate_columns_rejects_invalid_null_policy_shape() -> None:
+    result = validate_columns(
+        {"string": [{"name": "middle_name", "nulls": {"empty_string_equals_null": True}}]}
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_NULL_POLICY]
+    assert result.diagnostics[0].resource_name == "middle_name"
+
+
+def test_validate_columns_rejects_normalization_on_non_string_column() -> None:
+    result = validate_columns({"numeric": [{"name": "revenue", "normalization": {"steps": []}}]})
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        INCOMPATIBLE_COLUMN_TYPE
+    ]
+    assert result.diagnostics[0].resource_name == "revenue"
+
+
+def test_validate_columns_rejects_invalid_normalization_shape() -> None:
+    result = validate_columns(
+        {"string": [{"name": "customer_name", "normalization": {"steps": ["trim", "trim"]}}]}
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        INVALID_NORMALIZATION
+    ]
+    assert result.diagnostics[0].resource_name == "customer_name"

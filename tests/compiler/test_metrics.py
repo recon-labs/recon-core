@@ -19,6 +19,7 @@ from recon_core.compiler.models import (
     OperationSide,
     OperationType,
 )
+from recon_core.compiler.policies import INVALID_TOLERANCE
 from recon_core.diagnostics import DiagnosticSeverity
 
 
@@ -295,3 +296,24 @@ def test_metric_rejects_unresolved_wildcard_column_reference() -> None:
         INVALID_COLUMN_SELECTION
     ]
     assert "*" in result.diagnostics[0].message
+
+
+def test_metric_rejects_invalid_tolerance_shape() -> None:
+    result = compile_metrics(
+        (
+            {
+                "name": "total_revenue",
+                "type": "sum",
+                "column": "revenue",
+                "tolerance": {"type": "relative", "value": 0.05},
+            },
+        ),
+        project_name="ecommerce_recon",
+        contract_name="customer_revenue",
+    )
+
+    assert not result.succeeded
+    assert result.checks == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_TOLERANCE]
+    assert result.diagnostics[0].resource_type == "metric"
+    assert result.diagnostics[0].resource_name == "total_revenue"

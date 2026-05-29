@@ -23,7 +23,13 @@ from recon_core.compiler.models import (
     CompiledContractReference,
     CompiledEndpoint,
     CompiledProject,
-    ResolvedSampling,
+)
+from recon_core.compiler.policies import (
+    INVALID_SAMPLING as INVALID_SAMPLING,
+)
+from recon_core.compiler.policies import (
+    validate_null_policy,
+    validate_sampling,
 )
 from recon_core.compiler.validation import (
     CompilerDiagnosticContext,
@@ -35,7 +41,6 @@ from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndp
 
 INVALID_CHECK_PACK_USE = "RC_VALIDATE_INVALID_CHECK_PACK_USE"
 INVALID_GRAIN_KEYS = "RC_VALIDATE_INVALID_GRAIN_KEYS"
-INVALID_SAMPLING = "RC_VALIDATE_INVALID_SAMPLING"
 NO_COMPILED_CHECKS = "RC_VALIDATE_NO_COMPILED_CHECKS"
 NO_CONTRACTS_FOUND = "RC_VALIDATE_NO_CONTRACTS_FOUND"
 COMPILED_ARTIFACT_FILENAME_COLLISION = "RC_VALIDATE_COMPILED_ARTIFACT_FILENAME_COLLISION"
@@ -123,8 +128,20 @@ def _compile_contract(
     recon_version: str,
 ) -> ContractCompilationArtifacts:
     diagnostics: list[Diagnostic] = []
+    contract_context = contract_diagnostic_context(contract)
     grain_keys = _grain_keys(contract, diagnostics)
-    sampling = _resolved_sampling(contract, diagnostics)
+    sampling_validation = validate_sampling(contract.sampling, context=contract_context)
+    diagnostics.extend(sampling_validation.diagnostics)
+    sampling = sampling_validation.sampling
+    if contract.nulls is not None:
+        diagnostics.extend(
+            validate_null_policy(
+                contract.nulls,
+                resource_type="contract",
+                resource_name=contract.name,
+                context=contract_context,
+            ).diagnostics
+        )
     column_validation = validate_columns(contract.columns)
     diagnostics.extend(_with_contract_path(column_validation.diagnostics, contract))
     column_registry = column_validation.registry if column_validation.succeeded else None
@@ -422,37 +439,6 @@ def _deduplicate_checks(
     return deduplicated
 
 
-def _resolved_sampling(
-    contract: AuthoredContract,
-    diagnostics: list[Diagnostic],
-) -> ResolvedSampling:
-    if contract.sampling is None:
-        return ResolvedSampling()
-
-    unsupported_fields = sorted(set(contract.sampling) - {"default_policy"})
-    if unsupported_fields:
-        diagnostics.append(
-            _invalid_sampling_diagnostic(
-                contract,
-                f"Unsupported `sampling` fields: {', '.join(unsupported_fields)}.",
-            )
-        )
-        return ResolvedSampling()
-
-    default_policy = contract.sampling.get("default_policy")
-    if default_policy is None or default_policy == "full":
-        return ResolvedSampling()
-    if not isinstance(default_policy, str) or not default_policy:
-        diagnostics.append(
-            _invalid_sampling_diagnostic(
-                contract,
-                "Contract `sampling.default_policy` must be `full` or a non-empty string.",
-            )
-        )
-        return ResolvedSampling()
-    return ResolvedSampling(mode=None, policy=default_policy)
-
-
 def _compiled_endpoint(endpoint: AuthoredEndpoint) -> CompiledEndpoint:
     return CompiledEndpoint(
         connection=endpoint.connection,
@@ -503,14 +489,6 @@ def _no_compiled_checks_diagnostic(contract: AuthoredContract) -> Diagnostic:
         hint=(
             "Add a supported check pack under `checks.use` or define at least one supported metric."
         ),
-    )
-
-
-def _invalid_sampling_diagnostic(contract: AuthoredContract, message: str) -> Diagnostic:
-    return contract_diagnostic_context(contract).error(
-        code=INVALID_SAMPLING,
-        message=message,
-        hint="Use `sampling: {default_policy: full}` or a named sampling policy.",
     )
 
 

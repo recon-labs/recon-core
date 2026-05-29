@@ -12,6 +12,7 @@ from recon_core.compiler import (
 from recon_core.compiler.check_packs import VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
 from recon_core.compiler.columns import UNDECLARED_COLUMN_REFERENCE
 from recon_core.compiler.models import CompiledArtifactType
+from recon_core.compiler.policies import INVALID_NULL_SENTINEL
 from recon_core.parser import DUPLICATE_CONTRACT, AuthoredContract, AuthoredEndpoint
 from recon_core.parser.models import SourceLocation
 
@@ -398,6 +399,26 @@ def test_compile_project_validates_metric_references_against_declared_columns() 
         UNDECLARED_COLUMN_REFERENCE,
         UNDECLARED_COLUMN_REFERENCE,
     ]
+
+
+def test_compile_project_validates_contract_level_null_policy() -> None:
+    result = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(
+            _contract(
+                nulls={"treat_as_null": {"values": ["", 0]}},
+            ),
+        ),
+        invocation_id="01JTESTINVOCATION0000000000",
+        generated_at="2026-05-23T12:00:00Z",
+        recon_version="0.0.test",
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_NULL_SENTINEL]
+    assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
+    assert result.contracts[0].checks_artifact.checks == ()
 
 
 def _contract(

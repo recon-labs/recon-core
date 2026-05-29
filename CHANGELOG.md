@@ -26,6 +26,8 @@ This project follows semantic versioning once public package releases begin.
   rendering, or executing those resources.
 - `recon compile` now validates authored column declarations and current metric
   column references against declared column surfaces.
+- `recon compile` now validates current sampling and accepted
+  tolerance/null/normalization policy shapes.
 
 ### Changed
 
