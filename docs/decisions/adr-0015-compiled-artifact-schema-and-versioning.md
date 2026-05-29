@@ -192,6 +192,8 @@ policies:
       - _dms_timestamp
       - _loaded_at
   cdc:
+    keys:
+      same_as: grain
     mode: upsert
     timestamp_column: updated_at
     delete_mode: soft_delete
@@ -224,9 +226,11 @@ Policy field compatibility:
 - removing or renaming `policies.tolerance_policy`, or changing its meaning,
   requires compatibility review and likely a compiled artifact version bump.
 
-CDC identity field compatibility:
+CDC artifact field compatibility:
 
 - current `identity.cdc` preserves the authored CDC policy object when present,
+- current `policies.cdc` preserves the same authored CDC policy object when
+  present,
 - current compiled artifacts do not resolve `same_as: grain` into concrete
   `identity.cdc.resolved_keys`,
 - adding resolved CDC identity fields such as `identity.cdc.declaration` or
