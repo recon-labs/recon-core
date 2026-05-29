@@ -55,6 +55,22 @@ def test_validate_columns_rejects_unknown_column_field() -> None:
     assert "scale" in result.diagnostics[0].message
 
 
+def test_validate_columns_rejects_invalid_description_shape() -> None:
+    result = validate_columns({"numeric": [{"name": "revenue", "description": {"bad": True}}]})
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_COLUMN_DECLARATION]
+    assert "description" in result.diagnostics[0].message
+
+
+def test_validate_columns_rejects_current_unsupported_timezone_policy() -> None:
+    result = validate_columns({"timestamp": [{"name": "updated_at", "timezone": "UTC"}]})
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_COLUMN_DECLARATION]
+    assert "timezone" in result.diagnostics[0].message
+
+
 def test_validate_columns_rejects_duplicate_declared_names() -> None:
     result = validate_columns({"exact": ["revenue"], "numeric": ["revenue"]})
 

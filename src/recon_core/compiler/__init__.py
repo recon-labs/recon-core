@@ -2,6 +2,7 @@
 
 from recon_core.compiler.cdc import (
     CDC_CONFIG_REQUIRED,
+    INVALID_CDC_KEYS,
     CdcValidationResult,
     validate_cdc_policy,
 )
@@ -127,6 +128,7 @@ __all__ = [
     "INVALID_COLUMN_SELECTION",
     "INVALID_METRIC",
     "INVALID_CHECK_PACK_USE",
+    "INVALID_CDC_KEYS",
     "INVALID_GRAIN_KEYS",
     "INVALID_NORMALIZATION",
     "INVALID_NULL_POLICY",

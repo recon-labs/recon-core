@@ -1,4 +1,4 @@
-from recon_core.compiler.cdc import CDC_CONFIG_REQUIRED, validate_cdc_policy
+from recon_core.compiler.cdc import INVALID_CDC_KEYS, validate_cdc_policy
 from recon_core.diagnostics import DiagnosticSeverity
 
 
@@ -30,14 +30,22 @@ def test_validate_cdc_policy_rejects_invalid_keys_shape() -> None:
 
     assert not result.succeeded
     assert len(result.diagnostics) == 1
-    assert result.diagnostics[0].code == CDC_CONFIG_REQUIRED
+    assert result.diagnostics[0].code == INVALID_CDC_KEYS
     assert result.diagnostics[0].severity is DiagnosticSeverity.ERROR
     assert "cdc.keys" in result.diagnostics[0].message
+
+
+def test_validate_cdc_policy_rejects_empty_keys() -> None:
+    result = validate_cdc_policy({"keys": []}, grain_keys=())
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_CDC_KEYS]
+    assert "non-empty" in result.diagnostics[0].message
 
 
 def test_validate_cdc_policy_rejects_same_as_grain_without_grain_keys() -> None:
     result = validate_cdc_policy({"keys": {"same_as": "grain"}}, grain_keys=())
 
     assert not result.succeeded
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [CDC_CONFIG_REQUIRED]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_CDC_KEYS]
     assert "grain.keys" in result.diagnostics[0].message

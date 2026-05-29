@@ -183,8 +183,6 @@ policies:
       values:
         - ""
       regex: []
-  tolerance: null
-  normalization: null
   schema:
     ignore_target_columns:
       - _dms_operation
@@ -206,9 +204,9 @@ Current policy field lock:
   when present; it is not a resolved tolerance object.
 - `policies.nulls` preserves the accepted contract-level null policy when
   present.
-- `policies.tolerance` is reserved for resolved inline/default tolerance policy
-  when a typed resolver exists.
-- `policies.normalization` is reserved for an accepted and resolved
+- `policies.tolerance` is a future optional field reserved for resolved
+  inline/default tolerance policy when a typed resolver exists.
+- `policies.normalization` is a future optional field reserved for an accepted and resolved
   normalization policy surface. The current contract parser does not accept
   top-level contract `normalization`.
 - additive optional policy fields may keep `artifact_version: 1` only when

@@ -31,6 +31,18 @@ def test_validate_sampling_rejects_unsupported_shape() -> None:
     assert "policies" in result.diagnostics[0].message
 
 
+def test_validate_sampling_rejects_missing_or_null_default_policy() -> None:
+    missing_result = validate_sampling({})
+    null_result = validate_sampling({"default_policy": None})
+
+    assert not missing_result.succeeded
+    assert not null_result.succeeded
+    assert [diagnostic.code for diagnostic in missing_result.diagnostics] == [INVALID_SAMPLING]
+    assert [diagnostic.code for diagnostic in null_result.diagnostics] == [INVALID_SAMPLING]
+    assert "default_policy" in missing_result.diagnostics[0].message
+    assert "default_policy" in null_result.diagnostics[0].message
+
+
 def test_validate_tolerance_accepts_numeric_shorthand_and_absolute_object() -> None:
     shorthand_result = validate_tolerance(0.01, resource_type="metric", resource_name="revenue")
     object_result = validate_tolerance(

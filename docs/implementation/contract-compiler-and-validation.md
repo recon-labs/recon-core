@@ -174,8 +174,11 @@ Column validation should include:
 The current compiler validates the supported authored declaration surface,
 duplicate declared names, unsupported all-column requests, metric references
 against declared columns, and `sum` metrics against declared `numeric` columns.
-It does not yet enforce column-level `checks` eligibility, emit unused-column
-warnings, resolve all-column expansion, or validate physical adapter metadata.
+Column `description` must be a string when declared. Column `timezone` is
+reserved for future timestamp policy support and is rejected until that gate is
+implemented. The compiler does not yet enforce column-level `checks`
+eligibility, emit unused-column warnings, resolve all-column expansion, or
+validate physical adapter metadata.
 
 Adapter metadata validation should cover physical column existence, physical
 types, and unresolved all-column expansion.
@@ -466,7 +469,8 @@ sampling:
 ```
 
 The current compiler supports contract-level `sampling.default_policy` as
-`full` or a non-empty named sampling policy string. Unsupported sampling fields,
+`full` or a non-empty named sampling policy string. When a `sampling` block is
+declared, `default_policy` is required. Unsupported sampling fields, missing or
 non-string `default_policy` values, or empty policy names must fail validation
 instead of compiling as full sampling.
 
@@ -622,8 +626,9 @@ decision before implementation.
 
 The current compiler validates `cdc.keys` only when that field is declared. It
 accepts explicit non-empty string key lists and `cdc.keys: {same_as: grain}`
-when `grain.keys` exists. It does not validate CDC modes, delete behavior,
-ordering, windows, or CDC execution semantics yet.
+when `grain.keys` exists. Missing, empty, or malformed declared CDC keys fail
+with `RC_VALIDATE_INVALID_CDC_KEYS`. The compiler does not validate CDC modes,
+delete behavior, ordering, windows, or CDC execution semantics yet.
 
 ## Grain and uniqueness validation
 

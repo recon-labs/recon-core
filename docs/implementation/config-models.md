@@ -161,8 +161,8 @@ class AuthoredContract:
 implemented. Current code preserves authored `columns` as raw contract data.
 
 `AuthoredCdcPolicy` should preserve CDC identity separately from `grain`.
-`cdc.keys` may declare explicit keys or `same_as: grain`; it should not be
-resolved by the parser.
+`cdc.keys` may declare explicit non-empty keys or `same_as: grain`; it should
+not be resolved by the parser.
 
 ## Unknown fields
 

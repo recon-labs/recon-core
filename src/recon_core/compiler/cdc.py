@@ -7,6 +7,7 @@ from recon_core.compiler.validation import CompilerDiagnosticContext
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 CDC_CONFIG_REQUIRED = "RC_VALIDATE_CDC_CONFIG_REQUIRED"
+INVALID_CDC_KEYS = "RC_VALIDATE_INVALID_CDC_KEYS"
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,20 +41,20 @@ def validate_cdc_policy(
         )
 
     if isinstance(keys, Sequence) and not isinstance(keys, str):
-        if all(isinstance(key, str) and key for key in keys):
+        if keys and all(isinstance(key, str) and key for key in keys):
             return CdcValidationResult()
         return CdcValidationResult(
             diagnostics=(
-                _cdc_config_diagnostic(
+                _invalid_cdc_keys_diagnostic(
                     diagnostic_context,
-                    "`cdc.keys` must contain only non-empty strings.",
+                    "`cdc.keys` must be a non-empty list of non-empty strings.",
                 ),
             )
         )
 
     return CdcValidationResult(
         diagnostics=(
-            _cdc_config_diagnostic(
+            _invalid_cdc_keys_diagnostic(
                 diagnostic_context,
                 "`cdc.keys` must be a list of non-empty strings or `{same_as: grain}`.",
             ),
@@ -68,7 +69,7 @@ def _validate_cdc_same_as_keys(
 ) -> tuple[Diagnostic, ...]:
     if set(keys) != {"same_as"} or keys.get("same_as") != "grain":
         return (
-            _cdc_config_diagnostic(
+            _invalid_cdc_keys_diagnostic(
                 context,
                 "`cdc.keys` mapping currently supports only `{same_as: grain}`.",
             ),
@@ -76,7 +77,7 @@ def _validate_cdc_same_as_keys(
 
     if not grain_keys:
         return (
-            _cdc_config_diagnostic(
+            _invalid_cdc_keys_diagnostic(
                 context,
                 "`cdc.keys.same_as: grain` requires contract `grain.keys`.",
             ),
@@ -90,4 +91,12 @@ def _cdc_config_diagnostic(context: CompilerDiagnosticContext, message: str) -> 
         code=CDC_CONFIG_REQUIRED,
         message=message,
         hint="Use explicit `cdc.keys` or `cdc.keys: {same_as: grain}` when CDC keys are declared.",
+    )
+
+
+def _invalid_cdc_keys_diagnostic(context: CompilerDiagnosticContext, message: str) -> Diagnostic:
+    return context.error(
+        code=INVALID_CDC_KEYS,
+        message=message,
+        hint="Use a non-empty `cdc.keys` list or `cdc.keys: {same_as: grain}`.",
     )

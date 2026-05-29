@@ -14,6 +14,8 @@ contract artifacts and validates the supported authored column declaration
 surface during compile. It validates supported column categories and fields,
 duplicate declared column names, metric references against an explicit declared
 surface, and `sum` metric compatibility with declared `numeric` columns.
+Column `timezone` remains reserved and unsupported until timestamp policy
+validation is implemented.
 
 It does not implement resolved column metadata in compiled artifacts,
 all-column expansion, row-level value checks, column-level check eligibility

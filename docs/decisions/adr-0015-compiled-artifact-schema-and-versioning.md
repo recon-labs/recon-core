@@ -179,13 +179,10 @@ policies:
   sampling:
     default_policy: latest_changed_records
   tolerance_policy: finance
-  tolerance: null
   nulls:
     treat_as_null:
       values: []
       regex: []
-  normalization:
-    steps: []
   schema:
     ignore_target_columns:
       - _dms_operation
@@ -213,10 +210,10 @@ Policy field compatibility:
 - `policies.tolerance_policy` is the authored named tolerance policy reference
   when present. It must not be silently reinterpreted as a resolved tolerance
   object.
-- `policies.tolerance` is reserved for resolved inline/default tolerance policy
-  once a typed resolver exists.
+- `policies.tolerance` is a future optional field reserved for resolved
+  inline/default tolerance policy once a typed resolver exists.
 - `policies.nulls` carries accepted contract-level null policy when present.
-- `policies.normalization` is reserved for an accepted and resolved
+- `policies.normalization` is a future optional field reserved for an accepted and resolved
   normalization policy surface. The current contract parser does not accept
   top-level contract `normalization`.
 - adding optional policy fields can remain `artifact_version: 1` only when the

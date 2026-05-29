@@ -244,6 +244,9 @@ supported as the initial tolerance surface. Timestamp tolerance execution,
 relative tolerance, percentage tolerance, reusable policy files, and richer
 normalization require later design or implementation gates.
 
+Column `description` must be text when declared. Column `timezone` is reserved
+for future timestamp policy support and is not accepted by the current compiler.
+
 String entries are shorthand for `{name: <column_name>}`.
 
 Columns do not create checks. They define the columns that generated,
@@ -641,9 +644,9 @@ Future advanced contracts may add optional named CDC identities for checks that
 need different CDC roles, such as event identity and changed-row identity. That
 syntax is not implemented and requires a future decision.
 
-Current compilation validates `cdc.keys` shape when declared, but it does not
-execute CDC checks or validate CDC mode, delete behavior, ordering, windows, or
-state semantics yet.
+Current compilation validates `cdc.keys` shape when declared. Declared CDC keys
+must be non-empty. Current compilation does not execute CDC checks or validate
+CDC mode, delete behavior, ordering, windows, or state semantics yet.
 
 If delete propagation is intentionally not validated, say so explicitly:
 

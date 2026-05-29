@@ -29,7 +29,7 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile` now validates current sampling and accepted
   tolerance/null/normalization policy shapes.
 - `recon compile` now rejects duplicate check-pack invocations and validates
-  declared `cdc.keys` shape.
+  declared non-empty `cdc.keys` shape.
 
 ### Changed
 
@@ -54,8 +54,8 @@ This project follows semantic versioning once public package releases begin.
   unsupported check-pack invocation config, unknown metric fields, invalid
   sampling config, and path-like standalone compiled artifact names.
 - `recon compile` now rejects symlinked `target-path` ancestry, contracts that
-  compile into no checks, non-string nested `checks` mapping keys, and empty
-  `sampling.default_policy` values.
+  compile into no checks, non-string nested `checks` mapping keys, and missing,
+  null, or empty `sampling.default_policy` values when `sampling` is declared.
 - `recon compile` now rejects projects where no contracts are discovered,
   rejects exact compiled artifact output symlinks even with explicit overwrite,
   and includes contract file paths on compiler diagnostics where available.

@@ -88,6 +88,10 @@ Reserved column-entry fields are:
 Unknown column categories and unknown column-entry fields are validation errors
 once typed column validation is implemented.
 
+Current compiler validation requires `description` to be a string when declared
+and rejects `timezone` until timestamp policy syntax and validation are
+implemented.
+
 ## Column Declarations and Explicit References
 
 If a contract has no `columns` block, explicit metrics and explicit checks may

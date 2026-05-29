@@ -247,6 +247,7 @@ def _parse_column_entry(
     if raw_entry.get("checks") is not None and checks is None:
         return None
 
+    diagnostics.extend(_column_field_diagnostics(category, name, raw_entry))
     diagnostics.extend(_column_policy_diagnostics(category, name, raw_entry))
 
     return ColumnDeclaration(name=name, category=category, checks=checks)
@@ -270,6 +271,35 @@ def _validate_include(value: object) -> tuple[Diagnostic, ...]:
     if value == "*":
         return (_invalid_column_selection("Explicit all-column requests"),)
     return (_invalid_column_declaration('Column `include` is only supported as `include: "*"`.'),)
+
+
+def _column_field_diagnostics(
+    category: ColumnCategory,
+    column_name: str,
+    raw_entry: Mapping[object, object],
+) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+
+    if "description" in raw_entry and not isinstance(raw_entry["description"], str):
+        diagnostics.append(
+            _invalid_column_entry_field(
+                column_name,
+                "Column `description` must be a string when declared.",
+            )
+        )
+
+    if "timezone" in raw_entry:
+        diagnostics.append(
+            _invalid_column_entry_field(
+                column_name,
+                (
+                    "Column `timezone` is reserved for future timestamp policy support "
+                    f"and is not supported for {category.value} columns yet."
+                ),
+            )
+        )
+
+    return tuple(diagnostics)
 
 
 def _column_policy_diagnostics(
@@ -338,6 +368,15 @@ def _invalid_column_declaration(message: str) -> Diagnostic:
         code=INVALID_COLUMN_DECLARATION,
         message=message,
         hint="Use supported column categories and string or mapping column entries.",
+    )
+
+
+def _invalid_column_entry_field(column_name: str, message: str) -> Diagnostic:
+    return _COLUMN_CONTEXT.error(
+        code=INVALID_COLUMN_DECLARATION,
+        message=message,
+        resource_name=column_name,
+        hint="Use only supported column entry fields for the current compiler.",
     )
 
 

@@ -88,8 +88,19 @@ def validate_sampling(
             ),
         )
 
-    default_policy = sampling.get("default_policy")
-    if default_policy is None or default_policy == "full":
+    if "default_policy" not in sampling:
+        return SamplingValidationResult(
+            sampling=resolved_sampling,
+            diagnostics=(
+                _sampling_diagnostic(
+                    diagnostic_context,
+                    "Contract `sampling` requires `default_policy` when declared.",
+                ),
+            ),
+        )
+
+    default_policy = sampling["default_policy"]
+    if default_policy == "full":
         return SamplingValidationResult(sampling=resolved_sampling)
     if not isinstance(default_policy, str) or not default_policy:
         return SamplingValidationResult(

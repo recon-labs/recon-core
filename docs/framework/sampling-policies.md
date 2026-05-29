@@ -215,7 +215,8 @@ deterministic hash or numeric modulo sampling until the Post-MVP Milestone 24
 sampling execution gate is resolved.
 
 Current compiler validation accepts contract-level `sampling.default_policy`
-as `full` or a non-empty named policy reference. Other sampling fields remain
+as `full` or a non-empty named policy reference. When a `sampling` block is
+declared, `default_policy` is required. Other sampling fields remain
 unsupported until sample policy resources and execution semantics are
 implemented.
 

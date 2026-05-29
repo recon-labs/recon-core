@@ -10,7 +10,7 @@ from recon_core.compiler import (
     UNSUPPORTED_EXPLICIT_CHECKS,
     compile_project,
 )
-from recon_core.compiler.cdc import CDC_CONFIG_REQUIRED
+from recon_core.compiler.cdc import INVALID_CDC_KEYS
 from recon_core.compiler.check_packs import VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
 from recon_core.compiler.columns import UNDECLARED_COLUMN_REFERENCE
 from recon_core.compiler.models import CompiledArtifactType
@@ -467,7 +467,7 @@ def test_compile_project_validates_declared_cdc_keys_shape() -> None:
     )
 
     assert not result.succeeded
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [CDC_CONFIG_REQUIRED]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_CDC_KEYS]
     assert result.diagnostics[0].path == "contracts/customer_revenue.yml"
     assert result.contracts[0].checks_artifact.checks == ()
 
