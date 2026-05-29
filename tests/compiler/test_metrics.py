@@ -232,9 +232,7 @@ def test_metric_columns_must_be_declared_when_column_surface_exists() -> None:
 
     assert not result.succeeded
     assert result.checks == ()
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        UNDECLARED_COLUMN_REFERENCE
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [UNDECLARED_COLUMN_REFERENCE]
     assert result.diagnostics[0].resource_type == "metric"
     assert result.diagnostics[0].resource_name == "total_margin"
     assert "margin" in result.diagnostics[0].message
@@ -259,9 +257,7 @@ def test_metric_group_by_columns_must_be_declared_when_column_surface_exists() -
 
     assert not result.succeeded
     assert result.checks == ()
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        UNDECLARED_COLUMN_REFERENCE
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [UNDECLARED_COLUMN_REFERENCE]
     assert "month" in result.diagnostics[0].message
 
 
@@ -277,9 +273,7 @@ def test_sum_metric_requires_declared_numeric_value_column() -> None:
 
     assert not result.succeeded
     assert result.checks == ()
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        INCOMPATIBLE_COLUMN_TYPE
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INCOMPATIBLE_COLUMN_TYPE]
     assert "numeric" in result.diagnostics[0].message
 
 
@@ -292,9 +286,7 @@ def test_metric_rejects_unresolved_wildcard_column_reference() -> None:
 
     assert not result.succeeded
     assert result.checks == ()
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        INVALID_COLUMN_SELECTION
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [INVALID_COLUMN_SELECTION]
     assert "*" in result.diagnostics[0].message
 
 

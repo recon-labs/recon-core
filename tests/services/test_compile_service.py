@@ -531,9 +531,7 @@ grain:
         if tolerance_policy is not None
         else ""
     )
-    nulls_yaml = (
-        yaml.safe_dump({"nulls": nulls}, sort_keys=False) if nulls is not None else ""
-    )
+    nulls_yaml = yaml.safe_dump({"nulls": nulls}, sort_keys=False) if nulls is not None else ""
     project_root.joinpath("contracts", file_name).write_text(
         f"""
 version: 1

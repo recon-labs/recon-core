@@ -55,12 +55,8 @@ def test_validate_tolerance_rejects_negative_or_unsupported_tolerance() -> None:
 
     assert not negative_result.succeeded
     assert not relative_result.succeeded
-    assert [diagnostic.code for diagnostic in negative_result.diagnostics] == [
-        INVALID_TOLERANCE
-    ]
-    assert [diagnostic.code for diagnostic in relative_result.diagnostics] == [
-        INVALID_TOLERANCE
-    ]
+    assert [diagnostic.code for diagnostic in negative_result.diagnostics] == [INVALID_TOLERANCE]
+    assert [diagnostic.code for diagnostic in relative_result.diagnostics] == [INVALID_TOLERANCE]
 
 
 def test_validate_null_policy_accepts_literal_and_regex_sentinels() -> None:
@@ -93,9 +89,7 @@ def test_validate_null_policy_rejects_invalid_shape_and_sentinels() -> None:
 
     assert not shape_result.succeeded
     assert not sentinel_result.succeeded
-    assert [diagnostic.code for diagnostic in shape_result.diagnostics] == [
-        INVALID_NULL_POLICY
-    ]
+    assert [diagnostic.code for diagnostic in shape_result.diagnostics] == [INVALID_NULL_POLICY]
     assert [diagnostic.code for diagnostic in sentinel_result.diagnostics] == [
         INVALID_NULL_SENTINEL
     ]

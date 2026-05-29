@@ -258,7 +258,7 @@ Required gates:
   Milestone 5 should validate only the MVP policy surface and must not treat
   future timestamp, relative tolerance, reusable policy files, unrestricted
   regex features, custom SQL, or macros as executable behavior,
-- top-level contract `normalization` remains unsupported in scoped Milestone 5;
+- top-level contract `normalization` remains unsupported in this milestone;
   accepting contract-level normalization defaults requires the local policy
   defaults gate to be resolved first,
 - compiled policy artifact alignment must be additive: preserve
@@ -268,27 +268,6 @@ Required gates:
 - do not validate references to local check packs, sampling policies, tolerance
   policies, schema policies, endpoint resources, or macros until those resource
   kinds are loaded through the shared ADR 0017 resource model.
-
-Implementation order:
-
-1. Start with compiled policy artifact alignment. Add tests, preserve
-   `policies.tolerance_policy`, expose accepted `nulls`, keep top-level
-   contract `normalization` rejected, and keep `COMPILED_ARTIFACT_VERSION = 1`
-   only if the change is additive.
-2. Add validation module foundations. Use compiler-owned validator/resolver
-   module boundaries and diagnostics without moving behavior into CLI code.
-3. Add column and metric validation. Validate authored column declarations,
-   metric references, duplicate metric names, category compatibility for
-   supported `sum` metrics, and unsupported wildcard selectors.
-4. Add current policy and sampling shape validation. Validate accepted
-   sampling, tolerance, null, and normalization surfaces only; preserve named
-   references without resolving them.
-5. Add check-pack and CDC declaration validation. Keep check-pack config
-   unsupported, reject duplicate same-pack invocation, and validate CDC key
-   declaration shape only where current supported checks need it.
-6. Finish docs, changelog, and validation. Update docs/changelog for changed
-   behavior, run focused tests, full tests, and pre-commit before the branch is
-   considered complete.
 
 Tests:
 
@@ -657,7 +636,7 @@ feat: add macro-assisted SQL rendering
 
 ## Post-MVP Milestone 15.5: check-pack invocation config and controls
 
-Build this after scoped Milestone 5 validates current strict invocation
+Build this after the validation rulebook enforces current strict invocation
 behavior and before local/package check-pack resources become executable.
 
 Goal:

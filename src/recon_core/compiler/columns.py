@@ -269,9 +269,7 @@ def _checks(raw_checks: object, diagnostics: list[Diagnostic]) -> tuple[str, ...
 def _validate_include(value: object) -> tuple[Diagnostic, ...]:
     if value == "*":
         return (_invalid_column_selection("Explicit all-column requests"),)
-    return (
-        _invalid_column_declaration("Column `include` is only supported as `include: \"*\"`."),
-    )
+    return (_invalid_column_declaration('Column `include` is only supported as `include: "*"`.'),)
 
 
 def _column_policy_diagnostics(
@@ -366,9 +364,7 @@ def _invalid_column_selection(selection_description: str) -> Diagnostic:
 def _invalid_metric_column_selection(metric_name: str, column_name: str) -> Diagnostic:
     return _METRIC_CONTEXT.error(
         code=INVALID_COLUMN_SELECTION,
-        message=(
-            f"Metric {metric_name} references unresolved wildcard column {column_name}."
-        ),
+        message=(f"Metric {metric_name} references unresolved wildcard column {column_name}."),
         resource_name=metric_name,
         hint="Metric column references must use concrete column names.",
     )

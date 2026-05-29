@@ -97,14 +97,14 @@ allowing helper APIs to raise unhandled exceptions.
 Compile should fail validation when no contracts are discovered. A successful
 compile must represent at least one authored contract.
 
-## Milestone 5 implementation lock
+## Compiler validation boundaries
 
-Milestone 5 validation should follow the same separation used by mature
+Compiler validation should follow the same separation used by mature
 manifest-based tools: source-file discovery, parsed models, graph/resource
-lookup, validation, and artifact writing stay separate. For Recon this means
-the parser remains responsible for structural authored-file parsing, while the
-compiler owns validation that depends on compiled intent, check-pack expansion,
-metrics, policies, or identity requirements.
+lookup, validation, and artifact writing stay separate. For Recon, the parser
+remains responsible for structural authored-file parsing, while the compiler
+owns validation that depends on compiled intent, check-pack expansion, metrics,
+policies, or identity requirements.
 
 Implementation guidance:
 
@@ -120,10 +120,11 @@ Implementation guidance:
 - do not validate references to local check packs, sampling policies,
   tolerance policies, schema policies, endpoint resources, packages, or macros
   until those resources have typed loaders under ADR 0017,
-- keep top-level contract `normalization` unsupported in scoped Milestone 5;
-  validate normalization only on surfaces the current parser accepts,
+- keep top-level contract `normalization` unsupported until contract-level
+  policy defaults are designed; validate normalization only on surfaces the
+  current parser accepts,
 - keep adapter metadata validation, all-column expansion, row-level value check
-  execution, and CDC execution out of scoped Milestone 5.
+  execution, and CDC execution separate from compiler-only validation.
 
 ## Columns, metrics, and checks
 
