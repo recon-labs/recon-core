@@ -15,8 +15,14 @@ expand into execution intent. Recon must not silently compare every column, must
 not silently coerce types, and must not guess source-target column mappings.
 
 Current implementation preserves `columns` as raw authored data in compiled
-contract artifacts. It does not yet implement typed column declarations,
-all-column expansion, row-level value checks, or column/type validation.
+contract artifacts and validates the supported authored column declaration and
+reference surface during compile. It validates supported categories and fields,
+duplicate declared names, metric references inside explicit declared surfaces,
+unsupported wildcard requests, and supported metric/category compatibility.
+
+It does not yet implement resolved column metadata in compiled artifacts,
+all-column expansion, row-level value checks, column-level check eligibility,
+unused-column warnings, or adapter metadata column/type validation.
 
 dbt Core provides useful reference patterns:
 
@@ -85,11 +91,11 @@ Reserved column-entry fields are:
 | `normalization` | string normalization policy; detailed semantics owned by the tolerance/null ADR |
 | `timezone` | timestamp timezone policy; detailed semantics owned by a future timestamp policy decision |
 
-Unknown column categories and unknown column-entry fields are validation errors
-once typed column validation is implemented.
+Unknown column categories and unknown column-entry fields are compile validation
+errors.
 
-Current compiler validation requires `description` to be a string when declared
-and rejects `timezone` until timestamp policy syntax and validation are
+Current compiler validation also requires `description` to be a string when
+declared and rejects `timezone` until timestamp policy syntax and validation are
 implemented.
 
 ## Column Declarations and Explicit References
@@ -250,12 +256,13 @@ The following codes are locked for this surface:
 
 ## Consequences
 
-Milestone 5 can validate authored column declarations, explicit references,
-check/category compatibility from declared categories, invalid wildcard usage,
-and unused declared columns without implementing row-level value checks.
+Current compiler validation covers authored column declarations, explicit metric
+references, `sum` metric compatibility from declared categories, and invalid
+wildcard usage without implementing row-level value checks.
 
-All-column expansion and physical type validation remain gated on adapter
-metadata and artifact visibility.
+Column-level check eligibility, unused declared-column warnings, all-column
+expansion, resolved column artifact metadata, and physical type validation remain
+future-gated on check registries, adapter metadata, and artifact visibility.
 
 Future sampling, tolerance, null, normalization, schema ignore, row-hash, and
 adapter metadata work must reuse this column surface instead of inventing
@@ -286,18 +293,20 @@ unrelated columns look equivalent.
 
 ## Implementation Guidance
 
-Implementation should:
+Implementation should continue to:
 
-- introduce typed authored and resolved column models,
+- use typed authored column models,
 - normalize string shorthand into typed column declarations,
 - keep parser structural validation separate from compiler semantic validation,
-- add a column registry/resolver used by metrics, explicit checks, and
+- keep a column registry/resolver used by metrics, explicit checks, and
   check-pack expansion,
 - reject wildcard execution until adapter metadata can resolve concrete
   columns,
 - write resolved column metadata into compiled artifacts before executing value
   checks,
-- add tests for duplicate columns, invalid categories, unknown fields,
-  undeclared references, invalid wildcard selectors, category/check
-  compatibility, unused declared columns, metadata-deferred validation, and
-  all-column expansion.
+- test current validation for duplicate columns, invalid categories, unknown
+  fields, undeclared references, invalid wildcard selectors, and category/check
+  compatibility,
+- add future tests for column-level check eligibility, unused declared columns,
+  metadata-deferred validation, resolved column artifact visibility, and
+  all-column expansion when those features are implemented.
