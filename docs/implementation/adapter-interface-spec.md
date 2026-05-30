@@ -185,8 +185,10 @@ Rendered SQL belongs under:
 target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
-Rendering status values are `not_rendered`, `rendered`, `blocked`, and
-`failed`.
+Milestone 6 adapter-aware rendering should migrate rendering status values to
+`not_rendered`, `rendered`, `blocked`, and `failed`. Current pre-Milestone-6
+compiler models may still expose earlier draft statuses until that migration is
+implemented with code, tests, artifact examples, and compatibility docs.
 
 ## Profiles and secrets
 
