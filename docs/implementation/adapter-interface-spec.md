@@ -6,8 +6,10 @@ This document defines implementation expectations for the adapter interface.
 
 Adapters isolate database and system-specific behavior from Recon Core.
 
-This specification follows
-`docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`.
+This specification follows:
+
+- `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
+- `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`
 
 ## Base adapter responsibilities
 
@@ -17,8 +19,7 @@ Adapters should implement:
 - query execution,
 - relation existence checks,
 - metadata fetching,
-- SQL quoting,
-- SQL generation helpers,
+- adapter metadata,
 - type normalization,
 - capability declaration.
 
@@ -38,30 +39,29 @@ class BaseAdapter:
     def close(self) -> None: ...
     def execute(self, query: str) -> QueryResult: ...
     def relation_exists(self, relation: Relation) -> bool: ...
-    def get_columns(self, relation_or_query: RelationOrQuery) -> list[ColumnMetadata]: ...
-    def quote_identifier(self, identifier: str) -> str: ...
-    def compile_limit(self, query: str, limit: int) -> str: ...
+    def get_columns(self, relation: Relation) -> list[ColumnMetadata]: ...
     def capabilities(self) -> AdapterCapabilities: ...
 ```
 
 `get_columns` is required for ADR 0019 all-column expansion and physical
 column/type validation.
 
-The final API should separate connection/metadata/execution from SQL rendering.
-This avoids forcing non-SQL adapters to implement SQL helper methods.
+The API separates connection/metadata/execution from SQL rendering. This avoids
+forcing non-SQL adapters to implement SQL helper methods.
 
-Illustrative SQL renderer:
+SQL renderer:
 
 ```python
 class SqlRenderer:
+    adapter_type: str
+
+    def render_operation(self, operation: TypedOperation) -> RenderedSql: ...
     def quote_identifier(self, identifier: str) -> str: ...
     def render_relation(self, relation: Relation) -> str: ...
-    def render_limit(self, query: str, limit: int) -> str: ...
-    def render_cast(self, expression: str, target_type: LogicalType) -> str: ...
-    def render_null_safe_equal(self, left: str, right: str) -> str: ...
-    def render_hash(self, expressions: list[str]) -> str: ...
-    def render_timestamp_diff(self, left: str, right: str, unit: str) -> str: ...
 ```
+
+The renderer may expose helper methods internally, but the public boundary is
+typed operation payload to rendered SQL.
 
 ## Query result
 
@@ -95,32 +95,28 @@ class ColumnMetadata:
 
 ## Capabilities
 
-Suggested capabilities:
+Capability support should be represented by a support state, not a boolean:
+
+```python
+class CapabilitySupport(str, Enum):
+    UNKNOWN = "unknown"
+    UNSUPPORTED = "unsupported"
+    NOT_IMPLEMENTED = "not_implemented"
+    VERSIONED = "versioned"
+    FULL = "full"
+```
+
+Suggested capability map:
 
 ```python
 @dataclass(frozen=True)
 class AdapterCapabilities:
-    relations: bool
-    queries: bool
-    metadata_columns: bool
-    metadata_precision_scale: bool
-    temp_tables: bool
-    cte_support: bool
-    row_count: bool
-    aggregate: bool
-    grouped_aggregate: bool
-    key_diff: bool
-    null_key: bool
-    duplicate_key: bool
-    null_safe_equality: bool
-    numeric_cast: bool
-    string_cast: bool
-    timestamp_diff: bool
-    safe_hash_expression: bool
-    portable_hash_compatible: bool
-    json_path: bool
-    semi_structured_projection: bool
+    support: dict[str, CapabilitySupport]
 ```
+
+`unknown`, `unsupported`, and `not_implemented` do not satisfy required
+capabilities. `versioned` support must be checked against adapter or engine
+version before rendering or execution.
 
 ## Adapter registry
 
@@ -129,15 +125,24 @@ Adapters should register by connection type.
 ```python
 registry.register("postgres", PostgresAdapter)
 registry.register("snowflake", SnowflakeAdapter)
+registry.register("duckdb", DuckDbAdapter)
 ```
 
 Core should resolve connection type through the registry.
+
+The DuckDB adapter starts in `recon-core` as the local development adapter.
+External adapter packages should wait until the adapter API and shared adapter
+test kit are stable.
 
 ## Capability validation
 
 Checks declare required capabilities.
 
-The compiler validates known capability mismatches.
+Compile without an adapter may emit typed plans with
+`rendering.status: not_rendered`.
+
+Adapter-aware rendering validates adapter API compatibility and required
+capabilities before SQL files are written.
 
 Runtime validates anything that depends on live metadata.
 
@@ -149,15 +154,8 @@ clear diagnostic.
 
 Core check logic should define typed abstract operations.
 
-Adapters should provide dialect-specific SQL for:
-
-- quoting,
-- limits,
-- casts,
-- timestamp differences,
-- null-safe equality,
-- future limited regex replacement,
-- hashing when supported.
+Adapters should provide dialect-specific SQL for the operations emitted by the
+compiler. Milestone 6 does not expand the typed operation catalog.
 
 Examples of core-owned typed operations:
 
@@ -181,6 +179,44 @@ compare_grouped_aggregates
 
 Generated SQL should remain traceable to the typed operation that produced it.
 
+Rendered SQL belongs under:
+
+```text
+target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
+```
+
+Rendering status values are `not_rendered`, `rendered`, `blocked`, and
+`failed`.
+
+## Profiles and secrets
+
+Profiles are loaded from `connections/profiles.yml` when adapter-aware
+rendering or execution needs connection configuration.
+
+Resolution rules:
+
+- select one profile and one target,
+- render only the selected target,
+- support `env_var('NAME')` and `env_var('NAME', 'default')` initially,
+- fail on missing environment variables in the selected target,
+- ignore missing environment variables in unselected targets,
+- never emit secrets or fully rendered credentials in generated artifacts or
+  diagnostics.
+
+## Query endpoints
+
+Milestone 6 is relation-only for executable adapter-aware behavior. Query
+endpoints may parse, but adapter-aware rendering or execution should fail with
+a clear unsupported diagnostic until query execution is designed.
+
+## Execution placement
+
+The adapter interface does not by itself decide where comparisons execute.
+Milestone 7 check-engine work must define whether comparisons run in source
+systems, target systems, adapter-managed intermediate systems, or bounded
+Python-side comparison. Unsupported SQL rendering must not silently fall back to
+Python.
+
 ## Hashing
 
 Adapters must not claim portable hash compatibility without tests.
@@ -202,6 +238,9 @@ recon-databricks
 recon-redshift
 recon-oracle
 ```
+
+`recon-duckdb` is a future external package candidate after adapter API and
+shared adapter test-kit stability.
 
 ## Design principle
 

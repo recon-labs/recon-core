@@ -85,6 +85,11 @@ state/
 recon_packages/
 ```
 
+`connections/profiles.yml` contains uncommitted connection profiles. Initial
+adapter-aware behavior selects one profile and target, then renders only that
+target's connection payload. Secrets and fully rendered credentials must not be
+written to generated artifacts.
+
 ## `contracts/`
 
 Contracts are the main source files.

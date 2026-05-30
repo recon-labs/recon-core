@@ -20,23 +20,26 @@ adapter test kit, Hub metadata, and integrations.
 | Manifest artifact | `artifact_version: 1` | Implemented for `recon parse`; pre-alpha compatibility. |
 | Compiled contract artifact | `artifact_version: 1` | Implemented for `recon compile`; pre-alpha compatibility. |
 | Compiled checks artifact | `artifact_version: 1` | Implemented for `recon compile`; pre-alpha compatibility. |
+| Compiled SQL artifacts | Planned by ADR 0020 | Not implemented yet; planned path is `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`. |
 | Artifact freshness and cache semantics | Planned | Cache optimization and skip-unchanged behavior are gated before generated artifacts can be reused silently. |
-| Typed check plan | Draft typed operation catalog | Produced in compiled checks artifacts; not stable before 1.0. |
+| Typed check plan | Draft typed operation catalog | Produced in compiled checks artifacts; Milestone 6 renders current operations only and does not expand the catalog. |
 | Check-pack invocation config | Strings and `{name}` mappings implemented; `config` and `on_empty` design locked by ADR 0018. | `config`, `on_empty: warn`, and `on_empty: skip` are not implemented yet. |
 | Local custom check-pack resources | Planned | Local check-pack file schema, config schema, expansion, diagnostics, and artifact visibility are gated. |
 | Local reusable policy resources | Planned | Local sampling, tolerance, and schema policy file schemas and reference resolution are gated. |
 | Column and value comparison | Raw authored columns preserved; current typed column declaration/reference validation implemented under ADR 0019. | Row-level value checks, all-column expansion, resolved column metadata, eligibility enforcement, and adapter metadata validation are not implemented yet. |
 | Tolerance, null, and normalization | High-level fields exist; MVP policy surface locked by ADR 0009. | Full typed resolver, reusable policy files, row-level execution, adapter rendering, results, and evidence are not implemented yet. |
-| Endpoint resources and query execution | Planned | Endpoint refs and executable query endpoints are gated before implementation. |
+| Endpoint resources and query execution | Planned | Endpoint refs and executable query endpoints are gated before implementation; Milestone 6 adapter-aware behavior is relation-only. |
 | Selectors and subset execution | Planned | `selectors.yml`, `--select`, `--exclude`, partial compile, and partial run are not implemented yet. |
 | Sampling execution and stateful policies | Planned | Deterministic execution, anchor-side semantics, persisted samples, previous-failure samples, and multi-policy composition are gated. |
 | CDC policy and delete semantics | Planned | First CDC execution, asymmetric delete representation, and advanced CDC modes are gated before implementation. |
 | Semi-structured comparison | Planned | JSON path and semi-structured projection semantics are not implemented yet. |
-| Adapter API | Planned | No stable adapter API version released yet. |
-| Capability catalog | Draft | Compiler enums exist; no production adapter declarations yet. |
+| Profile and secret handling | Planned by ADR 0020 | Selected-target rendering and secret redaction rules are locked, not implemented yet. |
+| Adapter API | Planned by ADR 0020 | No stable adapter API version released yet; first boundary separates `BaseAdapter` and `SqlRenderer`. |
+| Capability catalog | Draft with ADR 0020 support states | Compiler enums exist; no production adapter declarations yet. |
 | Adapter install extras and packaging strategy | Planned | Separate adapter packages versus optional `recon-core[...]` extras is not locked yet. |
-| Adapter packages | Planned | No official external adapter packages released yet. |
+| Adapter packages | Planned | No official external adapter packages released yet; DuckDB starts in-core and `recon-duckdb` waits for adapter API and test-kit stability. |
 | Adapter test kit | Planned | No test-kit package or workflow exists yet. |
+| Comparison execution placement | Planned | Must be resolved before Milestone 7 check-engine execution; no silent Python fallback. |
 | CLI command and option behavior | MVP commands are pre-alpha | Future commands/options, documentation generation, and destructive init overwrite behavior are gated before becoming automation contracts. |
 | Check and policy packages | Planned | Package loading, official package content releases, and domain-package boundaries are gated. |
 | Package dependency installer and lock workflow | Planned | `recon deps`, `packages.yml`, package locks, and install/update behavior are not implemented yet. |
@@ -56,6 +59,7 @@ When adapter repositories exist, track them with a table like:
 
 | Adapter package | Adapter version | Supported `recon-core` | Adapter API | Typed plan support | Test kit | Status |
 | --- | --- | --- | --- | --- | --- | --- |
+| `recon-duckdb` | TBD | TBD | TBD | TBD | TBD | Planned after in-core DuckDB adapter and shared adapter test kit stabilize. |
 | `recon-postgres` | TBD | TBD | TBD | TBD | TBD | Planned |
 | `recon-snowflake` | TBD | TBD | TBD | TBD | TBD | Planned |
 

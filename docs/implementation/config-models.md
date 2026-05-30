@@ -67,8 +67,9 @@ Profiles should describe connection definitions.
 Real profiles should not be committed.
 
 Profile loading, environment-variable resolution, connection validation, and
-secret-safe adapter configuration are future work. They should be implemented
-before adapter execution, not folded into project config loading implicitly.
+secret-safe adapter configuration are future work locked by ADR 0020. They
+should be implemented before adapter execution, not folded into plain project
+config loading implicitly.
 
 Suggested model:
 
@@ -76,18 +77,28 @@ Suggested model:
 @dataclass(frozen=True)
 class ProfileConfig:
     name: str
-    connections: dict[str, ConnectionConfig]
+    target: str
+    outputs: dict[str, ConnectionConfig]
 ```
 
 ```python
 @dataclass(frozen=True)
 class ConnectionConfig:
-    name: str
+    target_name: str
     type: str
     raw_config: dict[str, Any]
 ```
 
 Connection details should remain adapter-specific.
+
+Profile rendering rules:
+
+- render only the selected profile target,
+- support `env_var('NAME')` and `env_var('NAME', 'default')` initially,
+- fail when the selected target references a missing environment variable,
+- ignore missing environment variables in unselected targets,
+- never write secrets or fully rendered credential payloads into generated
+  artifacts, diagnostics, or terminal output.
 
 ## Resource config
 

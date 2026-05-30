@@ -52,4 +52,5 @@ adr-0016-validation-timing-and-diagnostic-codes.md
 adr-0017-project-resource-loading-and-precedence.md
 adr-0018-check-pack-invocation-config.md
 adr-0019-column-and-value-comparison-surface.md
+adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md
 ```

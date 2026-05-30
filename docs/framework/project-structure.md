@@ -110,6 +110,10 @@ Commit `connections/profiles.yml.example`.
 
 Ignore `connections/profiles.yml`.
 
+Profile files follow the selected-profile and selected-target model defined by
+ADR 0020. Initial adapter-aware behavior renders only the selected target and
+supports `env_var('NAME')` plus `env_var('NAME', 'default')`.
+
 ## `endpoints/`
 
 Optional reusable named source/target endpoints.

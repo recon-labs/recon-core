@@ -25,6 +25,8 @@ Current state:
   library level.
 - `recon compile` writes compiled checks artifacts containing draft typed
   plans.
+- ADR 0020 locks Milestone 6 as SQL rendering for currently emitted operations
+  only.
 - No stable typed check-plan schema has been released.
 - No adapter currently consumes typed plans.
 
@@ -82,6 +84,13 @@ The current model validates payload schemas for the operations emitted by the
 compiler. Planned operation names must not be emitted until their payload schema,
 capability expectations, docs, and tests exist.
 
+Milestone 6 must not expand the emitted operation catalog. SQL renderers should
+render only operations already produced by current check-pack and metric
+compilation. Placeholder operations such as `null_safe_equal`, `cast`, `limit`,
+`hash`, `timestamp_diff`, and `schema_metadata` remain non-emittable until
+payload schemas, capability mappings, renderer tests, and compatibility docs
+are updated together.
+
 Column selectors must be resolved before typed plans are emitted. Per ADR 0019,
 raw wildcard selectors such as `columns: "*"` must not appear in typed
 operation payloads; value operations should use concrete column names only.
@@ -124,9 +133,26 @@ Once typed plans are implemented, these changes affect compatibility:
 | Changing `required_capabilities` semantics | Compatibility-impacting for adapters and test kits. |
 | Changing plan IDs or stable ID rules | Compatibility-impacting for artifacts and automation. |
 | Changing rendering status semantics | Compatibility-impacting for artifacts and adapters. |
+| Changing where typed plan comparisons execute | Compatibility-impacting for adapters, results, evidence, and privacy. |
 
 Core must keep comparison semantics in typed operations and compiled checks.
 Adapters must not hide new reconciliation behavior in dialect-specific rendering.
+
+## Rendering and execution placement
+
+Milestone 6 renders typed operations to SQL through adapters but does not
+execute checks.
+
+Rendered SQL belongs under:
+
+```text
+target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
+```
+
+Before typed plans execute, Recon must define comparison placement for each
+operation: source system, target system, adapter-managed intermediate system,
+or bounded Python-side comparison. Unsupported SQL behavior must not silently
+fall back to Python.
 
 ## Required documentation updates
 
@@ -147,3 +173,4 @@ When typed plan behavior changes, update:
 - `docs/implementation/compiled-artifacts.md`
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
 - `docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`
+- `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`

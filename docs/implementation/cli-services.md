@@ -66,6 +66,15 @@ error before writing compiled artifacts.
 and cache semantics are designed. The shared helper keeps authored files as the
 source of truth while preventing parse/compile drift.
 
+Plain compile can produce typed plans without loading connection profiles. If
+adapter-aware SQL rendering is requested, `CompileService` should load the
+selected profile and target, validate adapter API compatibility and required
+capabilities, and write rendered SQL under `target/compiled_sql/`.
+
+Profile rendering must render only the selected target. Secrets and fully
+rendered credential payloads must not be written into compiled artifacts,
+compiled SQL references, diagnostics, or terminal output.
+
 ## RunService
 
 Responsibilities:
@@ -76,6 +85,10 @@ Responsibilities:
 - write run results,
 - write evidence,
 - return run summary and exit category.
+
+Run-time profile loading follows the same selected-target and secret redaction
+rules as adapter-aware compile. `RunService` must revalidate adapter API
+compatibility and required capabilities before execution.
 
 ## CLI options
 
@@ -98,6 +111,11 @@ Not all need to be implemented at first.
 named selectors, partial compile/run behavior, and run result metadata are
 designed. Selector handling should be service-level behavior backed by parsed
 manifest metadata, not ad hoc CLI file scanning.
+
+`--profiles-dir` and future profile/target override behavior should not expose
+secrets in diagnostics or generated artifacts. Missing environment variables in
+the selected target should fail clearly; missing variables in unselected targets
+should not fail the invocation.
 
 ## Output
 

@@ -30,6 +30,9 @@ This project follows semantic versioning once public package releases begin.
   tolerance/null/normalization policy shapes.
 - `recon compile` now rejects duplicate check-pack invocations and validates
   declared non-empty `cdc.keys` shape.
+- ADR and compatibility documentation for the Milestone 6 adapter/profile,
+  capability, DuckDB local adapter, compiled SQL, query boundary, and execution
+  placement design.
 
 ### Changed
 

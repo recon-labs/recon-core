@@ -21,7 +21,7 @@ name: ecommerce_recon
 version: 0.1.0
 config-version: 1
 
-profile: dev
+profile: local
 
 contract-paths:
   - contracts
@@ -70,6 +70,29 @@ connections/profiles.yml
 
 The example file is versioned. The real profile file is ignored.
 
+Profile loading follows the adapter boundary in
+`docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`.
+Recon selects one profile and one target, then renders only the selected
+target's connection payload.
+
+Example:
+
+```yaml
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        type: duckdb
+        database: "{{ env_var('RECON_DUCKDB_PATH') }}"
+```
+
+`recon_project.yml` may select the profile:
+
+```yaml
+profile: local
+```
+
 ## Environment variables
 
 Profiles should support environment variable references.
@@ -80,7 +103,14 @@ Example:
 password: "{{ env_var('WAREHOUSE_PASSWORD') }}"
 ```
 
-Missing environment variables should produce clear configuration errors.
+Initial profile rendering supports `env_var('NAME')` and
+`env_var('NAME', 'default')`. Missing environment variables in the selected
+target should produce clear configuration errors. Missing environment variables
+in unselected targets should not fail the invocation.
+
+Generated artifacts and diagnostics may include profile name, target name,
+adapter type, and non-secret relation identifiers. They must not include
+secrets or fully rendered credential payloads.
 
 ## Packages
 

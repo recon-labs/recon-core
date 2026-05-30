@@ -24,13 +24,29 @@ Adapter-rendered SQL belongs under `target/compiled_sql/` when SQL rendering is
 available:
 
 ```text
-target/compiled_sql/<contract_name>/<check_name>/source.sql
-target/compiled_sql/<contract_name>/<check_name>/target.sql
-target/compiled_sql/<contract_name>/<check_name>/comparison.sql
+target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
-When SQL rendering is not available, compiled checks still include typed plans
-and should set `rendering.status: not_rendered`.
+The SQL text is rendered by an adapter `SqlRenderer`; Recon Core orchestrates
+the render and writes the generated artifact. Rendered SQL must be traceable to
+the contract name, check ID, typed operation or rendering step, side when
+applicable, and adapter type.
+
+When SQL rendering is not available or not requested, compiled checks still
+include typed plans and should set `rendering.status: not_rendered`.
+
+Rendering status values:
+
+```text
+not_rendered
+rendered
+blocked
+failed
+```
+
+`rendered` means all required SQL was produced. `blocked` means rendering was
+intentionally skipped because validation failed. `failed` means rendering was
+attempted and failed due to adapter or renderer error.
 
 The current compiler writes compiled contract and compiled checks YAML artifacts
 for supported check-pack and metric behavior. It does not write
@@ -257,6 +273,11 @@ Every compiled check should include:
 - typed check plan,
 - rendering metadata,
 - diagnostics.
+
+Compiled checks may reference adapter-rendered SQL artifacts when rendering is
+available. SQL references must not include secrets or fully rendered connection
+payloads. Generated SQL artifacts remain separate files under
+`target/compiled_sql/`.
 
 Example:
 
@@ -631,8 +652,8 @@ checks:
     rendering:
       status: rendered
       sql_paths:
-        - target/compiled_sql/orders_cdc/row_count_diff/source.sql
-        - target/compiled_sql/orders_cdc/row_count_diff/target.sql
+        - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/source.sql
+        - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/target.sql
 ```
 
 ## Diagnostics in artifacts

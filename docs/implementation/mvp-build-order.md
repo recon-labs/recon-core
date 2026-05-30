@@ -285,11 +285,14 @@ Build:
 
 - base adapter interface,
 - adapter API version declaration,
-- local test adapter or DuckDB-style adapter,
+- profile loading for the selected profile and target,
+- selected-target-only environment variable rendering,
+- `recon init` profile example alignment with the ADR 0020 profile shape,
+- local DuckDB development adapter inside `recon-core`,
 - relation metadata,
-- query execution,
 - capability declarations,
 - SQL rendering for typed plan operations,
+- compiled SQL artifacts under `target/compiled_sql/`,
 - first internal adapter test-kit shape.
 
 Required gates:
@@ -299,16 +302,22 @@ Required gates:
   implementing the adapter API or SQL rendering,
 - resolve the typed operation catalog expansion gate before rendering or
   emitting additional typed operations,
-- resolve the query endpoint support boundary gate if executable query
-  endpoints are included.
+- keep Milestone 6 relation-only; resolve the query endpoint support boundary
+  gate only if executable query endpoints are moved into scope,
+- do not split `recon-duckdb` into an external package during Milestone 6.
 
 Tests:
 
+- selected profile and target loading,
+- selected-target-only env var rendering,
+- secret redaction from diagnostics and artifacts,
 - metadata fetch,
 - row count query,
 - typed operation rendering,
 - adapter API version compatibility,
-- adapter capability validation.
+- adapter capability support-state validation,
+- compiled SQL artifact path and traceability tests,
+- unsupported query endpoint diagnostics for adapter-aware rendering.
 
 ## Milestone 7: check engine
 
@@ -327,6 +336,8 @@ Required gates:
 - resolve the explicit authored checks and check registry gate before
   implementing explicit `checks: [...]` support or registry behavior that must
   serve explicit checks later,
+- resolve the comparison execution placement strategy gate before executing
+  typed plans,
 - re-check the typed operation catalog expansion gate before executing any
   operation beyond the current compiled subset.
 
@@ -1244,7 +1255,9 @@ Required gate:
 - resolve the adapter test kit and adapter package split gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
 - resolve the adapter install extras and packaging strategy gate before
-  publishing adapter packages or documenting adapter extras.
+  publishing adapter packages or documenting adapter extras,
+- resolve the DuckDB adapter repository extraction gate before moving the
+  in-core DuckDB adapter into a `recon-duckdb` package or repository.
 
 Recommended commit message:
 

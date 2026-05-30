@@ -44,6 +44,24 @@ collect failure details when configured
 return CheckResult
 ```
 
+## Execution placement
+
+Before executing typed plans, the check engine must decide where each
+comparison is allowed to run:
+
+- source system,
+- target system,
+- adapter-managed intermediate system,
+- bounded Python-side comparison inside Recon Core.
+
+The default direction is database pushdown through adapter-rendered SQL where
+that is safe and supported. Core owns the semantic strategy and typed plan.
+Adapters own system-specific rendering and execution.
+
+Unsupported SQL rendering must not silently fall back to Python. Python-side or
+intermediate-system comparison requires explicit limits, diagnostics, privacy
+rules, result semantics, and evidence visibility before implementation.
+
 ## Check registry
 
 Checks should be registered by type.
