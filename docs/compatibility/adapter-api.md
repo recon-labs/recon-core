@@ -100,10 +100,15 @@ Initial rules:
 
 - load profiles from `connections/profiles.yml`,
 - select one profile and one target,
-- render only the selected target,
+- treat the selected target as an environment containing named connections,
+- resolve contract `source.connection` and `target.connection` values against
+  the selected target's `connections` map,
+- for contract-specific adapter rendering or execution, render only the named
+  connection payloads referenced by the selected contracts,
 - support `env_var('NAME')` and `env_var('NAME', 'default')`,
-- fail on missing environment variables in the selected target,
-- ignore missing environment variables in unselected targets,
+- fail on missing environment variables in referenced connection payloads,
+- ignore missing environment variables in unselected targets and unreferenced
+  connections for contract-specific invocations,
 - never emit secrets or fully rendered credential payloads in generated
   artifacts, diagnostics, terminal output, or evidence.
 

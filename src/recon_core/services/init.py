@@ -19,8 +19,13 @@ profiles:
     target: dev
     outputs:
       dev:
-        type: duckdb
-        database: "{{ env_var('RECON_DUCKDB_PATH') }}"
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('RECON_DUCKDB_PATH') }}"
+          warehouse:
+            type: duckdb
+            database: "{{ env_var('RECON_DUCKDB_PATH') }}"
 """
 
 GITIGNORE_TEMPLATE = """.env

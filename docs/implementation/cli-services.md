@@ -71,9 +71,10 @@ adapter-aware SQL rendering is requested, `CompileService` should load the
 selected profile and target, validate adapter API compatibility and required
 capabilities, and write rendered SQL under `target/compiled_sql/`.
 
-Profile rendering must render only the selected target. Secrets and fully
-rendered credential payloads must not be written into compiled artifacts,
-compiled SQL references, diagnostics, or terminal output.
+Profile rendering must render only the selected target environment and the
+named connections referenced by selected contracts. Secrets and fully rendered
+credential payloads must not be written into compiled artifacts, compiled SQL
+references, diagnostics, or terminal output.
 
 ## RunService
 
@@ -114,8 +115,9 @@ manifest metadata, not ad hoc CLI file scanning.
 
 `--profiles-dir` and future profile/target override behavior should not expose
 secrets in diagnostics or generated artifacts. Missing environment variables in
-the selected target should fail clearly; missing variables in unselected targets
-should not fail the invocation.
+referenced connection payloads should fail clearly; missing variables in
+unselected targets or unreferenced connections should not fail
+contract-specific invocations.
 
 ## Output
 

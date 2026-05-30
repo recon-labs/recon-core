@@ -78,25 +78,37 @@ Suggested model:
 class ProfileConfig:
     name: str
     target: str
-    outputs: dict[str, ConnectionConfig]
+    outputs: dict[str, ProfileTargetConfig]
+```
+
+```python
+@dataclass(frozen=True)
+class ProfileTargetConfig:
+    name: str
+    connections: dict[str, ConnectionConfig]
 ```
 
 ```python
 @dataclass(frozen=True)
 class ConnectionConfig:
-    target_name: str
+    name: str
     type: str
     raw_config: dict[str, Any]
 ```
 
-Connection details should remain adapter-specific.
+Profile targets are environment entries. Contract `source.connection` and
+`target.connection` values resolve to named `ConnectionConfig` entries inside
+the selected target. Connection details should remain adapter-specific.
 
 Profile rendering rules:
 
-- render only the selected profile target,
+- render only the selected profile target and the named connections referenced
+  by selected contracts,
 - support `env_var('NAME')` and `env_var('NAME', 'default')` initially,
-- fail when the selected target references a missing environment variable,
-- ignore missing environment variables in unselected targets,
+- fail when a referenced connection payload contains a missing environment
+  variable,
+- ignore missing environment variables in unselected targets and unreferenced
+  connections for contract-specific invocations,
 - never write secrets or fully rendered credential payloads into generated
   artifacts, diagnostics, or terminal output.
 

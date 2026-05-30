@@ -13,7 +13,7 @@ An adapter handles connection, SQL dialect, identifier quoting, metadata queries
 Connectors are user-facing connection config entries. Adapters are the code
 packages that implement those connector types.
 
-Example profile output:
+Example profile target:
 
 ```yaml
 profiles:
@@ -21,12 +21,18 @@ profiles:
     target: dev
     outputs:
       dev:
-        type: duckdb
+        connections:
+          legacy:
+            type: duckdb
+          warehouse:
+            type: duckdb
 ```
 
-In this example, `duckdb` resolves to an adapter implementation. Long-term,
-production implementations should live in packages such as `recon-postgres` and
-`recon-snowflake`.
+In this example, `dev` is the selected target environment. `legacy` and
+`warehouse` are named connections that contracts may reference from
+`source.connection` and `target.connection`. `duckdb` resolves to an adapter
+implementation. Long-term, production implementations should live in packages
+such as `recon-postgres` and `recon-snowflake`.
 
 ## Core vs adapter responsibilities
 
@@ -179,12 +185,15 @@ attempted and failed due to an adapter or renderer error.
 ## Profiles and secrets
 
 Connection profiles live in `connections/profiles.yml` and should not be
-committed. Profile resolution selects one profile and one target, renders only
-that target, and supports `env_var('NAME')` plus
-`env_var('NAME', 'default')` initially.
+committed. Profile resolution selects one profile and one target environment,
+then resolves contract connection names against that target's `connections`
+map. Contract-specific adapter rendering or execution renders only the named
+connection payloads referenced by the selected contracts and supports
+`env_var('NAME')` plus `env_var('NAME', 'default')` initially.
 
-Missing environment variables in the selected target are errors. Missing
-environment variables in unselected targets do not fail the invocation.
+Missing environment variables in referenced connection payloads are errors.
+Missing environment variables in unselected targets or unreferenced connections
+do not fail contract-specific invocations.
 
 Generated artifacts and diagnostics may include profile name, target name,
 adapter type, and non-secret relation identifiers. They must not include

@@ -196,10 +196,15 @@ rendering or execution needs connection configuration.
 Resolution rules:
 
 - select one profile and one target,
-- render only the selected target,
+- treat the selected target as an environment containing named connections,
+- resolve contract `source.connection` and `target.connection` values against
+  the selected target's `connections` map,
+- render only the named connection payloads referenced by selected contracts
+  for contract-specific adapter rendering or execution,
 - support `env_var('NAME')` and `env_var('NAME', 'default')` initially,
-- fail on missing environment variables in the selected target,
-- ignore missing environment variables in unselected targets,
+- fail on missing environment variables in referenced connection payloads,
+- ignore missing environment variables in unselected targets and unreferenced
+  connections for contract-specific invocations,
 - never emit secrets or fully rendered credentials in generated artifacts or
   diagnostics.
 

@@ -50,9 +50,18 @@ profiles:
     target: dev
     outputs:
       dev:
-        type: duckdb
-        database: "{{ env_var('RECON_DUCKDB_PATH') }}"
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('RECON_DUCKDB_PATH') }}"
+          warehouse:
+            type: duckdb
+            database: "{{ env_var('RECON_DUCKDB_PATH') }}"
 ```
+
+Profile and target selection are environment selection. The selected target
+contains named connections. Contract `source.connection` and
+`target.connection` values resolve against those connection names.
 
 `recon_project.yml` may select the project profile:
 
@@ -63,11 +72,15 @@ profile: local
 Profile resolution follows these rules:
 
 - Resolve one selected profile and one selected target.
-- Render only the selected target's connection payload.
+- Treat the selected target as an environment containing named connections.
+- Resolve contract `source.connection` and `target.connection` values against
+  the selected target's `connections` map.
+- For contract-specific adapter rendering or execution, render only the named
+  connection payloads referenced by the selected contracts.
 - Support `env_var('NAME')` and `env_var('NAME', 'default')` initially.
-- Missing environment variables in the selected target are errors.
-- Missing environment variables in unselected targets do not fail the
-  invocation.
+- Missing environment variables in referenced connection payloads are errors.
+- Missing environment variables in unselected targets and unreferenced
+  connections do not fail contract-specific invocations.
 - Do not write secrets or fully rendered credential payloads into manifests,
   compiled artifacts, compiled SQL, run results, diagnostics, or evidence.
 - Generated artifacts may include profile name, target name, adapter type, and
@@ -339,8 +352,11 @@ a clear diagnostic until a fallback strategy is designed.
 
 Milestone 6 implementation should add tests before code for:
 
-- profile selection and selected-target-only environment rendering,
-- missing selected environment variables,
+- profile selection, selected-target resolution, and referenced named
+  connection environment rendering,
+- missing environment variables in referenced connection payloads,
+- ignored environment variables in unselected targets and unreferenced
+  connections for contract-specific invocations,
 - secret redaction from diagnostics and generated artifacts,
 - adapter API version compatibility,
 - adapter registry resolution by connection type,

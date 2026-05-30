@@ -55,15 +55,21 @@ profiles:
     target: dev
     outputs:
       dev:
-        type: duckdb
-        database: "{{ env_var('RECON_DUCKDB_PATH') }}"
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('RECON_DUCKDB_PATH') }}"
+          warehouse:
+            type: duckdb
+            database: "{{ env_var('RECON_DUCKDB_PATH') }}"
 ```
 
 Do not commit real profiles.
 
 When adapter-aware rendering and execution are implemented, Recon renders only
-the selected profile target. Missing environment variables in unselected targets
-do not fail the invocation.
+the selected profile target and the named connections referenced by selected
+contracts. Missing environment variables in unselected targets or unreferenced
+connections do not fail contract-specific invocations.
 
 ## Create a contract
 

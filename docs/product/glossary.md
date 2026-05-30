@@ -241,11 +241,16 @@ profiles:
     target: dev
     outputs:
       dev:
-        type: duckdb
+        connections:
+          legacy:
+            type: duckdb
+          warehouse:
+            type: duckdb
 ```
 
-Here `dev` is a selected profile output and `duckdb` resolves to an adapter
-implementation.
+Here `dev` is the selected target environment. `legacy` and `warehouse` are
+named connections that contract `source.connection` and `target.connection`
+fields can reference. `duckdb` resolves to an adapter implementation.
 
 ## Typed check plan
 

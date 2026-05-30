@@ -286,7 +286,8 @@ Build:
 - base adapter interface,
 - adapter API version declaration,
 - profile loading for the selected profile and target,
-- selected-target-only environment variable rendering,
+- environment variable rendering for named connections referenced by selected
+  contracts inside the selected target,
 - local DuckDB development adapter inside `recon-core`,
 - relation metadata,
 - capability declarations,
@@ -307,13 +308,14 @@ Required gates:
 
 Current pre-implementation alignment:
 
-- `recon init` already writes the ADR 0020 selected profile/target
-  `connections/profiles.yml.example` shape.
+- `recon init` already writes the ADR 0020 selected profile/target shape with
+  named `legacy` and `warehouse` connections in
+  `connections/profiles.yml.example`.
 
 Tests:
 
 - selected profile and target loading,
-- selected-target-only env var rendering,
+- selected target and referenced named-connection env var rendering,
 - secret redaction from diagnostics and artifacts,
 - metadata fetch,
 - row count query,

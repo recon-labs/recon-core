@@ -66,11 +66,12 @@ def test_init_service_writes_secret_safe_profiles_example(tmp_path: Path) -> Non
     config = yaml.safe_load(content)
 
     assert config["profiles"]["local"]["target"] == "dev"
-    assert config["profiles"]["local"]["outputs"]["dev"]["type"] == "duckdb"
-    assert (
-        config["profiles"]["local"]["outputs"]["dev"]["database"]
-        == "{{ env_var('RECON_DUCKDB_PATH') }}"
-    )
+    connections = config["profiles"]["local"]["outputs"]["dev"]["connections"]
+    assert set(connections) == {"legacy", "warehouse"}
+    assert connections["legacy"]["type"] == "duckdb"
+    assert connections["legacy"]["database"] == "{{ env_var('RECON_DUCKDB_PATH') }}"
+    assert connections["warehouse"]["type"] == "duckdb"
+    assert connections["warehouse"]["database"] == "{{ env_var('RECON_DUCKDB_PATH') }}"
     assert "change_me" not in content
 
 

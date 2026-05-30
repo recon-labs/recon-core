@@ -149,8 +149,10 @@ API compatibility and required capabilities before writing SQL.
 ## Profiles and secrets
 
 Profile files live in `connections/profiles.yml` and are not committed.
-Profiles select one target. Recon renders only the selected target's connection
-payload and initially supports `env_var('NAME')` plus
+Profiles select one target environment. Contract `source.connection` and
+`target.connection` values resolve against named connections inside that target.
+Contract-specific adapter rendering or execution renders only the referenced
+named connection payloads and initially supports `env_var('NAME')` plus
 `env_var('NAME', 'default')`.
 
 Generated artifacts may identify the profile name, target name, adapter type,
