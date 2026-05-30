@@ -175,11 +175,11 @@ Adapter-aware rendering must fail validation when a required capability is
 `unknown`, `unsupported`, or `not_implemented`. Runtime must revalidate adapter
 API version and capabilities before execution.
 
-The initial Milestone 6 capability scope is limited to capabilities required by
-operations already emitted by the compiler:
+The initial Milestone 6 adapter-aware scope has two capability layers.
+Typed plans continue to require only operation-specific capabilities already
+emitted by the compiler:
 
 ```text
-relations
 row_count
 aggregate
 grouped_aggregate
@@ -187,6 +187,10 @@ key_diff
 null_key
 duplicate_key
 ```
+
+Relation endpoints also require adapter support for `relations`, but that is a
+selected-contract endpoint prerequisite rather than a capability currently
+encoded on every emitted typed operation.
 
 SQL rendering may also require renderer capabilities such as common table
 expression support and identifier quoting.
@@ -202,7 +206,7 @@ target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 Compiled checks should reference rendered SQL artifacts without embedding
 connection secrets.
 
-Rendering status values are:
+Milestone 6 adapter-aware rendering should migrate rendering status values to:
 
 ```text
 not_rendered
@@ -219,6 +223,11 @@ Meanings:
 - `blocked`: rendering was intentionally skipped because validation failed.
 - `failed`: rendering was attempted but failed because of an adapter or
   rendering error.
+
+The current pre-Milestone-6 compiler model may still expose earlier draft
+statuses until the implementation migration is made. The migration from
+`deferred` and `unsupported` to `blocked` and `failed` must update code, tests,
+compiled-artifact examples, and compatibility docs together.
 
 Rendered SQL artifacts must remain traceable to:
 
@@ -360,11 +369,14 @@ Milestone 6 implementation should add tests before code for:
 - secret redaction from diagnostics and generated artifacts,
 - adapter API version compatibility,
 - adapter registry resolution by connection type,
-- capability support-state validation,
+- relation-endpoint support validation for selected contracts,
+- capability support-state validation for operation-specific requirements,
 - DuckDB renderer capability declarations,
 - SQL rendering for currently emitted operations only,
 - compiled SQL artifact path safety and traceability,
-- relation-only diagnostics for query endpoints.
+- relation-only diagnostics for query endpoints,
+- rendering status migration from draft `deferred`/`unsupported` values to
+  `blocked`/`failed` values.
 
 The implementation should not:
 
