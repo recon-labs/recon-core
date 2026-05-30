@@ -168,7 +168,7 @@ fully rendered connection payloads. Rendered SQL must remain traceable to the
 contract, check ID, typed operation or rendering step, source/target side when
 applicable, and adapter type.
 
-Rendering statuses are:
+Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 
 ```text
 not_rendered
@@ -181,6 +181,10 @@ failed
 was available. `rendered` means all required SQL was produced. `blocked` means
 rendering was skipped because validation failed. `failed` means rendering was
 attempted and failed due to an adapter or renderer error.
+
+Current pre-Milestone-6 compiler models may still expose earlier draft statuses
+until the implementation migration updates code, tests, artifact examples, and
+compatibility docs together.
 
 ## Profiles and secrets
 
