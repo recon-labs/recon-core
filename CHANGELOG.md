@@ -38,6 +38,9 @@ This project follows semantic versioning once public package releases begin.
 
 - `recon init` now scaffolds `check_packs/` and `macros/` directories and
   writes matching `check-pack-paths` and `macro-paths` project config entries.
+- `recon init` now writes the ADR 0020 selected profile/target
+  `connections/profiles.yml.example` shape for the planned DuckDB local
+  development adapter.
 
 ### Fixed
 

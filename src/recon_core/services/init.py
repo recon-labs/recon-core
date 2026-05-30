@@ -14,17 +14,13 @@ PROFILES_EXAMPLE_TEMPLATE = """# Example Recon connection profiles.
 # Copy this file to connections/profiles.yml for local use.
 # Do not commit real profiles or secrets.
 
-dev:
-  target: example
-  connections:
-    example:
-      type: postgres
-      host: "{{ env_var('RECON_EXAMPLE_HOST') }}"
-      port: "{{ env_var('RECON_EXAMPLE_PORT', '5432') }}"
-      database: "{{ env_var('RECON_EXAMPLE_DATABASE') }}"
-      user: "{{ env_var('RECON_EXAMPLE_USER') }}"
-      password: "{{ env_var('RECON_EXAMPLE_PASSWORD') }}"
-      schema: public
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        type: duckdb
+        database: "{{ env_var('RECON_DUCKDB_PATH') }}"
 """
 
 GITIGNORE_TEMPLATE = """.env
@@ -104,7 +100,7 @@ def _render_project_config(project_name: str) -> str:
         "name": project_name,
         "version": "0.1.0",
         "config-version": 1,
-        "profile": "dev",
+        "profile": "local",
         "contract-paths": ["contracts"],
         "check-pack-paths": ["check_packs"],
         "macro-paths": ["macros"],

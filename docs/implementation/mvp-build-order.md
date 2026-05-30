@@ -287,7 +287,6 @@ Build:
 - adapter API version declaration,
 - profile loading for the selected profile and target,
 - selected-target-only environment variable rendering,
-- `recon init` profile example alignment with the ADR 0020 profile shape,
 - local DuckDB development adapter inside `recon-core`,
 - relation metadata,
 - capability declarations,
@@ -305,6 +304,11 @@ Required gates:
 - keep Milestone 6 relation-only; resolve the query endpoint support boundary
   gate only if executable query endpoints are moved into scope,
 - do not split `recon-duckdb` into an external package during Milestone 6.
+
+Current pre-implementation alignment:
+
+- `recon init` already writes the ADR 0020 selected profile/target
+  `connections/profiles.yml.example` shape.
 
 Tests:
 

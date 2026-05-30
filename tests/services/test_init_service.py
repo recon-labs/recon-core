@@ -40,6 +40,7 @@ def test_init_service_writes_project_config(tmp_path: Path) -> None:
 
     assert config["name"] == "ecommerce_recon"
     assert config["config-version"] == 1
+    assert config["profile"] == "local"
     assert config["contract-paths"] == ["contracts"]
     assert config["check-pack-paths"] == ["check_packs"]
     assert config["macro-paths"] == ["macros"]
@@ -62,8 +63,14 @@ def test_init_service_writes_secret_safe_profiles_example(tmp_path: Path) -> Non
     InitService(project_name="ecommerce_recon", base_dir=tmp_path).execute()
 
     content = (tmp_path / "ecommerce_recon" / "connections" / "profiles.yml.example").read_text()
+    config = yaml.safe_load(content)
 
-    assert "password: \"{{ env_var('RECON_EXAMPLE_PASSWORD') }}\"" in content
+    assert config["profiles"]["local"]["target"] == "dev"
+    assert config["profiles"]["local"]["outputs"]["dev"]["type"] == "duckdb"
+    assert (
+        config["profiles"]["local"]["outputs"]["dev"]["database"]
+        == "{{ env_var('RECON_DUCKDB_PATH') }}"
+    )
     assert "change_me" not in content
 
 
