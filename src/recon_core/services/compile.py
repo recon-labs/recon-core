@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from recon_core.adapters import default_adapter_registry, validate_adapter_api_compatibility
 from recon_core.artifacts import (
     COMPILED_CHECKS_DIR_NAME,
     COMPILED_CONTRACTS_DIR_NAME,
@@ -17,6 +18,7 @@ from recon_core.compiler import ContractCompilationArtifacts, compile_project
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.parser import load_parsed_project
 from recon_core.profiles import load_selected_profile
+from recon_core.profiles.models import SelectedProfile
 from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
 
@@ -84,6 +86,15 @@ class CompileService:
                     exit_category=ExitCategory.CONFIGURATION_ERROR,
                     message="SQL rendering profile configuration failed.",
                     diagnostics=profile_result.diagnostics,
+                )
+
+            assert profile_result.profile is not None
+            adapter_diagnostics = _resolve_render_sql_adapters(profile_result.profile)
+            if adapter_diagnostics:
+                return ServiceResult(
+                    exit_category=ExitCategory.CONFIGURATION_ERROR,
+                    message="SQL rendering adapter configuration failed.",
+                    diagnostics=adapter_diagnostics,
                 )
 
             return _render_sql_not_implemented()
@@ -175,6 +186,20 @@ def _compiled_artifact_runtime_error(
             ),
         ),
     )
+
+
+def _resolve_render_sql_adapters(profile: SelectedProfile) -> tuple[Diagnostic, ...]:
+    registry = default_adapter_registry()
+    diagnostics: list[Diagnostic] = []
+
+    for connection in profile.connections.values():
+        resolution = registry.resolve(connection)
+        diagnostics.extend(resolution.diagnostics)
+        if resolution.adapter is None:
+            continue
+        diagnostics.extend(validate_adapter_api_compatibility(resolution.adapter))
+
+    return tuple(diagnostics)
 
 
 def _render_sql_not_implemented() -> ServiceResult:

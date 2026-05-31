@@ -82,18 +82,39 @@ def test_render_sql_compile_requires_profiles_file(tmp_path: Path) -> None:
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
-def test_render_sql_compile_loads_profiles_before_adapter_work(tmp_path: Path) -> None:
+def test_render_sql_compile_resolves_adapter_before_sql_rendering(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="unsupported_engine")
+
+    result = CompileService(start_path=tmp_path, render_sql=True).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_UNKNOWN_TYPE",
+        "RC_ADAPTER_UNKNOWN_TYPE",
+    ]
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
     write_profiles(tmp_path)
 
     result = CompileService(start_path=tmp_path, render_sql=True).execute()
 
-    assert result.exit_category is ExitCategory.RUNTIME_ERROR
-    assert result.message == "SQL rendering is not implemented yet."
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_RENDER_SQL_NOT_IMPLEMENTED"
+        "RC_ADAPTER_DEPENDENCY_MISSING",
+        "RC_ADAPTER_DEPENDENCY_MISSING",
     ]
+    assert all(
+        diagnostic.hint is not None and "recon-core[duckdb]" in diagnostic.hint
+        for diagnostic in result.diagnostics
+    )
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -549,11 +570,11 @@ target-path: target
     )
 
 
-def write_profiles(project_root: Path) -> None:
+def write_profiles(project_root: Path, *, connection_type: str = "duckdb") -> None:
     profiles_path = project_root / "connections" / "profiles.yml"
     profiles_path.parent.mkdir()
     profiles_path.write_text(
-        """
+        f"""
 profiles:
   local:
     target: dev
@@ -561,10 +582,10 @@ profiles:
       dev:
         connections:
           legacy:
-            type: duckdb
+            type: {connection_type}
             database: legacy.duckdb
           warehouse:
-            type: duckdb
+            type: {connection_type}
             database: warehouse.duckdb
 """.lstrip(),
         encoding="utf-8",

@@ -1,6 +1,6 @@
 """Connection profile models."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from recon_core.diagnostics import Diagnostic
@@ -12,7 +12,7 @@ class ConnectionConfig:
 
     name: str
     type: str
-    config: dict[str, Any]
+    config: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
