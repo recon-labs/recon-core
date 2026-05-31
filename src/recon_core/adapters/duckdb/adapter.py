@@ -1,6 +1,7 @@
 """DuckDB local development adapter foundation."""
 
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from importlib.util import find_spec
 from typing import Any
 
@@ -127,29 +128,29 @@ class DuckDbSqlRenderer(SqlRenderer):
         for index, operation in enumerate(operations):
             operation_type = _required_string(operation, "type")
             if operation_type == "compare_aggregates":
-                rendered.append(
-                    self._render_compare_aggregates(
-                        operations[:index],
-                        source_relation,
-                        target_relation,
-                    )
+                rendered_sql = self._render_compare_aggregates(
+                    operations[:index],
+                    source_relation,
+                    target_relation,
                 )
             elif operation_type == "compare_grouped_aggregates":
-                rendered.append(
-                    self._render_compare_grouped_aggregates(
-                        operations[:index],
-                        source_relation,
-                        target_relation,
-                    )
+                rendered_sql = self._render_compare_grouped_aggregates(
+                    operations[:index],
+                    source_relation,
+                    target_relation,
                 )
             else:
-                rendered.append(
-                    self.render_operation(
-                        operation,
-                        source_relation=source_relation,
-                        target_relation=target_relation,
-                    )
+                rendered_sql = self.render_operation(
+                    operation,
+                    source_relation=source_relation,
+                    target_relation=target_relation,
                 )
+            rendered.append(
+                replace(
+                    rendered_sql,
+                    step_name=_operation_step_name(index=index, operation=operation),
+                )
+            )
         return tuple(rendered)
 
     def quote_identifier(self, identifier: str) -> str:
@@ -440,6 +441,18 @@ class DuckDbSqlRenderer(SqlRenderer):
 
 def _duckdb_dependency_available() -> bool:
     return find_spec("duckdb") is not None
+
+
+def _operation_step_name(*, index: int, operation: Mapping[str, Any]) -> str:
+    operation_type = _required_string(operation, "type")
+    step_parts = [f"{index:02d}", operation_type]
+    side = operation.get("side")
+    if isinstance(side, str) and side:
+        step_parts.append(side)
+    direction = operation.get("direction")
+    if isinstance(direction, str) and direction:
+        step_parts.append(direction)
+    return "-".join(step_parts)
 
 
 def _required_string(operation: Mapping[str, Any], field_name: str) -> str:

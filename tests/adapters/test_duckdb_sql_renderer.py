@@ -135,6 +135,11 @@ def test_render_count_comparison_plan(
         target_relation=target_relation,
     )
 
+    assert [sql.step_name for sql in rendered] == [
+        "00-row_count-source",
+        "01-row_count-target",
+        "02-compare_counts",
+    ]
     assert rendered[-1].operation_type == "compare_counts"
     assert (
         rendered[-1].sql

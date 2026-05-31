@@ -48,6 +48,7 @@ class RenderedSql:
 
     sql: str
     operation_type: str
+    step_name: str = ""
     required_capabilities: tuple[str, ...] = ()
 
 

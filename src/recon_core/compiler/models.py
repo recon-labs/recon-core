@@ -52,8 +52,8 @@ class RenderingStatus(StrEnum):
 
     NOT_RENDERED = "not_rendered"
     RENDERED = "rendered"
-    DEFERRED = "deferred"
-    UNSUPPORTED = "unsupported"
+    BLOCKED = "blocked"
+    FAILED = "failed"
 
 
 class BlockingPolicyValue(StrEnum):

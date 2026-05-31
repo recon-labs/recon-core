@@ -3,8 +3,17 @@ from pathlib import Path
 import pytest
 import yaml
 
-from recon_core.adapters import AdapterRegistry
+from recon_core.adapters import (
+    AdapterCapabilities,
+    AdapterRegistry,
+    AdapterResolutionResult,
+    BaseAdapter,
+    ColumnMetadata,
+    QueryResult,
+    Relation,
+)
 from recon_core.adapters.duckdb import DuckDbAdapterFactory
+from recon_core.profiles import ConnectionConfig
 from recon_core.services import CompileService
 from recon_core.services.results import ExitCategory
 
@@ -120,7 +129,9 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
-def test_render_sql_compile_renders_sql_in_memory_before_artifact_work(tmp_path: Path) -> None:
+def test_render_sql_compile_writes_sql_artifacts_and_rendering_metadata(
+    tmp_path: Path,
+) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
     write_profiles(tmp_path)
@@ -133,12 +144,207 @@ def test_render_sql_compile_renders_sql_in_memory_before_artifact_work(tmp_path:
         adapter_registry=registry,
     ).execute()
 
-    assert result.exit_category is ExitCategory.RUNTIME_ERROR
-    assert result.message == "Compiled SQL artifact writing is not implemented yet."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_COMPILED_SQL_WRITE_NOT_IMPLEMENTED"
+    compiled_contracts_dir = tmp_path / "target" / "compiled_contracts"
+    compiled_checks_dir = tmp_path / "target" / "compiled_checks"
+    compiled_sql_dir = tmp_path / "target" / "compiled_sql"
+    checks_artifact = yaml.safe_load(
+        (compiled_checks_dir / "customer_revenue.yml").read_text(encoding="utf-8")
+    )
+    row_count_check = next(
+        check for check in checks_artifact["checks"] if check["name"] == "row_count_diff"
+    )
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == (
+        f"Compiled 1 contract. Wrote artifacts to {compiled_contracts_dir}, "
+        f"{compiled_checks_dir}, and {compiled_sql_dir}."
+    )
+    assert result.diagnostics == ()
+    assert (compiled_contracts_dir / "customer_revenue.yml").is_file()
+    assert all(check["rendering"]["status"] == "rendered" for check in checks_artifact["checks"])
+    assert row_count_check["rendering"]["sql_paths"] == [
+        "compiled_sql/customer_revenue/"
+        "check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql",
+        "compiled_sql/customer_revenue/"
+        "check.ecommerce_recon.customer_revenue.row_count_diff/01-row_count-target.sql",
+        "compiled_sql/customer_revenue/"
+        "check.ecommerce_recon.customer_revenue.row_count_diff/02-compare_counts.sql",
     ]
+    assert (tmp_path / "target" / row_count_check["rendering"]["sql_paths"][0]).read_text(
+        encoding="utf-8"
+    ) == ('select count(*) as row_count\nfrom "qa"."customer_source"\n')
+
+
+def test_plain_compile_removes_stale_compiled_sql_artifacts(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    render_result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+    plain_result = CompileService(start_path=tmp_path).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert render_result.exit_category is ExitCategory.SUCCESS
+    assert plain_result.exit_category is ExitCategory.SUCCESS
     assert not (tmp_path / "target" / "compiled_sql").exists()
+    assert all(
+        check["rendering"] == {"status": "not_rendered", "sql_paths": []}
+        for check in checks_artifact["checks"]
+    )
+
+
+def test_render_sql_compile_marks_query_endpoints_blocked_without_sql_artifacts(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path, source_query="select * from qa.customer_source")
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
+    }
+    assert all(check["rendering"]["status"] == "blocked" for check in checks_artifact["checks"])
+    assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_marks_adapter_renderer_blocks_without_sql_artifacts(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="fake")
+    registry = AdapterRegistry()
+    registry.register("fake", FakeAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert all(check["rendering"]["status"] == "blocked" for check in checks_artifact["checks"])
+    assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_marks_renderer_failures_without_sql_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    class BrokenDuckDbSqlRenderer:
+        adapter_type = "duckdb"
+
+        def render_operation(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("render_plan should be used by the service")
+
+        def render_plan(self, *args: object, **kwargs: object) -> tuple[object, ...]:
+            raise ValueError("broken renderer")
+
+        def quote_identifier(self, identifier: str) -> str:
+            return identifier
+
+        def render_relation(self, relation: object) -> str:
+            return str(relation)
+
+    monkeypatch.setattr(
+        "recon_core.services.compile.DuckDbSqlRenderer",
+        BrokenDuckDbSqlRenderer,
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_ADAPTER_OPERATION_RENDER_FAILED"
+    }
+    assert all(check["rendering"]["status"] == "failed" for check in checks_artifact["checks"])
+    assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+class FakeAdapter(BaseAdapter):
+    adapter_type = "fake"
+    adapter_version = "0.0.test"
+    supported_adapter_api_version = "1"
+
+    def connect(self) -> None:
+        raise NotImplementedError
+
+    def close(self) -> None:
+        raise NotImplementedError
+
+    def execute(self, query: str) -> QueryResult:
+        raise NotImplementedError
+
+    def relation_exists(self, relation: Relation) -> bool:
+        raise NotImplementedError
+
+    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
+        raise NotImplementedError
+
+    def capabilities(self) -> AdapterCapabilities:
+        return AdapterCapabilities()
+
+
+class FakeAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(adapter=FakeAdapter(connection=connection))
 
 
 def test_compile_service_ignores_indexed_non_contract_files_for_compiled_output(
@@ -630,6 +836,7 @@ def write_contract(
     include_grain: bool = True,
     tolerance_policy: str | None = None,
     nulls: dict[str, object] | None = None,
+    source_query: str | None = None,
 ) -> None:
     grain_yaml = (
         """
@@ -647,14 +854,18 @@ grain:
         else ""
     )
     nulls_yaml = yaml.safe_dump({"nulls": nulls}, sort_keys=False) if nulls is not None else ""
+    source_endpoint_yaml = (
+        f"  query: {source_query}\n"
+        if source_query is not None
+        else "  relation: qa.customer_source\n"
+    )
     project_root.joinpath("contracts", file_name).write_text(
         f"""
 version: 1
 name: {name}
 source:
   connection: legacy
-  relation: qa.customer_source
-target:
+{source_endpoint_yaml}target:
   connection: warehouse
   relation: qa.customer_target
 {grain_yaml}metrics:

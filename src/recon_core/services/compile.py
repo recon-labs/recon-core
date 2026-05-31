@@ -1,12 +1,15 @@
 """Compile command service."""
 
-from dataclasses import dataclass
+import shutil
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from recon_core.adapters import (
     ADAPTER_CAPABILITY_UNSUPPORTED,
+    ADAPTER_OPERATION_RENDER_FAILED,
     AdapterRegistry,
     BaseAdapter,
+    RenderedCheckSql,
     default_adapter_registry,
     render_check_sql,
     validate_adapter_api_compatibility,
@@ -15,14 +18,21 @@ from recon_core.adapters.duckdb import DuckDbSqlRenderer
 from recon_core.artifacts import (
     COMPILED_CHECKS_DIR_NAME,
     COMPILED_CONTRACTS_DIR_NAME,
+    COMPILED_SQL_DIR_NAME,
     CompiledCheckWriter,
     CompiledContractWriter,
+    CompiledSqlWriter,
 )
 from recon_core.artifacts._paths import (
     ensure_real_artifact_directory,
     reject_symlinked_path_components,
 )
-from recon_core.compiler import ContractCompilationArtifacts, compile_project
+from recon_core.compiler import (
+    ContractCompilationArtifacts,
+    Rendering,
+    RenderingStatus,
+    compile_project,
+)
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.parser import load_parsed_project
 from recon_core.profiles import load_selected_profile
@@ -31,7 +41,6 @@ from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
 
 COMPILED_ARTIFACT_WRITE_FAILED = "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
-COMPILED_SQL_WRITE_NOT_IMPLEMENTED = "RC_RUNTIME_COMPILED_SQL_WRITE_NOT_IMPLEMENTED"
 MIXED_ADAPTER_TYPES_UNSUPPORTED = "RC_ADAPTER_MIXED_ADAPTER_TYPES_UNSUPPORTED"
 
 
@@ -110,18 +119,64 @@ class CompileService:
                     diagnostics=adapter_resolution.diagnostics,
                 )
 
-            render_diagnostics = _render_compiled_sql_in_memory(
+            render_result = _render_compiled_sql_in_memory(
                 compilation.contracts,
                 adapters_by_connection=adapter_resolution.adapters_by_connection,
             )
-            if render_diagnostics:
+            if render_result.diagnostics:
+                compiled_contracts = _apply_render_failure_metadata(
+                    compilation.contracts,
+                    render_results_by_check_id=render_result.results_by_check_id,
+                )
+                try:
+                    _write_compiled_artifacts(compiled_contracts, context.paths.target_path)
+                except (OSError, ValueError) as exc:
+                    return _compiled_artifact_runtime_error(
+                        exc,
+                        target_path=context.paths.target_path,
+                        project_root=context.project_root,
+                    )
                 return ServiceResult(
                     exit_category=ExitCategory.CONFIGURATION_ERROR,
                     message="SQL rendering failed.",
-                    diagnostics=render_diagnostics,
+                    diagnostics=compilation.diagnostics + render_result.diagnostics,
                 )
 
-            return _compiled_sql_write_not_implemented()
+            try:
+                compiled_contracts = _write_compiled_sql_artifacts(
+                    compilation.contracts,
+                    render_results_by_check_id=render_result.results_by_check_id,
+                    target_path=context.paths.target_path,
+                )
+                _write_compiled_artifacts(compiled_contracts, context.paths.target_path)
+            except (OSError, ValueError) as exc:
+                return _compiled_artifact_runtime_error(
+                    exc,
+                    target_path=context.paths.target_path,
+                    project_root=context.project_root,
+                )
+
+            if compilation.succeeded:
+                return ServiceResult.success(
+                    message=(
+                        f"Compiled {_pluralize(len(compilation.contracts), 'contract')}. "
+                        f"Wrote artifacts to "
+                        f"{context.paths.target_path / COMPILED_CONTRACTS_DIR_NAME}, "
+                        f"{context.paths.target_path / COMPILED_CHECKS_DIR_NAME}, and "
+                        f"{context.paths.target_path / COMPILED_SQL_DIR_NAME}."
+                    )
+                )
+
+            return ServiceResult(
+                exit_category=ExitCategory.VALIDATION_ERROR,
+                message=(
+                    f"Compile completed with "
+                    f"{_pluralize(len(compilation.diagnostics), 'diagnostic')}. "
+                    "Wrote compiled artifacts for "
+                    f"{_pluralize(len(compilation.contracts), 'contract')}."
+                ),
+                diagnostics=compilation.diagnostics,
+            )
 
         try:
             _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
@@ -166,9 +221,100 @@ def _write_compiled_artifacts(
         check_writer.write(compiled_contract.checks_artifact, target_path, overwrite=True)
 
 
+def _write_compiled_sql_artifacts(
+    compiled_contracts: tuple[ContractCompilationArtifacts, ...],
+    *,
+    render_results_by_check_id: dict[str, RenderedCheckSql],
+    target_path: Path,
+) -> tuple[ContractCompilationArtifacts, ...]:
+    sql_writer = CompiledSqlWriter()
+    rendered_contracts: list[ContractCompilationArtifacts] = []
+
+    for compiled_contract in compiled_contracts:
+        rendered_checks = []
+        for check in compiled_contract.checks_artifact.checks:
+            render_result = render_results_by_check_id.get(check.id)
+            if render_result is None:
+                rendered_checks.append(check)
+                continue
+            sql_paths = sql_writer.write(
+                contract_name=compiled_contract.contract_artifact.contract.name,
+                check_id=check.id,
+                rendered_sql=render_result.sql,
+                target_path=target_path,
+                overwrite=True,
+            )
+            rendered_checks.append(
+                replace(
+                    check,
+                    rendering=Rendering(
+                        status=RenderingStatus.RENDERED,
+                        sql_paths=sql_paths,
+                    ),
+                )
+            )
+
+        rendered_contracts.append(
+            replace(
+                compiled_contract,
+                checks_artifact=replace(
+                    compiled_contract.checks_artifact,
+                    checks=tuple(rendered_checks),
+                ),
+            )
+        )
+
+    return tuple(rendered_contracts)
+
+
+def _apply_render_failure_metadata(
+    compiled_contracts: tuple[ContractCompilationArtifacts, ...],
+    *,
+    render_results_by_check_id: dict[str, RenderedCheckSql],
+) -> tuple[ContractCompilationArtifacts, ...]:
+    rendered_contracts: list[ContractCompilationArtifacts] = []
+
+    for compiled_contract in compiled_contracts:
+        rendered_checks = []
+        for check in compiled_contract.checks_artifact.checks:
+            render_result = render_results_by_check_id.get(check.id)
+            if render_result is None or not render_result.diagnostics:
+                rendered_checks.append(check)
+                continue
+            rendered_checks.append(
+                replace(
+                    check,
+                    rendering=Rendering(
+                        status=_render_failure_status(render_result.diagnostics),
+                        sql_paths=(),
+                    ),
+                    diagnostics=check.diagnostics + render_result.diagnostics,
+                )
+            )
+
+        rendered_contracts.append(
+            replace(
+                compiled_contract,
+                checks_artifact=replace(
+                    compiled_contract.checks_artifact,
+                    checks=tuple(rendered_checks),
+                ),
+            )
+        )
+
+    return tuple(rendered_contracts)
+
+
+def _render_failure_status(diagnostics: tuple[Diagnostic, ...]) -> RenderingStatus:
+    if any(diagnostic.code == ADAPTER_OPERATION_RENDER_FAILED for diagnostic in diagnostics):
+        return RenderingStatus.FAILED
+    return RenderingStatus.BLOCKED
+
+
 def _clear_compiled_artifacts(target_path: Path) -> None:
     _clear_compiled_artifact_directory(target_path / COMPILED_CONTRACTS_DIR_NAME)
     _clear_compiled_artifact_directory(target_path / COMPILED_CHECKS_DIR_NAME)
+    _clear_compiled_sql_artifact_directory(target_path / COMPILED_SQL_DIR_NAME)
 
 
 def _clear_compiled_artifact_directory(output_dir: Path) -> None:
@@ -182,12 +328,23 @@ def _clear_compiled_artifact_directory(output_dir: Path) -> None:
             output_path.unlink()
 
 
+def _clear_compiled_sql_artifact_directory(output_dir: Path) -> None:
+    reject_symlinked_path_components(output_dir)
+
+    if not output_dir.exists():
+        return
+    if not output_dir.is_dir():
+        raise NotADirectoryError(f"Compiled SQL output path is not a directory: {output_dir}")
+
+    shutil.rmtree(output_dir)
+
+
 def _ensure_compiled_artifact_directory(output_dir: Path) -> None:
     ensure_real_artifact_directory(output_dir)
 
 
 def _compiled_artifact_runtime_error(
-    exc: OSError,
+    exc: OSError | ValueError,
     *,
     target_path: Path,
     project_root: Path,
@@ -218,6 +375,12 @@ class _RenderSqlAdapterResolution:
     diagnostics: tuple[Diagnostic, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class _RenderSqlCompilationResult:
+    results_by_check_id: dict[str, RenderedCheckSql]
+    diagnostics: tuple[Diagnostic, ...] = ()
+
+
 def _resolve_render_sql_adapters(
     profile: SelectedProfile,
     *,
@@ -245,8 +408,9 @@ def _render_compiled_sql_in_memory(
     compiled_contracts: tuple[ContractCompilationArtifacts, ...],
     *,
     adapters_by_connection: dict[str, BaseAdapter],
-) -> tuple[Diagnostic, ...]:
+) -> _RenderSqlCompilationResult:
     diagnostics: list[Diagnostic] = []
+    results_by_check_id: dict[str, RenderedCheckSql] = {}
 
     for compiled_contract in compiled_contracts:
         source_connection = compiled_contract.contract_artifact.source.connection
@@ -256,34 +420,40 @@ def _render_compiled_sql_in_memory(
         if source_adapter is None or target_adapter is None:
             continue
         if source_adapter.adapter_type != target_adapter.adapter_type:
-            diagnostics.append(
-                Diagnostic(
-                    code=MIXED_ADAPTER_TYPES_UNSUPPORTED,
-                    severity=DiagnosticSeverity.ERROR,
-                    message=(
-                        "Milestone 6 SQL rendering requires source and target "
-                        "connections to use the same adapter type."
-                    ),
-                    resource_type="compiled_contract",
-                    resource_name=compiled_contract.contract_artifact.contract.name,
-                    hint="Use relation endpoints on a single adapter type for this milestone.",
-                )
+            diagnostic = Diagnostic(
+                code=MIXED_ADAPTER_TYPES_UNSUPPORTED,
+                severity=DiagnosticSeverity.ERROR,
+                message=(
+                    "Milestone 6 SQL rendering requires source and target "
+                    "connections to use the same adapter type."
+                ),
+                resource_type="compiled_contract",
+                resource_name=compiled_contract.contract_artifact.contract.name,
+                hint="Use relation endpoints on a single adapter type for this milestone.",
+            )
+            diagnostics.append(diagnostic)
+            _set_contract_render_block(
+                results_by_check_id,
+                compiled_contract=compiled_contract,
+                diagnostic=diagnostic,
             )
             continue
 
         renderer = _renderer_for_adapter_type(source_adapter.adapter_type)
         if renderer is None:
-            diagnostics.append(
-                Diagnostic(
-                    code=ADAPTER_CAPABILITY_UNSUPPORTED,
-                    severity=DiagnosticSeverity.ERROR,
-                    message=(
-                        f"Adapter `{source_adapter.adapter_type}` does not have a SQL renderer."
-                    ),
-                    resource_type="adapter",
-                    resource_name=source_adapter.adapter_type,
-                    hint="Use an adapter with a SQL renderer.",
-                )
+            diagnostic = Diagnostic(
+                code=ADAPTER_CAPABILITY_UNSUPPORTED,
+                severity=DiagnosticSeverity.ERROR,
+                message=f"Adapter `{source_adapter.adapter_type}` does not have a SQL renderer.",
+                resource_type="adapter",
+                resource_name=source_adapter.adapter_type,
+                hint="Use an adapter with a SQL renderer.",
+            )
+            diagnostics.append(diagnostic)
+            _set_contract_render_block(
+                results_by_check_id,
+                compiled_contract=compiled_contract,
+                diagnostic=diagnostic,
             )
             continue
 
@@ -294,34 +464,32 @@ def _render_compiled_sql_in_memory(
                 adapter=source_adapter,
                 renderer=renderer,
             )
+            results_by_check_id[check.id] = render_result
             diagnostics.extend(render_result.diagnostics)
 
-    return tuple(diagnostics)
+    return _RenderSqlCompilationResult(
+        results_by_check_id=results_by_check_id,
+        diagnostics=tuple(diagnostics),
+    )
+
+
+def _set_contract_render_block(
+    results_by_check_id: dict[str, RenderedCheckSql],
+    *,
+    compiled_contract: ContractCompilationArtifacts,
+    diagnostic: Diagnostic,
+) -> None:
+    for check in compiled_contract.checks_artifact.checks:
+        results_by_check_id[check.id] = RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=(diagnostic,),
+        )
 
 
 def _renderer_for_adapter_type(adapter_type: str) -> DuckDbSqlRenderer | None:
     if adapter_type == "duckdb":
         return DuckDbSqlRenderer()
     return None
-
-
-def _compiled_sql_write_not_implemented() -> ServiceResult:
-    return ServiceResult(
-        exit_category=ExitCategory.RUNTIME_ERROR,
-        message="Compiled SQL artifact writing is not implemented yet.",
-        diagnostics=(
-            Diagnostic(
-                code=COMPILED_SQL_WRITE_NOT_IMPLEMENTED,
-                severity=DiagnosticSeverity.ERROR,
-                message=(
-                    "`recon compile --render-sql` rendered SQL in memory, "
-                    "but compiled SQL artifact writing is not implemented yet."
-                ),
-                resource_type="compiled_sql",
-                hint="Continue Milestone 6 Phase 4 before using rendered SQL output.",
-            ),
-        ),
-    )
 
 
 def _pluralize(count: int, noun: str) -> str:
