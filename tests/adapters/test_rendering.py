@@ -1,0 +1,118 @@
+from recon_core.adapters import (
+    AdapterCapabilities,
+    CapabilitySupport,
+    ConnectionConfig,
+)
+from recon_core.adapters.duckdb import DuckDbAdapter, DuckDbSqlRenderer
+from recon_core.adapters.rendering import render_check_sql
+from recon_core.compiler import compile_project
+from recon_core.compiler.models import CompiledCheck, CompiledContractArtifact
+from recon_core.parser.contracts import AuthoredContract, AuthoredEndpoint
+from recon_core.parser.models import SourceLocation
+
+
+def test_render_check_sql_validates_required_capabilities_before_rendering() -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=DuckDbSqlRenderer(),
+        capabilities=AdapterCapabilities({"relations": CapabilitySupport.FULL}),
+    )
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert "row_count" in result.diagnostics[0].message
+
+
+def test_render_check_sql_blocks_query_endpoints_without_leaking_query_text_or_secrets() -> None:
+    compiled_contract, check = compiled_row_count_check(
+        source=AuthoredEndpoint(connection="legacy", query="select * from secret_customer_source"),
+    )
+    adapter = DuckDbAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"password": "super-secret"},
+        )
+    )
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=DuckDbSqlRenderer(),
+    )
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
+    ]
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+    assert "source" in diagnostic_text
+    assert "secret_customer_source" not in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+
+
+def test_render_check_sql_renders_in_memory_without_leaking_connection_payloads() -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"password": "super-secret"},
+        )
+    )
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=DuckDbSqlRenderer(),
+    )
+
+    assert result.succeeded
+    assert result.diagnostics == ()
+    assert [step.operation_type for step in result.sql] == [
+        "row_count",
+        "row_count",
+        "compare_counts",
+    ]
+    rendered_sql = "\n".join(step.sql for step in result.sql)
+    assert '"qa"."customer_source"' in rendered_sql
+    assert '"qa"."customer_target"' in rendered_sql
+    assert "super-secret" not in rendered_sql
+
+
+def compiled_row_count_check(
+    *,
+    source: AuthoredEndpoint | None = None,
+    target: AuthoredEndpoint | None = None,
+) -> tuple[CompiledContractArtifact, CompiledCheck]:
+    contract = AuthoredContract(
+        name="customer_revenue",
+        version=1,
+        source=source or AuthoredEndpoint(connection="legacy", relation="qa.customer_source"),
+        target=target or AuthoredEndpoint(connection="warehouse", relation="qa.customer_target"),
+        source_location=SourceLocation(path="contracts/customer_revenue.yml"),
+        grain={"keys": ["customer_id"]},
+        checks={"use": ["recon_core.basic_equivalence"]},
+    )
+    compilation = compile_project(
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contracts=(contract,),
+    )
+    assert compilation.succeeded
+    compiled = compilation.contracts[0]
+    row_count_check = next(
+        check for check in compiled.checks_artifact.checks if check.name == "row_count_diff"
+    )
+    return compiled.contract_artifact, row_count_check

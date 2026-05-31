@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from recon_core.adapters import AdapterRegistry
+from recon_core.adapters.duckdb import DuckDbAdapterFactory
 from recon_core.services import CompileService
 from recon_core.services.results import ExitCategory
 
@@ -115,6 +117,27 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
         diagnostic.hint is not None and "recon-core[duckdb]" in diagnostic.hint
         for diagnostic in result.diagnostics
     )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_renders_sql_in_memory_before_artifact_work(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Compiled SQL artifact writing is not implemented yet."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_COMPILED_SQL_WRITE_NOT_IMPLEMENTED"
+    ]
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 

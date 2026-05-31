@@ -3,7 +3,15 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from recon_core.adapters import default_adapter_registry, validate_adapter_api_compatibility
+from recon_core.adapters import (
+    ADAPTER_CAPABILITY_UNSUPPORTED,
+    AdapterRegistry,
+    BaseAdapter,
+    default_adapter_registry,
+    render_check_sql,
+    validate_adapter_api_compatibility,
+)
+from recon_core.adapters.duckdb import DuckDbSqlRenderer
 from recon_core.artifacts import (
     COMPILED_CHECKS_DIR_NAME,
     COMPILED_CONTRACTS_DIR_NAME,
@@ -23,7 +31,8 @@ from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
 
 COMPILED_ARTIFACT_WRITE_FAILED = "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
-RENDER_SQL_NOT_IMPLEMENTED = "RC_RUNTIME_RENDER_SQL_NOT_IMPLEMENTED"
+COMPILED_SQL_WRITE_NOT_IMPLEMENTED = "RC_RUNTIME_COMPILED_SQL_WRITE_NOT_IMPLEMENTED"
+MIXED_ADAPTER_TYPES_UNSUPPORTED = "RC_ADAPTER_MIXED_ADAPTER_TYPES_UNSUPPORTED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +41,7 @@ class CompileService:
 
     start_path: Path | None = None
     render_sql: bool = False
+    adapter_registry: AdapterRegistry | None = None
 
     def execute(self) -> ServiceResult:
         context_result = load_project_context(self.start_path)
@@ -89,15 +99,29 @@ class CompileService:
                 )
 
             assert profile_result.profile is not None
-            adapter_diagnostics = _resolve_render_sql_adapters(profile_result.profile)
-            if adapter_diagnostics:
+            adapter_resolution = _resolve_render_sql_adapters(
+                profile_result.profile,
+                registry=self.adapter_registry,
+            )
+            if adapter_resolution.diagnostics:
                 return ServiceResult(
                     exit_category=ExitCategory.CONFIGURATION_ERROR,
                     message="SQL rendering adapter configuration failed.",
-                    diagnostics=adapter_diagnostics,
+                    diagnostics=adapter_resolution.diagnostics,
                 )
 
-            return _render_sql_not_implemented()
+            render_diagnostics = _render_compiled_sql_in_memory(
+                compilation.contracts,
+                adapters_by_connection=adapter_resolution.adapters_by_connection,
+            )
+            if render_diagnostics:
+                return ServiceResult(
+                    exit_category=ExitCategory.CONFIGURATION_ERROR,
+                    message="SQL rendering failed.",
+                    diagnostics=render_diagnostics,
+                )
+
+            return _compiled_sql_write_not_implemented()
 
         try:
             _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
@@ -188,34 +212,113 @@ def _compiled_artifact_runtime_error(
     )
 
 
-def _resolve_render_sql_adapters(profile: SelectedProfile) -> tuple[Diagnostic, ...]:
-    registry = default_adapter_registry()
+@dataclass(frozen=True, slots=True)
+class _RenderSqlAdapterResolution:
+    adapters_by_connection: dict[str, BaseAdapter]
+    diagnostics: tuple[Diagnostic, ...] = ()
+
+
+def _resolve_render_sql_adapters(
+    profile: SelectedProfile,
+    *,
+    registry: AdapterRegistry | None,
+) -> _RenderSqlAdapterResolution:
+    resolved_registry = default_adapter_registry() if registry is None else registry
     diagnostics: list[Diagnostic] = []
+    adapters_by_connection: dict[str, BaseAdapter] = {}
 
     for connection in profile.connections.values():
-        resolution = registry.resolve(connection)
+        resolution = resolved_registry.resolve(connection)
         diagnostics.extend(resolution.diagnostics)
         if resolution.adapter is None:
             continue
         diagnostics.extend(validate_adapter_api_compatibility(resolution.adapter))
+        adapters_by_connection[connection.name] = resolution.adapter
+
+    return _RenderSqlAdapterResolution(
+        adapters_by_connection=adapters_by_connection,
+        diagnostics=tuple(diagnostics),
+    )
+
+
+def _render_compiled_sql_in_memory(
+    compiled_contracts: tuple[ContractCompilationArtifacts, ...],
+    *,
+    adapters_by_connection: dict[str, BaseAdapter],
+) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+
+    for compiled_contract in compiled_contracts:
+        source_connection = compiled_contract.contract_artifact.source.connection
+        target_connection = compiled_contract.contract_artifact.target.connection
+        source_adapter = adapters_by_connection.get(source_connection)
+        target_adapter = adapters_by_connection.get(target_connection)
+        if source_adapter is None or target_adapter is None:
+            continue
+        if source_adapter.adapter_type != target_adapter.adapter_type:
+            diagnostics.append(
+                Diagnostic(
+                    code=MIXED_ADAPTER_TYPES_UNSUPPORTED,
+                    severity=DiagnosticSeverity.ERROR,
+                    message=(
+                        "Milestone 6 SQL rendering requires source and target "
+                        "connections to use the same adapter type."
+                    ),
+                    resource_type="compiled_contract",
+                    resource_name=compiled_contract.contract_artifact.contract.name,
+                    hint="Use relation endpoints on a single adapter type for this milestone.",
+                )
+            )
+            continue
+
+        renderer = _renderer_for_adapter_type(source_adapter.adapter_type)
+        if renderer is None:
+            diagnostics.append(
+                Diagnostic(
+                    code=ADAPTER_CAPABILITY_UNSUPPORTED,
+                    severity=DiagnosticSeverity.ERROR,
+                    message=(
+                        f"Adapter `{source_adapter.adapter_type}` does not have a SQL renderer."
+                    ),
+                    resource_type="adapter",
+                    resource_name=source_adapter.adapter_type,
+                    hint="Use an adapter with a SQL renderer.",
+                )
+            )
+            continue
+
+        for check in compiled_contract.checks_artifact.checks:
+            render_result = render_check_sql(
+                contract=compiled_contract.contract_artifact,
+                check=check,
+                adapter=source_adapter,
+                renderer=renderer,
+            )
+            diagnostics.extend(render_result.diagnostics)
 
     return tuple(diagnostics)
 
 
-def _render_sql_not_implemented() -> ServiceResult:
+def _renderer_for_adapter_type(adapter_type: str) -> DuckDbSqlRenderer | None:
+    if adapter_type == "duckdb":
+        return DuckDbSqlRenderer()
+    return None
+
+
+def _compiled_sql_write_not_implemented() -> ServiceResult:
     return ServiceResult(
         exit_category=ExitCategory.RUNTIME_ERROR,
-        message="SQL rendering is not implemented yet.",
+        message="Compiled SQL artifact writing is not implemented yet.",
         diagnostics=(
             Diagnostic(
-                code=RENDER_SQL_NOT_IMPLEMENTED,
+                code=COMPILED_SQL_WRITE_NOT_IMPLEMENTED,
                 severity=DiagnosticSeverity.ERROR,
                 message=(
-                    "`recon compile --render-sql` loaded project profiles, "
-                    "but adapter-aware SQL rendering is not implemented yet."
+                    "`recon compile --render-sql` rendered SQL in memory, "
+                    "but compiled SQL artifact writing is not implemented yet."
                 ),
                 resource_type="compiled_sql",
-                hint="Continue Milestone 6 Phase 2 before using rendered SQL output.",
+                hint="Continue Milestone 6 Phase 4 before using rendered SQL output.",
             ),
         ),
     )

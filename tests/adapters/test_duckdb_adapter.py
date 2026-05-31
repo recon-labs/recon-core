@@ -36,9 +36,9 @@ def test_duckdb_factory_creates_adapter_when_dependency_is_available() -> None:
     assert result.adapter.adapter_type == "duckdb"
     assert result.adapter.capabilities().support_for("relations") is CapabilitySupport.FULL
     assert result.adapter.capabilities().support_for("queries") is CapabilitySupport.UNSUPPORTED
-    assert (
-        result.adapter.capabilities().support_for("row_count") is CapabilitySupport.NOT_IMPLEMENTED
-    )
+    assert result.adapter.capabilities().support_for("row_count") is CapabilitySupport.FULL
+    assert result.adapter.capabilities().support_for("aggregate") is CapabilitySupport.FULL
+    assert result.adapter.capabilities().support_for("key_diff") is CapabilitySupport.FULL
 
 
 def test_duckdb_renderer_quotes_identifiers_and_relations_deterministically() -> None:

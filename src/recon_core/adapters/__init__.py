@@ -23,6 +23,13 @@ from recon_core.adapters.registry import (
     AdapterRegistry,
     validate_adapter_api_compatibility,
 )
+from recon_core.adapters.rendering import (
+    ADAPTER_INVALID_RELATION,
+    ADAPTER_OPERATION_RENDER_FAILED,
+    ADAPTER_QUERY_ENDPOINT_UNSUPPORTED,
+    RenderedCheckSql,
+    render_check_sql,
+)
 from recon_core.profiles import ConnectionConfig
 
 
@@ -37,6 +44,9 @@ __all__ = [
     "ADAPTER_API_VERSION",
     "ADAPTER_API_VERSION_UNSUPPORTED",
     "ADAPTER_CAPABILITY_UNSUPPORTED",
+    "ADAPTER_INVALID_RELATION",
+    "ADAPTER_OPERATION_RENDER_FAILED",
+    "ADAPTER_QUERY_ENDPOINT_UNSUPPORTED",
     "ADAPTER_UNKNOWN_TYPE",
     "AdapterCapabilities",
     "AdapterFactory",
@@ -49,8 +59,10 @@ __all__ = [
     "QueryResult",
     "Relation",
     "RenderedSql",
+    "RenderedCheckSql",
     "SqlRenderer",
     "default_adapter_registry",
+    "render_check_sql",
     "validate_adapter_api_compatibility",
     "validate_required_capabilities",
 ]

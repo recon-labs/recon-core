@@ -50,8 +50,24 @@ class SqlRenderer(ABC):
     adapter_type: ClassVar[str]
 
     @abstractmethod
-    def render_operation(self, operation: Mapping[str, Any]) -> RenderedSql:
+    def render_operation(
+        self,
+        operation: Mapping[str, Any],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> RenderedSql:
         """Render one typed operation into SQL."""
+
+    @abstractmethod
+    def render_plan(
+        self,
+        operations: tuple[Mapping[str, Any], ...],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> tuple[RenderedSql, ...]:
+        """Render a typed operation sequence into SQL."""
 
     @abstractmethod
     def quote_identifier(self, identifier: str) -> str:
