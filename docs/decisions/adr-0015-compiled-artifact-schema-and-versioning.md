@@ -390,6 +390,11 @@ declared identity keys; it is separate from schema nullability checks.
 
 ## Rendering Metadata
 
+ADR 0020 and `adr-0015-rendering-status-amendment.md` qualify this section for
+Milestone 6 adapter-aware rendering. Current pre-Milestone-6 compiler models
+may still expose earlier draft statuses until that implementation migration is
+made.
+
 Compiled checks must include rendering metadata even when SQL is not generated.
 
 Allowed rendering statuses:
