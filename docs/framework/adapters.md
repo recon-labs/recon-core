@@ -70,6 +70,14 @@ A future `recon-duckdb` package should not split from `recon-core` until the
 adapter API and shared adapter test kit are stable enough for external adapter
 packages.
 
+Install the current in-core DuckDB local development adapter with:
+
+```bash
+pip install "recon-core[duckdb]"
+```
+
+In local repository development, use `pip install -e ".[dev,duckdb]"`.
+
 ## Interface concepts
 
 The first adapter boundary separates base adapter behavior from SQL rendering:
@@ -89,7 +97,8 @@ class BaseAdapter:
 
 
 class SqlRenderer:
-    def render_operation(self, operation): ...
+    def render_operation(self, operation, *, source_relation, target_relation): ...
+    def render_plan(self, operations, *, source_relation, target_relation): ...
     def render_relation(self, relation: str) -> str: ...
     def quote_identifier(self, name: str) -> str: ...
 ```
@@ -182,9 +191,8 @@ was available. `rendered` means all required SQL was produced. `blocked` means
 rendering was skipped because validation failed. `failed` means rendering was
 attempted and failed due to an adapter or renderer error.
 
-Current pre-Milestone-6 compiler models may still expose earlier draft statuses
-until the implementation migration updates code, tests, artifact examples, and
-compatibility docs together.
+Current compiler models emit these four statuses. Earlier draft statuses
+`deferred` and `unsupported` are no longer used for SQL rendering metadata.
 
 ## Profiles and secrets
 
@@ -209,6 +217,9 @@ Milestone 6 is relation-only for executable adapter-aware rendering and
 execution. `source.query` and `target.query` may remain parseable, but they
 must produce a clear unsupported diagnostic if adapter-aware rendering or
 execution tries to use them.
+
+Current adapter-aware compile implements this boundary for SQL rendering:
+query endpoints produce `blocked` rendering metadata and no SQL files.
 
 Executable query endpoints require a later decision covering SELECT-only rules,
 single-statement handling, wrapping, artifact visibility, and adapter

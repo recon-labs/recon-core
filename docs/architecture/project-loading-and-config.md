@@ -119,6 +119,9 @@ Generated artifacts and diagnostics may include profile name, target name,
 adapter type, and non-secret relation identifiers. They must not include
 secrets or fully rendered credential payloads.
 
+Current implementation loads profiles for `recon compile --render-sql` only.
+Plain parse and compile do not require `connections/profiles.yml`.
+
 ## Packages
 
 `packages.yml` should describe future package dependencies.

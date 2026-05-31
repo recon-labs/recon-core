@@ -24,11 +24,12 @@ Current implementation status:
 | `recon compile` | Implemented for the current compiler scope. |
 | Compiled artifacts | Implemented with `artifact_version: 1` for compiled contract and compiled checks YAML. |
 | Typed check plans | Draft typed plans are produced in compiled checks artifacts. |
+| Compiled SQL artifacts | Implemented for `recon compile --render-sql` with current DuckDB relation-backed typed plans. |
 | Check-pack invocation config | Strings and `{name}` mappings implemented; future `config` and `on_empty` shape locked, not implemented. |
 | Column and value comparison | Raw authored columns preserved; current typed column declaration/reference validation implemented; all-column expansion, row-level value checks, resolved column metadata, eligibility enforcement, and adapter metadata validation are not implemented. |
 | Tolerance, null, and normalization | High-level authored fields exist; MVP policy surface locked by ADR 0009; full resolver and execution not implemented. |
-| Adapter API | Documented as an intended boundary, not stable or implemented yet. |
-| Adapter capabilities | Documented as a draft catalog and represented in compiler enums; no production adapter declarations yet. |
+| Adapter API | Implemented as a pre-alpha boundary with `ADAPTER_API_VERSION = "1"`; not stable for external adapter packages yet. |
+| Adapter capabilities | Support-state validation exists; the in-core DuckDB local adapter declares the current rendering subset. |
 | External adapter repos | Planned, not split yet. |
 | Adapter test kit | Planned, not created yet. |
 | Run results and evidence | Planned, not implemented yet. |

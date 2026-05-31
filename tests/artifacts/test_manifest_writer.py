@@ -7,6 +7,7 @@ from recon_core.artifacts import ManifestWriter
 from recon_core.parser import (
     AuthoredContract,
     AuthoredEndpoint,
+    Manifest,
     ManifestProject,
     build_manifest,
 )
@@ -80,7 +81,7 @@ def test_manifest_writer_rejects_exact_manifest_symlink(tmp_path: Path) -> None:
     assert external_path.read_text(encoding="utf-8") == "external\n"
 
 
-def _manifest():
+def _manifest() -> Manifest:
     return build_manifest(
         project=ManifestProject(name="ecommerce_recon", config_version=1),
         files=(),

@@ -6,9 +6,7 @@ ADR 0015 defines compiled artifact schema and rendering metadata for compiled ch
 
 ## Amendment
 
-For current pre-Milestone-6 compiled artifacts, compiler models may still expose draft rendering statuses from the original implementation.
-
-Milestone 6 adapter-aware rendering should migrate rendering status values to:
+Milestone 6 adapter-aware rendering uses these rendering status values:
 
 ```text
 not_rendered
@@ -24,7 +22,9 @@ Meanings:
 - `blocked`: rendering was intentionally skipped because validation failed.
 - `failed`: rendering was attempted but failed because of an adapter or rendering error.
 
-The migration from earlier draft statuses to `blocked` and `failed` must update code, tests, compiled-artifact examples, and compatibility docs together.
+Implementation note, 2026-06-01: the migration from earlier draft statuses to
+`blocked` and `failed` has been applied in code, tests, compiled-artifact
+examples, and compatibility docs.
 
 ## Relationship to ADR 0015
 

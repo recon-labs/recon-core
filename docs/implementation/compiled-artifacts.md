@@ -20,8 +20,8 @@ target/compiled_contracts/<contract_name>.yml
 target/compiled_checks/<contract_name>.yml
 ```
 
-Adapter-rendered SQL belongs under `target/compiled_sql/` when SQL rendering is
-available:
+Adapter-rendered SQL belongs under `target/compiled_sql/` when
+`recon compile --render-sql` succeeds:
 
 ```text
 target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
@@ -32,8 +32,9 @@ the render and writes the generated artifact. Rendered SQL must be traceable to
 the contract name, check ID, typed operation or rendering step, side when
 applicable, and adapter type.
 
-When SQL rendering is not available or not requested, compiled checks still
-include typed plans and should set `rendering.status: not_rendered`.
+When SQL rendering is not requested, compiled checks still include typed plans
+and should set `rendering.status: not_rendered`. Adapter-aware compile uses
+`blocked` or `failed` when rendering cannot safely produce SQL.
 
 Rendering status values:
 
@@ -48,16 +49,25 @@ failed
 intentionally skipped because validation failed. `failed` means rendering was
 attempted and failed due to adapter or renderer error.
 
-The current compiler writes compiled contract and compiled checks YAML artifacts
-for supported check-pack and metric behavior. It does not write
-`target/compiled_sql/` yet.
+The current compiler writes compiled contract and compiled checks YAML
+artifacts for supported check-pack and metric behavior. With
+`recon compile --render-sql`, it also writes adapter-rendered DuckDB SQL for
+relation-backed contracts under `target/compiled_sql/`.
+
+Compiled-check `rendering.sql_paths` stores paths relative to the configured
+`target-path`, not absolute paths:
+
+```text
+compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
+```
 
 `recon compile` treats `target/compiled_contracts/` and
-`target/compiled_checks/` as generated snapshots. After project configuration
-loads and `target-path` is known, Recon removes existing top-level `*.yml` files
-from those two directories before parsing and compilation continue. If parsing
-or fatal compile validation fails, old compiled artifacts are therefore absent
-instead of stale.
+`target/compiled_checks/` as generated snapshots. It also treats
+`target/compiled_sql/` as generated SQL output. After project configuration
+loads and `target-path` is known, Recon removes existing top-level `*.yml`
+files from the compiled YAML directories and removes stale compiled SQL output
+before parsing and compilation continue. If parsing or fatal compile validation
+fails, old compiled artifacts are therefore absent instead of stale.
 
 Compiled artifact directories must be real directories, not symlinks. Recon
 rejects symlinked compiled artifact directories and symlinked `target-path`
@@ -636,7 +646,7 @@ dialect-specific execution artifact.
 Compiled artifacts should preserve enough operation metadata to trace generated
 SQL back to its typed plan.
 
-Example after SQL rendering exists:
+Example after SQL rendering:
 
 ```yaml
 checks:
@@ -652,8 +662,9 @@ checks:
     rendering:
       status: rendered
       sql_paths:
-        - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/source.sql
-        - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/target.sql
+        - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/00-row_count-source.sql
+        - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/01-row_count-target.sql
+        - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/02-compare_counts.sql
 ```
 
 ## Diagnostics in artifacts

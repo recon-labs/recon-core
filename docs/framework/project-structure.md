@@ -194,7 +194,7 @@ Possible contents:
 target/manifest.json
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/
+target/compiled_sql/   # when recon compile --render-sql succeeds
 target/run_results.json
 target/failures/
 target/sample_keys/

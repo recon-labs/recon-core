@@ -101,9 +101,9 @@ HtmlReportWriter
 StateWriter
 ```
 
-`ManifestWriter`, `CompiledContractWriter`, and `CompiledCheckWriter` are
-implemented. SQL, run-result, failure-detail, report, and state writers are
-future work.
+`ManifestWriter`, `CompiledContractWriter`, `CompiledCheckWriter`, and
+`CompiledSqlWriter` are implemented. Run-result, failure-detail, report, and
+state writers are future work.
 
 ## Artifact versioning
 

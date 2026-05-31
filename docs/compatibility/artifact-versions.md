@@ -15,7 +15,7 @@ artifact formats.
 | Manifest | `target/manifest.json` | JSON | Implemented with `artifact_version: 1`. |
 | Compiled contract | `target/compiled_contracts/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
 | Compiled checks | `target/compiled_checks/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
-| Compiled SQL | `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql` | SQL | Planned by ADR 0020, not implemented yet. |
+| Compiled SQL | `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql` | SQL | Implemented for `recon compile --render-sql`; referenced from compiled checks artifacts. |
 | Run results | `target/run_results.json` | JSON | Planned, not implemented yet. |
 | Failure details | `target/failures/` | TBD | Planned, not implemented yet. |
 | Evidence reports | `reports/` | HTML or other report formats | Planned, not implemented yet. |
@@ -140,6 +140,13 @@ existing field meanings do not change. Changing compiled SQL paths, rendering
 status meanings, stable check IDs, SQL reference fields, or traceability
 requirements is compatibility-impacting and may require a compiled artifact
 version bump.
+
+Compiled-check `rendering.sql_paths` stores paths relative to the configured
+`target-path`, for example:
+
+```text
+compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql
+```
 
 Compiled SQL artifacts must not contain connection secrets or fully rendered
 credential payloads. SQL artifact references may include contract name, check

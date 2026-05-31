@@ -65,12 +65,13 @@ Compiled contracts and compiled checks are separate artifacts:
 - compiled checks show the exact checks, requirements, prerequisites, typed
   plans, and rendering status.
 
-When adapter SQL rendering is not available, compiled checks should still show
+When adapter SQL rendering is not requested, compiled checks should still show
 typed plans and mark rendering as `not_rendered`.
 
 Current implementation writes compiled contract and compiled checks artifacts
-for supported check-pack and metric behavior. `target/compiled_sql/` is not
-written until adapter SQL rendering exists.
+for supported check-pack and metric behavior. With `recon compile --render-sql`,
+it also writes adapter-rendered DuckDB SQL for relation-backed contracts under
+`target/compiled_sql/`.
 
 Current check-pack support is intentionally strict: `checks.use` may reference
 a pack by string or by a mapping with `name`, and unsupported invocation fields

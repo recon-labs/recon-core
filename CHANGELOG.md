@@ -33,6 +33,24 @@ This project follows semantic versioning once public package releases begin.
 - ADR and compatibility documentation for the Milestone 6 adapter/profile,
   capability, DuckDB local adapter, compiled SQL, query boundary, and execution
   placement design.
+- `recon compile --render-sql` for adapter-aware SQL rendering of current typed
+  check plans.
+- Connection profile loading from `connections/profiles.yml` for
+  adapter-aware compile, including selected profile/target resolution,
+  referenced-connection filtering, `env_var('NAME')` /
+  `env_var('NAME', 'default')` rendering, and secret-safe diagnostics.
+- Adapter API foundation with `ADAPTER_API_VERSION = "1"`, adapter registry,
+  support-state capability validation, base adapter models, and SQL renderer
+  interfaces.
+- In-core DuckDB local development adapter foundation behind the optional
+  `recon-core[duckdb]` extra.
+- DuckDB SQL rendering for the currently emitted typed operations:
+  `row_count`, `compare_counts`, `key_diff`, `null_key`, `duplicate_key`,
+  `aggregate`, `grouped_aggregate`, `compare_aggregates`, and
+  `compare_grouped_aggregates`.
+- Compiled SQL artifact writing under
+  `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`, with
+  compiled-check `rendering.sql_paths` references.
 
 ### Changed
 
@@ -42,6 +60,12 @@ This project follows semantic versioning once public package releases begin.
   named `legacy` and `warehouse` connections in
   `connections/profiles.yml.example` for the planned DuckDB local development
   adapter.
+- Compiled-check rendering status values are now locked to `not_rendered`,
+  `rendered`, `blocked`, and `failed`; earlier draft `deferred` and
+  `unsupported` rendering statuses are no longer emitted.
+- Plain `recon compile` remains non-adapter-aware, keeps
+  `rendering.status: not_rendered`, and removes stale `target/compiled_sql/`
+  output.
 
 ### Fixed
 
@@ -78,6 +102,10 @@ This project follows semantic versioning once public package releases begin.
   selected operation type.
 - Compiled contract artifacts now preserve accepted contract-level `nulls`
   policy under `policies.nulls`.
+- Adapter-aware SQL rendering fails clearly for unknown adapter types, missing
+  DuckDB optional dependencies, unsupported adapter API versions, unsupported
+  required capabilities, query endpoints, invalid relation names, and renderer
+  failures without writing misleading SQL artifacts.
 
 ## Release format
 

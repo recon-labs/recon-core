@@ -121,14 +121,16 @@ Reads authored files and/or the manifest, resolves behavior, and writes:
 ```text
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/  # when adapter SQL rendering is available
+target/compiled_sql/  # when --render-sql succeeds
 ```
 
 It should return non-zero on compile-time validation errors.
 
 Current implementation reads authored files through the parser pipeline,
 expands supported check packs and explicit metrics, and writes compiled
-contract and compiled checks artifacts. It does not render SQL yet.
+contract and compiled checks artifacts. With `--render-sql`, it loads the
+selected profile target, validates adapter API/capabilities, and writes
+compiled SQL artifacts for current DuckDB relation-backed typed plans.
 
 ## `recon run`
 

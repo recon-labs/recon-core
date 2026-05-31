@@ -171,10 +171,10 @@ Expected install:
 pip install recon-core
 ```
 
-Possible future extras:
+Current local development extra:
 
 ```bash
-pip install "recon-core[postgres]"
+pip install "recon-core[duckdb]"
 ```
 
 Long-term adapter packages:

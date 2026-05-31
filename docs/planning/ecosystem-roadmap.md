@@ -24,6 +24,7 @@ The ecosystem should not be created too early, but the core should be designed s
 Long-term adapter packages:
 
 ```text
+recon-duckdb
 recon-postgres
 recon-mysql
 recon-snowflake
@@ -34,6 +35,10 @@ recon-databricks
 recon-redshift
 recon-oracle
 ```
+
+DuckDB currently starts as an in-core local development adapter installed with
+`recon-core[duckdb]`. A separate `recon-duckdb` package should wait until the
+adapter API and shared adapter test kit stabilize.
 
 Adapter packages should own:
 

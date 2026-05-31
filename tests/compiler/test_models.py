@@ -62,7 +62,6 @@ def test_typed_operation_rejects_unexpected_payload_fields() -> None:
 def test_compare_aggregate_operations_are_distinct_public_types() -> None:
     assert OperationType.COMPARE_AGGREGATES.value == "compare_aggregates"
     assert OperationType.COMPARE_GROUPED_AGGREGATES.value == "compare_grouped_aggregates"
-    assert OperationType.COMPARE_AGGREGATES is not OperationType.COMPARE_GROUPED_AGGREGATES
 
 
 def test_check_plan_serializes_operations_and_capabilities_deterministically() -> None:

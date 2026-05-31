@@ -295,6 +295,14 @@ Build:
 - compiled SQL artifacts under `target/compiled_sql/`,
 - first internal adapter test-kit shape.
 
+Current status:
+
+- implemented through adapter-aware compile and SQL rendering,
+- DuckDB remains in-core behind `recon-core[duckdb]`,
+- current DuckDB support renders SQL for existing typed plans only,
+- connection lifecycle, metadata fetches, row-count query execution, check
+  execution, run results, and evidence remain future milestones.
+
 Required gates:
 
 - resolve the profiles, connections, and secrets gate before adapter execution,
@@ -317,8 +325,6 @@ Tests:
 - selected profile and target loading,
 - selected target and referenced named-connection env var rendering,
 - secret redaction from diagnostics and artifacts,
-- metadata fetch,
-- row count query,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,

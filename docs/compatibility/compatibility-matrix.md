@@ -20,7 +20,7 @@ adapter test kit, Hub metadata, and integrations.
 | Manifest artifact | `artifact_version: 1` | Implemented for `recon parse`; pre-alpha compatibility. |
 | Compiled contract artifact | `artifact_version: 1` | Implemented for `recon compile`; pre-alpha compatibility. |
 | Compiled checks artifact | `artifact_version: 1` | Implemented for `recon compile`; pre-alpha compatibility. |
-| Compiled SQL artifacts | Planned by ADR 0020 | Not implemented yet; planned path is `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`. |
+| Compiled SQL artifacts | Implemented for `recon compile --render-sql` | Current path is `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`; compiled checks reference target-relative `compiled_sql/...` paths. |
 | Artifact freshness and cache semantics | Planned | Cache optimization and skip-unchanged behavior are gated before generated artifacts can be reused silently. |
 | Typed check plan | Draft typed operation catalog | Produced in compiled checks artifacts; Milestone 6 renders current operations only and does not expand the catalog. |
 | Check-pack invocation config | Strings and `{name}` mappings implemented; `config` and `on_empty` design locked by ADR 0018. | `config`, `on_empty: warn`, and `on_empty: skip` are not implemented yet. |
@@ -33,10 +33,10 @@ adapter test kit, Hub metadata, and integrations.
 | Sampling execution and stateful policies | Planned | Deterministic execution, anchor-side semantics, persisted samples, previous-failure samples, and multi-policy composition are gated. |
 | CDC policy and delete semantics | Planned | First CDC execution, asymmetric delete representation, and advanced CDC modes are gated before implementation. |
 | Semi-structured comparison | Planned | JSON path and semi-structured projection semantics are not implemented yet. |
-| Profile and secret handling | Planned by ADR 0020 | Selected-target rendering and secret redaction rules are locked, not implemented yet. |
-| Adapter API | Planned by ADR 0020 | No stable adapter API version released yet; first boundary separates `BaseAdapter` and `SqlRenderer`. |
-| Capability catalog | Draft with ADR 0020 support states | Compiler enums exist; no production adapter declarations yet. |
-| Adapter install extras and packaging strategy | Planned | Separate adapter packages versus optional `recon-core[...]` extras is not locked yet. |
+| Profile and secret handling | Implemented for adapter-aware compile | Selected-target rendering, referenced-connection filtering, env-var rendering, and secret-safe diagnostics are implemented for `--render-sql`; run-time profile loading is future work. |
+| Adapter API | `ADAPTER_API_VERSION = "1"`, pre-alpha | No stable external adapter API release yet; current boundary separates `BaseAdapter` and `SqlRenderer`. |
+| Capability catalog | Draft with ADR 0020 support states | Support-state validation exists; the in-core DuckDB local adapter declares the current rendering subset. |
+| Adapter install extras and packaging strategy | `recon-core[duckdb]` implemented | The DuckDB local development adapter remains in-core; separate production adapter packages are future work. |
 | Adapter packages | Planned | No official external adapter packages released yet; DuckDB starts in-core and `recon-duckdb` waits for adapter API and test-kit stability. |
 | Adapter test kit | Planned | No test-kit package or workflow exists yet. |
 | Comparison execution placement | Planned | Must be resolved before Milestone 7 check-engine execution; no silent Python fallback. |

@@ -339,7 +339,7 @@ class FakeAdapter(BaseAdapter):
         raise NotImplementedError
 
     def capabilities(self) -> AdapterCapabilities:
-        return AdapterCapabilities()
+        return AdapterCapabilities({})
 
 
 class FakeAdapterFactory:

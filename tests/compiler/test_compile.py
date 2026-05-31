@@ -65,7 +65,7 @@ def test_compile_project_builds_contract_and_checks_artifacts() -> None:
 
 
 def test_compile_project_preserves_contract_policy_fields_additively() -> None:
-    nulls = {
+    nulls: dict[str, object] = {
         "treat_as_null": {
             "values": ["", "NULL"],
             "regex": ["^\\s*$"],
@@ -100,7 +100,7 @@ def test_compile_project_preserves_contract_policy_fields_additively() -> None:
 
 
 def test_compile_project_preserves_authored_cdc_policy_in_identity_and_policies() -> None:
-    cdc = {
+    cdc: dict[str, object] = {
         "keys": {"same_as": "grain"},
         "mode": "upsert",
         "timestamp_column": "updated_at",

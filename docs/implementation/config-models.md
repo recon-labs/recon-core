@@ -66,10 +66,10 @@ Profiles should describe connection definitions.
 
 Real profiles should not be committed.
 
-Profile loading, environment-variable resolution, connection validation, and
-secret-safe adapter configuration are future work locked by ADR 0020. They
-should be implemented before adapter execution, not folded into plain project
-config loading implicitly.
+Profile loading, environment-variable resolution, referenced-connection
+selection, and secret-safe adapter configuration are implemented for
+adapter-aware compile. Plain project config loading still does not implicitly
+load `connections/profiles.yml`.
 
 Suggested model:
 
@@ -93,7 +93,7 @@ class ProfileTargetConfig:
 class ConnectionConfig:
     name: str
     type: str
-    raw_config: dict[str, Any]
+    config: dict[str, Any]
 ```
 
 Profile targets are environment entries. Contract `source.connection` and

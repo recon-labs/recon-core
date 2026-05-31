@@ -19,8 +19,10 @@ Current state:
 - no external adapter API version has been released,
 - no shared adapter test kit exists yet,
 - ADR 0020 locks the first adapter/profile/rendering boundary for Milestone 6,
-- draft typed check plans are produced by the compiler, but no adapter consumes
-  them yet.
+- `ADAPTER_API_VERSION = "1"` exists in code as a pre-alpha adapter boundary,
+- the in-core DuckDB local development adapter renders current typed check
+  plans to SQL,
+- adapter execution and metadata fetching are not implemented yet.
 
 Adapter repositories such as `recon-postgres` and `recon-snowflake` should split
 only after typed check plans, adapter API versioning, and shared adapter tests
@@ -32,7 +34,7 @@ for the adapter package split and shared adapter test-kit milestone.
 
 ## Compatibility contract
 
-Once implemented, every adapter should declare at least:
+Every adapter declares at least:
 
 ```text
 adapter_type
@@ -41,9 +43,10 @@ supported_adapter_api_version
 capabilities
 ```
 
-Core should validate adapter API compatibility before execution. An adapter that
-does not support the required adapter API version should fail with a clear
-diagnostic instead of running with ambiguous behavior.
+Core validates adapter API compatibility before adapter-aware SQL rendering and
+must validate it again before future execution. An adapter that does not
+support the required adapter API version fails with a clear diagnostic instead
+of running with ambiguous behavior.
 
 The first adapter boundary separates:
 
@@ -126,6 +129,13 @@ target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 Compiled checks may reference those SQL files. SQL references must preserve
 traceability to contract, check ID, rendering step or typed operation, side when
 applicable, and adapter type.
+
+Compiled-check `rendering.sql_paths` stores paths relative to the configured
+`target-path`, for example:
+
+```text
+compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql
+```
 
 Changing compiled SQL paths, rendering status meanings, or SQL reference shape
 is compatibility-impacting.

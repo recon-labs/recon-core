@@ -91,6 +91,10 @@ resolves contract `source.connection` and `target.connection` names against the
 selected target's named connections. Secrets and fully rendered credentials
 must not be written to generated artifacts.
 
+`recon compile --render-sql` requires `connections/profiles.yml` and loads only
+the selected target's connections referenced by compiled contracts. Plain
+`recon compile` does not require a profile file.
+
 ## `contracts/`
 
 Contracts are the main source files.
@@ -120,6 +124,15 @@ Useful for CDC technical columns.
 Generated parse/compile/run artifacts.
 
 Do not commit.
+
+Current generated contents can include:
+
+```text
+target/manifest.json
+target/compiled_contracts/
+target/compiled_checks/
+target/compiled_sql/   # only when recon compile --render-sql succeeds
+```
 
 ## `reports/`
 

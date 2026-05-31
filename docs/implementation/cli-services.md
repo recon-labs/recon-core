@@ -71,6 +71,12 @@ adapter-aware SQL rendering is requested, `CompileService` should load the
 selected profile and target, validate adapter API compatibility and required
 capabilities, and write rendered SQL under `target/compiled_sql/`.
 
+The implemented CLI entrypoint for adapter-aware compile is:
+
+```bash
+recon compile --render-sql
+```
+
 Profile rendering must render only the selected target environment and the
 named connections referenced by selected contracts. Secrets and fully rendered
 credential payloads must not be written into compiled artifacts, compiled SQL

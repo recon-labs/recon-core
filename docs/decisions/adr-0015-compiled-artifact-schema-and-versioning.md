@@ -391,9 +391,7 @@ declared identity keys; it is separate from schema nullability checks.
 ## Rendering Metadata
 
 ADR 0020 and `adr-0015-rendering-status-amendment.md` qualify this section for
-Milestone 6 adapter-aware rendering. Current pre-Milestone-6 compiler models
-may still expose earlier draft statuses until that implementation migration is
-made.
+Milestone 6 adapter-aware rendering.
 
 Compiled checks must include rendering metadata even when SQL is not generated.
 
@@ -407,7 +405,8 @@ failed
 ```
 
 ADR 0020 replaces the earlier draft `deferred` and `unsupported` rendering
-statuses with `blocked` and `failed` for adapter-aware SQL rendering.
+statuses with `blocked` and `failed` for adapter-aware SQL rendering. That
+migration is implemented as of 2026-06-01.
 
 Examples:
 
@@ -421,12 +420,13 @@ rendering:
 rendering:
   status: rendered
   sql_paths:
-    - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/source.sql
-    - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/target.sql
+    - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/00-row_count-source.sql
+    - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/01-row_count-target.sql
+    - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/02-compare_counts.sql
 ```
 
-The first compiler implementation should write `not_rendered` until adapter SQL
-rendering exists.
+Compiled SQL files are written under `target/compiled_sql/`; `sql_paths`
+stores paths relative to the configured `target-path`.
 
 ## Built-in Check-Pack Scope
 

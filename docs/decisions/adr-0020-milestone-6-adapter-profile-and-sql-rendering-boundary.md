@@ -206,6 +206,10 @@ target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 Compiled checks should reference rendered SQL artifacts without embedding
 connection secrets.
 
+Implementation note, 2026-06-01: compiled-check `rendering.sql_paths` stores
+paths relative to the configured `target-path`, for example
+`compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql`.
+
 Milestone 6 adapter-aware rendering should migrate rendering status values to:
 
 ```text
@@ -224,10 +228,9 @@ Meanings:
 - `failed`: rendering was attempted but failed because of an adapter or
   rendering error.
 
-The current pre-Milestone-6 compiler model may still expose earlier draft
-statuses until the implementation migration is made. The migration from
-`deferred` and `unsupported` to `blocked` and `failed` must update code, tests,
-compiled-artifact examples, and compatibility docs together.
+Implementation note, 2026-06-01: the migration from `deferred` and
+`unsupported` to `blocked` and `failed` is complete in code, tests,
+compiled-artifact examples, and compatibility docs.
 
 Rendered SQL artifacts must remain traceable to:
 
@@ -244,8 +247,9 @@ requires compatibility review and may require an artifact version bump.
 
 ### Local development adapter
 
-The first local development adapter will be DuckDB and may live inside
-`recon-core` while the adapter API stabilizes.
+The first local development adapter is DuckDB and may live inside `recon-core`
+while the adapter API stabilizes. It is installed through the optional
+`recon-core[duckdb]` extra while it remains in-core.
 
 DuckDB is selected because it is local, fast, SQL-capable, relation-oriented,
 and suitable for golden SQL rendering and early execution tests.

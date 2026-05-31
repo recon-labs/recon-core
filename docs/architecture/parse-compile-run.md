@@ -9,7 +9,7 @@ recon parse
 recon compile
   -> target/compiled_contracts/
   -> target/compiled_checks/
-  -> target/compiled_sql/ when adapter SQL rendering is available
+  -> target/compiled_sql/ when --render-sql succeeds
 
 recon run
   -> target/run_results.json
@@ -66,8 +66,10 @@ Typed check plans are the core execution intent. Rendered SQL is an
 adapter-specific artifact derived from those plans.
 
 Current compile implementation writes compiled contract and compiled checks
-artifacts with `rendering.status: not_rendered`. Adapter SQL rendering is a
-future layer.
+artifacts with `rendering.status: not_rendered` for plain compile. With
+`--render-sql`, it writes adapter-rendered SQL for current DuckDB
+relation-backed typed plans and updates rendering metadata to `rendered`,
+`blocked`, or `failed`.
 
 Before the validation rulebook milestone expands parse and compile validation,
 parse and compile should share one internal parsed-project loading pipeline.

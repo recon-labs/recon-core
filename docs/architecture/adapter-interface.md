@@ -70,6 +70,9 @@ DuckDB starts as the first local development adapter inside `recon-core`.
 External adapter packages, including a future `recon-duckdb`, should split only
 after the adapter API and shared adapter test kit are stable.
 
+The current DuckDB local development adapter is distributed through the
+optional `recon-core[duckdb]` extra while it remains in-core.
+
 ## Base interface
 
 The Milestone 6 API boundary separates base adapter behavior from SQL dialect
@@ -92,7 +95,20 @@ class BaseAdapter:
 class SqlRenderer:
     adapter_type: str
 
-    def render_operation(self, operation: TypedOperation) -> RenderedSql: ...
+    def render_operation(
+        self,
+        operation,
+        *,
+        source_relation,
+        target_relation,
+    ) -> RenderedSql: ...
+    def render_plan(
+        self,
+        operations,
+        *,
+        source_relation,
+        target_relation,
+    ) -> tuple[RenderedSql, ...]: ...
     def render_relation(self, relation: Relation) -> str: ...
     def quote_identifier(self, identifier: str) -> str: ...
 ```
@@ -171,10 +187,9 @@ Compiled checks reference rendered SQL artifacts. SQL output must remain
 traceable to contract, check ID, rendering step or typed operation, side when
 applicable, and adapter type.
 
-Milestone 6 adapter-aware rendering should migrate rendering status values to
-`not_rendered`, `rendered`, `blocked`, and `failed`. Current pre-Milestone-6
-compiler models may still expose earlier draft statuses until that migration is
-implemented with code, tests, artifact examples, and compatibility docs.
+Milestone 6 adapter-aware rendering uses `not_rendered`, `rendered`,
+`blocked`, and `failed`. Earlier draft statuses `deferred` and `unsupported`
+are no longer emitted for SQL rendering metadata.
 
 ## Metadata
 
@@ -218,6 +233,9 @@ Initial local/dev adapters may live in core until the interface stabilizes.
 DuckDB is the first local development adapter. It should prove profile loading,
 adapter registration, capability validation, SQL rendering, and the first
 adapter test-kit shape without declaring a production adapter package.
+
+Current DuckDB behavior renders SQL for existing typed plans only. Connection
+lifecycle, metadata fetching, and check execution remain future work.
 
 ## Query endpoint boundary
 

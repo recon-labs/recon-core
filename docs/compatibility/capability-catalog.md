@@ -14,8 +14,10 @@ The capability catalog is provisional.
 Current state:
 
 - capability names are documented in framework, architecture, and ADR docs,
-- draft capability constants exist in code,
-- no production adapter declares capabilities yet,
+- capability constants and support-state validation exist in code,
+- the in-core DuckDB local development adapter declares the current
+  relation-backed SQL rendering capability subset,
+- no external production adapter declares capabilities yet,
 - no adapter test kit validates capabilities yet.
 
 ## Capability rules

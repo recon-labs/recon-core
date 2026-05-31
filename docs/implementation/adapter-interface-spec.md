@@ -30,7 +30,6 @@ plan operations. Core defines the operations; adapters define dialect rendering.
 
 ```python
 class BaseAdapter:
-    name: str
     adapter_type: str
     adapter_version: str
     supported_adapter_api_version: str
@@ -55,7 +54,20 @@ SQL renderer:
 class SqlRenderer:
     adapter_type: str
 
-    def render_operation(self, operation: TypedOperation) -> RenderedSql: ...
+    def render_operation(
+        self,
+        operation: Mapping[str, Any],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> RenderedSql: ...
+    def render_plan(
+        self,
+        operations: tuple[Mapping[str, Any], ...],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> tuple[RenderedSql, ...]: ...
     def quote_identifier(self, identifier: str) -> str: ...
     def render_relation(self, relation: Relation) -> str: ...
 ```
@@ -70,8 +82,8 @@ Suggested model:
 ```python
 @dataclass(frozen=True)
 class QueryResult:
-    columns: list[str]
-    rows: list[tuple]
+    columns: tuple[str, ...]
+    rows: tuple[tuple[Any, ...], ...]
     row_count: int | None
 ```
 
@@ -125,7 +137,7 @@ Adapters should register by connection type.
 ```python
 registry.register("postgres", PostgresAdapter)
 registry.register("snowflake", SnowflakeAdapter)
-registry.register("duckdb", DuckDbAdapter)
+registry.register("duckdb", DuckDbAdapterFactory())
 ```
 
 Core should resolve connection type through the registry.
@@ -185,10 +197,16 @@ Rendered SQL belongs under:
 target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
-Milestone 6 adapter-aware rendering should migrate rendering status values to
-`not_rendered`, `rendered`, `blocked`, and `failed`. Current pre-Milestone-6
-compiler models may still expose earlier draft statuses until that migration is
-implemented with code, tests, artifact examples, and compatibility docs.
+Milestone 6 adapter-aware rendering uses `not_rendered`, `rendered`,
+`blocked`, and `failed`. Earlier draft statuses `deferred` and `unsupported`
+are no longer emitted for SQL rendering metadata.
+
+Compiled-check `rendering.sql_paths` stores paths relative to the configured
+`target-path`, for example:
+
+```text
+compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql
+```
 
 ## Profiles and secrets
 

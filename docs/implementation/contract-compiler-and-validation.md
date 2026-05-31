@@ -37,9 +37,9 @@ target/compiled_checks/*.yml
 target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
-`target/compiled_sql/` is written when adapter SQL rendering is available. When
-SQL rendering is not available, compiled checks still include typed plans and
-`rendering.status: not_rendered`.
+`target/compiled_sql/` is written when `recon compile --render-sql` succeeds.
+When SQL rendering is not requested or cannot render a check, compiled checks
+still include typed plans and explicit rendering metadata.
 
 Internal outputs:
 
