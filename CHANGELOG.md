@@ -30,11 +30,18 @@ This project follows semantic versioning once public package releases begin.
   tolerance/null/normalization policy shapes.
 - `recon compile` now rejects duplicate check-pack invocations and validates
   declared non-empty `cdc.keys` shape.
+- ADR and compatibility documentation for the Milestone 6 adapter/profile,
+  capability, DuckDB local adapter, compiled SQL, query boundary, and execution
+  placement design.
 
 ### Changed
 
 - `recon init` now scaffolds `check_packs/` and `macros/` directories and
   writes matching `check-pack-paths` and `macro-paths` project config entries.
+- `recon init` now writes the ADR 0020 selected profile/target shape with
+  named `legacy` and `warehouse` connections in
+  `connections/profiles.yml.example` for the planned DuckDB local development
+  adapter.
 
 ### Fixed
 

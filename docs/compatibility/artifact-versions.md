@@ -15,7 +15,7 @@ artifact formats.
 | Manifest | `target/manifest.json` | JSON | Implemented with `artifact_version: 1`. |
 | Compiled contract | `target/compiled_contracts/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
 | Compiled checks | `target/compiled_checks/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
-| Compiled SQL | `target/compiled_sql/**` | SQL | Planned, not implemented yet. |
+| Compiled SQL | `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql` | SQL | Planned by ADR 0020, not implemented yet. |
 | Run results | `target/run_results.json` | JSON | Planned, not implemented yet. |
 | Failure details | `target/failures/` | TBD | Planned, not implemented yet. |
 | Evidence reports | `reports/` | HTML or other report formats | Planned, not implemented yet. |
@@ -128,6 +128,23 @@ fields. Adding fields such as `identity.cdc.declaration` or
 into resolved CDC identity, requires compatibility review and likely a compiled
 artifact version bump.
 
+Adding compiled SQL artifacts should follow ADR 0020. SQL files are generated
+under:
+
+```text
+target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
+```
+
+Compiled checks may reference rendered SQL files as an additive change when
+existing field meanings do not change. Changing compiled SQL paths, rendering
+status meanings, stable check IDs, SQL reference fields, or traceability
+requirements is compatibility-impacting and may require a compiled artifact
+version bump.
+
+Compiled SQL artifacts must not contain connection secrets or fully rendered
+credential payloads. SQL artifact references may include contract name, check
+ID, rendering step or typed operation, side when applicable, and adapter type.
+
 ## Package version relationship
 
 `recon_version` identifies the Recon Core package version that wrote the
@@ -193,3 +210,4 @@ Durable artifact format decisions require an ADR or ADR update.
 - `docs/implementation/compiled-artifacts.md`
 - `docs/decisions/adr-0003-parse-compile-run-artifact-model.md`
 - `docs/decisions/adr-0015-compiled-artifact-schema-and-versioning.md`
+- `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`

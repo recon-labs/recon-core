@@ -34,7 +34,7 @@ Primary outputs:
 ```text
 target/compiled_contracts/*.yml
 target/compiled_checks/*.yml
-target/compiled_sql/**/*.sql
+target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
 `target/compiled_sql/` is written when adapter SQL rendering is available. When

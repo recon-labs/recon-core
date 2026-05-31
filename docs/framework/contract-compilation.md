@@ -51,7 +51,7 @@ Main outputs:
 ```text
 target/compiled_contracts/*.yml
 target/compiled_checks/*.yml
-target/compiled_sql/**/*.sql
+target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
 The compiled artifacts are for humans and the engine.
@@ -128,7 +128,7 @@ Human-readable:
 ```text
 target/compiled_contracts/*.yml
 target/compiled_checks/*.yml
-target/compiled_sql/**/*.sql
+target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 reports/*.html
 ```
 

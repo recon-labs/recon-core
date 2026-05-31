@@ -37,6 +37,26 @@ Unsupported required capabilities should produce clear diagnostics during
 compile or validation when possible. Runtime-only capability failures should be
 explicit and should not produce misleading evidence.
 
+Capability support is represented by support state:
+
+| Support state | Meaning |
+| --- | --- |
+| `unknown` | Adapter has not declared support. This never satisfies a required capability. |
+| `unsupported` | Adapter intentionally does not support the capability. |
+| `not_implemented` | Adapter is expected to support the capability later but does not yet. |
+| `versioned` | Support depends on adapter, engine, or database version and must be checked. |
+| `full` | Adapter implements and tests the capability. |
+
+Required capabilities are satisfied only by `full`, or by `versioned` after the
+version condition is validated.
+
+Compile without an adapter may produce typed plans with
+`rendering.status: not_rendered`. Adapter-aware rendering and runtime execution
+must validate support states before rendering or executing required operations.
+
+Milestone 6 uses only the capability subset required by currently emitted typed
+operations. It does not expand the typed operation catalog.
+
 ## Draft capability names
 
 These names are draft compatibility surfaces. They may change before the
@@ -66,6 +86,10 @@ adapter API is stable.
 | `semi_structured_projection` | Adapter can project semi-structured data into comparable fields. |
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
+In Milestone 6, executable adapter-aware behavior is relation-only. The
+`queries` capability is reserved for future executable query endpoint support
+and is not required by current relation-only checks.
+
 Future tolerance or normalization execution may require additional granular
 capabilities after typed policy payloads are implemented. ADR 0009 locks
 limited regex replacement as an MVP policy surface, so the implementation phase
@@ -87,6 +111,7 @@ Capability changes affect compatibility when they:
 - rename a capability,
 - remove a capability,
 - change capability meaning,
+- change support-state semantics,
 - make a capability required for an existing check,
 - change diagnostics for unsupported capabilities,
 - change which typed operations require a capability.
@@ -105,3 +130,4 @@ When a capability changes, update:
 - `docs/architecture/adapter-interface.md`
 - `docs/implementation/adapter-interface-spec.md`
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
+- `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`

@@ -390,6 +390,11 @@ declared identity keys; it is separate from schema nullability checks.
 
 ## Rendering Metadata
 
+ADR 0020 and `adr-0015-rendering-status-amendment.md` qualify this section for
+Milestone 6 adapter-aware rendering. Current pre-Milestone-6 compiler models
+may still expose earlier draft statuses until that implementation migration is
+made.
+
 Compiled checks must include rendering metadata even when SQL is not generated.
 
 Allowed rendering statuses:
@@ -397,9 +402,12 @@ Allowed rendering statuses:
 ```text
 not_rendered
 rendered
-deferred
-unsupported
+blocked
+failed
 ```
+
+ADR 0020 replaces the earlier draft `deferred` and `unsupported` rendering
+statuses with `blocked` and `failed` for adapter-aware SQL rendering.
 
 Examples:
 
@@ -413,8 +421,8 @@ rendering:
 rendering:
   status: rendered
   sql_paths:
-    - target/compiled_sql/orders_cdc/row_count_diff/source.sql
-    - target/compiled_sql/orders_cdc/row_count_diff/target.sql
+    - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/source.sql
+    - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/target.sql
 ```
 
 The first compiler implementation should write `not_rendered` until adapter SQL

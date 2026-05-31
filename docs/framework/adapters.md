@@ -13,19 +13,26 @@ An adapter handles connection, SQL dialect, identifier quoting, metadata queries
 Connectors are user-facing connection config entries. Adapters are the code
 packages that implement those connector types.
 
-Example:
+Example profile target:
 
 ```yaml
-connections:
-  legacy:
-    type: postgres
-  warehouse:
-    type: snowflake
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+          warehouse:
+            type: duckdb
 ```
 
-In this example, `postgres` and `snowflake` resolve to adapter
-implementations. Long-term those implementations should live in packages such
-as `recon-postgres` and `recon-snowflake`.
+In this example, `dev` is the selected target environment. `legacy` and
+`warehouse` are named connections that contracts may reference from
+`source.connection` and `target.connection`. `duckdb` resolves to an adapter
+implementation. Long-term, production implementations should live in packages
+such as `recon-postgres` and `recon-snowflake`.
 
 ## Core vs adapter responsibilities
 
@@ -54,26 +61,41 @@ diagnostics, and evidence.
 ## Initial strategy
 
 Early `recon-core` may include minimal internal adapters to prove the engine.
+The first local development adapter is DuckDB. It lives inside `recon-core`
+while the adapter API and shared adapter test kit stabilize.
 
 Long term, adapters should split into packages such as `recon-postgres`, `recon-mysql`, `recon-snowflake`, `recon-sqlserver`, `recon-bigquery`, `recon-mongodb`, `recon-databricks`, `recon-redshift`, and `recon-oracle`.
 
+A future `recon-duckdb` package should not split from `recon-core` until the
+adapter API and shared adapter test kit are stable enough for external adapter
+packages.
+
 ## Interface concepts
 
-Illustrative interface:
+The first adapter boundary separates base adapter behavior from SQL rendering:
 
 ```python
-class Adapter:
+class BaseAdapter:
+    adapter_type: str
+    adapter_version: str
+    supported_adapter_api_version: str
+
     def connect(self): ...
-    def execute_query(self, sql: str): ...
-    def quote_identifier(self, name: str) -> str: ...
+    def close(self): ...
+    def execute(self, sql: str): ...
     def relation_exists(self, relation: str) -> bool: ...
     def get_columns(self, relation: str) -> list[Column]: ...
-    def compile_limit(self, sql: str, limit: int) -> str: ...
-    def compile_hash(self, columns: list[str]) -> str: ...
     def capabilities(self) -> AdapterCapabilities: ...
+
+
+class SqlRenderer:
+    def render_operation(self, operation): ...
+    def render_relation(self, relation: str) -> str: ...
+    def quote_identifier(self, name: str) -> str: ...
 ```
 
-This is not final API.
+Core owns the typed operation payload. The renderer owns dialect SQL for that
+payload.
 
 ## Capabilities
 
@@ -81,7 +103,22 @@ Adapters should declare capabilities such as relation support, query support, te
 
 Capabilities allow Recon to fail early when a check cannot run.
 
-Capabilities should be granular and conservative. Examples include:
+Capabilities should be granular and conservative. Capability support uses these
+states:
+
+```text
+unknown
+unsupported
+not_implemented
+versioned
+full
+```
+
+`unknown`, `unsupported`, and `not_implemented` do not satisfy required
+capabilities. `versioned` support must be validated against adapter or engine
+version before rendering or execution.
+
+Examples include:
 
 ```text
 relations
@@ -108,9 +145,85 @@ Adapters should also declare the adapter API version they support.
 
 ## Capability validation
 
-If an adapter cannot run a requested check, Recon should fail during compile/validation when possible.
+If an adapter cannot run a requested check, Recon should fail during
+compile/validation when possible.
 
 If metadata is unavailable, the compiled plan should mark validation as deferred.
+
+Compile without an adapter can still produce typed plans with
+`rendering.status: not_rendered`. Adapter-aware rendering must validate adapter
+API compatibility and required capabilities before writing compiled SQL.
+
+## Compiled SQL rendering
+
+Adapters render typed check-plan operations into SQL. Recon Core orchestrates
+the render and writes generated SQL under:
+
+```text
+target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
+```
+
+Compiled checks should reference rendered SQL files without embedding secrets or
+fully rendered connection payloads. Rendered SQL must remain traceable to the
+contract, check ID, typed operation or rendering step, source/target side when
+applicable, and adapter type.
+
+Milestone 6 adapter-aware rendering should migrate rendering statuses to:
+
+```text
+not_rendered
+rendered
+blocked
+failed
+```
+
+`not_rendered` means adapter-aware rendering was not requested or no renderer
+was available. `rendered` means all required SQL was produced. `blocked` means
+rendering was skipped because validation failed. `failed` means rendering was
+attempted and failed due to an adapter or renderer error.
+
+Current pre-Milestone-6 compiler models may still expose earlier draft statuses
+until the implementation migration updates code, tests, artifact examples, and
+compatibility docs together.
+
+## Profiles and secrets
+
+Connection profiles live in `connections/profiles.yml` and should not be
+committed. Profile resolution selects one profile and one target environment,
+then resolves contract connection names against that target's `connections`
+map. Contract-specific adapter rendering or execution renders only the named
+connection payloads referenced by the selected contracts and supports
+`env_var('NAME')` plus `env_var('NAME', 'default')` initially.
+
+Missing environment variables in referenced connection payloads are errors.
+Missing environment variables in unselected targets or unreferenced connections
+do not fail contract-specific invocations.
+
+Generated artifacts and diagnostics may include profile name, target name,
+adapter type, and non-secret relation identifiers. They must not include
+secrets or fully rendered credential payloads.
+
+## Query endpoint boundary
+
+Milestone 6 is relation-only for executable adapter-aware rendering and
+execution. `source.query` and `target.query` may remain parseable, but they
+must produce a clear unsupported diagnostic if adapter-aware rendering or
+execution tries to use them.
+
+Executable query endpoints require a later decision covering SELECT-only rules,
+single-statement handling, wrapping, artifact visibility, and adapter
+capabilities.
+
+## Execution placement boundary
+
+Milestone 6 renders SQL but does not execute checks. Before the check engine
+executes typed plans, Recon must define where comparison work may run: source
+system, target system, adapter-managed intermediate system, or bounded
+Python-side comparison.
+
+Unsupported SQL behavior must not silently fall back to Python. Any Python or
+intermediate-system fallback requires explicit limits, privacy rules,
+diagnostics, result semantics, and evidence visibility.
 
 ## Hashing warning
 
@@ -170,3 +283,4 @@ See also:
 
 - `docs/decisions/adr-0012-adapter-and-package-ecosystem.md`
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
+- `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`

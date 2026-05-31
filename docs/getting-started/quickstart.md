@@ -50,22 +50,26 @@ cp connections/profiles.yml.example connections/profiles.yml
 Use environment variables for secrets.
 
 ```yaml
-legacy:
-  type: postgres
-  host: "{{ env_var('LEGACY_HOST') }}"
-  user: "{{ env_var('LEGACY_USER') }}"
-  password: "{{ env_var('LEGACY_PASSWORD') }}"
-  database: analytics
-
-warehouse:
-  type: snowflake
-  account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-  user: "{{ env_var('SNOWFLAKE_USER') }}"
-  password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
-  database: analytics
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('RECON_DUCKDB_PATH') }}"
+          warehouse:
+            type: duckdb
+            database: "{{ env_var('RECON_DUCKDB_PATH') }}"
 ```
 
 Do not commit real profiles.
+
+When adapter-aware rendering and execution are implemented, Recon renders only
+the selected profile target and the named connections referenced by selected
+contracts. Missing environment variables in unselected targets or unreferenced
+connections do not fail contract-specific invocations.
 
 ## Create a contract
 

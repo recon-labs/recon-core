@@ -236,13 +236,21 @@ A user-facing connection configuration entry in a Recon profile.
 Example:
 
 ```yaml
-connections:
-  warehouse:
-    type: snowflake
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+          warehouse:
+            type: duckdb
 ```
 
-Here `warehouse` is a connector name and `snowflake` resolves to an adapter
-implementation.
+Here `dev` is the selected target environment. `legacy` and `warehouse` are
+named connections that contract `source.connection` and `target.connection`
+fields can reference. `duckdb` resolves to an adapter implementation.
 
 ## Typed check plan
 
