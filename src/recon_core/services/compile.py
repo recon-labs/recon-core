@@ -16,10 +16,12 @@ from recon_core.artifacts._paths import (
 from recon_core.compiler import ContractCompilationArtifacts, compile_project
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.parser import load_parsed_project
+from recon_core.profiles import load_selected_profile
 from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
 
 COMPILED_ARTIFACT_WRITE_FAILED = "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
+RENDER_SQL_NOT_IMPLEMENTED = "RC_RUNTIME_RENDER_SQL_NOT_IMPLEMENTED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +29,7 @@ class CompileService:
     """Service boundary for recon compile."""
 
     start_path: Path | None = None
+    render_sql: bool = False
 
     def execute(self) -> ServiceResult:
         context_result = load_project_context(self.start_path)
@@ -73,6 +76,17 @@ class CompileService:
                 ),
                 diagnostics=compilation.diagnostics,
             )
+
+        if self.render_sql:
+            profile_result = load_selected_profile(context, contracts=parsed_project.contracts)
+            if not profile_result.succeeded:
+                return ServiceResult(
+                    exit_category=ExitCategory.CONFIGURATION_ERROR,
+                    message="SQL rendering profile configuration failed.",
+                    diagnostics=profile_result.diagnostics,
+                )
+
+            return _render_sql_not_implemented()
 
         try:
             _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
@@ -158,6 +172,25 @@ def _compiled_artifact_runtime_error(
                     "Check that target-path is a writable directory "
                     "or update target-path in recon_project.yml."
                 ),
+            ),
+        ),
+    )
+
+
+def _render_sql_not_implemented() -> ServiceResult:
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message="SQL rendering is not implemented yet.",
+        diagnostics=(
+            Diagnostic(
+                code=RENDER_SQL_NOT_IMPLEMENTED,
+                severity=DiagnosticSeverity.ERROR,
+                message=(
+                    "`recon compile --render-sql` loaded project profiles, "
+                    "but adapter-aware SQL rendering is not implemented yet."
+                ),
+                resource_type="compiled_sql",
+                hint="Continue Milestone 6 Phase 2 before using rendered SQL output.",
             ),
         ),
     )

@@ -9,7 +9,7 @@ from recon_core.services.results import ExitCategory
 
 def test_compile_service_writes_compiled_artifacts_for_valid_project(tmp_path: Path) -> None:
     write_project(tmp_path)
-    nulls = {
+    nulls: dict[str, object] = {
         "treat_as_null": {
             "values": ["", "NULL"],
             "regex": ["^\\s*$"],
@@ -49,6 +49,52 @@ def test_compile_service_writes_compiled_artifacts_for_valid_project(tmp_path: P
         "total_revenue",
     ]
     assert checks_artifact["checks"][-1]["plan"]["operations"][-1] == {"type": "compare_aggregates"}
+
+
+def test_plain_compile_does_not_require_profiles_when_project_selects_profile(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.diagnostics == ()
+    assert (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").is_file()
+    assert (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").is_file()
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_requires_profiles_file(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+
+    result = CompileService(start_path=tmp_path, render_sql=True).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering profile configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_PROFILE_FILE_NOT_FOUND"
+    ]
+    assert not (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").exists()
+    assert not (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").exists()
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_loads_profiles_before_adapter_work(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+
+    result = CompileService(start_path=tmp_path, render_sql=True).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "SQL rendering is not implemented yet."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_RENDER_SQL_NOT_IMPLEMENTED"
+    ]
+    assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
 def test_compile_service_ignores_indexed_non_contract_files_for_compiled_output(
@@ -483,18 +529,43 @@ def write_project(
     *,
     project_name: str = "ecommerce_recon",
     check_pack_paths: tuple[str, ...] | None = None,
+    profile: str | None = None,
 ) -> None:
     check_pack_paths_yaml = _path_list_yaml("check-pack-paths", check_pack_paths)
+    profile_yaml = f"profile: {profile}\n" if profile is not None else ""
     project_root.joinpath("contracts").mkdir(exist_ok=True)
     project_root.joinpath("recon_project.yml").write_text(
         f"""
 name: {project_name}
 version: 0.1.0
 config-version: 1
+{profile_yaml}
 contract-paths:
   - contracts
 {check_pack_paths_yaml}
 target-path: target
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+
+def write_profiles(project_root: Path) -> None:
+    profiles_path = project_root / "connections" / "profiles.yml"
+    profiles_path.parent.mkdir()
+    profiles_path.write_text(
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: legacy.duckdb
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
 """.lstrip(),
         encoding="utf-8",
     )

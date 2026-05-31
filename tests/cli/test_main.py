@@ -7,7 +7,14 @@ from click.testing import CliRunner
 
 from recon_core import __version__
 from recon_core.cli.main import main
-from recon_core.services import CompileService, InitService, ParseService, RunService
+from recon_core.services import (
+    CompileService,
+    ExitCategory,
+    InitService,
+    ParseService,
+    RunService,
+    ServiceResult,
+)
 
 
 def test_cli_version_outputs_package_version() -> None:
@@ -49,12 +56,11 @@ def test_cli_commands_delegate_to_services(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = 0
-    original_execute = service_cls.execute
 
-    def execute(self: InitService | ParseService | CompileService | RunService):
+    def execute(self: InitService | ParseService | CompileService | RunService) -> ServiceResult:
         nonlocal calls
         calls += 1
-        return original_execute(self)
+        return ServiceResult(exit_category=ExitCategory.RUNTIME_ERROR)
 
     monkeypatch.setattr(service_cls, "execute", execute)
 
@@ -62,6 +68,32 @@ def test_cli_commands_delegate_to_services(
 
     assert result.exit_code != 0
     assert calls == 1
+
+
+@pytest.mark.parametrize(
+    ("args", "expected_render_sql"),
+    [
+        (["compile"], False),
+        (["compile", "--render-sql"], True),
+    ],
+)
+def test_compile_command_passes_render_sql_flag(
+    args: list[str],
+    expected_render_sql: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[bool] = []
+
+    def execute(self: CompileService) -> ServiceResult:
+        calls.append(self.render_sql)
+        return ServiceResult.success("ok")
+
+    monkeypatch.setattr(CompileService, "execute", execute)
+
+    result = CliRunner().invoke(main, args)
+
+    assert result.exit_code == 0
+    assert calls == [expected_render_sql]
 
 
 def test_parse_command_writes_manifest_for_project() -> None:
