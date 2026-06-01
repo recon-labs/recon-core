@@ -205,9 +205,11 @@ column types and aggregate result types before subtracting aggregate values.
 Valid numeric inputs use native DuckDB `sum(column)` rather than lossy casts.
 Boolean aggregate inputs are rejected for current DuckDB `sum` metric rendering
 because `sum(boolean)` is a true-value count, not a safe numeric aggregate
-comparison. Grouped aggregate comparison results expose source and target group
-keys separately as `source_<key>` and `target_<key>` columns instead of
-coalescing group keys across sides.
+comparison. `UHUGEINT` aggregate inputs are rejected until DuckDB exact
+aggregate behavior for that type is proven, because current DuckDB returns
+approximate `DOUBLE` values for `sum(UHUGEINT)`. Grouped aggregate comparison
+results expose source and target group keys separately as `source_<key>` and
+`target_<key>` columns instead of coalescing group keys across sides.
 
 Rendered SQL belongs under:
 
@@ -218,6 +220,7 @@ target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 Milestone 6 adapter-aware rendering uses `not_rendered`, `rendered`,
 `blocked`, and `failed`. Earlier draft statuses `deferred` and `unsupported`
 are no longer emitted for SQL rendering metadata.
+When an adapter is known, compiled checks also record `rendering.adapter_type`.
 
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
 `target-path`, for example:
@@ -245,6 +248,11 @@ Resolution rules:
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credentials in generated artifacts or
   diagnostics.
+
+For Milestone 6 DuckDB SQL rendering, source and target connection names may
+differ only when their selected profile entries resolve to the same adapter type
+and connection config. Distinct connection contexts are blocked until explicit
+cross-connection rendering or execution placement is designed.
 
 ## Query endpoints
 

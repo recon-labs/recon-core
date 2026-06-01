@@ -158,6 +158,10 @@ configured `target-path`, for example:
 compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql
 ```
 
+When an adapter has been resolved, compiled-check rendering metadata also
+records `rendering.adapter_type` so rendered, blocked, or failed SQL rendering
+state remains traceable to the adapter dialect.
+
 Before typed plans execute, Recon must define comparison placement for each
 operation: source system, target system, adapter-managed intermediate system,
 or bounded Python-side comparison. Unsupported SQL behavior must not silently

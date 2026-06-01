@@ -20,6 +20,7 @@ class RenderedCheckSql:
     check_id: str
     sql: tuple[RenderedSql, ...] = ()
     diagnostics: tuple[Diagnostic, ...] = ()
+    adapter_type: str | None = None
 
     @property
     def succeeded(self) -> bool:
@@ -37,7 +38,11 @@ def render_check_sql(
     """Render one compiled check to in-memory SQL without writing artifacts."""
     endpoint_diagnostics = _endpoint_diagnostics(contract)
     if endpoint_diagnostics:
-        return RenderedCheckSql(check_id=check.id, diagnostics=endpoint_diagnostics)
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=endpoint_diagnostics,
+            adapter_type=adapter.adapter_type,
+        )
 
     source_relation, source_diagnostics = _relation_from_name(
         contract.source.relation,
@@ -51,7 +56,11 @@ def render_check_sql(
     )
     relation_diagnostics = source_diagnostics + target_diagnostics
     if relation_diagnostics:
-        return RenderedCheckSql(check_id=check.id, diagnostics=relation_diagnostics)
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=relation_diagnostics,
+            adapter_type=adapter.adapter_type,
+        )
 
     assert source_relation is not None
     assert target_relation is not None
@@ -64,7 +73,11 @@ def render_check_sql(
         required_capabilities=required_capabilities,
     )
     if capability_diagnostics:
-        return RenderedCheckSql(check_id=check.id, diagnostics=capability_diagnostics)
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=capability_diagnostics,
+            adapter_type=adapter.adapter_type,
+        )
 
     try:
         rendered_sql = renderer.render_plan(
@@ -75,6 +88,7 @@ def render_check_sql(
     except Exception as exc:
         return RenderedCheckSql(
             check_id=check.id,
+            adapter_type=adapter.adapter_type,
             diagnostics=(
                 Diagnostic(
                     code=ADAPTER_OPERATION_RENDER_FAILED,
@@ -89,7 +103,7 @@ def render_check_sql(
             ),
         )
 
-    return RenderedCheckSql(check_id=check.id, sql=rendered_sql)
+    return RenderedCheckSql(check_id=check.id, sql=rendered_sql, adapter_type=adapter.adapter_type)
 
 
 def _endpoint_diagnostics(contract: CompiledContractArtifact) -> tuple[Diagnostic, ...]:

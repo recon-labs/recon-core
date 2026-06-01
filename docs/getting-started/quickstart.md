@@ -78,6 +78,8 @@ For adapter-aware rendering, Recon renders only the selected profile target
 and the named connections referenced by selected contracts. Missing
 environment variables in unselected targets or unreferenced connections do not
 fail contract-specific invocations.
+For the current DuckDB renderer, source and target connection names may differ,
+but they must resolve to the same DuckDB adapter connection config.
 
 ## Create a contract
 

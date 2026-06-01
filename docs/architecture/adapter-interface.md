@@ -190,7 +190,8 @@ target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 
 Compiled checks reference rendered SQL artifacts. SQL output must remain
 traceable to contract, check ID, rendering step or typed operation, side when
-applicable, and adapter type.
+applicable, and adapter type. When an adapter is known, compiled checks record
+that adapter in `rendering.adapter_type`.
 
 Milestone 6 adapter-aware rendering uses `not_rendered`, `rendered`,
 `blocked`, and `failed`. Earlier draft statuses `deferred` and `unsupported`
@@ -245,8 +246,12 @@ adapter test-kit shape without declaring a production adapter package.
 Current DuckDB behavior renders SQL for existing typed plans only. It guards
 key/group and aggregate comparison SQL against unsafe dialect coercion and
 rejects boolean inputs for current `sum` metric rendering because DuckDB treats
-`sum(boolean)` as a true-value count. Connection lifecycle, metadata fetching,
-and check execution remain future work.
+`sum(boolean)` as a true-value count. It also rejects `UHUGEINT` aggregate
+inputs until exact aggregate behavior for that type is proven. Milestone 6
+rendering also requires source and target DuckDB connections to resolve to the
+same rendered connection config; cross-file or cross-connection rendering
+remains future work. Connection lifecycle, metadata fetching, and check
+execution remain future work.
 
 ## Query endpoint boundary
 

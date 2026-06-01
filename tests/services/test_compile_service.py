@@ -216,6 +216,9 @@ def test_render_sql_compile_writes_sql_artifacts_and_rendering_metadata(
     assert result.diagnostics == ()
     assert (compiled_contracts_dir / "customer_revenue.yml").is_file()
     assert all(check["rendering"]["status"] == "rendered" for check in checks_artifact["checks"])
+    assert all(
+        check["rendering"]["adapter_type"] == "duckdb" for check in checks_artifact["checks"]
+    )
     assert row_count_check["rendering"]["sql_paths"] == [
         "compiled_sql/customer_revenue/"
         "check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql",
@@ -256,6 +259,42 @@ def test_plain_compile_removes_stale_compiled_sql_artifacts(tmp_path: Path) -> N
         check["rendering"] == {"status": "not_rendered", "sql_paths": []}
         for check in checks_artifact["checks"]
     )
+
+
+def test_render_sql_compile_blocks_distinct_connection_contexts(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, use_distinct_databases=True)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
+    ]
+    assert all(check["rendering"]["status"] == "blocked" for check in checks_artifact["checks"])
+    assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert {
+        diagnostic["code"]
+        for check in checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {"RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"}
+    assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
 def test_render_sql_compile_marks_query_endpoints_blocked_without_sql_artifacts(
@@ -328,7 +367,12 @@ def test_render_sql_compile_marks_other_checks_blocked_when_any_rendering_fails(
         "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
     ]
     assert all(
-        check["rendering"] == {"status": "blocked", "sql_paths": []}
+        check["rendering"]
+        == {
+            "status": "blocked",
+            "sql_paths": [],
+            "adapter_type": "duckdb",
+        }
         for check in valid_checks_artifact["checks"]
     )
     assert {
@@ -337,7 +381,12 @@ def test_render_sql_compile_marks_other_checks_blocked_when_any_rendering_fails(
         for diagnostic in check["diagnostics"]
     } == {"RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED"}
     assert all(
-        check["rendering"] == {"status": "blocked", "sql_paths": []}
+        check["rendering"]
+        == {
+            "status": "blocked",
+            "sql_paths": [],
+            "adapter_type": "duckdb",
+        }
         for check in query_checks_artifact["checks"]
     )
     assert {
@@ -917,7 +966,14 @@ target-path: target
     )
 
 
-def write_profiles(project_root: Path, *, connection_type: str = "duckdb") -> None:
+def write_profiles(
+    project_root: Path,
+    *,
+    connection_type: str = "duckdb",
+    use_distinct_databases: bool = False,
+) -> None:
+    legacy_database = "legacy.duckdb" if use_distinct_databases else "local.duckdb"
+    warehouse_database = "warehouse.duckdb" if use_distinct_databases else "local.duckdb"
     profiles_path = project_root / "connections" / "profiles.yml"
     profiles_path.parent.mkdir()
     profiles_path.write_text(
@@ -930,10 +986,10 @@ profiles:
         connections:
           legacy:
             type: {connection_type}
-            database: legacy.duckdb
+            database: {legacy_database}
           warehouse:
             type: {connection_type}
-            database: warehouse.duckdb
+            database: {warehouse_database}
 """.lstrip(),
         encoding="utf-8",
     )

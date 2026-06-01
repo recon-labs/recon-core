@@ -695,7 +695,6 @@ _DUCKDB_NUMERIC_SUM_TYPES = (
     "USMALLINT",
     "UINTEGER",
     "UBIGINT",
-    "UHUGEINT",
     "FLOAT",
     "DOUBLE",
     "BIGNUM",

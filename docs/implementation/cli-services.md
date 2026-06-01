@@ -80,6 +80,11 @@ The implemented CLI entrypoint for adapter-aware compile is:
 recon compile --render-sql
 ```
 
+Milestone 6 rendering supports one adapter connection context per compile
+invocation. Source and target connection names may differ, but their adapter
+type and rendered connection config must match until explicit cross-connection
+or attached-database rendering is designed.
+
 Profile rendering must render only the selected target environment and the
 named connections referenced by selected contracts. Secrets and fully rendered
 credential payloads must not be written into compiled artifacts, compiled SQL

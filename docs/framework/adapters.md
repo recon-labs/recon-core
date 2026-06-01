@@ -175,7 +175,8 @@ target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 Compiled checks should reference rendered SQL files without embedding secrets or
 fully rendered connection payloads. Rendered SQL must remain traceable to the
 contract, check ID, typed operation or rendering step, source/target side when
-applicable, and adapter type.
+applicable, and adapter type. When an adapter is known, compiled checks record
+that adapter in `rendering.adapter_type`.
 
 Adapters must preserve Core comparison semantics when rendering SQL. The
 current DuckDB renderer emits key-diff SQL over distinct non-null key sets and
@@ -191,9 +192,12 @@ subtracting values. Valid numeric inputs use native DuckDB `sum(column)` rather
 than lossy casts, while unsafe inputs fail before the aggregate query is
 evaluated. Boolean aggregate inputs are rejected for current `sum` metric
 rendering because DuckDB treats `sum(boolean)` as a true-value count, which is
-not a safe numeric aggregate comparison. Grouped aggregate comparison output
-keeps source and target group keys separate as `source_<key>` and `target_<key>`
-columns instead of coalescing group keys across sides.
+not a safe numeric aggregate comparison. `UHUGEINT` aggregate inputs are also
+rejected until DuckDB exact aggregate behavior for that type is proven, because
+current DuckDB returns approximate `DOUBLE` values for `sum(UHUGEINT)`. Grouped
+aggregate comparison output keeps source and target group keys separate as
+`source_<key>` and `target_<key>` columns instead of coalescing group keys
+across sides.
 
 Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 
@@ -221,6 +225,7 @@ artifact.
 
 Current compiler models emit these four statuses. Earlier draft statuses
 `deferred` and `unsupported` are no longer used for SQL rendering metadata.
+Known adapter-aware checks also include `rendering.adapter_type`.
 
 ## Profiles and secrets
 
@@ -234,6 +239,12 @@ connection payloads referenced by the selected contracts and supports
 Missing environment variables in referenced connection payloads are errors.
 Missing environment variables in unselected targets or unreferenced connections
 do not fail contract-specific invocations.
+
+For Milestone 6 DuckDB SQL rendering, source and target connection names may
+differ only when their selected profile entries resolve to the same adapter type
+and connection config. Distinct connection contexts are blocked because the
+rendered SQL targets one execution context and does not attach or bridge
+multiple databases.
 
 Generated artifacts and diagnostics may include profile name, target name,
 adapter type, and non-secret relation identifiers. They must not include

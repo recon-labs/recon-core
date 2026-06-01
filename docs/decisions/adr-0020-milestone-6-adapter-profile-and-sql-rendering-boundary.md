@@ -209,6 +209,9 @@ connection secrets.
 Implementation note, 2026-06-01: compiled-check `rendering.sql_paths` stores
 paths relative to the configured `target-path`, for example
 `compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql`.
+Implementation note, 2026-06-02: compiled-check rendering metadata includes
+`rendering.adapter_type` when an adapter is known. This is additive traceability
+metadata for compiled artifact version 1.
 
 Milestone 6 adapter-aware rendering should migrate rendering status values to:
 
@@ -261,6 +264,14 @@ while the adapter API stabilizes. It is installed through the optional
 
 DuckDB is selected because it is local, fast, SQL-capable, relation-oriented,
 and suitable for golden SQL rendering and early execution tests.
+
+Implementation note, 2026-06-02: Milestone 6 DuckDB SQL rendering blocks source
+and target endpoints whose selected profile entries resolve to different
+connection configs. The rendered SQL targets one execution context and does not
+attach or bridge multiple DuckDB database files. DuckDB aggregate rendering also
+rejects `UHUGEINT` metric inputs until exact aggregate behavior for that type is
+proven, because current DuckDB returns approximate `DOUBLE` values for
+`sum(UHUGEINT)`.
 
 Milestone 6 must not split production adapter packages. Official external
 adapter packages, including a future `recon-duckdb`, require a stable adapter

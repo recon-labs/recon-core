@@ -271,6 +271,7 @@ RC_ADAPTER_RESOLUTION_FAILED
 RC_ADAPTER_API_VERSION_UNSUPPORTED
 RC_ADAPTER_CAPABILITY_UNSUPPORTED
 RC_ADAPTER_DEPENDENCY_MISSING
+RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED
 RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED
 RC_ADAPTER_INVALID_RELATION
 RC_ADAPTER_OPERATION_RENDER_FAILED
@@ -282,8 +283,8 @@ RC_ADAPTER_QUERY_FAILED
 Milestone 6 adapter-aware compile uses `RC_ADAPTER_*` diagnostics for adapter
 type resolution, empty adapter factory results, adapter API compatibility,
 required-capability validation, optional dependency checks, relation-only
-rendering boundaries, invalid relation names, renderer failures, and
-invocation-wide SQL output suppression.
+rendering boundaries, same-context rendering requirements, invalid relation
+names, renderer failures, and invocation-wide SQL output suppression.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include

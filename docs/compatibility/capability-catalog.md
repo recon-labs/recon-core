@@ -52,6 +52,10 @@ counting semantics and same-type unsupported or non-numeric aggregate metric
 inputs that could otherwise surface raw dialect binder errors. It must also
 cover valid exact numeric aggregate values, including large integers and
 decimals, so adapter renderers cannot round or widen them through lossy casts.
+Unsigned large-integer types such as DuckDB `UHUGEINT` must either be proven
+exact for aggregate comparison or rejected with clear adapter-level errors.
+The same matrix must also cover same-context rendering requirements when a
+renderer cannot safely bridge multiple connection configs.
 
 Unsupported required capabilities should produce clear diagnostics during
 compile or validation when possible. Runtime-only capability failures should be

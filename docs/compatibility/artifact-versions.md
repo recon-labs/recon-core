@@ -142,7 +142,8 @@ requirements is compatibility-impacting and may require a compiled artifact
 version bump.
 
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
-`target-path`, for example:
+`target-path`, and `rendering.adapter_type` stores the adapter type when known.
+For example:
 
 ```text
 compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql
@@ -151,6 +152,8 @@ compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_d
 Compiled SQL artifacts must not contain connection secrets or fully rendered
 credential payloads. SQL artifact references may include contract name, check
 ID, rendering step or typed operation, side when applicable, and adapter type.
+Adding `rendering.adapter_type` is additive for compiled artifact version 1
+because existing field meanings and SQL path shapes do not change.
 When invocation-wide rendering diagnostics suppress all SQL output, otherwise
 renderable checks may keep empty `rendering.sql_paths` and carry a structured
 suppression diagnostic without changing the compiled artifact version.

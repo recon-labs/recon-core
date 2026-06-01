@@ -154,10 +154,13 @@ Current `compile` behavior:
 - loads `connections/profiles.yml` only when `--render-sql` is requested,
 - resolves the selected profile target and only the named connections
   referenced by compiled contracts,
+- requires source and target DuckDB connections for a contract to resolve to the
+  same adapter connection config; cross-connection rendering is not implemented,
 - validates adapter type, adapter API compatibility, and required
   capabilities before writing SQL,
 - writes `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`
-  and target-relative `rendering.sql_paths` when SQL rendering succeeds,
+  plus target-relative `rendering.sql_paths` and `rendering.adapter_type` when
+  SQL rendering succeeds,
 - sets rendering status to `rendered`, `blocked`, or `failed` for
   adapter-aware compile results,
 - writes no compiled SQL files and marks checks `blocked` or `failed` when any
@@ -181,6 +184,8 @@ Current limitations:
   fail with a clear diagnostic,
 - adapter-aware rendering is relation-only; `source.query` and `target.query`
   endpoints return clear unsupported diagnostics for `--render-sql`,
+- DuckDB `--render-sql` currently targets one adapter connection context and
+  does not attach or bridge multiple DuckDB database files,
 - the in-core DuckDB adapter renders SQL but does not execute checks or fetch
   metadata yet,
 - execution, run results, and evidence reports are not implemented yet.

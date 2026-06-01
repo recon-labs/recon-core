@@ -45,7 +45,9 @@ aggregate comparison SQL uses preflight type-check statements before native
 aggregate queries so valid numeric inputs are not forced through lossy casts.
 Boolean aggregate inputs are rejected for current DuckDB `sum` metric rendering
 because DuckDB treats `sum(boolean)` as a true-value count, not a safe numeric
-aggregate comparison.
+aggregate comparison. `UHUGEINT` aggregate inputs are rejected until DuckDB
+exact aggregate behavior for that type is proven, because current DuckDB returns
+approximate `DOUBLE` values for `sum(UHUGEINT)`.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 the test-kit design must define a SQL comparison conformance matrix. That matrix
@@ -63,7 +65,9 @@ value and input column type mismatches, including boolean aggregate inputs and
 same-type unsupported or non-numeric aggregate metric inputs, so cross-type or
 non-numeric metric comparisons cannot pass through dialect implicit casts,
 aggregate-specific boolean semantics, raw dialect binder errors, or lossy casts
-that round valid exact numeric aggregate values.
+that round valid exact numeric aggregate values. For engines with unsigned
+large-integer types, the matrix must prove exact aggregate behavior or require
+the adapter to reject those inputs.
 
 The same test-kit design must define adapter API conformance tests separate
 from the SQL comparison matrix. At minimum, those tests must cover adapter
@@ -158,6 +162,11 @@ Initial rules:
 - never emit secrets or fully rendered credential payloads in generated
   artifacts, diagnostics, terminal output, or evidence.
 
+For current DuckDB SQL rendering, source and target connection names may differ
+only when the referenced profile entries resolve to the same adapter type and
+connection config. Distinct adapter connection contexts are blocked until
+cross-connection rendering or execution placement is explicitly designed.
+
 Changes to profile selection, target precedence, environment rendering, or
 secret redaction affect adapter compatibility.
 
@@ -171,7 +180,8 @@ target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 
 Compiled checks may reference those SQL files. SQL references must preserve
 traceability to contract, check ID, rendering step or typed operation, side when
-applicable, and adapter type.
+applicable, and adapter type. When an adapter is known, compiled checks record
+that adapter in `rendering.adapter_type`.
 
 Rendered SQL content must preserve Core typed operation semantics. The current
 DuckDB renderer treats key-diff inputs as distinct non-null key sets and guards
@@ -180,10 +190,11 @@ DuckDB comparison combination casting cannot make unlike physical types match.
 It also guards aggregate metric input column types and aggregate result types
 with preflight statements before native aggregate queries, preserves native
 numeric `sum(column)` behavior for valid inputs, and rejects boolean aggregate
-inputs for current `sum` metric rendering.
+inputs and `UHUGEINT` aggregate inputs for current `sum` metric rendering.
 
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
-`target-path`, for example:
+`target-path`, and `rendering.adapter_type` stores the adapter type when known,
+for example:
 
 ```text
 compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql

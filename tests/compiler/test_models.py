@@ -91,6 +91,11 @@ def test_rendering_model_is_exported_from_compiler_package() -> None:
         "status": "not_rendered",
         "sql_paths": [],
     }
+    assert Rendering(adapter_type="duckdb").to_dict() == {
+        "status": "not_rendered",
+        "sql_paths": [],
+        "adapter_type": "duckdb",
+    }
 
 
 def test_capability_names_are_public_strings_in_json() -> None:

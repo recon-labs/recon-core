@@ -28,7 +28,7 @@ def target_relation() -> Relation:
 
 _DUCKDB_NUMERIC_SUM_TYPES = (
     "'TINYINT', 'SMALLINT', 'INTEGER', 'BIGINT', 'HUGEINT', 'UTINYINT', "
-    "'USMALLINT', 'UINTEGER', 'UBIGINT', 'UHUGEINT', 'FLOAT', 'DOUBLE', 'BIGNUM'"
+    "'USMALLINT', 'UINTEGER', 'UBIGINT', 'FLOAT', 'DOUBLE', 'BIGNUM'"
 )
 _SOURCE_RELATION_SQL = '"qa"."customer_source"'
 _TARGET_RELATION_SQL = '"qa"."customer_target"'
@@ -642,6 +642,38 @@ def test_aggregate_large_bigint_preserves_exact_difference(
     assert con.execute(rendered[-1].sql).fetchall() == [(9007199254740992, 9007199254740993, -1)]
 
 
+def test_aggregate_uhugeint_input_raises_recon_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (revenue uhugeint)")
+    con.execute("create table target_table (revenue uhugeint)")
+    con.execute("insert into source_table values (9007199254740992)")
+    con.execute("insert into target_table values (9007199254740993)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.compare_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB aggregate value type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
+
+
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
@@ -845,6 +877,40 @@ def test_grouped_aggregate_large_bigint_preserves_exact_difference(
     assert con.execute(rendered[-1].sql).fetchall() == [
         ("2026-01", "2026-01", 9007199254740992, 9007199254740993, -1)
     ]
+
+
+def test_grouped_aggregate_uhugeint_input_raises_recon_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (month varchar, revenue uhugeint)")
+    con.execute("create table target_table (month varchar, revenue uhugeint)")
+    con.execute("insert into source_table values ('2026-01', 9007199254740992)")
+    con.execute("insert into target_table values ('2026-01', 9007199254740993)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.compare_grouped_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB grouped aggregate value type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
 
 
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error_without_rows(

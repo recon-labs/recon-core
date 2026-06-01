@@ -178,10 +178,15 @@ semantics executable across adapters and should cover:
   as true-value counts instead of numeric aggregates,
 - valid exact numeric aggregate inputs, including large integers and decimals,
   are not rounded or widened through lossy casts before comparison,
+- unsigned large-integer aggregate inputs, such as DuckDB `UHUGEINT`, either
+  prove exact aggregate comparison behavior or fail with clear adapter-level
+  errors,
 - empty source/target relations with mismatched key or group-key types still
   fail instead of producing empty trustworthy-looking comparison output,
 - grouped aggregate renderers do not use cross-type coalescing for source and
   target group keys,
+- same-context rendering requirements fail clearly when a renderer cannot safely
+  bridge multiple connection configs,
 - capability-specific behavior for unsupported casts, normalization, hashing,
   timestamp, semi-structured, or metadata-dependent comparisons,
 - clear diagnostics or unsupported capability results when an adapter cannot

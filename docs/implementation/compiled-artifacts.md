@@ -35,6 +35,8 @@ applicable, and adapter type.
 When SQL rendering is not requested, compiled checks still include typed plans
 and should set `rendering.status: not_rendered`. Adapter-aware compile uses
 `blocked` or `failed` when rendering cannot safely produce SQL.
+When an adapter is known, compiled checks also include
+`rendering.adapter_type`, including blocked or failed render-sql results.
 
 Rendering status values:
 
@@ -70,6 +72,12 @@ Compiled-check `rendering.sql_paths` stores paths relative to the configured
 ```text
 compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
+
+For Milestone 6 DuckDB rendering, source and target connection names may differ
+only if their selected profile entries resolve to the same adapter type and
+connection config. Distinct adapter connection contexts are blocked because the
+compiled SQL is rendered for one execution context and does not attach or bridge
+multiple databases.
 
 `recon compile` treats `target/compiled_contracts/` and
 `target/compiled_checks/` as generated snapshots. It also treats
@@ -671,6 +679,7 @@ checks:
           side: target
     rendering:
       status: rendered
+      adapter_type: duckdb
       sql_paths:
         - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/00-row_count-source.sql
         - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/01-row_count-target.sql

@@ -50,7 +50,8 @@ This project follows semantic versioning once public package releases begin.
   `compare_grouped_aggregates`.
 - Compiled SQL artifact writing under
   `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`, with
-  compiled-check `rendering.sql_paths` references.
+  compiled-check `rendering.sql_paths` references and `rendering.adapter_type`
+  metadata when an adapter is known.
 
 ### Changed
 
@@ -66,6 +67,9 @@ This project follows semantic versioning once public package releases begin.
 - Plain `recon compile` remains non-adapter-aware, keeps
   `rendering.status: not_rendered`, and removes stale `target/compiled_sql/`
   output.
+- `recon compile --render-sql` now requires source and target connections for a
+  contract to resolve to the same adapter connection config; cross-connection
+  rendering remains blocked until explicit execution-placement support exists.
 
 ### Fixed
 
@@ -129,6 +133,10 @@ This project follows semantic versioning once public package releases begin.
 - DuckDB aggregate and grouped aggregate comparison SQL now rejects boolean
   `sum` inputs so DuckDB true-value counting cannot be mistaken for numeric
   aggregate comparison.
+- DuckDB aggregate and grouped aggregate comparison SQL now rejects `UHUGEINT`
+  metric inputs because DuckDB currently returns approximate `DOUBLE` values
+  for `sum(UHUGEINT)`, which can hide differences between adjacent large
+  integers.
 - `recon compile --render-sql` now reports compile validation errors before
   loading adapter profiles, so profile configuration errors cannot hide invalid
   contracts.

@@ -43,6 +43,7 @@ from recon_core.services.results import ExitCategory, ServiceResult
 
 COMPILED_ARTIFACT_WRITE_FAILED = "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
 MIXED_ADAPTER_TYPES_UNSUPPORTED = "RC_ADAPTER_MIXED_ADAPTER_TYPES_UNSUPPORTED"
+ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED = "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
 ADAPTER_RENDERING_OUTPUT_SUPPRESSED = "RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED"
 
 
@@ -272,6 +273,7 @@ def _write_compiled_sql_artifacts(
                     rendering=Rendering(
                         status=RenderingStatus.RENDERED,
                         sql_paths=sql_paths,
+                        adapter_type=render_result.adapter_type,
                     ),
                 )
             )
@@ -313,6 +315,7 @@ def _apply_render_failure_metadata(
                     _with_blocked_rendering(
                         check,
                         diagnostics=(_rendering_output_suppressed_diagnostic(check),),
+                        adapter_type=render_result.adapter_type,
                     )
                 )
                 continue
@@ -322,6 +325,7 @@ def _apply_render_failure_metadata(
                     rendering=Rendering(
                         status=_render_failure_status(render_result.diagnostics),
                         sql_paths=(),
+                        adapter_type=render_result.adapter_type,
                     ),
                     diagnostics=check.diagnostics + render_result.diagnostics,
                 )
@@ -344,12 +348,14 @@ def _with_blocked_rendering(
     check: CompiledCheck,
     *,
     diagnostics: tuple[Diagnostic, ...] = (),
+    adapter_type: str | None = None,
 ) -> CompiledCheck:
     return replace(
         check,
         rendering=Rendering(
             status=RenderingStatus.BLOCKED,
             sql_paths=(),
+            adapter_type=adapter_type,
         ),
         diagnostics=check.diagnostics + diagnostics,
     )
@@ -524,6 +530,29 @@ def _render_compiled_sql_in_memory(
                 diagnostic=diagnostic,
             )
             continue
+        if not _same_connection_context(source_adapter, target_adapter):
+            diagnostic = Diagnostic(
+                code=ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
+                severity=DiagnosticSeverity.ERROR,
+                message=(
+                    "Milestone 6 SQL rendering requires source and target "
+                    "connections to resolve to the same adapter connection context."
+                ),
+                resource_type="compiled_contract",
+                resource_name=compiled_contract.contract_artifact.contract.name,
+                hint=(
+                    "Use the same DuckDB database profile config for source and target, "
+                    "or wait for explicit cross-connection rendering support."
+                ),
+            )
+            diagnostics.append(diagnostic)
+            _set_contract_render_block(
+                results_by_check_id,
+                compiled_contract=compiled_contract,
+                diagnostic=diagnostic,
+                adapter_type=source_adapter.adapter_type,
+            )
+            continue
 
         renderer = _renderer_for_adapter_type(source_adapter.adapter_type)
         if renderer is None:
@@ -540,6 +569,7 @@ def _render_compiled_sql_in_memory(
                 results_by_check_id,
                 compiled_contract=compiled_contract,
                 diagnostic=diagnostic,
+                adapter_type=source_adapter.adapter_type,
             )
             continue
 
@@ -564,12 +594,21 @@ def _set_contract_render_block(
     *,
     compiled_contract: ContractCompilationArtifacts,
     diagnostic: Diagnostic,
+    adapter_type: str | None = None,
 ) -> None:
     for check in compiled_contract.checks_artifact.checks:
         results_by_check_id[check.id] = RenderedCheckSql(
             check_id=check.id,
             diagnostics=(diagnostic,),
+            adapter_type=adapter_type,
         )
+
+
+def _same_connection_context(source_adapter: BaseAdapter, target_adapter: BaseAdapter) -> bool:
+    return (
+        source_adapter.connection.type == target_adapter.connection.type
+        and source_adapter.connection.config == target_adapter.connection.config
+    )
 
 
 def _renderer_for_adapter_type(adapter_type: str) -> DuckDbSqlRenderer | None:

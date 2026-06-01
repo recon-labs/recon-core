@@ -419,6 +419,7 @@ rendering:
 ```yaml
 rendering:
   status: rendered
+  adapter_type: duckdb
   sql_paths:
     - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/00-row_count-source.sql
     - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/01-row_count-target.sql
@@ -426,7 +427,8 @@ rendering:
 ```
 
 Compiled SQL files are written under `target/compiled_sql/`; `sql_paths`
-stores paths relative to the configured `target-path`.
+stores paths relative to the configured `target-path`. When an adapter is known,
+`adapter_type` records the renderer adapter as additive traceability metadata.
 
 ## Built-in Check-Pack Scope
 

@@ -120,7 +120,10 @@ adapter type, and non-secret relation identifiers. They must not include
 secrets or fully rendered credential payloads.
 
 Current implementation loads profiles for `recon compile --render-sql` only.
-Plain parse and compile do not require `connections/profiles.yml`.
+Plain parse and compile do not require `connections/profiles.yml`. Milestone 6
+adapter-aware rendering requires referenced source and target connections to
+resolve to the same adapter type and rendered connection config. Distinct
+connection configs are blocked rather than implicitly bridged.
 
 ## Packages
 
