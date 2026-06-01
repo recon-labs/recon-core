@@ -106,6 +106,8 @@ This project follows semantic versioning once public package releases begin.
   DuckDB optional dependencies, unsupported adapter API versions, unsupported
   required capabilities, query endpoints, invalid relation names, and renderer
   failures without writing misleading SQL artifacts.
+- DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so
+  source and target `NULL` groups compare as the same group.
 
 ## Release format
 

@@ -254,5 +254,5 @@ def test_render_grouped_aggregate_comparison_plan(
         "  source_aggregate.aggregate_value - target_aggregate.aggregate_value as aggregate_diff\n"
         "from source_aggregate\n"
         "full outer join target_aggregate\n"
-        '  on source_aggregate."month" = target_aggregate."month"'
+        '  on source_aggregate."month" is not distinct from target_aggregate."month"'
     )

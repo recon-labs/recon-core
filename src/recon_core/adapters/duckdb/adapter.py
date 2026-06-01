@@ -384,7 +384,7 @@ class DuckDbSqlRenderer(SqlRenderer):
         group_select = "\n".join(f"    {self.quote_identifier(key)}," for key in group_by)
         group_by_clause = ", ".join(self.quote_identifier(key) for key in group_by)
         join_predicate = " and ".join(
-            f"source_aggregate.{self.quote_identifier(key)} = "
+            f"source_aggregate.{self.quote_identifier(key)} is not distinct from "
             f"target_aggregate.{self.quote_identifier(key)}"
             for key in group_by
         )
