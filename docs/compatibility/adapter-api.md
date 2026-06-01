@@ -32,6 +32,14 @@ DuckDB is the first local development adapter and may live inside `recon-core`
 while the adapter API stabilizes. A future `recon-duckdb` package should wait
 for the adapter package split and shared adapter test-kit milestone.
 
+Before creating, publishing, or splitting a shared adapter test-kit repository,
+the test-kit design must define a SQL comparison conformance matrix. That matrix
+must make adapter comparison semantics executable across repositories and cover
+null-safe equality, distinct non-null key diff, nullable grouped aggregate keys,
+no implicit type coercion, representative cross-type value cases, and clear
+unsupported-capability behavior when an adapter cannot safely perform a
+comparison.
+
 ## Compatibility contract
 
 Every adapter declares at least:

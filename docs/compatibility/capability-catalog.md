@@ -35,6 +35,13 @@ An adapter must not claim a capability unless it implements and tests the
 behavior. This is especially important for hash behavior, timestamp behavior,
 null-safe equality, and semi-structured projections.
 
+The future shared adapter test kit must include a SQL comparison conformance
+matrix before external adapter repositories or adapter packages are split. That
+matrix should prove declared comparison capabilities against null-safe equality,
+distinct non-null key diff, nullable grouped aggregate keys, no implicit type
+coercion, representative cross-type values, and unsupported-capability
+diagnostics.
+
 Unsupported required capabilities should produce clear diagnostics during
 compile or validation when possible. Runtime-only capability failures should be
 explicit and should not produce misleading evidence.

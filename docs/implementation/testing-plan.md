@@ -150,6 +150,21 @@ Production adapters should eventually use a shared adapter test kit. The same
 test kit should run in every adapter repo and should include operation-rendering
 golden tests.
 
+Before creating, publishing, or splitting a shared adapter test-kit repository,
+define a SQL comparison conformance matrix. The matrix should make comparison
+semantics executable across adapters and should cover:
+
+- null-safe equality,
+- distinct non-null key-diff semantics,
+- nullable grouped aggregate keys,
+- no implicit type coercion or combination-casting matches,
+- representative cross-type value cases such as numeric/string,
+  boolean/numeric/string, decimal/float, and date/timestamp where supported,
+- capability-specific behavior for unsupported casts, normalization, hashing,
+  timestamp, semi-structured, or metadata-dependent comparisons,
+- clear diagnostics or unsupported capability results when an adapter cannot
+  safely perform a comparison.
+
 ### Artifact tests
 
 Tests for generated artifacts.
