@@ -99,6 +99,26 @@ class CompileService:
             )
 
         if self.render_sql:
+            if not compilation.succeeded:
+                try:
+                    _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
+                except OSError as exc:
+                    return _compiled_artifact_runtime_error(
+                        exc,
+                        target_path=context.paths.target_path,
+                        project_root=context.project_root,
+                    )
+                return ServiceResult(
+                    exit_category=ExitCategory.VALIDATION_ERROR,
+                    message=(
+                        f"Compile completed with "
+                        f"{_pluralize(len(compilation.diagnostics), 'diagnostic')}. "
+                        "Wrote compiled artifacts for "
+                        f"{_pluralize(len(compilation.contracts), 'contract')}."
+                    ),
+                    diagnostics=compilation.diagnostics,
+                )
+
             profile_result = load_selected_profile(context, contracts=parsed_project.contracts)
             if not profile_result.succeeded:
                 return ServiceResult(

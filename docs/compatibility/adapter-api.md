@@ -38,7 +38,9 @@ key/group types must fail with a clear Recon error rather than relying on
 DuckDB comparison combination casting, returning misleading key-diff rows, or
 surfacing raw dialect binder errors. Grouped aggregate comparison output uses
 separate `source_<key>` and `target_<key>` group key columns instead of a
-coalesced group key.
+coalesced group key. DuckDB aggregate comparisons also treat aggregate result
+type equality as part of safe comparison behavior before subtracting source and
+target aggregate values.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 the test-kit design must define a SQL comparison conformance matrix. That matrix
@@ -51,7 +53,9 @@ by the in-core DuckDB renderer: key-diff type mismatches fail instead of
 returning missing/extra rows, grouped aggregate key type mismatches fail with a
 Recon-level error instead of a raw dialect binder error, empty source/target
 relations with mismatched key types still fail, and grouped aggregate rendering
-does not rely on cross-type group-key coalescing.
+does not rely on cross-type group-key coalescing. It must also cover aggregate
+value type mismatches so cross-type metric comparisons cannot pass through
+dialect implicit casts.
 
 ## Compatibility contract
 

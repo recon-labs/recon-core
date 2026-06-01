@@ -68,8 +68,11 @@ source of truth while preventing parse/compile drift.
 
 Plain compile can produce typed plans without loading connection profiles. If
 adapter-aware SQL rendering is requested, `CompileService` should load the
-selected profile and target, validate adapter API compatibility and required
-capabilities, and write rendered SQL under `target/compiled_sql/`.
+selected profile and target only after compile validation succeeds, validate
+adapter API compatibility and required capabilities, and write rendered SQL
+under `target/compiled_sql/`. Compile validation diagnostics take precedence
+over profile or adapter configuration diagnostics because rendering invalid
+compiled checks would create misleading artifacts.
 
 The implemented CLI entrypoint for adapter-aware compile is:
 

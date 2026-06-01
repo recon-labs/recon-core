@@ -184,9 +184,12 @@ join predicates so DuckDB comparison combination casting does not create
 cross-type matches. It also emits explicit key/group type-check CTEs for
 key-diff and grouped aggregate comparisons; physical type mismatches raise a
 clear Recon error instead of producing misleading missing/extra rows or raw
-DuckDB binder errors. Grouped aggregate comparison output keeps source and
-target group keys separate as `source_<key>` and `target_<key>` columns rather
-than coalescing group keys across sides.
+DuckDB binder errors. Aggregate and grouped aggregate comparison SQL checks
+source and target aggregate result types before subtracting values so DuckDB
+implicit casts do not make cross-type metric comparisons look safe. Grouped
+aggregate comparison output keeps source and target group keys separate as
+`source_<key>` and `target_<key>` columns rather than coalescing group keys
+across sides.
 
 Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 

@@ -135,6 +135,32 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_reports_compile_validation_before_profile_errors(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path, include_grain=False)
+
+    result = CompileService(start_path=tmp_path, render_sql=True).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert (
+        result.message
+        == "Compile completed with 1 diagnostic. Wrote compiled artifacts for 1 contract."
+    )
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS"
+    ]
+    assert checks_artifact["checks"] == []
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_writes_sql_artifacts_and_rendering_metadata(
     tmp_path: Path,
 ) -> None:

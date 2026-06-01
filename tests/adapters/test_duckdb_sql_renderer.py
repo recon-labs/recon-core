@@ -243,23 +243,34 @@ def test_render_aggregate_comparison_plan(
     )
 
     assert rendered[-1].operation_type == "compare_aggregates"
-    assert (
-        rendered[-1].sql
-        == """with
-source_aggregate as (
-  select sum("revenue") as aggregate_value
-  from "qa"."customer_source"
-),
-target_aggregate as (
-  select sum("revenue") as aggregate_value
-  from "qa"."customer_target"
-)
-select
-  source_aggregate.aggregate_value as source_aggregate_value,
-  target_aggregate.aggregate_value as target_aggregate_value,
-  source_aggregate.aggregate_value - target_aggregate.aggregate_value as aggregate_diff
-from source_aggregate
-cross join target_aggregate"""
+    assert rendered[-1].sql == (
+        "with\n"
+        "aggregate_type_check as (\n"
+        "  select\n"
+        "    case\n"
+        "      when\n"
+        '        typeof((select sum("revenue") from "qa"."customer_source" limit 1)) = '
+        'typeof((select sum("revenue") from "qa"."customer_target" limit 1))\n'
+        "      then true\n"
+        "      else error('Recon DuckDB aggregate value type mismatch.')\n"
+        "    end as type_check\n"
+        "),\n"
+        "source_aggregate as (\n"
+        '  select sum("revenue") as aggregate_value\n'
+        '  from "qa"."customer_source"\n'
+        "),\n"
+        "target_aggregate as (\n"
+        '  select sum("revenue") as aggregate_value\n'
+        '  from "qa"."customer_target"\n'
+        ")\n"
+        "select\n"
+        "  source_aggregate.aggregate_value as source_aggregate_value,\n"
+        "  target_aggregate.aggregate_value as target_aggregate_value,\n"
+        "  source_aggregate.aggregate_value - target_aggregate.aggregate_value as aggregate_diff\n"
+        "from aggregate_type_check\n"
+        "cross join source_aggregate\n"
+        "cross join target_aggregate\n"
+        "where aggregate_type_check.type_check"
     )
 
 
@@ -315,6 +326,16 @@ def test_render_grouped_aggregate_comparison_plan(
         "      else error('Recon DuckDB grouped aggregate key type mismatch.')\n"
         "    end as type_check\n"
         "),\n"
+        "aggregate_type_check as (\n"
+        "  select\n"
+        "    case\n"
+        "      when\n"
+        '        typeof((select sum("revenue") from "qa"."customer_source" limit 1)) = '
+        'typeof((select sum("revenue") from "qa"."customer_target" limit 1))\n'
+        "      then true\n"
+        "      else error('Recon DuckDB grouped aggregate value type mismatch.')\n"
+        "    end as type_check\n"
+        "),\n"
         "joined_aggregate as (\n"
         "  select\n"
         '    source_aggregate."month" as "source_month",\n'
@@ -335,9 +356,11 @@ def test_render_grouped_aggregate_comparison_plan(
         "  joined_aggregate.source_aggregate_value - joined_aggregate.target_aggregate_value "
         "as aggregate_diff\n"
         "from group_type_check\n"
+        "cross join aggregate_type_check\n"
         "left join joined_aggregate\n"
-        "  on group_type_check.type_check\n"
-        "where group_type_check.type_check and joined_aggregate.has_aggregate_row"
+        "  on group_type_check.type_check and aggregate_type_check.type_check\n"
+        "where group_type_check.type_check and aggregate_type_check.type_check "
+        "and joined_aggregate.has_aggregate_row"
     )
 
 
@@ -385,6 +408,38 @@ def test_key_diff_type_mismatch_raises_duckdb_error_without_rows(
         con.execute(rendered.sql).fetchall()
 
 
+def test_aggregate_value_type_mismatch_raises_duckdb_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (revenue integer)")
+    con.execute("create table target_table (revenue double)")
+    con.execute("insert into source_table values (10)")
+    con.execute("insert into target_table values (10.0)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.compare_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB aggregate value type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
+
+
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
@@ -416,6 +471,40 @@ def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
     )
 
     with pytest.raises(Exception, match="Recon DuckDB grouped aggregate key type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
+
+
+def test_grouped_aggregate_value_type_mismatch_raises_duckdb_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (month integer, revenue integer)")
+    con.execute("create table target_table (month integer, revenue double)")
+    con.execute("insert into source_table values (1, 10)")
+    con.execute("insert into target_table values (1, 10.0)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.compare_grouped_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB grouped aggregate value type mismatch"):
         con.execute(rendered[-1].sql).fetchall()
 
 

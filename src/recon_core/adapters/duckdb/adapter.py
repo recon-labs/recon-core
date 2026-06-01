@@ -366,8 +366,17 @@ class DuckDbSqlRenderer(SqlRenderer):
         aggregate = _required_string(source_operation, "aggregate")
         column = _required_string(source_operation, "column")
         _assert_matching_aggregate(source_operation, target_operation)
+        aggregate_type_check = self._render_aggregate_type_check_cte(
+            cte_name="aggregate_type_check",
+            left_relation=source_relation,
+            right_relation=target_relation,
+            aggregate=aggregate,
+            column=column,
+            error_message="Recon DuckDB aggregate value type mismatch.",
+        )
         sql = (
             "with\n"
+            f"{aggregate_type_check},\n"
             "source_aggregate as (\n"
             f"  select {aggregate}({self.quote_identifier(column)}) as aggregate_value\n"
             f"  from {self.render_relation(source_relation)}\n"
@@ -381,8 +390,10 @@ class DuckDbSqlRenderer(SqlRenderer):
             "  target_aggregate.aggregate_value as target_aggregate_value,\n"
             "  source_aggregate.aggregate_value - target_aggregate.aggregate_value "
             "as aggregate_diff\n"
-            "from source_aggregate\n"
-            "cross join target_aggregate"
+            "from aggregate_type_check\n"
+            "cross join source_aggregate\n"
+            "cross join target_aggregate\n"
+            "where aggregate_type_check.type_check"
         )
         return RenderedSql(
             sql=sql,
@@ -419,6 +430,14 @@ class DuckDbSqlRenderer(SqlRenderer):
             keys=group_by,
             error_message="Recon DuckDB grouped aggregate key type mismatch.",
         )
+        aggregate_type_check = self._render_aggregate_type_check_cte(
+            cte_name="aggregate_type_check",
+            left_relation=source_relation,
+            right_relation=target_relation,
+            aggregate=aggregate,
+            column=column,
+            error_message="Recon DuckDB grouped aggregate value type mismatch.",
+        )
         joined_group_keys = ",\n".join(
             f"    source_aggregate.{self.quote_identifier(key)} as "
             f"{self.quote_identifier(f'source_{key}')},\n"
@@ -452,6 +471,7 @@ class DuckDbSqlRenderer(SqlRenderer):
             f"  group by {group_by_clause}\n"
             "),\n"
             f"{type_check_cte},\n"
+            f"{aggregate_type_check},\n"
             "joined_aggregate as (\n"
             "  select\n"
             f"{joined_group_keys},\n"
@@ -469,9 +489,11 @@ class DuckDbSqlRenderer(SqlRenderer):
             "  joined_aggregate.source_aggregate_value - "
             "joined_aggregate.target_aggregate_value as aggregate_diff\n"
             "from group_type_check\n"
+            "cross join aggregate_type_check\n"
             "left join joined_aggregate\n"
-            "  on group_type_check.type_check\n"
-            "where group_type_check.type_check and joined_aggregate.has_aggregate_row"
+            "  on group_type_check.type_check and aggregate_type_check.type_check\n"
+            "where group_type_check.type_check and aggregate_type_check.type_check "
+            "and joined_aggregate.has_aggregate_row"
         )
         return RenderedSql(
             sql=sql,
@@ -511,6 +533,35 @@ class DuckDbSqlRenderer(SqlRenderer):
             "    case\n"
             "      when\n"
             f"        {predicates}\n"
+            "      then true\n"
+            f"      else error({_sql_string_literal(error_message)})\n"
+            "    end as type_check\n"
+            ")"
+        )
+
+    def _render_aggregate_type_check_cte(
+        self,
+        *,
+        cte_name: str,
+        left_relation: Relation,
+        right_relation: Relation,
+        aggregate: str,
+        column: str,
+        error_message: str,
+    ) -> str:
+        aggregate_expression = f"{aggregate}({self.quote_identifier(column)})"
+        left_relation_sql = self.render_relation(left_relation)
+        right_relation_sql = self.render_relation(right_relation)
+        predicate = (
+            f"typeof((select {aggregate_expression} from {left_relation_sql} limit 1)) = "
+            f"typeof((select {aggregate_expression} from {right_relation_sql} limit 1))"
+        )
+        return (
+            f"{cte_name} as (\n"
+            "  select\n"
+            "    case\n"
+            "      when\n"
+            f"        {predicate}\n"
             "      then true\n"
             f"      else error({_sql_string_literal(error_message)})\n"
             "    end as type_check\n"

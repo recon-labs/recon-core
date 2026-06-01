@@ -203,7 +203,7 @@ def _load_profile_yaml(profile_file: Path, display_path: str) -> _YamlLoadResult
             diagnostics=(
                 _diagnostic(
                     INVALID_PROFILE_YAML,
-                    f"Invalid YAML in profile file: {error}",
+                    "Invalid YAML in profile file.",
                     path=display_path,
                     resource_type="profile_file",
                     line=line,

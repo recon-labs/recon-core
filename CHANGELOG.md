@@ -118,6 +118,15 @@ This project follows semantic versioning once public package releases begin.
   `target_<key>` group keys in final comparison rows instead of coalescing
   source and target group keys, avoiding unsafe cross-type key coalescing and
   preserving unmatched-side visibility.
+- DuckDB aggregate and grouped aggregate comparison SQL now checks aggregate
+  result types before subtracting values so DuckDB implicit casts cannot make
+  cross-type metric comparisons look safely comparable.
+- `recon compile --render-sql` now reports compile validation errors before
+  loading adapter profiles, so profile configuration errors cannot hide invalid
+  contracts.
+- Invalid `connections/profiles.yml` YAML diagnostics no longer include the
+  raw YAML parser message, preventing malformed secret-bearing lines from
+  appearing in CLI diagnostics.
 
 ## Release format
 
