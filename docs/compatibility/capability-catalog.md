@@ -45,8 +45,9 @@ of becoming misleading missing/extra rows, grouped aggregate key type
 mismatches fail with adapter-level errors instead of raw dialect binder errors,
 empty source/target relations with mismatched key types still fail, and grouped
 aggregate renderers do not coalesce source and target group keys across
-incompatible physical types. It must also test that aggregate value type
-mismatches fail instead of being compared through dialect implicit casts.
+incompatible physical types. It must also test that aggregate input column and
+value type mismatches fail instead of being compared through dialect implicit
+casts.
 
 Unsupported required capabilities should produce clear diagnostics during
 compile or validation when possible. Runtime-only capability failures should be

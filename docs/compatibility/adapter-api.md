@@ -39,8 +39,8 @@ DuckDB comparison combination casting, returning misleading key-diff rows, or
 surfacing raw dialect binder errors. Grouped aggregate comparison output uses
 separate `source_<key>` and `target_<key>` group key columns instead of a
 coalesced group key. DuckDB aggregate comparisons also treat aggregate result
-type equality as part of safe comparison behavior before subtracting source and
-target aggregate values.
+type equality and metric input column type equality as part of safe comparison
+behavior before subtracting source and target aggregate values.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 the test-kit design must define a SQL comparison conformance matrix. That matrix
@@ -54,8 +54,8 @@ returning missing/extra rows, grouped aggregate key type mismatches fail with a
 Recon-level error instead of a raw dialect binder error, empty source/target
 relations with mismatched key types still fail, and grouped aggregate rendering
 does not rely on cross-type group-key coalescing. It must also cover aggregate
-value type mismatches so cross-type metric comparisons cannot pass through
-dialect implicit casts.
+value and input column type mismatches so cross-type metric comparisons cannot
+pass through dialect implicit casts.
 
 ## Compatibility contract
 
@@ -159,6 +159,8 @@ Rendered SQL content must preserve Core typed operation semantics. The current
 DuckDB renderer treats key-diff inputs as distinct non-null key sets and guards
 key/group comparison predicates with `typeof(...)` before null-safe equality so
 DuckDB comparison combination casting cannot make unlike physical types match.
+It also guards aggregate metric input column types and aggregate result types
+before subtracting source and target aggregate values.
 
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
 `target-path`, for example:

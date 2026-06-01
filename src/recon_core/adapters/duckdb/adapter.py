@@ -549,10 +549,14 @@ class DuckDbSqlRenderer(SqlRenderer):
         column: str,
         error_message: str,
     ) -> str:
-        aggregate_expression = f"{aggregate}({self.quote_identifier(column)})"
+        column_expression = self.quote_identifier(column)
+        aggregate_expression = f"{aggregate}({column_expression})"
         left_relation_sql = self.render_relation(left_relation)
         right_relation_sql = self.render_relation(right_relation)
         predicate = (
+            f"typeof((select {column_expression} from {left_relation_sql} limit 1)) = "
+            f"typeof((select {column_expression} from {right_relation_sql} limit 1))\n"
+            "        and "
             f"typeof((select {aggregate_expression} from {left_relation_sql} limit 1)) = "
             f"typeof((select {aggregate_expression} from {right_relation_sql} limit 1))"
         )

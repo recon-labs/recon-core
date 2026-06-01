@@ -160,6 +160,8 @@ Current `compile` behavior:
   and target-relative `rendering.sql_paths` when SQL rendering succeeds,
 - sets rendering status to `rendered`, `blocked`, or `failed` for
   adapter-aware compile results,
+- writes no compiled SQL files and marks checks `blocked` or `failed` when any
+  rendering diagnostic prevents adapter-aware SQL artifact output,
 - removes stale `target/compiled_sql/` output on plain compile,
 - validates duplicate contract names and stable ID-safe project, contract, and
   metric names before writing compiled artifacts,

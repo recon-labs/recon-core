@@ -228,6 +228,12 @@ Meanings:
 - `failed`: rendering was attempted but failed because of an adapter or
   rendering error.
 
+If any check in a `recon compile --render-sql` invocation produces a rendering
+diagnostic, the invocation writes no compiled SQL files. Checks with validation
+or capability blockers are marked `blocked`, renderer errors are marked
+`failed`, and otherwise renderable checks are also marked `blocked` because no
+SQL artifact path is available for them.
+
 Implementation note, 2026-06-01: the migration from `deferred` and
 `unsupported` to `blocked` and `failed` is complete in code, tests,
 compiled-artifact examples, and compatibility docs.

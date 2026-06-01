@@ -197,10 +197,11 @@ DuckDB key-diff rendering also compares distinct non-null key sets so null-key
 and duplicate-key checks remain separate prerequisites. DuckDB key-diff and
 grouped aggregate comparison SQL also renders explicit source/target key type
 checks that raise clear Recon errors on physical type mismatch. DuckDB
-aggregate and grouped aggregate comparison SQL checks source/target aggregate
-result types before subtracting aggregate values. Grouped aggregate comparison
-results expose source and target group keys separately as `source_<key>` and
-`target_<key>` columns instead of coalescing group keys across sides.
+aggregate and grouped aggregate comparison SQL checks source/target metric
+input column types and aggregate result types before subtracting aggregate
+values. Grouped aggregate comparison results expose source and target group keys
+separately as `source_<key>` and `target_<key>` columns instead of coalescing
+group keys across sides.
 
 Rendered SQL belongs under:
 

@@ -249,7 +249,9 @@ def test_render_aggregate_comparison_plan(
         "  select\n"
         "    case\n"
         "      when\n"
-        '        typeof((select sum("revenue") from "qa"."customer_source" limit 1)) = '
+        '        typeof((select "revenue" from "qa"."customer_source" limit 1)) = '
+        'typeof((select "revenue" from "qa"."customer_target" limit 1))\n'
+        '        and typeof((select sum("revenue") from "qa"."customer_source" limit 1)) = '
         'typeof((select sum("revenue") from "qa"."customer_target" limit 1))\n'
         "      then true\n"
         "      else error('Recon DuckDB aggregate value type mismatch.')\n"
@@ -330,7 +332,9 @@ def test_render_grouped_aggregate_comparison_plan(
         "  select\n"
         "    case\n"
         "      when\n"
-        '        typeof((select sum("revenue") from "qa"."customer_source" limit 1)) = '
+        '        typeof((select "revenue" from "qa"."customer_source" limit 1)) = '
+        'typeof((select "revenue" from "qa"."customer_target" limit 1))\n'
+        '        and typeof((select sum("revenue") from "qa"."customer_source" limit 1)) = '
         'typeof((select sum("revenue") from "qa"."customer_target" limit 1))\n'
         "      then true\n"
         "      else error('Recon DuckDB grouped aggregate value type mismatch.')\n"
@@ -440,6 +444,38 @@ def test_aggregate_value_type_mismatch_raises_duckdb_error(
         con.execute(rendered[-1].sql).fetchall()
 
 
+def test_aggregate_input_type_mismatch_raises_duckdb_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (revenue boolean)")
+    con.execute("create table target_table (revenue integer)")
+    con.execute("insert into source_table values (true), (false)")
+    con.execute("insert into target_table values (1), (0)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.compare_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB aggregate value type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
+
+
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
@@ -483,6 +519,40 @@ def test_grouped_aggregate_value_type_mismatch_raises_duckdb_error(
     con.execute("create table target_table (month integer, revenue double)")
     con.execute("insert into source_table values (1, 10)")
     con.execute("insert into target_table values (1, 10.0)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.compare_grouped_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB grouped aggregate value type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
+
+
+def test_grouped_aggregate_input_type_mismatch_raises_duckdb_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (month integer, revenue integer)")
+    con.execute("create table target_table (month integer, revenue bigint)")
+    con.execute("insert into source_table values (1, 10)")
+    con.execute("insert into target_table values (1, 10)")
 
     rendered = renderer.render_plan(
         (

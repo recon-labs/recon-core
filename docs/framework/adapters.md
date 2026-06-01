@@ -185,11 +185,11 @@ cross-type matches. It also emits explicit key/group type-check CTEs for
 key-diff and grouped aggregate comparisons; physical type mismatches raise a
 clear Recon error instead of producing misleading missing/extra rows or raw
 DuckDB binder errors. Aggregate and grouped aggregate comparison SQL checks
-source and target aggregate result types before subtracting values so DuckDB
-implicit casts do not make cross-type metric comparisons look safe. Grouped
-aggregate comparison output keeps source and target group keys separate as
-`source_<key>` and `target_<key>` columns rather than coalescing group keys
-across sides.
+source and target metric input column types and aggregate result types before
+subtracting values so DuckDB implicit casts do not make cross-type metric
+comparisons look safe. Grouped aggregate comparison output keeps source and
+target group keys separate as `source_<key>` and `target_<key>` columns instead
+of coalescing group keys across sides.
 
 Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 
@@ -204,6 +204,12 @@ failed
 was available. `rendered` means all required SQL was produced. `blocked` means
 rendering was skipped because validation failed. `failed` means rendering was
 attempted and failed due to an adapter or renderer error.
+
+If any check in an adapter-aware compile invocation produces a rendering
+diagnostic, Recon writes no compiled SQL files for that invocation. Checks with
+validation or capability blockers are marked `blocked`, renderer errors are
+marked `failed`, and otherwise renderable checks are also marked `blocked`
+because their SQL artifacts were intentionally not written.
 
 Current compiler models emit these four statuses. Earlier draft statuses
 `deferred` and `unsupported` are no longer used for SQL rendering metadata.

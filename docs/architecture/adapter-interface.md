@@ -161,6 +161,9 @@ docs.
 Compile without an adapter may produce typed plans with
 `rendering.status: not_rendered`. Adapter-aware rendering must validate adapter
 API compatibility and required capabilities before writing SQL.
+If adapter-aware rendering produces any rendering diagnostic, no compiled SQL
+files are written for that invocation and compiled checks use `blocked` or
+`failed` status instead of `not_rendered`.
 
 ## Profiles and secrets
 

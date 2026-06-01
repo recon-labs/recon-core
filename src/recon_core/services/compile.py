@@ -28,6 +28,7 @@ from recon_core.artifacts._paths import (
     reject_symlinked_path_components,
 )
 from recon_core.compiler import (
+    CompiledCheck,
     ContractCompilationArtifacts,
     Rendering,
     RenderingStatus,
@@ -298,8 +299,11 @@ def _apply_render_failure_metadata(
         rendered_checks = []
         for check in compiled_contract.checks_artifact.checks:
             render_result = render_results_by_check_id.get(check.id)
-            if render_result is None or not render_result.diagnostics:
-                rendered_checks.append(check)
+            if render_result is None:
+                rendered_checks.append(_with_blocked_rendering(check))
+                continue
+            if not render_result.diagnostics:
+                rendered_checks.append(_with_blocked_rendering(check))
                 continue
             rendered_checks.append(
                 replace(
@@ -323,6 +327,16 @@ def _apply_render_failure_metadata(
         )
 
     return tuple(rendered_contracts)
+
+
+def _with_blocked_rendering(check: CompiledCheck) -> CompiledCheck:
+    return replace(
+        check,
+        rendering=Rendering(
+            status=RenderingStatus.BLOCKED,
+            sql_paths=(),
+        ),
+    )
 
 
 def _render_failure_status(diagnostics: tuple[Diagnostic, ...]) -> RenderingStatus:

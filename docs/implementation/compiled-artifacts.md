@@ -49,6 +49,12 @@ failed
 intentionally skipped because validation failed. `failed` means rendering was
 attempted and failed due to adapter or renderer error.
 
+If any check produces a rendering diagnostic during `recon compile
+--render-sql`, Recon writes no compiled SQL files for that invocation. Checks
+that could not pass validation or capability checks are marked `blocked`, checks
+with renderer errors are marked `failed`, and otherwise renderable checks are
+also marked `blocked` because their SQL files were intentionally not written.
+
 The current compiler writes compiled contract and compiled checks YAML
 artifacts for supported check-pack and metric behavior. With
 `recon compile --render-sql`, it also writes adapter-rendered DuckDB SQL for

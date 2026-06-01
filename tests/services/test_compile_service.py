@@ -267,6 +267,50 @@ def test_render_sql_compile_marks_query_endpoints_blocked_without_sql_artifacts(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_marks_other_checks_blocked_when_any_rendering_fails(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path, name="valid_contract", file_name="valid_contract.yml")
+    write_contract(
+        tmp_path,
+        name="query_contract",
+        file_name="query_contract.yml",
+        source_query="select * from qa.customer_source",
+    )
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    valid_checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "valid_contract.yml").read_text(encoding="utf-8")
+    )
+    query_checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "query_contract.yml").read_text(encoding="utf-8")
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
+    }
+    assert all(
+        check["rendering"] == {"status": "blocked", "sql_paths": []}
+        for check in valid_checks_artifact["checks"]
+    )
+    assert all(
+        check["rendering"] == {"status": "blocked", "sql_paths": []}
+        for check in query_checks_artifact["checks"]
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_marks_adapter_renderer_blocks_without_sql_artifacts(
     tmp_path: Path,
 ) -> None:

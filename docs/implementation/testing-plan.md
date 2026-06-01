@@ -164,8 +164,8 @@ semantics executable across adapters and should cover:
   key rows,
 - grouped aggregate key type mismatches fail with clear Recon or adapter-level
   errors instead of raw dialect binder errors,
-- aggregate value type mismatches fail instead of being compared through
-  dialect implicit casts,
+- aggregate input column and value type mismatches fail instead of being
+  compared through dialect implicit casts,
 - empty source/target relations with mismatched key or group-key types still
   fail instead of producing empty trustworthy-looking comparison output,
 - grouped aggregate renderers do not use cross-type coalescing for source and
