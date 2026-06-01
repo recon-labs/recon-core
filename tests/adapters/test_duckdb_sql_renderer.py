@@ -50,13 +50,35 @@ def test_render_row_count_operation(
                 direction=KeyDiffDirection.SOURCE_MINUS_TARGET,
                 identity=Identity(IdentityKind.GRAIN, ("customer_id", "month")),
             ),
-            """select
-  s."customer_id",
-  s."month"
-from "qa"."customer_source" as s
-left join "qa"."customer_target" as t
-  on s."customer_id" = t."customer_id" and s."month" = t."month"
-where t."customer_id" is null""",
+            (
+                "with\n"
+                "left_keys as (\n"
+                "  select distinct\n"
+                '    "customer_id",\n'
+                '    "month"\n'
+                '  from "qa"."customer_source"\n'
+                '  where "customer_id" is not null and "month" is not null\n'
+                "),\n"
+                "right_keys as (\n"
+                "  select distinct\n"
+                '    "customer_id",\n'
+                '    "month"\n'
+                '  from "qa"."customer_target"\n'
+                '  where "customer_id" is not null and "month" is not null\n'
+                ")\n"
+                "select\n"
+                '  left_keys."customer_id",\n'
+                '  left_keys."month"\n'
+                "from left_keys\n"
+                "left join right_keys\n"
+                '  on (typeof(left_keys."customer_id") = '
+                'typeof(right_keys."customer_id") and '
+                'left_keys."customer_id" is not distinct from '
+                'right_keys."customer_id") and (typeof(left_keys."month") = '
+                'typeof(right_keys."month") and left_keys."month" is not distinct from '
+                'right_keys."month")\n'
+                'where right_keys."customer_id" is null'
+            ),
         ),
         (
             TypedOperation.null_key(
@@ -118,6 +140,27 @@ def test_render_side_operations(
     )
 
     assert rendered.sql == expected_sql
+
+
+def test_render_target_minus_source_key_diff_uses_target_left_key_set(
+    renderer: DuckDbSqlRenderer,
+    source_relation: Relation,
+    target_relation: Relation,
+) -> None:
+    rendered = renderer.render_operation(
+        TypedOperation.key_diff(
+            direction=KeyDiffDirection.TARGET_MINUS_SOURCE,
+            identity=Identity(IdentityKind.GRAIN, ("customer_id", "month")),
+        ).to_dict(),
+        source_relation=source_relation,
+        target_relation=target_relation,
+    )
+
+    assert '  from "qa"."customer_target"\n' in rendered.sql
+    assert '  from "qa"."customer_source"\n' in rendered.sql
+    assert rendered.sql.index('  from "qa"."customer_target"\n') < rendered.sql.index(
+        '  from "qa"."customer_source"\n'
+    )
 
 
 def test_render_count_comparison_plan(
@@ -254,5 +297,6 @@ def test_render_grouped_aggregate_comparison_plan(
         "  source_aggregate.aggregate_value - target_aggregate.aggregate_value as aggregate_diff\n"
         "from source_aggregate\n"
         "full outer join target_aggregate\n"
-        '  on source_aggregate."month" is not distinct from target_aggregate."month"'
+        '  on (typeof(source_aggregate."month") = typeof(target_aggregate."month") and '
+        'source_aggregate."month" is not distinct from target_aggregate."month")'
     )

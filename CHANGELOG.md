@@ -108,6 +108,11 @@ This project follows semantic versioning once public package releases begin.
   failures without writing misleading SQL artifacts.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so
   source and target `NULL` groups compare as the same group.
+- DuckDB key-diff SQL now compares distinct non-null key sets, keeping null-key
+  and duplicate-key checks separate from missing/extra key coverage.
+- DuckDB rendered key and grouped aggregate comparison predicates now guard
+  type equality before null-safe equality so DuckDB comparison combination
+  casting cannot create cross-type matches.
 
 ## Release format
 

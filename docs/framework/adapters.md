@@ -177,6 +177,12 @@ fully rendered connection payloads. Rendered SQL must remain traceable to the
 contract, check ID, typed operation or rendering step, source/target side when
 applicable, and adapter type.
 
+Adapters must preserve Core comparison semantics when rendering SQL. The
+current DuckDB renderer emits key-diff SQL over distinct non-null key sets and
+uses `typeof(...)` guards with null-safe equality for key and grouped aggregate
+join predicates so DuckDB comparison combination casting does not create
+cross-type matches.
+
 Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 
 ```text

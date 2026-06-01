@@ -213,35 +213,45 @@ class DuckDbSqlRenderer(SqlRenderer):
         identity_keys = _identity_keys(operation)
         direction = _required_string(operation, "direction")
         if direction == "source_minus_target":
-            left_alias = "s"
-            right_alias = "t"
             left_relation = source_relation
             right_relation = target_relation
         elif direction == "target_minus_source":
-            left_alias = "t"
-            right_alias = "s"
             left_relation = target_relation
             right_relation = source_relation
         else:
             raise ValueError(f"Unsupported key_diff direction: {direction}")
 
-        selected_keys = _select_lines(
-            f"{left_alias}.{self.quote_identifier(key)}" for key in identity_keys
-        )
+        quoted_keys = tuple(self.quote_identifier(key) for key in identity_keys)
+        cte_keys = _select_lines(quoted_keys, indent=4)
+        selected_keys = _select_lines(f"left_keys.{quoted_key}" for quoted_key in quoted_keys)
+        non_null_predicate = " and ".join(f"{quoted_key} is not null" for quoted_key in quoted_keys)
         join_predicate = " and ".join(
-            (
-                f"{left_alias}.{self.quote_identifier(key)} = "
-                f"{right_alias}.{self.quote_identifier(key)}"
+            self._strict_null_safe_equality(
+                f"left_keys.{quoted_key}",
+                f"right_keys.{quoted_key}",
             )
-            for key in identity_keys
+            for quoted_key in quoted_keys
         )
         sql = (
+            "with\n"
+            "left_keys as (\n"
+            "  select distinct\n"
+            f"{cte_keys}\n"
+            f"  from {self.render_relation(left_relation)}\n"
+            f"  where {non_null_predicate}\n"
+            "),\n"
+            "right_keys as (\n"
+            "  select distinct\n"
+            f"{cte_keys}\n"
+            f"  from {self.render_relation(right_relation)}\n"
+            f"  where {non_null_predicate}\n"
+            ")\n"
             "select\n"
             f"{selected_keys}\n"
-            f"from {self.render_relation(left_relation)} as {left_alias}\n"
-            f"left join {self.render_relation(right_relation)} as {right_alias}\n"
+            "from left_keys\n"
+            "left join right_keys\n"
             f"  on {join_predicate}\n"
-            f"where {right_alias}.{self.quote_identifier(identity_keys[0])} is null"
+            f"where right_keys.{self.quote_identifier(identity_keys[0])} is null"
         )
         return RenderedSql(
             sql=sql,
@@ -384,8 +394,10 @@ class DuckDbSqlRenderer(SqlRenderer):
         group_select = "\n".join(f"    {self.quote_identifier(key)}," for key in group_by)
         group_by_clause = ", ".join(self.quote_identifier(key) for key in group_by)
         join_predicate = " and ".join(
-            f"source_aggregate.{self.quote_identifier(key)} is not distinct from "
-            f"target_aggregate.{self.quote_identifier(key)}"
+            self._strict_null_safe_equality(
+                f"source_aggregate.{self.quote_identifier(key)}",
+                f"target_aggregate.{self.quote_identifier(key)}",
+            )
             for key in group_by
         )
         coalesced_keys = ",\n".join(
@@ -423,6 +435,16 @@ class DuckDbSqlRenderer(SqlRenderer):
             sql=sql,
             operation_type="compare_grouped_aggregates",
             required_capabilities=("grouped_aggregate",),
+        )
+
+    def _strict_null_safe_equality(
+        self,
+        left_expression: str,
+        right_expression: str,
+    ) -> str:
+        return (
+            f"(typeof({left_expression}) = typeof({right_expression}) and "
+            f"{left_expression} is not distinct from {right_expression})"
         )
 
     def _side_relation(
@@ -479,9 +501,10 @@ def _identity_keys(operation: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(keys)
 
 
-def _select_lines(expressions: tuple[str, ...] | Any) -> str:
+def _select_lines(expressions: tuple[str, ...] | Any, *, indent: int = 2) -> str:
     values = tuple(expressions)
-    return ",\n".join(f"  {value}" for value in values)
+    indentation = " " * indent
+    return ",\n".join(f"{indentation}{value}" for value in values)
 
 
 def _side_operations(

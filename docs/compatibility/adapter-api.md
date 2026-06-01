@@ -130,6 +130,11 @@ Compiled checks may reference those SQL files. SQL references must preserve
 traceability to contract, check ID, rendering step or typed operation, side when
 applicable, and adapter type.
 
+Rendered SQL content must preserve Core typed operation semantics. The current
+DuckDB renderer treats key-diff inputs as distinct non-null key sets and guards
+key/group comparison predicates with `typeof(...)` before null-safe equality so
+DuckDB comparison combination casting cannot make unlike physical types match.
+
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
 `target-path`, for example:
 

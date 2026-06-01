@@ -190,6 +190,11 @@ compare_grouped_aggregates
 ```
 
 Generated SQL should remain traceable to the typed operation that produced it.
+Adapters must render the typed operation semantics without relying on implicit
+dialect coercion. DuckDB rendered predicates for key matching and grouped
+aggregate group matching use `typeof(...)` guards with `IS NOT DISTINCT FROM`;
+DuckDB key-diff rendering also compares distinct non-null key sets so null-key
+and duplicate-key checks remain separate prerequisites.
 
 Rendered SQL belongs under:
 

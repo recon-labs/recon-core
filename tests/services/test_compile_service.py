@@ -113,8 +113,14 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
     write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: False))
 
-    result = CompileService(start_path=tmp_path, render_sql=True).execute()
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering adapter configuration failed."
