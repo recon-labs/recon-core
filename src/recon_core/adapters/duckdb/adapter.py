@@ -232,8 +232,16 @@ class DuckDbSqlRenderer(SqlRenderer):
             )
             for quoted_key in quoted_keys
         )
+        type_check_cte = self._render_type_check_cte(
+            cte_name="key_type_check",
+            left_relation=left_relation,
+            right_relation=right_relation,
+            keys=identity_keys,
+            error_message="Recon DuckDB key_diff key type mismatch.",
+        )
         sql = (
             "with\n"
+            f"{type_check_cte},\n"
             "left_keys as (\n"
             "  select distinct\n"
             f"{cte_keys}\n"
@@ -248,10 +256,14 @@ class DuckDbSqlRenderer(SqlRenderer):
             ")\n"
             "select\n"
             f"{selected_keys}\n"
-            "from left_keys\n"
+            "from key_type_check\n"
+            "left join left_keys\n"
+            "  on key_type_check.type_check\n"
             "left join right_keys\n"
             f"  on {join_predicate}\n"
-            f"where right_keys.{self.quote_identifier(identity_keys[0])} is null"
+            f"where key_type_check.type_check and "
+            f"left_keys.{self.quote_identifier(identity_keys[0])} is not null and "
+            f"right_keys.{self.quote_identifier(identity_keys[0])} is null"
         )
         return RenderedSql(
             sql=sql,
@@ -400,11 +412,29 @@ class DuckDbSqlRenderer(SqlRenderer):
             )
             for key in group_by
         )
-        coalesced_keys = ",\n".join(
-            f"  coalesce(source_aggregate.{self.quote_identifier(key)}, "
-            f"target_aggregate.{self.quote_identifier(key)}) as {self.quote_identifier(key)}"
+        type_check_cte = self._render_type_check_cte(
+            cte_name="group_type_check",
+            left_relation=source_relation,
+            right_relation=target_relation,
+            keys=group_by,
+            error_message="Recon DuckDB grouped aggregate key type mismatch.",
+        )
+        joined_group_keys = ",\n".join(
+            f"    source_aggregate.{self.quote_identifier(key)} as "
+            f"{self.quote_identifier(f'source_{key}')},\n"
+            f"    target_aggregate.{self.quote_identifier(key)} as "
+            f"{self.quote_identifier(f'target_{key}')}"
             for key in group_by
         )
+        selected_group_key_expressions = tuple(
+            expression
+            for key in group_by
+            for expression in (
+                f"joined_aggregate.{self.quote_identifier(f'source_{key}')}",
+                f"joined_aggregate.{self.quote_identifier(f'target_{key}')}",
+            )
+        )
+        selected_group_keys = _select_lines(selected_group_key_expressions)
         sql = (
             "with\n"
             "source_aggregate as (\n"
@@ -420,16 +450,28 @@ class DuckDbSqlRenderer(SqlRenderer):
             f"    {aggregate}({self.quote_identifier(column)}) as aggregate_value\n"
             f"  from {self.render_relation(target_relation)}\n"
             f"  group by {group_by_clause}\n"
-            ")\n"
-            "select\n"
-            f"{coalesced_keys},\n"
-            "  source_aggregate.aggregate_value as source_aggregate_value,\n"
-            "  target_aggregate.aggregate_value as target_aggregate_value,\n"
-            "  source_aggregate.aggregate_value - target_aggregate.aggregate_value "
-            "as aggregate_diff\n"
-            "from source_aggregate\n"
-            "full outer join target_aggregate\n"
+            "),\n"
+            f"{type_check_cte},\n"
+            "joined_aggregate as (\n"
+            "  select\n"
+            f"{joined_group_keys},\n"
+            "    source_aggregate.aggregate_value as source_aggregate_value,\n"
+            "    target_aggregate.aggregate_value as target_aggregate_value,\n"
+            "    true as has_aggregate_row\n"
+            "  from source_aggregate\n"
+            "  full outer join target_aggregate\n"
             f"  on {join_predicate}"
+            "\n)\n"
+            "select\n"
+            f"{selected_group_keys},\n"
+            "  joined_aggregate.source_aggregate_value,\n"
+            "  joined_aggregate.target_aggregate_value,\n"
+            "  joined_aggregate.source_aggregate_value - "
+            "joined_aggregate.target_aggregate_value as aggregate_diff\n"
+            "from group_type_check\n"
+            "left join joined_aggregate\n"
+            "  on group_type_check.type_check\n"
+            "where group_type_check.type_check and joined_aggregate.has_aggregate_row"
         )
         return RenderedSql(
             sql=sql,
@@ -445,6 +487,34 @@ class DuckDbSqlRenderer(SqlRenderer):
         return (
             f"(typeof({left_expression}) = typeof({right_expression}) and "
             f"{left_expression} is not distinct from {right_expression})"
+        )
+
+    def _render_type_check_cte(
+        self,
+        *,
+        cte_name: str,
+        left_relation: Relation,
+        right_relation: Relation,
+        keys: tuple[str, ...],
+        error_message: str,
+    ) -> str:
+        left_relation_sql = self.render_relation(left_relation)
+        right_relation_sql = self.render_relation(right_relation)
+        predicates = "\n        and ".join(
+            f"typeof((select {self.quote_identifier(key)} from {left_relation_sql} limit 1)) = "
+            f"typeof((select {self.quote_identifier(key)} from {right_relation_sql} limit 1))"
+            for key in keys
+        )
+        return (
+            f"{cte_name} as (\n"
+            "  select\n"
+            "    case\n"
+            "      when\n"
+            f"        {predicates}\n"
+            "      then true\n"
+            f"      else error({_sql_string_literal(error_message)})\n"
+            "    end as type_check\n"
+            ")"
         )
 
     def _side_relation(
@@ -463,6 +533,10 @@ class DuckDbSqlRenderer(SqlRenderer):
 
 def _duckdb_dependency_available() -> bool:
     return find_spec("duckdb") is not None
+
+
+def _sql_string_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
 
 
 def _operation_step_name(*, index: int, operation: Mapping[str, Any]) -> str:

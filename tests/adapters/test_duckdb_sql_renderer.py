@@ -52,6 +52,18 @@ def test_render_row_count_operation(
             ),
             (
                 "with\n"
+                "key_type_check as (\n"
+                "  select\n"
+                "    case\n"
+                "      when\n"
+                '        typeof((select "customer_id" from "qa"."customer_source" limit 1)) = '
+                'typeof((select "customer_id" from "qa"."customer_target" limit 1))\n'
+                '        and typeof((select "month" from "qa"."customer_source" limit 1)) = '
+                'typeof((select "month" from "qa"."customer_target" limit 1))\n'
+                "      then true\n"
+                "      else error('Recon DuckDB key_diff key type mismatch.')\n"
+                "    end as type_check\n"
+                "),\n"
                 "left_keys as (\n"
                 "  select distinct\n"
                 '    "customer_id",\n'
@@ -69,7 +81,9 @@ def test_render_row_count_operation(
                 "select\n"
                 '  left_keys."customer_id",\n'
                 '  left_keys."month"\n'
-                "from left_keys\n"
+                "from key_type_check\n"
+                "left join left_keys\n"
+                "  on key_type_check.type_check\n"
                 "left join right_keys\n"
                 '  on (typeof(left_keys."customer_id") = '
                 'typeof(right_keys."customer_id") and '
@@ -77,7 +91,8 @@ def test_render_row_count_operation(
                 'right_keys."customer_id") and (typeof(left_keys."month") = '
                 'typeof(right_keys."month") and left_keys."month" is not distinct from '
                 'right_keys."month")\n'
-                'where right_keys."customer_id" is null'
+                'where key_type_check.type_check and left_keys."customer_id" is not null '
+                'and right_keys."customer_id" is null'
             ),
         ),
         (
@@ -289,14 +304,148 @@ def test_render_grouped_aggregate_comparison_plan(
         '    sum("revenue") as aggregate_value\n'
         '  from "qa"."customer_target"\n'
         '  group by "month"\n'
+        "),\n"
+        "group_type_check as (\n"
+        "  select\n"
+        "    case\n"
+        "      when\n"
+        '        typeof((select "month" from "qa"."customer_source" limit 1)) = '
+        'typeof((select "month" from "qa"."customer_target" limit 1))\n'
+        "      then true\n"
+        "      else error('Recon DuckDB grouped aggregate key type mismatch.')\n"
+        "    end as type_check\n"
+        "),\n"
+        "joined_aggregate as (\n"
+        "  select\n"
+        '    source_aggregate."month" as "source_month",\n'
+        '    target_aggregate."month" as "target_month",\n'
+        "    source_aggregate.aggregate_value as source_aggregate_value,\n"
+        "    target_aggregate.aggregate_value as target_aggregate_value,\n"
+        "    true as has_aggregate_row\n"
+        "  from source_aggregate\n"
+        "  full outer join target_aggregate\n"
+        '  on (typeof(source_aggregate."month") = typeof(target_aggregate."month") and '
+        'source_aggregate."month" is not distinct from target_aggregate."month")\n'
         ")\n"
         "select\n"
-        '  coalesce(source_aggregate."month", target_aggregate."month") as "month",\n'
-        "  source_aggregate.aggregate_value as source_aggregate_value,\n"
-        "  target_aggregate.aggregate_value as target_aggregate_value,\n"
-        "  source_aggregate.aggregate_value - target_aggregate.aggregate_value as aggregate_diff\n"
-        "from source_aggregate\n"
-        "full outer join target_aggregate\n"
-        '  on (typeof(source_aggregate."month") = typeof(target_aggregate."month") and '
-        'source_aggregate."month" is not distinct from target_aggregate."month")'
+        '  joined_aggregate."source_month",\n'
+        '  joined_aggregate."target_month",\n'
+        "  joined_aggregate.source_aggregate_value,\n"
+        "  joined_aggregate.target_aggregate_value,\n"
+        "  joined_aggregate.source_aggregate_value - joined_aggregate.target_aggregate_value "
+        "as aggregate_diff\n"
+        "from group_type_check\n"
+        "left join joined_aggregate\n"
+        "  on group_type_check.type_check\n"
+        "where group_type_check.type_check and joined_aggregate.has_aggregate_row"
     )
+
+
+def test_key_diff_type_mismatch_raises_duckdb_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (customer_id integer)")
+    con.execute("create table target_table (customer_id varchar)")
+    con.execute("insert into source_table values (1)")
+    con.execute("insert into target_table values ('1')")
+
+    rendered = renderer.render_operation(
+        TypedOperation.key_diff(
+            direction=KeyDiffDirection.SOURCE_MINUS_TARGET,
+            identity=Identity(IdentityKind.GRAIN, ("customer_id",)),
+        ).to_dict(),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB key_diff key type mismatch"):
+        con.execute(rendered.sql).fetchall()
+
+
+def test_key_diff_type_mismatch_raises_duckdb_error_without_rows(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (customer_id integer)")
+    con.execute("create table target_table (customer_id varchar)")
+
+    rendered = renderer.render_operation(
+        TypedOperation.key_diff(
+            direction=KeyDiffDirection.SOURCE_MINUS_TARGET,
+            identity=Identity(IdentityKind.GRAIN, ("customer_id",)),
+        ).to_dict(),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB key_diff key type mismatch"):
+        con.execute(rendered.sql).fetchall()
+
+
+def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (month integer, revenue integer)")
+    con.execute("create table target_table (month varchar, revenue integer)")
+    con.execute("insert into source_table values (1, 10)")
+    con.execute("insert into target_table values ('1', 10)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.compare_grouped_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB grouped aggregate key type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
+
+
+def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error_without_rows(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (month integer, revenue integer)")
+    con.execute("create table target_table (month varchar, revenue integer)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.compare_grouped_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB grouped aggregate key type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()

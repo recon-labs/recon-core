@@ -110,9 +110,14 @@ This project follows semantic versioning once public package releases begin.
   source and target `NULL` groups compare as the same group.
 - DuckDB key-diff SQL now compares distinct non-null key sets, keeping null-key
   and duplicate-key checks separate from missing/extra key coverage.
-- DuckDB rendered key and grouped aggregate comparison predicates now guard
-  type equality before null-safe equality so DuckDB comparison combination
-  casting cannot create cross-type matches.
+- DuckDB rendered key and grouped aggregate comparison SQL now performs
+  explicit key/group type checks that raise clear Recon errors on physical
+  type mismatch instead of returning misleading missing/extra keys or
+  surfacing raw DuckDB `coalesce` binder errors.
+- DuckDB grouped aggregate comparison SQL now projects `source_<key>` and
+  `target_<key>` group keys in final comparison rows instead of coalescing
+  source and target group keys, avoiding unsafe cross-type key coalescing and
+  preserving unmatched-side visibility.
 
 ## Release format
 

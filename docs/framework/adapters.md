@@ -181,7 +181,12 @@ Adapters must preserve Core comparison semantics when rendering SQL. The
 current DuckDB renderer emits key-diff SQL over distinct non-null key sets and
 uses `typeof(...)` guards with null-safe equality for key and grouped aggregate
 join predicates so DuckDB comparison combination casting does not create
-cross-type matches.
+cross-type matches. It also emits explicit key/group type-check CTEs for
+key-diff and grouped aggregate comparisons; physical type mismatches raise a
+clear Recon error instead of producing misleading missing/extra rows or raw
+DuckDB binder errors. Grouped aggregate comparison output keeps source and
+target group keys separate as `source_<key>` and `target_<key>` columns rather
+than coalescing group keys across sides.
 
 Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 

@@ -32,6 +32,14 @@ DuckDB is the first local development adapter and may live inside `recon-core`
 while the adapter API stabilizes. A future `recon-duckdb` package should wait
 for the adapter package split and shared adapter test-kit milestone.
 
+Current DuckDB SQL rendering treats source/target key and grouped-aggregate
+group physical type equality as part of safe comparison behavior. Mismatched
+key/group types must fail with a clear Recon error rather than relying on
+DuckDB comparison combination casting, returning misleading key-diff rows, or
+surfacing raw dialect binder errors. Grouped aggregate comparison output uses
+separate `source_<key>` and `target_<key>` group key columns instead of a
+coalesced group key.
+
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 the test-kit design must define a SQL comparison conformance matrix. That matrix
 must make adapter comparison semantics executable across repositories and cover
