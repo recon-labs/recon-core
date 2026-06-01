@@ -323,7 +323,13 @@ class DuckDbSqlRenderer(SqlRenderer):
         aggregate = _required_string(operation, "aggregate")
         column = _required_string(operation, "column")
         aggregate_expression = _aggregate_expression(aggregate, self.quote_identifier(column))
+        aggregate_type_check = self._render_single_aggregate_input_type_check_statement(
+            relation=relation,
+            column=column,
+            error_message="Recon DuckDB aggregate value type mismatch.",
+        )
         sql = (
+            f"{aggregate_type_check};\n\n"
             f"select {aggregate_expression} as aggregate_value\n"
             f"from {self.render_relation(relation)}"
         )
@@ -345,7 +351,13 @@ class DuckDbSqlRenderer(SqlRenderer):
         group_by = _required_string_tuple(operation, "group_by")
         aggregate_expression = _aggregate_expression(aggregate, self.quote_identifier(column))
         group_select = _select_lines(self.quote_identifier(column_name) for column_name in group_by)
+        aggregate_type_check = self._render_single_aggregate_input_type_check_statement(
+            relation=relation,
+            column=column,
+            error_message="Recon DuckDB grouped aggregate value type mismatch.",
+        )
         sql = (
+            f"{aggregate_type_check};\n\n"
             "select\n"
             f"{group_select},\n"
             f"  {aggregate_expression} as aggregate_value\n"
@@ -368,8 +380,13 @@ class DuckDbSqlRenderer(SqlRenderer):
         aggregate = _required_string(source_operation, "aggregate")
         column = _required_string(source_operation, "column")
         _assert_matching_aggregate(source_operation, target_operation)
-        aggregate_type_check = self._render_aggregate_type_check_cte(
-            cte_name="aggregate_type_check",
+        aggregate_type_check = self._render_aggregate_input_type_check_statement(
+            left_relation=source_relation,
+            right_relation=target_relation,
+            column=column,
+            error_message="Recon DuckDB aggregate value type mismatch.",
+        )
+        aggregate_result_type_check = self._render_aggregate_result_type_check_statement(
             left_relation=source_relation,
             right_relation=target_relation,
             aggregate=aggregate,
@@ -377,8 +394,9 @@ class DuckDbSqlRenderer(SqlRenderer):
             error_message="Recon DuckDB aggregate value type mismatch.",
         )
         sql = (
+            f"{aggregate_type_check};\n\n"
+            f"{aggregate_result_type_check};\n\n"
             "with\n"
-            f"{aggregate_type_check},\n"
             "source_aggregate as (\n"
             f"  select {_aggregate_expression(aggregate, self.quote_identifier(column))} "
             "as aggregate_value\n"
@@ -394,10 +412,8 @@ class DuckDbSqlRenderer(SqlRenderer):
             "  target_aggregate.aggregate_value as target_aggregate_value,\n"
             "  source_aggregate.aggregate_value - target_aggregate.aggregate_value "
             "as aggregate_diff\n"
-            "from aggregate_type_check\n"
-            "cross join source_aggregate\n"
-            "cross join target_aggregate\n"
-            "where aggregate_type_check.type_check"
+            "from source_aggregate\n"
+            "cross join target_aggregate"
         )
         return RenderedSql(
             sql=sql,
@@ -427,15 +443,19 @@ class DuckDbSqlRenderer(SqlRenderer):
             )
             for key in group_by
         )
-        type_check_cte = self._render_type_check_cte(
-            cte_name="group_type_check",
+        group_type_check = self._render_type_check_statement(
             left_relation=source_relation,
             right_relation=target_relation,
             keys=group_by,
             error_message="Recon DuckDB grouped aggregate key type mismatch.",
         )
-        aggregate_type_check = self._render_aggregate_type_check_cte(
-            cte_name="aggregate_type_check",
+        aggregate_type_check = self._render_aggregate_input_type_check_statement(
+            left_relation=source_relation,
+            right_relation=target_relation,
+            column=column,
+            error_message="Recon DuckDB grouped aggregate value type mismatch.",
+        )
+        aggregate_result_type_check = self._render_aggregate_result_type_check_statement(
             left_relation=source_relation,
             right_relation=target_relation,
             aggregate=aggregate,
@@ -459,6 +479,9 @@ class DuckDbSqlRenderer(SqlRenderer):
         )
         selected_group_keys = _select_lines(selected_group_key_expressions)
         sql = (
+            f"{group_type_check};\n\n"
+            f"{aggregate_type_check};\n\n"
+            f"{aggregate_result_type_check};\n\n"
             "with\n"
             "source_aggregate as (\n"
             "  select\n"
@@ -476,8 +499,6 @@ class DuckDbSqlRenderer(SqlRenderer):
             f"  from {self.render_relation(target_relation)}\n"
             f"  group by {group_by_clause}\n"
             "),\n"
-            f"{type_check_cte},\n"
-            f"{aggregate_type_check},\n"
             "joined_aggregate as (\n"
             "  select\n"
             f"{joined_group_keys},\n"
@@ -494,12 +515,8 @@ class DuckDbSqlRenderer(SqlRenderer):
             "  joined_aggregate.target_aggregate_value,\n"
             "  joined_aggregate.source_aggregate_value - "
             "joined_aggregate.target_aggregate_value as aggregate_diff\n"
-            "from group_type_check\n"
-            "cross join aggregate_type_check\n"
-            "left join joined_aggregate\n"
-            "  on group_type_check.type_check and aggregate_type_check.type_check\n"
-            "where group_type_check.type_check and aggregate_type_check.type_check "
-            "and joined_aggregate.has_aggregate_row"
+            "from joined_aggregate\n"
+            "where joined_aggregate.has_aggregate_row"
         )
         return RenderedSql(
             sql=sql,
@@ -545,10 +562,72 @@ class DuckDbSqlRenderer(SqlRenderer):
             ")"
         )
 
-    def _render_aggregate_type_check_cte(
+    def _render_type_check_statement(
         self,
         *,
-        cte_name: str,
+        left_relation: Relation,
+        right_relation: Relation,
+        keys: tuple[str, ...],
+        error_message: str,
+    ) -> str:
+        left_relation_sql = self.render_relation(left_relation)
+        right_relation_sql = self.render_relation(right_relation)
+        predicates = "\n        and ".join(
+            f"typeof((select {self.quote_identifier(key)} from {left_relation_sql} limit 1)) = "
+            f"typeof((select {self.quote_identifier(key)} from {right_relation_sql} limit 1))"
+            for key in keys
+        )
+        return _render_type_check_select(
+            predicate=predicates,
+            error_message=error_message,
+        )
+
+    def _render_single_aggregate_input_type_check_statement(
+        self,
+        *,
+        relation: Relation,
+        column: str,
+        error_message: str,
+    ) -> str:
+        column_expression = self.quote_identifier(column)
+        relation_sql = self.render_relation(relation)
+        input_type = f"typeof((select {column_expression} from {relation_sql} limit 1))"
+        predicate = _aggregate_input_type_supported_predicate(input_type)
+        return _render_type_check_select(
+            predicate=predicate,
+            error_message=error_message,
+        )
+
+    def _render_aggregate_input_type_check_statement(
+        self,
+        *,
+        left_relation: Relation,
+        right_relation: Relation,
+        column: str,
+        error_message: str,
+    ) -> str:
+        column_expression = self.quote_identifier(column)
+        left_relation_sql = self.render_relation(left_relation)
+        right_relation_sql = self.render_relation(right_relation)
+        source_input_type = f"typeof((select {column_expression} from {left_relation_sql} limit 1))"
+        target_input_type = (
+            f"typeof((select {column_expression} from {right_relation_sql} limit 1))"
+        )
+        predicate = (
+            f"{source_input_type} = {target_input_type}\n"
+            "        and "
+            f"{_aggregate_input_type_supported_predicate(source_input_type)}\n"
+            "        and "
+            f"{_aggregate_input_type_supported_predicate(target_input_type)}"
+        )
+        return _render_type_check_select(
+            predicate=predicate,
+            error_message=error_message,
+        )
+
+    def _render_aggregate_result_type_check_statement(
+        self,
+        *,
         left_relation: Relation,
         right_relation: Relation,
         aggregate: str,
@@ -559,38 +638,13 @@ class DuckDbSqlRenderer(SqlRenderer):
         aggregate_expression = _aggregate_expression(aggregate, column_expression)
         left_relation_sql = self.render_relation(left_relation)
         right_relation_sql = self.render_relation(right_relation)
-        source_input_value = f"(select {column_expression} from {left_relation_sql} limit 1)"
-        target_input_value = f"(select {column_expression} from {right_relation_sql} limit 1)"
-        source_input_type = f"typeof((select {column_expression} from {left_relation_sql} limit 1))"
-        target_input_type = (
-            f"typeof((select {column_expression} from {right_relation_sql} limit 1))"
-        )
-        source_can_aggregate = f"can_cast_implicitly({source_input_value}, null::DOUBLE)"
-        target_can_aggregate = f"can_cast_implicitly({target_input_value}, null::DOUBLE)"
         predicate = (
-            f"{source_input_type} = {target_input_type}\n"
-            "        and "
-            f"{source_can_aggregate}\n"
-            "        and "
-            f"{target_can_aggregate}\n"
-            "        and "
-            f"{source_input_type} <> 'BOOLEAN'\n"
-            "        and "
-            f"{target_input_type} <> 'BOOLEAN'\n"
-            "        and "
             f"typeof((select {aggregate_expression} from {left_relation_sql} limit 1)) = "
             f"typeof((select {aggregate_expression} from {right_relation_sql} limit 1))"
         )
-        return (
-            f"{cte_name} as (\n"
-            "  select\n"
-            "    case\n"
-            "      when\n"
-            f"        {predicate}\n"
-            "      then true\n"
-            f"      else error({_sql_string_literal(error_message)})\n"
-            "    end as type_check\n"
-            ")"
+        return _render_type_check_select(
+            predicate=predicate,
+            error_message=error_message,
         )
 
     def _side_relation(
@@ -607,6 +661,18 @@ class DuckDbSqlRenderer(SqlRenderer):
         raise ValueError(f"Unsupported operation side: {side}")
 
 
+def _render_type_check_select(*, predicate: str, error_message: str) -> str:
+    return (
+        "select\n"
+        "  case\n"
+        "    when\n"
+        f"      {predicate}\n"
+        "    then true\n"
+        f"    else error({_sql_string_literal(error_message)})\n"
+        "  end as type_check"
+    )
+
+
 def _duckdb_dependency_available() -> bool:
     return find_spec("duckdb") is not None
 
@@ -616,9 +682,31 @@ def _sql_string_literal(value: str) -> str:
 
 
 def _aggregate_expression(aggregate: str, column_expression: str) -> str:
-    if aggregate == "sum":
-        return f"{aggregate}(try_cast({column_expression} as DOUBLE))"
     return f"{aggregate}({column_expression})"
+
+
+_DUCKDB_NUMERIC_SUM_TYPES = (
+    "TINYINT",
+    "SMALLINT",
+    "INTEGER",
+    "BIGINT",
+    "HUGEINT",
+    "UTINYINT",
+    "USMALLINT",
+    "UINTEGER",
+    "UBIGINT",
+    "UHUGEINT",
+    "FLOAT",
+    "DOUBLE",
+    "BIGNUM",
+)
+
+
+def _aggregate_input_type_supported_predicate(type_expression: str) -> str:
+    numeric_types = ", ".join(
+        _sql_string_literal(type_name) for type_name in _DUCKDB_NUMERIC_SUM_TYPES
+    )
+    return f"({type_expression} in ({numeric_types}) or {type_expression} like 'DECIMAL(%')"
 
 
 def _operation_step_name(*, index: int, operation: Mapping[str, Any]) -> str:

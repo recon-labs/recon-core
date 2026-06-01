@@ -49,7 +49,9 @@ incompatible physical types. It must also test that aggregate input column and
 value type mismatches fail instead of being compared through dialect implicit
 casts, including boolean aggregate inputs on engines where `sum(boolean)` has
 counting semantics and same-type unsupported or non-numeric aggregate metric
-inputs that could otherwise surface raw dialect binder errors.
+inputs that could otherwise surface raw dialect binder errors. It must also
+cover valid exact numeric aggregate values, including large integers and
+decimals, so adapter renderers cannot round or widen them through lossy casts.
 
 Unsupported required capabilities should produce clear diagnostics during
 compile or validation when possible. Runtime-only capability failures should be

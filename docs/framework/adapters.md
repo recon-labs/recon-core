@@ -184,14 +184,16 @@ join predicates so DuckDB comparison combination casting does not create
 cross-type matches. It also emits explicit key/group type-check CTEs for
 key-diff and grouped aggregate comparisons; physical type mismatches raise a
 clear Recon error instead of producing misleading missing/extra rows or raw
-DuckDB binder errors. Aggregate and grouped aggregate comparison SQL checks
-source and target metric input column types and aggregate result types before
-subtracting values so DuckDB implicit casts do not make cross-type metric
-comparisons look safe. Boolean aggregate inputs are rejected for current `sum`
-metric rendering because DuckDB treats `sum(boolean)` as a true-value count,
-which is not a safe numeric aggregate comparison. Grouped aggregate comparison
-output keeps source and target group keys separate as `source_<key>` and
-`target_<key>` columns instead of coalescing group keys across sides.
+DuckDB binder errors. Aggregate and grouped aggregate comparison SQL uses
+preflight type-check statements before native aggregate queries to check source
+and target metric input column types and aggregate result types before
+subtracting values. Valid numeric inputs use native DuckDB `sum(column)` rather
+than lossy casts, while unsafe inputs fail before the aggregate query is
+evaluated. Boolean aggregate inputs are rejected for current `sum` metric
+rendering because DuckDB treats `sum(boolean)` as a true-value count, which is
+not a safe numeric aggregate comparison. Grouped aggregate comparison output
+keeps source and target group keys separate as `source_<key>` and `target_<key>`
+columns instead of coalescing group keys across sides.
 
 Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 

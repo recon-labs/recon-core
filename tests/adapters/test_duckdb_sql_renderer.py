@@ -26,6 +26,107 @@ def target_relation() -> Relation:
     return Relation(schema="qa", identifier="customer_target")
 
 
+_DUCKDB_NUMERIC_SUM_TYPES = (
+    "'TINYINT', 'SMALLINT', 'INTEGER', 'BIGINT', 'HUGEINT', 'UTINYINT', "
+    "'USMALLINT', 'UINTEGER', 'UBIGINT', 'UHUGEINT', 'FLOAT', 'DOUBLE', 'BIGNUM'"
+)
+_SOURCE_RELATION_SQL = '"qa"."customer_source"'
+_TARGET_RELATION_SQL = '"qa"."customer_target"'
+
+
+def _aggregate_input_predicate(relation: str, column: str = "revenue") -> str:
+    input_type = f'typeof((select "{column}" from {relation} limit 1))'
+    return f"({input_type} in ({_DUCKDB_NUMERIC_SUM_TYPES}) or {input_type} like 'DECIMAL(%')"
+
+
+def _single_aggregate_type_check(
+    relation: str,
+    *,
+    error_message: str,
+    column: str = "revenue",
+) -> str:
+    return (
+        "select\n"
+        "  case\n"
+        "    when\n"
+        f"      {_aggregate_input_predicate(relation, column)}\n"
+        "    then true\n"
+        f"    else error('{error_message}')\n"
+        "  end as type_check"
+    )
+
+
+def _aggregate_pair_input_type_check(
+    *,
+    error_message: str,
+    column: str = "revenue",
+) -> str:
+    source_type = f'typeof((select "{column}" from "qa"."customer_source" limit 1))'
+    target_type = f'typeof((select "{column}" from "qa"."customer_target" limit 1))'
+    return (
+        "select\n"
+        "  case\n"
+        "    when\n"
+        f"      {source_type} = {target_type}\n"
+        f"        and {_aggregate_input_predicate(_SOURCE_RELATION_SQL, column)}\n"
+        f"        and {_aggregate_input_predicate(_TARGET_RELATION_SQL, column)}\n"
+        "    then true\n"
+        f"    else error('{error_message}')\n"
+        "  end as type_check"
+    )
+
+
+def _aggregate_result_type_check(*, error_message: str, column: str = "revenue") -> str:
+    return (
+        "select\n"
+        "  case\n"
+        "    when\n"
+        f'      typeof((select sum("{column}") from "qa"."customer_source" limit 1)) = '
+        f'typeof((select sum("{column}") from "qa"."customer_target" limit 1))\n'
+        "    then true\n"
+        f"    else error('{error_message}')\n"
+        "  end as type_check"
+    )
+
+
+def _group_key_type_check(*, error_message: str, column: str = "month") -> str:
+    return (
+        "select\n"
+        "  case\n"
+        "    when\n"
+        f'      typeof((select "{column}" from "qa"."customer_source" limit 1)) = '
+        f'typeof((select "{column}" from "qa"."customer_target" limit 1))\n'
+        "    then true\n"
+        f"    else error('{error_message}')\n"
+        "  end as type_check"
+    )
+
+
+_SOURCE_AGGREGATE_TYPE_CHECK = _single_aggregate_type_check(
+    _SOURCE_RELATION_SQL,
+    error_message="Recon DuckDB aggregate value type mismatch.",
+)
+_SOURCE_GROUPED_AGGREGATE_TYPE_CHECK = _single_aggregate_type_check(
+    _SOURCE_RELATION_SQL,
+    error_message="Recon DuckDB grouped aggregate value type mismatch.",
+)
+_AGGREGATE_PAIR_INPUT_TYPE_CHECK = _aggregate_pair_input_type_check(
+    error_message="Recon DuckDB aggregate value type mismatch.",
+)
+_AGGREGATE_RESULT_TYPE_CHECK = _aggregate_result_type_check(
+    error_message="Recon DuckDB aggregate value type mismatch.",
+)
+_GROUPED_KEY_TYPE_CHECK = _group_key_type_check(
+    error_message="Recon DuckDB grouped aggregate key type mismatch.",
+)
+_GROUPED_AGGREGATE_PAIR_INPUT_TYPE_CHECK = _aggregate_pair_input_type_check(
+    error_message="Recon DuckDB grouped aggregate value type mismatch.",
+)
+_GROUPED_AGGREGATE_RESULT_TYPE_CHECK = _aggregate_result_type_check(
+    error_message="Recon DuckDB grouped aggregate value type mismatch.",
+)
+
+
 def test_render_row_count_operation(
     renderer: DuckDbSqlRenderer,
     source_relation: Relation,
@@ -126,7 +227,8 @@ having count(*) > 1""",
                 column="revenue",
             ),
             (
-                'select sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
+                f"{_SOURCE_AGGREGATE_TYPE_CHECK};\n\n"
+                'select sum("revenue") as aggregate_value\n'
                 'from "qa"."customer_source"'
             ),
         ),
@@ -138,8 +240,8 @@ having count(*) > 1""",
                 group_by=("month",),
             ),
             (
-                'select\n  "month",\n  sum(try_cast("revenue" as DOUBLE)) '
-                "as aggregate_value\n"
+                f"{_SOURCE_GROUPED_AGGREGATE_TYPE_CHECK};\n\n"
+                'select\n  "month",\n  sum("revenue") as aggregate_value\n'
                 'from "qa"."customer_source"\ngroup by "month"'
             ),
         ),
@@ -248,45 +350,23 @@ def test_render_aggregate_comparison_plan(
 
     assert rendered[-1].operation_type == "compare_aggregates"
     assert rendered[-1].sql == (
+        f"{_AGGREGATE_PAIR_INPUT_TYPE_CHECK};\n\n"
+        f"{_AGGREGATE_RESULT_TYPE_CHECK};\n\n"
         "with\n"
-        "aggregate_type_check as (\n"
-        "  select\n"
-        "    case\n"
-        "      when\n"
-        '        typeof((select "revenue" from "qa"."customer_source" limit 1)) = '
-        'typeof((select "revenue" from "qa"."customer_target" limit 1))\n'
-        '        and can_cast_implicitly((select "revenue" from "qa"."customer_source" '
-        "limit 1), null::DOUBLE)\n"
-        '        and can_cast_implicitly((select "revenue" from "qa"."customer_target" '
-        "limit 1), null::DOUBLE)\n"
-        '        and typeof((select "revenue" from "qa"."customer_source" limit 1)) <> '
-        "'BOOLEAN'\n"
-        '        and typeof((select "revenue" from "qa"."customer_target" limit 1)) <> '
-        "'BOOLEAN'\n"
-        '        and typeof((select sum(try_cast("revenue" as DOUBLE)) '
-        'from "qa"."customer_source" limit 1)) = '
-        'typeof((select sum(try_cast("revenue" as DOUBLE)) '
-        'from "qa"."customer_target" limit 1))\n'
-        "      then true\n"
-        "      else error('Recon DuckDB aggregate value type mismatch.')\n"
-        "    end as type_check\n"
-        "),\n"
         "source_aggregate as (\n"
-        '  select sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
+        '  select sum("revenue") as aggregate_value\n'
         '  from "qa"."customer_source"\n'
         "),\n"
         "target_aggregate as (\n"
-        '  select sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
+        '  select sum("revenue") as aggregate_value\n'
         '  from "qa"."customer_target"\n'
         ")\n"
         "select\n"
         "  source_aggregate.aggregate_value as source_aggregate_value,\n"
         "  target_aggregate.aggregate_value as target_aggregate_value,\n"
         "  source_aggregate.aggregate_value - target_aggregate.aggregate_value as aggregate_diff\n"
-        "from aggregate_type_check\n"
-        "cross join source_aggregate\n"
-        "cross join target_aggregate\n"
-        "where aggregate_type_check.type_check"
+        "from source_aggregate\n"
+        "cross join target_aggregate"
     )
 
 
@@ -317,52 +397,23 @@ def test_render_grouped_aggregate_comparison_plan(
 
     assert rendered[-1].operation_type == "compare_grouped_aggregates"
     assert rendered[-1].sql == (
+        f"{_GROUPED_KEY_TYPE_CHECK};\n\n"
+        f"{_GROUPED_AGGREGATE_PAIR_INPUT_TYPE_CHECK};\n\n"
+        f"{_GROUPED_AGGREGATE_RESULT_TYPE_CHECK};\n\n"
         "with\n"
         "source_aggregate as (\n"
         "  select\n"
         '    "month",\n'
-        '    sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
+        '    sum("revenue") as aggregate_value\n'
         '  from "qa"."customer_source"\n'
         '  group by "month"\n'
         "),\n"
         "target_aggregate as (\n"
         "  select\n"
         '    "month",\n'
-        '    sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
+        '    sum("revenue") as aggregate_value\n'
         '  from "qa"."customer_target"\n'
         '  group by "month"\n'
-        "),\n"
-        "group_type_check as (\n"
-        "  select\n"
-        "    case\n"
-        "      when\n"
-        '        typeof((select "month" from "qa"."customer_source" limit 1)) = '
-        'typeof((select "month" from "qa"."customer_target" limit 1))\n'
-        "      then true\n"
-        "      else error('Recon DuckDB grouped aggregate key type mismatch.')\n"
-        "    end as type_check\n"
-        "),\n"
-        "aggregate_type_check as (\n"
-        "  select\n"
-        "    case\n"
-        "      when\n"
-        '        typeof((select "revenue" from "qa"."customer_source" limit 1)) = '
-        'typeof((select "revenue" from "qa"."customer_target" limit 1))\n'
-        '        and can_cast_implicitly((select "revenue" from "qa"."customer_source" '
-        "limit 1), null::DOUBLE)\n"
-        '        and can_cast_implicitly((select "revenue" from "qa"."customer_target" '
-        "limit 1), null::DOUBLE)\n"
-        '        and typeof((select "revenue" from "qa"."customer_source" limit 1)) <> '
-        "'BOOLEAN'\n"
-        '        and typeof((select "revenue" from "qa"."customer_target" limit 1)) <> '
-        "'BOOLEAN'\n"
-        '        and typeof((select sum(try_cast("revenue" as DOUBLE)) '
-        'from "qa"."customer_source" limit 1)) = '
-        'typeof((select sum(try_cast("revenue" as DOUBLE)) '
-        'from "qa"."customer_target" limit 1))\n'
-        "      then true\n"
-        "      else error('Recon DuckDB grouped aggregate value type mismatch.')\n"
-        "    end as type_check\n"
         "),\n"
         "joined_aggregate as (\n"
         "  select\n"
@@ -383,12 +434,8 @@ def test_render_grouped_aggregate_comparison_plan(
         "  joined_aggregate.target_aggregate_value,\n"
         "  joined_aggregate.source_aggregate_value - joined_aggregate.target_aggregate_value "
         "as aggregate_diff\n"
-        "from group_type_check\n"
-        "cross join aggregate_type_check\n"
-        "left join joined_aggregate\n"
-        "  on group_type_check.type_check and aggregate_type_check.type_check\n"
-        "where group_type_check.type_check and aggregate_type_check.type_check "
-        "and joined_aggregate.has_aggregate_row"
+        "from joined_aggregate\n"
+        "where joined_aggregate.has_aggregate_row"
     )
 
 
@@ -564,6 +611,37 @@ def test_aggregate_unsupported_same_input_type_raises_recon_error(
         con.execute(rendered[-1].sql).fetchall()
 
 
+def test_aggregate_large_bigint_preserves_exact_difference(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (revenue bigint)")
+    con.execute("create table target_table (revenue bigint)")
+    con.execute("insert into source_table values (9007199254740992)")
+    con.execute("insert into target_table values (9007199254740993)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.compare_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    assert con.execute(rendered[-1].sql).fetchall() == [(9007199254740992, 9007199254740993, -1)]
+
+
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
@@ -732,6 +810,41 @@ def test_grouped_aggregate_unsupported_same_input_type_raises_recon_error(
 
     with pytest.raises(Exception, match="Recon DuckDB grouped aggregate value type mismatch"):
         con.execute(rendered[-1].sql).fetchall()
+
+
+def test_grouped_aggregate_large_bigint_preserves_exact_difference(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (month varchar, revenue bigint)")
+    con.execute("create table target_table (month varchar, revenue bigint)")
+    con.execute("insert into source_table values ('2026-01', 9007199254740992)")
+    con.execute("insert into target_table values ('2026-01', 9007199254740993)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.compare_grouped_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    assert con.execute(rendered[-1].sql).fetchall() == [
+        ("2026-01", "2026-01", 9007199254740992, 9007199254740993, -1)
+    ]
 
 
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error_without_rows(

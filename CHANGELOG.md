@@ -123,6 +123,9 @@ This project follows semantic versioning once public package releases begin.
 - DuckDB aggregate and grouped aggregate comparison SQL now checks aggregate
   input column and result types before subtracting values so DuckDB implicit
   casts cannot make cross-type metric comparisons look safely comparable.
+- DuckDB aggregate and grouped aggregate comparison SQL now runs type-check
+  preflight statements before native `sum(column)` queries so unsupported metric
+  inputs fail clearly without forcing valid exact numerics through lossy casts.
 - DuckDB aggregate and grouped aggregate comparison SQL now rejects boolean
   `sum` inputs so DuckDB true-value counting cannot be mistaken for numeric
   aggregate comparison.

@@ -176,6 +176,8 @@ semantics executable across adapters and should cover:
   Recon or adapter-level errors instead of raw dialect binder errors,
 - boolean aggregate inputs fail for `sum` semantics when an engine treats them
   as true-value counts instead of numeric aggregates,
+- valid exact numeric aggregate inputs, including large integers and decimals,
+  are not rounded or widened through lossy casts before comparison,
 - empty source/target relations with mismatched key or group-key types still
   fail instead of producing empty trustworthy-looking comparison output,
 - grouped aggregate renderers do not use cross-type coalescing for source and

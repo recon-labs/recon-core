@@ -40,10 +40,12 @@ surfacing raw dialect binder errors. Grouped aggregate comparison output uses
 separate `source_<key>` and `target_<key>` group key columns instead of a
 coalesced group key. DuckDB aggregate comparisons also treat aggregate result
 type equality and metric input column type equality as part of safe comparison
-behavior before subtracting source and target aggregate values. Boolean
-aggregate inputs are rejected for current DuckDB `sum` metric rendering because
-DuckDB treats `sum(boolean)` as a true-value count, not a safe numeric aggregate
-comparison.
+behavior before subtracting source and target aggregate values. Current DuckDB
+aggregate comparison SQL uses preflight type-check statements before native
+aggregate queries so valid numeric inputs are not forced through lossy casts.
+Boolean aggregate inputs are rejected for current DuckDB `sum` metric rendering
+because DuckDB treats `sum(boolean)` as a true-value count, not a safe numeric
+aggregate comparison.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 the test-kit design must define a SQL comparison conformance matrix. That matrix
@@ -60,7 +62,8 @@ does not rely on cross-type group-key coalescing. It must also cover aggregate
 value and input column type mismatches, including boolean aggregate inputs and
 same-type unsupported or non-numeric aggregate metric inputs, so cross-type or
 non-numeric metric comparisons cannot pass through dialect implicit casts,
-aggregate-specific boolean semantics, or raw dialect binder errors.
+aggregate-specific boolean semantics, raw dialect binder errors, or lossy casts
+that round valid exact numeric aggregate values.
 
 The same test-kit design must define adapter API conformance tests separate
 from the SQL comparison matrix. At minimum, those tests must cover adapter
@@ -175,8 +178,9 @@ DuckDB renderer treats key-diff inputs as distinct non-null key sets and guards
 key/group comparison predicates with `typeof(...)` before null-safe equality so
 DuckDB comparison combination casting cannot make unlike physical types match.
 It also guards aggregate metric input column types and aggregate result types
-before subtracting source and target aggregate values, and rejects boolean
-aggregate inputs for current `sum` metric rendering.
+with preflight statements before native aggregate queries, preserves native
+numeric `sum(column)` behavior for valid inputs, and rejects boolean aggregate
+inputs for current `sum` metric rendering.
 
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
 `target-path`, for example:
