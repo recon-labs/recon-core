@@ -48,7 +48,8 @@ aggregate renderers do not coalesce source and target group keys across
 incompatible physical types. It must also test that aggregate input column and
 value type mismatches fail instead of being compared through dialect implicit
 casts, including boolean aggregate inputs on engines where `sum(boolean)` has
-counting semantics.
+counting semantics and same-type unsupported or non-numeric aggregate metric
+inputs that could otherwise surface raw dialect binder errors.
 
 Unsupported required capabilities should produce clear diagnostics during
 compile or validation when possible. Runtime-only capability failures should be

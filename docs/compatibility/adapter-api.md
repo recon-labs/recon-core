@@ -57,9 +57,10 @@ returning missing/extra rows, grouped aggregate key type mismatches fail with a
 Recon-level error instead of a raw dialect binder error, empty source/target
 relations with mismatched key types still fail, and grouped aggregate rendering
 does not rely on cross-type group-key coalescing. It must also cover aggregate
-value and input column type mismatches, including boolean aggregate inputs, so
-cross-type or non-numeric metric comparisons cannot pass through dialect
-implicit casts or aggregate-specific boolean semantics.
+value and input column type mismatches, including boolean aggregate inputs and
+same-type unsupported or non-numeric aggregate metric inputs, so cross-type or
+non-numeric metric comparisons cannot pass through dialect implicit casts,
+aggregate-specific boolean semantics, or raw dialect binder errors.
 
 The same test-kit design must define adapter API conformance tests separate
 from the SQL comparison matrix. At minimum, those tests must cover adapter

@@ -172,6 +172,8 @@ semantics executable across adapters and should cover:
   errors instead of raw dialect binder errors,
 - aggregate input column and value type mismatches fail instead of being
   compared through dialect implicit casts,
+- same-type unsupported or non-numeric aggregate metric inputs fail with clear
+  Recon or adapter-level errors instead of raw dialect binder errors,
 - boolean aggregate inputs fail for `sum` semantics when an engine treats them
   as true-value counts instead of numeric aggregates,
 - empty source/target relations with mismatched key or group-key types still
