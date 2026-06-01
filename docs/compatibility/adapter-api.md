@@ -40,7 +40,10 @@ surfacing raw dialect binder errors. Grouped aggregate comparison output uses
 separate `source_<key>` and `target_<key>` group key columns instead of a
 coalesced group key. DuckDB aggregate comparisons also treat aggregate result
 type equality and metric input column type equality as part of safe comparison
-behavior before subtracting source and target aggregate values.
+behavior before subtracting source and target aggregate values. Boolean
+aggregate inputs are rejected for current DuckDB `sum` metric rendering because
+DuckDB treats `sum(boolean)` as a true-value count, not a safe numeric aggregate
+comparison.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 the test-kit design must define a SQL comparison conformance matrix. That matrix
@@ -54,8 +57,9 @@ returning missing/extra rows, grouped aggregate key type mismatches fail with a
 Recon-level error instead of a raw dialect binder error, empty source/target
 relations with mismatched key types still fail, and grouped aggregate rendering
 does not rely on cross-type group-key coalescing. It must also cover aggregate
-value and input column type mismatches so cross-type metric comparisons cannot
-pass through dialect implicit casts.
+value and input column type mismatches, including boolean aggregate inputs, so
+cross-type or non-numeric metric comparisons cannot pass through dialect
+implicit casts or aggregate-specific boolean semantics.
 
 ## Compatibility contract
 
@@ -72,6 +76,10 @@ Core validates adapter API compatibility before adapter-aware SQL rendering and
 must validate it again before future execution. An adapter that does not
 support the required adapter API version fails with a clear diagnostic instead
 of running with ambiguous behavior.
+
+Adapter factories must return either an adapter or one or more diagnostics.
+Returning neither is an adapter resolution failure and must surface
+`RC_ADAPTER_RESOLUTION_FAILED`.
 
 The first adapter boundary separates:
 
@@ -160,7 +168,8 @@ DuckDB renderer treats key-diff inputs as distinct non-null key sets and guards
 key/group comparison predicates with `typeof(...)` before null-safe equality so
 DuckDB comparison combination casting cannot make unlike physical types match.
 It also guards aggregate metric input column types and aggregate result types
-before subtracting source and target aggregate values.
+before subtracting source and target aggregate values, and rejects boolean
+aggregate inputs for current `sum` metric rendering.
 
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
 `target-path`, for example:

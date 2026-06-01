@@ -135,6 +135,28 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_reports_empty_adapter_resolution_result(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="empty")
+    registry = AdapterRegistry()
+    registry.register("empty", EmptyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
+    ]
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_reports_compile_validation_before_profile_errors(
     tmp_path: Path,
 ) -> None:
@@ -436,6 +458,11 @@ class FakeAdapter(BaseAdapter):
 class FakeAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult(adapter=FakeAdapter(connection=connection))
+
+
+class EmptyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult()
 
 
 def test_compile_service_ignores_indexed_non_contract_files_for_compiled_output(

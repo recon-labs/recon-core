@@ -553,9 +553,16 @@ class DuckDbSqlRenderer(SqlRenderer):
         aggregate_expression = f"{aggregate}({column_expression})"
         left_relation_sql = self.render_relation(left_relation)
         right_relation_sql = self.render_relation(right_relation)
+        source_input_type = f"typeof((select {column_expression} from {left_relation_sql} limit 1))"
+        target_input_type = (
+            f"typeof((select {column_expression} from {right_relation_sql} limit 1))"
+        )
         predicate = (
-            f"typeof((select {column_expression} from {left_relation_sql} limit 1)) = "
-            f"typeof((select {column_expression} from {right_relation_sql} limit 1))\n"
+            f"{source_input_type} = {target_input_type}\n"
+            "        and "
+            f"{source_input_type} <> 'BOOLEAN'\n"
+            "        and "
+            f"{target_input_type} <> 'BOOLEAN'\n"
             "        and "
             f"typeof((select {aggregate_expression} from {left_relation_sql} limit 1)) = "
             f"typeof((select {aggregate_expression} from {right_relation_sql} limit 1))"

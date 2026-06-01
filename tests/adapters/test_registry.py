@@ -2,6 +2,7 @@ from recon_core.adapters import (
     ADAPTER_API_VERSION,
     AdapterCapabilities,
     AdapterRegistry,
+    AdapterResolutionResult,
     BaseAdapter,
     ColumnMetadata,
     ConnectionConfig,
@@ -39,6 +40,11 @@ class IncompatibleAdapter(CompatibleAdapter):
     supported_adapter_api_version = "0.0"
 
 
+class EmptyFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult()
+
+
 def test_adapter_api_compatibility_passes_for_current_api_version() -> None:
     adapter = CompatibleAdapter(connection=ConnectionConfig(name="source", type="compatible"))
 
@@ -73,3 +79,17 @@ def test_registry_reports_unknown_adapter_type() -> None:
     assert result.adapter is None
     assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_ADAPTER_UNKNOWN_TYPE"]
     assert result.diagnostics[0].resource_name == "missing"
+
+
+def test_registry_reports_empty_adapter_resolution_result() -> None:
+    registry = AdapterRegistry()
+    registry.register("empty", EmptyFactory())
+
+    result = registry.resolve(ConnectionConfig(name="source", type="empty"))
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert result.diagnostics[0].resource_name == "empty"

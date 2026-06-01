@@ -106,6 +106,8 @@ This project follows semantic versioning once public package releases begin.
   DuckDB optional dependencies, unsupported adapter API versions, unsupported
   required capabilities, query endpoints, invalid relation names, and renderer
   failures without writing misleading SQL artifacts.
+- Adapter-aware SQL rendering now fails with `RC_ADAPTER_RESOLUTION_FAILED`
+  when an adapter factory returns neither an adapter nor a diagnostic.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so
   source and target `NULL` groups compare as the same group.
 - DuckDB key-diff SQL now compares distinct non-null key sets, keeping null-key
@@ -121,6 +123,9 @@ This project follows semantic versioning once public package releases begin.
 - DuckDB aggregate and grouped aggregate comparison SQL now checks aggregate
   input column and result types before subtracting values so DuckDB implicit
   casts cannot make cross-type metric comparisons look safely comparable.
+- DuckDB aggregate and grouped aggregate comparison SQL now rejects boolean
+  `sum` inputs so DuckDB true-value counting cannot be mistaken for numeric
+  aggregate comparison.
 - `recon compile --render-sql` now reports compile validation errors before
   loading adapter profiles, so profile configuration errors cannot hide invalid
   contracts.

@@ -226,7 +226,10 @@ Adapters should expose canonical projections where possible.
 
 ## Adapter registry
 
-Core should use an adapter registry to resolve adapter type to adapter implementation.
+Core should use an adapter registry to resolve adapter type to adapter
+implementation. Adapter factories must return either an adapter or a
+diagnostic; returning neither is a resolution failure, not a successful
+adapter-aware invocation.
 
 ```text
 postgres -> recon-postgres
@@ -239,8 +242,11 @@ DuckDB is the first local development adapter. It should prove profile loading,
 adapter registration, capability validation, SQL rendering, and the first
 adapter test-kit shape without declaring a production adapter package.
 
-Current DuckDB behavior renders SQL for existing typed plans only. Connection
-lifecycle, metadata fetching, and check execution remain future work.
+Current DuckDB behavior renders SQL for existing typed plans only. It guards
+key/group and aggregate comparison SQL against unsafe dialect coercion and
+rejects boolean inputs for current `sum` metric rendering because DuckDB treats
+`sum(boolean)` as a true-value count. Connection lifecycle, metadata fetching,
+and check execution remain future work.
 
 ## Query endpoint boundary
 

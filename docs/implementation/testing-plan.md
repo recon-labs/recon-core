@@ -166,6 +166,8 @@ semantics executable across adapters and should cover:
   errors instead of raw dialect binder errors,
 - aggregate input column and value type mismatches fail instead of being
   compared through dialect implicit casts,
+- boolean aggregate inputs fail for `sum` semantics when an engine treats them
+  as true-value counts instead of numeric aggregates,
 - empty source/target relations with mismatched key or group-key types still
   fail instead of producing empty trustworthy-looking comparison output,
 - grouped aggregate renderers do not use cross-type coalescing for source and

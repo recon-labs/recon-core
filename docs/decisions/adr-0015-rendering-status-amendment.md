@@ -17,7 +17,7 @@ failed
 
 Meanings:
 
-- `not_rendered`: adapter-aware rendering was not requested or no renderer was available.
+- `not_rendered`: adapter-aware rendering was not requested.
 - `rendered`: all SQL needed for the check was rendered.
 - `blocked`: rendering was intentionally skipped because validation failed.
 - `failed`: rendering was attempted but failed because of an adapter or rendering error.

@@ -47,7 +47,8 @@ empty source/target relations with mismatched key types still fail, and grouped
 aggregate renderers do not coalesce source and target group keys across
 incompatible physical types. It must also test that aggregate input column and
 value type mismatches fail instead of being compared through dialect implicit
-casts.
+casts, including boolean aggregate inputs on engines where `sum(boolean)` has
+counting semantics.
 
 Unsupported required capabilities should produce clear diagnostics during
 compile or validation when possible. Runtime-only capability failures should be

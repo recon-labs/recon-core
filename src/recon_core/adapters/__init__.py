@@ -18,6 +18,7 @@ from recon_core.adapters.models import (
 )
 from recon_core.adapters.registry import (
     ADAPTER_API_VERSION_UNSUPPORTED,
+    ADAPTER_RESOLUTION_FAILED,
     ADAPTER_UNKNOWN_TYPE,
     AdapterFactory,
     AdapterRegistry,
@@ -44,6 +45,7 @@ __all__ = [
     "ADAPTER_API_VERSION",
     "ADAPTER_API_VERSION_UNSUPPORTED",
     "ADAPTER_CAPABILITY_UNSUPPORTED",
+    "ADAPTER_RESOLUTION_FAILED",
     "ADAPTER_INVALID_RELATION",
     "ADAPTER_OPERATION_RENDER_FAILED",
     "ADAPTER_QUERY_ENDPOINT_UNSUPPORTED",

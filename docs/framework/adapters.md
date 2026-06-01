@@ -187,9 +187,11 @@ clear Recon error instead of producing misleading missing/extra rows or raw
 DuckDB binder errors. Aggregate and grouped aggregate comparison SQL checks
 source and target metric input column types and aggregate result types before
 subtracting values so DuckDB implicit casts do not make cross-type metric
-comparisons look safe. Grouped aggregate comparison output keeps source and
-target group keys separate as `source_<key>` and `target_<key>` columns instead
-of coalescing group keys across sides.
+comparisons look safe. Boolean aggregate inputs are rejected for current `sum`
+metric rendering because DuckDB treats `sum(boolean)` as a true-value count,
+which is not a safe numeric aggregate comparison. Grouped aggregate comparison
+output keeps source and target group keys separate as `source_<key>` and
+`target_<key>` columns instead of coalescing group keys across sides.
 
 Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 
@@ -200,10 +202,11 @@ blocked
 failed
 ```
 
-`not_rendered` means adapter-aware rendering was not requested or no renderer
-was available. `rendered` means all required SQL was produced. `blocked` means
-rendering was skipped because validation failed. `failed` means rendering was
-attempted and failed due to an adapter or renderer error.
+`not_rendered` means adapter-aware rendering was not requested. `rendered`
+means all required SQL was produced. `blocked` means rendering was skipped
+because validation failed. `failed` means rendering was attempted and failed
+due to an adapter or renderer error. A missing renderer during adapter-aware
+rendering is a `blocked` capability diagnostic, not `not_rendered`.
 
 If any check in an adapter-aware compile invocation produces a rendering
 diagnostic, Recon writes no compiled SQL files for that invocation. Checks with

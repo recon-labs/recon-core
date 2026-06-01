@@ -13,6 +13,7 @@ from recon_core.profiles import ConnectionConfig
 
 ADAPTER_UNKNOWN_TYPE = "RC_ADAPTER_UNKNOWN_TYPE"
 ADAPTER_API_VERSION_UNSUPPORTED = "RC_ADAPTER_API_VERSION_UNSUPPORTED"
+ADAPTER_RESOLUTION_FAILED = "RC_ADAPTER_RESOLUTION_FAILED"
 
 
 class AdapterFactory(Protocol):
@@ -56,7 +57,25 @@ class AdapterRegistry:
                 )
             )
 
-        return creator(connection)
+        result = creator(connection)
+        if result.adapter is None and not result.diagnostics:
+            return AdapterResolutionResult(
+                diagnostics=(
+                    Diagnostic(
+                        code=ADAPTER_RESOLUTION_FAILED,
+                        severity=DiagnosticSeverity.ERROR,
+                        message=(
+                            f"Adapter factory for type `{connection.type}` returned no "
+                            "adapter and no diagnostic."
+                        ),
+                        resource_type="adapter",
+                        resource_name=connection.type,
+                        hint="Fix the adapter factory to return an adapter or a diagnostic.",
+                    ),
+                )
+            )
+
+        return result
 
 
 def validate_adapter_api_compatibility(adapter: BaseAdapter) -> tuple[Diagnostic, ...]:

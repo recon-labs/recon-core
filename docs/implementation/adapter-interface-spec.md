@@ -140,7 +140,9 @@ registry.register("snowflake", SnowflakeAdapter)
 registry.register("duckdb", DuckDbAdapterFactory())
 ```
 
-Core should resolve connection type through the registry.
+Core should resolve connection type through the registry. Adapter factories
+must return either an adapter or a diagnostic; a factory that returns neither
+fails resolution with `RC_ADAPTER_RESOLUTION_FAILED`.
 
 The DuckDB adapter starts in `recon-core` as the local development adapter.
 External adapter packages should wait until the adapter API and shared adapter
@@ -199,9 +201,11 @@ grouped aggregate comparison SQL also renders explicit source/target key type
 checks that raise clear Recon errors on physical type mismatch. DuckDB
 aggregate and grouped aggregate comparison SQL checks source/target metric
 input column types and aggregate result types before subtracting aggregate
-values. Grouped aggregate comparison results expose source and target group keys
-separately as `source_<key>` and `target_<key>` columns instead of coalescing
-group keys across sides.
+values. Boolean aggregate inputs are rejected for current DuckDB `sum` metric
+rendering because `sum(boolean)` is a true-value count, not a safe numeric
+aggregate comparison. Grouped aggregate comparison results expose source and
+target group keys separately as `source_<key>` and `target_<key>` columns
+instead of coalescing group keys across sides.
 
 Rendered SQL belongs under:
 
