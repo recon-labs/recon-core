@@ -161,7 +161,9 @@ Current `compile` behavior:
 - sets rendering status to `rendered`, `blocked`, or `failed` for
   adapter-aware compile results,
 - writes no compiled SQL files and marks checks `blocked` or `failed` when any
-  rendering diagnostic prevents adapter-aware SQL artifact output,
+  rendering diagnostic prevents adapter-aware SQL artifact output; checks blocked
+  only because SQL output was suppressed include a suppression diagnostic in
+  their compiled checks artifact,
 - removes stale `target/compiled_sql/` output on plain compile,
 - validates duplicate contract names and stable ID-safe project, contract, and
   metric names before writing compiled artifacts,

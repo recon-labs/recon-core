@@ -43,6 +43,7 @@ from recon_core.services.results import ExitCategory, ServiceResult
 
 COMPILED_ARTIFACT_WRITE_FAILED = "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
 MIXED_ADAPTER_TYPES_UNSUPPORTED = "RC_ADAPTER_MIXED_ADAPTER_TYPES_UNSUPPORTED"
+ADAPTER_RENDERING_OUTPUT_SUPPRESSED = "RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,10 +301,20 @@ def _apply_render_failure_metadata(
         for check in compiled_contract.checks_artifact.checks:
             render_result = render_results_by_check_id.get(check.id)
             if render_result is None:
-                rendered_checks.append(_with_blocked_rendering(check))
+                rendered_checks.append(
+                    _with_blocked_rendering(
+                        check,
+                        diagnostics=(_rendering_output_suppressed_diagnostic(check),),
+                    )
+                )
                 continue
             if not render_result.diagnostics:
-                rendered_checks.append(_with_blocked_rendering(check))
+                rendered_checks.append(
+                    _with_blocked_rendering(
+                        check,
+                        diagnostics=(_rendering_output_suppressed_diagnostic(check),),
+                    )
+                )
                 continue
             rendered_checks.append(
                 replace(
@@ -329,13 +340,32 @@ def _apply_render_failure_metadata(
     return tuple(rendered_contracts)
 
 
-def _with_blocked_rendering(check: CompiledCheck) -> CompiledCheck:
+def _with_blocked_rendering(
+    check: CompiledCheck,
+    *,
+    diagnostics: tuple[Diagnostic, ...] = (),
+) -> CompiledCheck:
     return replace(
         check,
         rendering=Rendering(
             status=RenderingStatus.BLOCKED,
             sql_paths=(),
         ),
+        diagnostics=check.diagnostics + diagnostics,
+    )
+
+
+def _rendering_output_suppressed_diagnostic(check: CompiledCheck) -> Diagnostic:
+    return Diagnostic(
+        code=ADAPTER_RENDERING_OUTPUT_SUPPRESSED,
+        severity=DiagnosticSeverity.ERROR,
+        message=(
+            f"SQL output for check `{check.id}` was suppressed because another check in "
+            "the same render-sql invocation produced a rendering diagnostic."
+        ),
+        resource_type="compiled_check",
+        resource_name=check.id,
+        hint="Fix the rendering diagnostics and rerun `recon compile --render-sql`.",
     )
 
 
@@ -343,6 +373,28 @@ def _render_failure_status(diagnostics: tuple[Diagnostic, ...]) -> RenderingStat
     if any(diagnostic.code == ADAPTER_OPERATION_RENDER_FAILED for diagnostic in diagnostics):
         return RenderingStatus.FAILED
     return RenderingStatus.BLOCKED
+
+
+def _dedupe_diagnostics(diagnostics: tuple[Diagnostic, ...]) -> tuple[Diagnostic, ...]:
+    unique: list[Diagnostic] = []
+    seen: set[tuple[object, ...]] = set()
+    for diagnostic in diagnostics:
+        key = (
+            diagnostic.code,
+            diagnostic.severity,
+            diagnostic.message,
+            diagnostic.resource_type,
+            diagnostic.resource_name,
+            diagnostic.path,
+            diagnostic.line,
+            diagnostic.column,
+            diagnostic.hint,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(diagnostic)
+    return tuple(unique)
 
 
 def _clear_compiled_artifacts(target_path: Path) -> None:
@@ -503,7 +555,7 @@ def _render_compiled_sql_in_memory(
 
     return _RenderSqlCompilationResult(
         results_by_check_id=results_by_check_id,
-        diagnostics=tuple(diagnostics),
+        diagnostics=_dedupe_diagnostics(tuple(diagnostics)),
     )
 
 

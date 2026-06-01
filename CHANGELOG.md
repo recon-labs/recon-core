@@ -127,6 +127,12 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile --render-sql` now marks all checks as `blocked` or `failed`
   when a rendering diagnostic prevents SQL artifact output, avoiding
   misleading `not_rendered` metadata for adapter-aware compile results.
+- `recon compile --render-sql` now adds a structured suppression diagnostic to
+  otherwise renderable checks whose SQL paths are intentionally omitted because
+  another check blocked SQL output for the invocation.
+- `recon compile --render-sql` now de-duplicates identical contract-level query
+  endpoint diagnostics in the service result while preserving per-check artifact
+  diagnostics.
 - Invalid `connections/profiles.yml` YAML diagnostics no longer include the
   raw YAML parser message, preventing malformed secret-bearing lines from
   appearing in CLI diagnostics.

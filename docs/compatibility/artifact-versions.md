@@ -151,6 +151,9 @@ compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_d
 Compiled SQL artifacts must not contain connection secrets or fully rendered
 credential payloads. SQL artifact references may include contract name, check
 ID, rendering step or typed operation, side when applicable, and adapter type.
+When invocation-wide rendering diagnostics suppress all SQL output, otherwise
+renderable checks may keep empty `rendering.sql_paths` and carry a structured
+suppression diagnostic without changing the compiled artifact version.
 
 ## Package version relationship
 

@@ -232,7 +232,10 @@ If any check in a `recon compile --render-sql` invocation produces a rendering
 diagnostic, the invocation writes no compiled SQL files. Checks with validation
 or capability blockers are marked `blocked`, renderer errors are marked
 `failed`, and otherwise renderable checks are also marked `blocked` because no
-SQL artifact path is available for them.
+SQL artifact path is available for them. Otherwise renderable checks blocked
+only by this invocation-wide SQL output suppression include
+`RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED` diagnostics in compiled checks
+artifacts.
 
 Implementation note, 2026-06-01: the migration from `deferred` and
 `unsupported` to `blocked` and `failed` is complete in code, tests,

@@ -54,6 +54,10 @@ If any check produces a rendering diagnostic during `recon compile
 that could not pass validation or capability checks are marked `blocked`, checks
 with renderer errors are marked `failed`, and otherwise renderable checks are
 also marked `blocked` because their SQL files were intentionally not written.
+Otherwise renderable checks that are blocked only by invocation-wide SQL output
+suppression include `RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED` diagnostics in the
+compiled checks artifact so automation can distinguish suppression from a
+check-local rendering blocker.
 
 The current compiler writes compiled contract and compiled checks YAML
 artifacts for supported check-pack and metric behavior. With

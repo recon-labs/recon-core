@@ -209,7 +209,10 @@ If any check in an adapter-aware compile invocation produces a rendering
 diagnostic, Recon writes no compiled SQL files for that invocation. Checks with
 validation or capability blockers are marked `blocked`, renderer errors are
 marked `failed`, and otherwise renderable checks are also marked `blocked`
-because their SQL artifacts were intentionally not written.
+because their SQL artifacts were intentionally not written. Otherwise renderable
+checks blocked only by invocation-wide SQL output suppression include a
+`RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED` diagnostic in the compiled checks
+artifact.
 
 Current compiler models emit these four statuses. Earlier draft statuses
 `deferred` and `unsupported` are no longer used for SQL rendering metadata.

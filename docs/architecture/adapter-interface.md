@@ -163,7 +163,9 @@ Compile without an adapter may produce typed plans with
 API compatibility and required capabilities before writing SQL.
 If adapter-aware rendering produces any rendering diagnostic, no compiled SQL
 files are written for that invocation and compiled checks use `blocked` or
-`failed` status instead of `not_rendered`.
+`failed` status instead of `not_rendered`. Otherwise renderable checks blocked
+only because invocation-wide SQL output was suppressed should carry a diagnostic
+explaining that suppression.
 
 ## Profiles and secrets
 

@@ -259,11 +259,16 @@ def test_render_sql_compile_marks_query_endpoints_blocked_without_sql_artifacts(
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering failed."
-    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
-    }
+    ]
     assert all(check["rendering"]["status"] == "blocked" for check in checks_artifact["checks"])
     assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert {
+        diagnostic["code"]
+        for check in checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {"RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"}
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -297,17 +302,27 @@ def test_render_sql_compile_marks_other_checks_blocked_when_any_rendering_fails(
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering failed."
-    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
-    }
+    ]
     assert all(
         check["rendering"] == {"status": "blocked", "sql_paths": []}
         for check in valid_checks_artifact["checks"]
     )
+    assert {
+        diagnostic["code"]
+        for check in valid_checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {"RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED"}
     assert all(
         check["rendering"] == {"status": "blocked", "sql_paths": []}
         for check in query_checks_artifact["checks"]
     )
+    assert {
+        diagnostic["code"]
+        for check in query_checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {"RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"}
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
