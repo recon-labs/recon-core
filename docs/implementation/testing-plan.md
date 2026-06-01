@@ -160,6 +160,14 @@ semantics executable across adapters and should cover:
 - no implicit type coercion or combination-casting matches,
 - representative cross-type value cases such as numeric/string,
   boolean/numeric/string, decimal/float, and date/timestamp where supported,
+- key-diff type mismatches fail instead of returning misleading missing/extra
+  key rows,
+- grouped aggregate key type mismatches fail with clear Recon or adapter-level
+  errors instead of raw dialect binder errors,
+- empty source/target relations with mismatched key or group-key types still
+  fail instead of producing empty trustworthy-looking comparison output,
+- grouped aggregate renderers do not use cross-type coalescing for source and
+  target group keys,
 - capability-specific behavior for unsupported casts, normalization, hashing,
   timestamp, semi-structured, or metadata-dependent comparisons,
 - clear diagnostics or unsupported capability results when an adapter cannot

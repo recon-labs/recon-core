@@ -46,7 +46,12 @@ must make adapter comparison semantics executable across repositories and cover
 null-safe equality, distinct non-null key diff, nullable grouped aggregate keys,
 no implicit type coercion, representative cross-type value cases, and clear
 unsupported-capability behavior when an adapter cannot safely perform a
-comparison.
+comparison. The matrix must also include the concrete type-safety cases exposed
+by the in-core DuckDB renderer: key-diff type mismatches fail instead of
+returning missing/extra rows, grouped aggregate key type mismatches fail with a
+Recon-level error instead of a raw dialect binder error, empty source/target
+relations with mismatched key types still fail, and grouped aggregate rendering
+does not rely on cross-type group-key coalescing.
 
 ## Compatibility contract
 
