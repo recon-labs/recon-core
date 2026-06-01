@@ -322,8 +322,9 @@ class DuckDbSqlRenderer(SqlRenderer):
         relation = self._side_relation(operation, source_relation, target_relation)
         aggregate = _required_string(operation, "aggregate")
         column = _required_string(operation, "column")
+        aggregate_expression = _aggregate_expression(aggregate, self.quote_identifier(column))
         sql = (
-            f"select {aggregate}({self.quote_identifier(column)}) as aggregate_value\n"
+            f"select {aggregate_expression} as aggregate_value\n"
             f"from {self.render_relation(relation)}"
         )
         return RenderedSql(
@@ -342,11 +343,12 @@ class DuckDbSqlRenderer(SqlRenderer):
         aggregate = _required_string(operation, "aggregate")
         column = _required_string(operation, "column")
         group_by = _required_string_tuple(operation, "group_by")
+        aggregate_expression = _aggregate_expression(aggregate, self.quote_identifier(column))
         group_select = _select_lines(self.quote_identifier(column_name) for column_name in group_by)
         sql = (
             "select\n"
             f"{group_select},\n"
-            f"  {aggregate}({self.quote_identifier(column)}) as aggregate_value\n"
+            f"  {aggregate_expression} as aggregate_value\n"
             f"from {self.render_relation(relation)}\n"
             f"group by {', '.join(self.quote_identifier(column_name) for column_name in group_by)}"
         )
@@ -378,11 +380,13 @@ class DuckDbSqlRenderer(SqlRenderer):
             "with\n"
             f"{aggregate_type_check},\n"
             "source_aggregate as (\n"
-            f"  select {aggregate}({self.quote_identifier(column)}) as aggregate_value\n"
+            f"  select {_aggregate_expression(aggregate, self.quote_identifier(column))} "
+            "as aggregate_value\n"
             f"  from {self.render_relation(source_relation)}\n"
             "),\n"
             "target_aggregate as (\n"
-            f"  select {aggregate}({self.quote_identifier(column)}) as aggregate_value\n"
+            f"  select {_aggregate_expression(aggregate, self.quote_identifier(column))} "
+            "as aggregate_value\n"
             f"  from {self.render_relation(target_relation)}\n"
             ")\n"
             "select\n"
@@ -459,14 +463,16 @@ class DuckDbSqlRenderer(SqlRenderer):
             "source_aggregate as (\n"
             "  select\n"
             f"{group_select}\n"
-            f"    {aggregate}({self.quote_identifier(column)}) as aggregate_value\n"
+            f"    {_aggregate_expression(aggregate, self.quote_identifier(column))} "
+            "as aggregate_value\n"
             f"  from {self.render_relation(source_relation)}\n"
             f"  group by {group_by_clause}\n"
             "),\n"
             "target_aggregate as (\n"
             "  select\n"
             f"{group_select}\n"
-            f"    {aggregate}({self.quote_identifier(column)}) as aggregate_value\n"
+            f"    {_aggregate_expression(aggregate, self.quote_identifier(column))} "
+            "as aggregate_value\n"
             f"  from {self.render_relation(target_relation)}\n"
             f"  group by {group_by_clause}\n"
             "),\n"
@@ -550,15 +556,23 @@ class DuckDbSqlRenderer(SqlRenderer):
         error_message: str,
     ) -> str:
         column_expression = self.quote_identifier(column)
-        aggregate_expression = f"{aggregate}({column_expression})"
+        aggregate_expression = _aggregate_expression(aggregate, column_expression)
         left_relation_sql = self.render_relation(left_relation)
         right_relation_sql = self.render_relation(right_relation)
+        source_input_value = f"(select {column_expression} from {left_relation_sql} limit 1)"
+        target_input_value = f"(select {column_expression} from {right_relation_sql} limit 1)"
         source_input_type = f"typeof((select {column_expression} from {left_relation_sql} limit 1))"
         target_input_type = (
             f"typeof((select {column_expression} from {right_relation_sql} limit 1))"
         )
+        source_can_aggregate = f"can_cast_implicitly({source_input_value}, null::DOUBLE)"
+        target_can_aggregate = f"can_cast_implicitly({target_input_value}, null::DOUBLE)"
         predicate = (
             f"{source_input_type} = {target_input_type}\n"
+            "        and "
+            f"{source_can_aggregate}\n"
+            "        and "
+            f"{target_can_aggregate}\n"
             "        and "
             f"{source_input_type} <> 'BOOLEAN'\n"
             "        and "
@@ -599,6 +613,12 @@ def _duckdb_dependency_available() -> bool:
 
 def _sql_string_literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
+
+
+def _aggregate_expression(aggregate: str, column_expression: str) -> str:
+    if aggregate == "sum":
+        return f"{aggregate}(try_cast({column_expression} as DOUBLE))"
+    return f"{aggregate}({column_expression})"
 
 
 def _operation_step_name(*, index: int, operation: Mapping[str, Any]) -> str:

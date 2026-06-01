@@ -125,7 +125,10 @@ having count(*) > 1""",
                 aggregate="sum",
                 column="revenue",
             ),
-            'select sum("revenue") as aggregate_value\nfrom "qa"."customer_source"',
+            (
+                'select sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
+                'from "qa"."customer_source"'
+            ),
         ),
         (
             TypedOperation.grouped_aggregate(
@@ -135,7 +138,8 @@ having count(*) > 1""",
                 group_by=("month",),
             ),
             (
-                'select\n  "month",\n  sum("revenue") as aggregate_value\n'
+                'select\n  "month",\n  sum(try_cast("revenue" as DOUBLE)) '
+                "as aggregate_value\n"
                 'from "qa"."customer_source"\ngroup by "month"'
             ),
         ),
@@ -251,22 +255,28 @@ def test_render_aggregate_comparison_plan(
         "      when\n"
         '        typeof((select "revenue" from "qa"."customer_source" limit 1)) = '
         'typeof((select "revenue" from "qa"."customer_target" limit 1))\n'
+        '        and can_cast_implicitly((select "revenue" from "qa"."customer_source" '
+        "limit 1), null::DOUBLE)\n"
+        '        and can_cast_implicitly((select "revenue" from "qa"."customer_target" '
+        "limit 1), null::DOUBLE)\n"
         '        and typeof((select "revenue" from "qa"."customer_source" limit 1)) <> '
         "'BOOLEAN'\n"
         '        and typeof((select "revenue" from "qa"."customer_target" limit 1)) <> '
         "'BOOLEAN'\n"
-        '        and typeof((select sum("revenue") from "qa"."customer_source" limit 1)) = '
-        'typeof((select sum("revenue") from "qa"."customer_target" limit 1))\n'
+        '        and typeof((select sum(try_cast("revenue" as DOUBLE)) '
+        'from "qa"."customer_source" limit 1)) = '
+        'typeof((select sum(try_cast("revenue" as DOUBLE)) '
+        'from "qa"."customer_target" limit 1))\n'
         "      then true\n"
         "      else error('Recon DuckDB aggregate value type mismatch.')\n"
         "    end as type_check\n"
         "),\n"
         "source_aggregate as (\n"
-        '  select sum("revenue") as aggregate_value\n'
+        '  select sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
         '  from "qa"."customer_source"\n'
         "),\n"
         "target_aggregate as (\n"
-        '  select sum("revenue") as aggregate_value\n'
+        '  select sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
         '  from "qa"."customer_target"\n'
         ")\n"
         "select\n"
@@ -311,14 +321,14 @@ def test_render_grouped_aggregate_comparison_plan(
         "source_aggregate as (\n"
         "  select\n"
         '    "month",\n'
-        '    sum("revenue") as aggregate_value\n'
+        '    sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
         '  from "qa"."customer_source"\n'
         '  group by "month"\n'
         "),\n"
         "target_aggregate as (\n"
         "  select\n"
         '    "month",\n'
-        '    sum("revenue") as aggregate_value\n'
+        '    sum(try_cast("revenue" as DOUBLE)) as aggregate_value\n'
         '  from "qa"."customer_target"\n'
         '  group by "month"\n'
         "),\n"
@@ -338,12 +348,18 @@ def test_render_grouped_aggregate_comparison_plan(
         "      when\n"
         '        typeof((select "revenue" from "qa"."customer_source" limit 1)) = '
         'typeof((select "revenue" from "qa"."customer_target" limit 1))\n'
+        '        and can_cast_implicitly((select "revenue" from "qa"."customer_source" '
+        "limit 1), null::DOUBLE)\n"
+        '        and can_cast_implicitly((select "revenue" from "qa"."customer_target" '
+        "limit 1), null::DOUBLE)\n"
         '        and typeof((select "revenue" from "qa"."customer_source" limit 1)) <> '
         "'BOOLEAN'\n"
         '        and typeof((select "revenue" from "qa"."customer_target" limit 1)) <> '
         "'BOOLEAN'\n"
-        '        and typeof((select sum("revenue") from "qa"."customer_source" limit 1)) = '
-        'typeof((select sum("revenue") from "qa"."customer_target" limit 1))\n'
+        '        and typeof((select sum(try_cast("revenue" as DOUBLE)) '
+        'from "qa"."customer_source" limit 1)) = '
+        'typeof((select sum(try_cast("revenue" as DOUBLE)) '
+        'from "qa"."customer_target" limit 1))\n'
         "      then true\n"
         "      else error('Recon DuckDB grouped aggregate value type mismatch.')\n"
         "    end as type_check\n"
@@ -516,6 +532,38 @@ def test_aggregate_boolean_input_raises_duckdb_error(
         con.execute(rendered[-1].sql).fetchall()
 
 
+def test_aggregate_unsupported_same_input_type_raises_recon_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (revenue varchar)")
+    con.execute("create table target_table (revenue varchar)")
+    con.execute("insert into source_table values ('10')")
+    con.execute("insert into target_table values ('10')")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.compare_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB aggregate value type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
+
+
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
@@ -640,6 +688,40 @@ def test_grouped_aggregate_boolean_input_raises_duckdb_error(
                 side=OperationSide.TARGET,
                 aggregate="sum",
                 column="flag",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.compare_grouped_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    with pytest.raises(Exception, match="Recon DuckDB grouped aggregate value type mismatch"):
+        con.execute(rendered[-1].sql).fetchall()
+
+
+def test_grouped_aggregate_unsupported_same_input_type_raises_recon_error(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (month varchar, revenue varchar)")
+    con.execute("create table target_table (month varchar, revenue varchar)")
+    con.execute("insert into source_table values ('2026-01', '10')")
+    con.execute("insert into target_table values ('2026-01', '10')")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
                 group_by=("month",),
             ).to_dict(),
             TypedOperation.compare_grouped_aggregates().to_dict(),

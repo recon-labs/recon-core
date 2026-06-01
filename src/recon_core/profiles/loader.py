@@ -266,8 +266,8 @@ def _referenced_connections(
             )
             continue
 
-        connection_type = raw_connection.get("type")
-        if not isinstance(connection_type, str) or connection_type == "":
+        raw_connection_type = raw_connection.get("type")
+        if not isinstance(raw_connection_type, str):
             diagnostics.append(
                 _diagnostic(
                     INVALID_PROFILE_CONFIG,
@@ -288,6 +288,19 @@ def _referenced_connections(
             diagnostics=diagnostics,
         )
         if isinstance(rendered_config, dict):
+            connection_type = rendered_config.get("type")
+            if not isinstance(connection_type, str) or connection_type == "":
+                diagnostics.append(
+                    _diagnostic(
+                        INVALID_PROFILE_CONFIG,
+                        f"Connection `{connection_name}` must define a non-empty string `type`.",
+                        path=profile_path,
+                        resource_type="profile_connection",
+                        resource_name=connection_name,
+                        hint="Set the adapter type for this connection.",
+                    )
+                )
+                continue
             rendered_connections[connection_name] = ConnectionConfig(
                 name=connection_name,
                 type=connection_type,

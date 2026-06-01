@@ -58,6 +58,43 @@ profiles:
     assert result.diagnostics == ()
 
 
+def test_load_selected_profile_renders_connection_type_env_var(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: "{{ env_var('RECON_ADAPTER', 'duckdb') }}"
+            database: legacy.duckdb
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile(
+        context_result.context,
+        contracts=(contract(source_connection="legacy", target_connection="warehouse"),),
+    )
+
+    assert result.succeeded
+    assert result.profile is not None
+    assert result.profile.connections["legacy"].type == "duckdb"
+    assert result.profile.connections["legacy"].config["type"] == "duckdb"
+    assert result.diagnostics == ()
+
+
 def test_load_selected_profile_requires_project_profile_for_adapter_aware_compile(
     tmp_path: Path,
 ) -> None:
