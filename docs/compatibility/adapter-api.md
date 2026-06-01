@@ -61,6 +61,12 @@ value and input column type mismatches, including boolean aggregate inputs, so
 cross-type or non-numeric metric comparisons cannot pass through dialect
 implicit casts or aggregate-specific boolean semantics.
 
+The same test-kit design must define adapter API conformance tests separate
+from the SQL comparison matrix. At minimum, those tests must cover adapter
+factory resolution: a registered factory must return an adapter or diagnostics,
+and an empty resolution result must fail with `RC_ADAPTER_RESOLUTION_FAILED`
+instead of letting adapter-aware rendering or execution report success.
+
 ## Compatibility contract
 
 Every adapter declares at least:

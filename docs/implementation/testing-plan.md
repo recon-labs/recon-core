@@ -150,6 +150,12 @@ Production adapters should eventually use a shared adapter test kit. The same
 test kit should run in every adapter repo and should include operation-rendering
 golden tests.
 
+The shared adapter test kit should include adapter API conformance tests
+separate from SQL comparison conformance. These tests should verify adapter
+registry and factory behavior, including that a factory returning neither an
+adapter nor diagnostics fails with `RC_ADAPTER_RESOLUTION_FAILED` instead of
+allowing adapter-aware rendering or execution to succeed.
+
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison
 semantics executable across adapters and should cover:
