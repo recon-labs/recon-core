@@ -147,6 +147,12 @@ CLI renderers turn summaries into terminal output.
 
 This keeps terminal formatting out of business logic.
 
+Service diagnostics should carry the same structured fields that artifacts and
+reports need. CLI renderers may choose concise formatting, but failed commands
+must print each diagnostic code and message. Future run, evidence, debug, and
+profile-validation commands should follow the same rule and preserve path,
+resource context, and hint when available.
+
 ## Exit mapping
 
 Service outcomes should map to exit codes.

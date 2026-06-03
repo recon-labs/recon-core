@@ -351,6 +351,8 @@ Required gates:
 
 - resolve the profile-rendering and adapter diagnostic redaction conformance
   gate before loading rendered profiles or resolving adapters for execution,
+- resolve the diagnostic output message conformance gate before runtime
+  adapter/profile diagnostics can become check-engine output,
 - resolve the explicit authored checks and check registry gate before
   implementing explicit `checks: [...]` support or registry behavior that must
   serve explicit checks later,
@@ -365,7 +367,9 @@ Tests:
 - duplicate keys block row-level checks,
 - null keys block row-level checks,
 - aggregate metric result,
-- check result serialization.
+- check result serialization,
+- check-engine diagnostics preserve code, severity, message, path, resource
+  context, and hint where available.
 
 ## Milestone 8: runner and results
 
@@ -377,12 +381,19 @@ Build:
 - exit code mapping,
 - terminal summary.
 
+Required gate:
+
+- resolve the diagnostic output message conformance gate before locking run
+  result diagnostics, exit-code diagnostics, or terminal summary behavior.
+
 Tests:
 
 - successful run,
 - failing check run,
 - runtime error,
-- exit code mapping.
+- exit code mapping,
+- run results and terminal output preserve diagnostic code and message for
+  runtime, adapter, prerequisite, and result-write failures.
 
 ## Milestone 9: evidence
 
@@ -393,12 +404,19 @@ Build:
 - artifact references,
 - sampling scope in evidence.
 
+Required gate:
+
+- resolve the diagnostic output message conformance gate before evidence,
+  report, or failure-detail diagnostics become user-facing output.
+
 Tests:
 
 - failure CSV written,
 - report generated,
 - row limit respected,
-- artifact paths in run results.
+- artifact paths in run results,
+- evidence and report diagnostics preserve safe actionable messages instead of
+  emitting only diagnostic codes or hints.
 
 ## Milestone 10: examples and docs alignment
 
@@ -1275,6 +1293,8 @@ Required gate:
 - resolve the profile-rendering and adapter diagnostic redaction conformance
   gate before publishing shared test-kit expectations or external adapter
   compatibility claims,
+- resolve the diagnostic output message conformance gate before publishing
+  shared adapter diagnostic assertions or adapter compatibility claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the

@@ -166,7 +166,10 @@ adapter diagnostics returned after rendered profile config is available.
 Factory, optional dependency, API compatibility, capability, metadata,
 rendering, and execution diagnostics should be tested as public output and must
 not leak rendered connection config keys or values classified as unsafe for
-diagnostics.
+diagnostics. Adapter diagnostic conformance tests should also assert that
+adapter-provided diagnostics include safe non-empty messages and that core
+redaction replaces unsafe message text with a generic safe message instead of
+dropping the message field.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison
@@ -226,6 +229,8 @@ Examples:
 - identity metadata included,
 - blocked checks include `blocked_by` and `skip_reason`,
 - artifact versions included.
+- diagnostics preserve code, severity, message, path, resource context, and
+  hint where available.
 
 Manifest tests for resource indexing should assert that non-contract files are
 included in `files` with path, `resource_type`, and checksum only, and that no
@@ -242,7 +247,9 @@ Examples:
 - `recon compile`,
 - `recon run`,
 - exit codes,
-- terminal summaries.
+- terminal summaries,
+- failed commands print each diagnostic code and message, including profile,
+  adapter, runtime, and evidence diagnostics as those phases are implemented.
 
 ## Golden tests
 

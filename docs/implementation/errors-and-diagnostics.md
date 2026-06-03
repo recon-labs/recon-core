@@ -292,6 +292,14 @@ connection secrets or fully rendered credential payloads. If an adapter factory
 returns a diagnostic that references rendered connection config keys or values,
 Recon should suppress that adapter diagnostic text and return a generic
 adapter-resolution diagnostic with the original diagnostic code and severity.
+The replacement diagnostic must still include a safe, actionable message.
+
+Adapter diagnostics are part of the adapter compatibility surface. Future
+adapter execution, debug/profile validation commands, external adapter
+packages, and shared adapter test-kit conformance must require adapter-provided
+diagnostics to include safe non-empty messages. Those messages must explain the
+failure without exposing credentials, tokens, DSNs, rendered connection
+payloads, or other secret-classified values.
 
 ## Runtime diagnostics
 
@@ -325,6 +333,27 @@ Bad:
 ```text
 invalid contract
 ```
+
+## Output conformance
+
+Diagnostic output should preserve both the machine code and the human message.
+The minimum diagnostic fields for public output are:
+
+```text
+code
+severity
+message
+```
+
+This applies to terminal output, manifest diagnostics, compiled-check
+diagnostics, future run results, evidence/report output, debug/profile
+validation commands, and adapter test-kit assertions. Path, resource context,
+line, column, and hint should be preserved when available.
+
+Tests should treat missing diagnostic messages as a public-output regression,
+even when the diagnostic code is present. Redaction may replace unsafe message
+text with a generic safe message, but it must not leave users with only a code
+or hint.
 
 ## Hints
 

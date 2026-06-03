@@ -289,7 +289,8 @@ A future adapter test kit should validate:
 - capability declarations,
 - check compatibility,
 - profile rendering behavior,
-- adapter diagnostic redaction.
+- adapter diagnostic redaction,
+- safe non-empty adapter diagnostic messages.
 
 It should also validate typed operation rendering. If core adds or changes a
 typed operation, shared adapter tests should fail until every affected adapter
@@ -302,7 +303,9 @@ API compatibility, capability, metadata, rendering, and execution diagnostics.
 Adapter diagnostics are public output, so the test kit must verify that
 credentials, tokens, DSNs, passwords, rendered connection payloads, and other
 secret-classified values do not appear in diagnostic messages, hints, paths, or
-resource fields.
+resource fields. Redaction may replace unsafe message text, but adapter
+diagnostics must still include an actionable safe message and must not rely on
+codes or hints alone.
 
 ## Design principle
 

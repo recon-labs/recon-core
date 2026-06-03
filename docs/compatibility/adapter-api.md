@@ -78,7 +78,10 @@ The same test-kit design must define adapter API conformance tests separate
 from the SQL comparison matrix. At minimum, those tests must cover adapter
 factory resolution: a registered factory must return an adapter or diagnostics,
 and an empty resolution result must fail with `RC_ADAPTER_RESOLUTION_FAILED`
-instead of letting adapter-aware rendering or execution report success.
+instead of letting adapter-aware rendering or execution report success. They
+must also assert that adapter diagnostics carry safe non-empty messages and
+that core redaction replaces unsafe message text with a generic actionable
+message rather than dropping the message field.
 
 ## Compatibility contract
 
@@ -204,7 +207,9 @@ credentials, tokens, DSNs, passwords, rendered connection payloads, or other
 secret-classified values in diagnostic message, hint, path, or resource fields.
 Core may defensively suppress unsafe adapter-resolution diagnostic text, but
 adapter packages and the shared test kit must treat secret-safe diagnostics as
-an adapter author requirement.
+an adapter author requirement. A secret-safe diagnostic must still include an
+actionable message; adapter compatibility cannot rely on diagnostic codes or
+hints alone.
 
 A future structured redaction API or secret-classification model would be a
 durable adapter contract change. If Recon needs that model, update the adapter

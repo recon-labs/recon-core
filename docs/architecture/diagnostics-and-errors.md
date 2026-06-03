@@ -194,6 +194,30 @@ diagnostic code and message, plus path and hint when available.
 
 Detailed diagnostics should be written to artifacts.
 
+## Diagnostic output conformance
+
+Diagnostic messages are part of Recon's public diagnostic contract, not
+optional terminal decoration. Any user-facing or automation-facing diagnostic
+surface should preserve at least:
+
+```text
+code
+message
+severity
+```
+
+When available, diagnostic output should also preserve path, resource context,
+and hint. CLI, manifest, compiled artifact, run result, evidence, report, debug
+command, and future adapter test-kit views may format diagnostics differently,
+but they must not rely on code or hint alone when an actionable message exists.
+
+Redaction must happen before diagnostics are rendered or written. Secret-safe
+rendering should remove credentials, tokens, DSNs, rendered connection payloads,
+and other secret-classified values without dropping the diagnostic message
+entirely. If a message cannot be made safe, Recon should replace it with a
+generic safe message while preserving the original code, severity, and
+non-secret context.
+
 ## Artifact rendering
 
 Diagnostics should be included in:

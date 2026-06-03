@@ -260,10 +260,14 @@ secrets or fully rendered credential payloads.
 Adapter diagnostics are public output. Adapter authors should not include
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
 secret-classified values in diagnostic message, hint, path, or resource fields.
+Adapter diagnostics should still include safe actionable messages; redaction
+may replace unsafe text, but compatibility should not depend on diagnostic
+codes or hints alone.
 Before external adapter packages or a shared adapter test kit are published,
 the test kit must include profile-rendering and diagnostic-redaction
-conformance cases for adapter factories and future dependency, API,
-capability, metadata, rendering, and execution diagnostics.
+conformance cases, including safe non-empty diagnostic messages, for adapter
+factories and future dependency, API, capability, metadata, rendering, and
+execution diagnostics.
 
 ## Query endpoint boundary
 

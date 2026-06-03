@@ -27,6 +27,8 @@ review. This checklist is a process guide; it is not a CI gate.
       changed.
 - [ ] Updated `docs/compatibility/public-contract-inventory.md` when a public
       surface was added, removed, renamed, stabilized, or changed.
+- [ ] Checked whether diagnostic code, message, redaction, path, resource, or
+      hint rendering changed for any public output surface.
 
 ### Changelog impact
 
@@ -52,6 +54,8 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated adapter test-kit docs or expectations when adapter API,
       capability, typed operation, SQL rendering, metadata, or execution
       behavior changed.
+- [ ] Updated adapter diagnostic expectations when diagnostic messages,
+      redaction behavior, or adapter-provided diagnostic fields changed.
 - [ ] Documented unsupported capability behavior when adapters are not required
       to implement a new operation.
 
