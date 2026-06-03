@@ -269,7 +269,9 @@ Before external adapter packages or a shared adapter test kit are published,
 the test kit must include profile-rendering and diagnostic-redaction
 conformance cases, including safe non-empty diagnostic messages, for adapter
 factories and future dependency, API, capability, metadata, rendering, and
-execution diagnostics.
+execution diagnostics. This is a cross-repo gate: factory exceptions and
+`capabilities()` exceptions must become sanitized structured diagnostics before
+any external adapter repo or shared test-kit repo claims compatibility.
 
 ## Query endpoint boundary
 
@@ -346,7 +348,11 @@ Purpose:
 
 The test kit should include shared tests for typed operation rendering and
 capability declarations. Every production adapter should run the shared test kit
-in CI after the adapter API stabilizes.
+in CI after the adapter API stabilizes. The first version of that shared suite
+must include profile-rendering and diagnostic-redaction conformance, including
+sanitized adapter factory exceptions, sanitized capability declaration
+exceptions, field-by-field diagnostic redaction, and safe non-empty diagnostic
+messages.
 
 ## Design principle
 

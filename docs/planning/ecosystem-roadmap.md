@@ -74,7 +74,12 @@ Purpose:
 - help community adapter maintainers.
 
 Adapter test kit should appear after the typed check-plan and base adapter
-interfaces stabilize.
+interfaces stabilize. Its first compatibility suite must include
+profile-rendering and diagnostic-redaction conformance before external adapter
+repos are published or treated as compatible. That conformance must prove that
+adapter factory exceptions, capability declaration exceptions, and
+adapter-provided diagnostics cannot leak rendered profile keys or values into
+CLI output, artifacts, evidence, or test snapshots.
 
 ## Check and policy packages
 

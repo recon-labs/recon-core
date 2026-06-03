@@ -1305,6 +1305,9 @@ Required gate:
 - include field-by-field adapter diagnostic redaction cases for message, hint,
   path, `resource_type`, `resource_name`, and future structured diagnostic
   fields before creating or splitting the test-kit repository,
+- include sanitized adapter factory exception and sanitized capability
+  declaration exception cases before creating or splitting the test-kit
+  repository or publishing external adapter compatibility claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the

@@ -86,6 +86,12 @@ diagnostics carry safe non-empty messages and that core redaction replaces
 unsafe message text with a generic actionable message rather than dropping the
 message field.
 
+These requirements are a release gate for the adapter ecosystem. Do not create,
+publish, or split `recon-adapter-testkit`, `recon-duckdb`, or any production
+adapter repository with a compatibility claim until the shared conformance
+suite includes those sanitized factory-exception, capability-declaration, and
+diagnostic-redaction cases.
+
 ## Compatibility contract
 
 Every adapter declares at least:
@@ -198,6 +204,13 @@ secret redaction affect adapter compatibility.
 Profile rendering and adapter diagnostic redaction are compatibility surfaces
 for future adapter execution, connection debug or profile validation commands,
 shared adapter test-kit work, and external adapter repositories.
+
+This is a hard gate for those surfaces. Before any future adapter execution
+milestone, profile/debug command, shared adapter test-kit repository, or
+external adapter package claims compatibility, its tests must prove that
+adapter factory exceptions, `capabilities()` exceptions, and adapter-supplied
+diagnostics cannot leak rendered profile keys or values into CLI output,
+compiled artifacts, run results, evidence, or test snapshots.
 
 Before those surfaces are implemented or claimed compatible, shared conformance
 tests must cover:
