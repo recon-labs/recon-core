@@ -353,6 +353,9 @@ Required gates:
 
 - resolve the profile-rendering and adapter diagnostic redaction conformance
   gate before loading rendered profiles or resolving adapters for execution,
+- require adapter/profile diagnostic redaction conformance to cover unsafe
+  rendered profile keys or values independently in message, hint, path,
+  `resource_type`, `resource_name`, and future structured diagnostic fields,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
 - resolve the explicit authored checks and check registry gate before
@@ -1299,6 +1302,9 @@ Required gate:
   shared adapter diagnostic assertions or adapter compatibility claims,
 - include case-variant rendered-config redaction cases in shared adapter
   diagnostic assertions before creating or splitting the test-kit repository,
+- include field-by-field adapter diagnostic redaction cases for message, hint,
+  path, `resource_type`, `resource_name`, and future structured diagnostic
+  fields before creating or splitting the test-kit repository,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the

@@ -172,7 +172,8 @@ redaction replaces unsafe message text with a generic safe message instead of
 dropping the message field. Redaction tests should include case-variant and
 simple transformation cases, including uppercase or lowercase config keys,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
-in diagnostic message, hint, path, or resource fields.
+independently in diagnostic message, hint, path, `resource_type`,
+`resource_name`, and any future structured diagnostic fields.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison

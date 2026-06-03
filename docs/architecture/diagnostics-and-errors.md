@@ -213,10 +213,11 @@ but they must not rely on code or hint alone when an actionable message exists.
 
 Redaction must happen before diagnostics are rendered or written. Secret-safe
 rendering should remove credentials, tokens, DSNs, rendered connection payloads,
-and other secret-classified values without dropping the diagnostic message
-entirely. If a message cannot be made safe, Recon should replace it with a
-generic safe message while preserving the original code, severity, and
-non-secret context.
+and other secret-classified values from diagnostic message, hint, path,
+`resource_type`, `resource_name`, and future structured diagnostic fields
+without dropping the diagnostic message entirely. If a message or resource
+field cannot be made safe, Recon should replace it with generic safe text while
+preserving the original code, severity, and non-secret context.
 
 ## Artifact rendering
 

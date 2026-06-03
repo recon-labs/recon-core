@@ -206,15 +206,18 @@ tests must cover:
 
 Adapter diagnostics are public output. External adapters must not place
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
-secret-classified values in diagnostic message, hint, path, or resource fields.
-Core may defensively suppress unsafe adapter-resolution diagnostic text, but
+secret-classified values in diagnostic message, hint, path, `resource_type`,
+`resource_name`, or future structured diagnostic fields. Core may defensively
+suppress unsafe adapter-resolution diagnostic text and unsafe resource
+metadata, but
 adapter packages and the shared test kit must treat secret-safe diagnostics as
 an adapter author requirement. A secret-safe diagnostic must still include an
 actionable message; adapter compatibility cannot rely on diagnostic codes or
 hints alone. The shared test kit should include case-variant and
 transformation-variant redaction cases, such as `PASSWORD`, `database`,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
-in diagnostic message, hint, path, or resource fields.
+independently in diagnostic message, hint, path, `resource_type`, and
+`resource_name`.
 
 A future structured redaction API or secret-classification model would be a
 durable adapter contract change. If Recon needs that model, update the adapter

@@ -27,8 +27,9 @@ review. This checklist is a process guide; it is not a CI gate.
       changed.
 - [ ] Updated `docs/compatibility/public-contract-inventory.md` when a public
       surface was added, removed, renamed, stabilized, or changed.
-- [ ] Checked whether diagnostic code, message, redaction, path, resource, or
-      hint rendering changed for any public output surface.
+- [ ] Checked whether diagnostic code, message, redaction, path,
+      `resource_type`, `resource_name`, hint rendering, or future structured
+      diagnostic fields changed for any public output surface.
 
 ### Changelog impact
 
@@ -57,7 +58,9 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated adapter diagnostic expectations when diagnostic messages,
       redaction behavior, or adapter-provided diagnostic fields changed.
 - [ ] Checked case-variant and simple-transformation redaction cases when
-      adapter diagnostics can reference rendered profile config.
+      adapter diagnostics can reference rendered profile config in message,
+      hint, path, `resource_type`, `resource_name`, or future structured
+      diagnostic fields.
 - [ ] Documented unsupported capability behavior when adapters are not required
       to implement a new operation.
 

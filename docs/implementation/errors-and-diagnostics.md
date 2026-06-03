@@ -290,19 +290,22 @@ rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include
 connection secrets or fully rendered credential payloads. If an adapter factory
 returns a diagnostic that references rendered connection config keys or values,
-Recon should suppress that adapter diagnostic text and return a generic
-adapter-resolution diagnostic with the original diagnostic code and severity.
-The replacement diagnostic must still include a safe, actionable message.
+Recon should suppress unsafe adapter diagnostic text and unsafe resource
+metadata, then return a generic adapter-resolution diagnostic with the original
+diagnostic code and severity. The replacement diagnostic must still include a
+safe, actionable message and safe resource context.
 Suppression should treat case-changed keys or rendered values, DSN fragments,
 tokens, passwords, and other simple transformations as unsafe when they can be
-derived from rendered profile config.
+derived from rendered profile config. Redaction tests should cover every public
+diagnostic field independently: `message`, `hint`, `path`, `resource_type`,
+`resource_name`, and any future structured diagnostic fields.
 
 Adapter diagnostics are part of the adapter compatibility surface. Future
 adapter execution, debug/profile validation commands, external adapter
 packages, and shared adapter test-kit conformance must require adapter-provided
 diagnostics to include safe non-empty messages. Those messages must explain the
 failure without exposing credentials, tokens, DSNs, rendered connection
-payloads, or other secret-classified values.
+payloads, or other secret-classified values in any public diagnostic field.
 
 ## Runtime diagnostics
 

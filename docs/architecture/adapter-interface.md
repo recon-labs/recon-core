@@ -302,12 +302,14 @@ template syntax, adapter factory diagnostics, and future optional dependency,
 API compatibility, capability, metadata, rendering, and execution diagnostics.
 Adapter diagnostics are public output, so the test kit must verify that
 credentials, tokens, DSNs, passwords, rendered connection payloads, and other
-secret-classified values do not appear in diagnostic messages, hints, paths, or
-resource fields. Redaction may replace unsafe message text, but adapter
-diagnostics must still include an actionable safe message and must not rely on
-codes or hints alone. The test kit should include case-variant and
+secret-classified values do not appear in diagnostic messages, hints, paths,
+`resource_type`, `resource_name`, or future structured diagnostic fields.
+Redaction may replace unsafe diagnostic text or unsafe resource metadata, but
+adapter diagnostics must still include an actionable safe message and must not
+rely on codes or hints alone. The test kit should include case-variant and
 transformation-variant diagnostics, including uppercase config keys, lowercase
-or uppercase rendered values, DSN fragments, tokens, and password values.
+or uppercase rendered values, DSN fragments, tokens, and password values in
+each public diagnostic field independently.
 
 ## Design principle
 

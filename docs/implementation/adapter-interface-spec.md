@@ -267,7 +267,9 @@ diagnostic redaction. Those tests should include selected target loading,
 referenced-connection filtering, missing env vars, env-var defaults,
 unsupported template syntax, adapter factory diagnostics, and future optional
 dependency, API compatibility, capability, metadata, rendering, and execution
-diagnostics.
+diagnostics. Redaction conformance must cover unsafe rendered profile keys or
+values independently in diagnostic `message`, `hint`, `path`, `resource_type`,
+`resource_name`, and future structured diagnostic fields.
 
 For Milestone 6 DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type
