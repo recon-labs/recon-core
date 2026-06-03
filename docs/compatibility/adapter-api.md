@@ -200,7 +200,9 @@ tests must cover:
 - adapter factory diagnostics returned after profile rendering,
 - optional dependency, API compatibility, capability, metadata, rendering, and
   execution diagnostics once those phases exist,
-- diagnostics that reference rendered connection config keys or values.
+- diagnostics that reference rendered connection config keys or values,
+- diagnostics that reference rendered connection config keys or values with
+  changed casing or other simple transformations.
 
 Adapter diagnostics are public output. External adapters must not place
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
@@ -209,7 +211,10 @@ Core may defensively suppress unsafe adapter-resolution diagnostic text, but
 adapter packages and the shared test kit must treat secret-safe diagnostics as
 an adapter author requirement. A secret-safe diagnostic must still include an
 actionable message; adapter compatibility cannot rely on diagnostic codes or
-hints alone.
+hints alone. The shared test kit should include case-variant and
+transformation-variant redaction cases, such as `PASSWORD`, `database`,
+case-changed rendered values, DSN substrings, tokens, and passwords appearing
+in diagnostic message, hint, path, or resource fields.
 
 A future structured redaction API or secret-classification model would be a
 durable adapter contract change. If Recon needs that model, update the adapter

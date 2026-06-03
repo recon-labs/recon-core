@@ -329,6 +329,8 @@ Tests:
 - secret redaction from diagnostics and artifacts,
 - adapter-resolution diagnostics do not leak rendered connection config keys or
   values,
+- adapter-resolution diagnostics suppress case-changed rendered config keys or
+  values and other simple secret transformations,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,
@@ -1295,6 +1297,8 @@ Required gate:
   compatibility claims,
 - resolve the diagnostic output message conformance gate before publishing
   shared adapter diagnostic assertions or adapter compatibility claims,
+- include case-variant rendered-config redaction cases in shared adapter
+  diagnostic assertions before creating or splitting the test-kit repository,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the

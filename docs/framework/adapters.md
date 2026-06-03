@@ -262,7 +262,9 @@ credentials, tokens, DSNs, passwords, rendered connection payloads, or other
 secret-classified values in diagnostic message, hint, path, or resource fields.
 Adapter diagnostics should still include safe actionable messages; redaction
 may replace unsafe text, but compatibility should not depend on diagnostic
-codes or hints alone.
+codes or hints alone. Adapter diagnostics must remain safe even when they use
+case-changed config keys, case-changed rendered values, DSN fragments, tokens,
+passwords, or other simple transformations of rendered profile config.
 Before external adapter packages or a shared adapter test kit are published,
 the test kit must include profile-rendering and diagnostic-redaction
 conformance cases, including safe non-empty diagnostic messages, for adapter

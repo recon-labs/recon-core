@@ -305,7 +305,9 @@ credentials, tokens, DSNs, passwords, rendered connection payloads, and other
 secret-classified values do not appear in diagnostic messages, hints, paths, or
 resource fields. Redaction may replace unsafe message text, but adapter
 diagnostics must still include an actionable safe message and must not rely on
-codes or hints alone.
+codes or hints alone. The test kit should include case-variant and
+transformation-variant diagnostics, including uppercase config keys, lowercase
+or uppercase rendered values, DSN fragments, tokens, and password values.
 
 ## Design principle
 

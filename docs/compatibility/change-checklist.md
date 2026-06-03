@@ -56,6 +56,8 @@ review. This checklist is a process guide; it is not a CI gate.
       behavior changed.
 - [ ] Updated adapter diagnostic expectations when diagnostic messages,
       redaction behavior, or adapter-provided diagnostic fields changed.
+- [ ] Checked case-variant and simple-transformation redaction cases when
+      adapter diagnostics can reference rendered profile config.
 - [ ] Documented unsupported capability behavior when adapters are not required
       to implement a new operation.
 

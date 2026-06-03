@@ -169,7 +169,10 @@ not leak rendered connection config keys or values classified as unsafe for
 diagnostics. Adapter diagnostic conformance tests should also assert that
 adapter-provided diagnostics include safe non-empty messages and that core
 redaction replaces unsafe message text with a generic safe message instead of
-dropping the message field.
+dropping the message field. Redaction tests should include case-variant and
+simple transformation cases, including uppercase or lowercase config keys,
+case-changed rendered values, DSN substrings, tokens, and passwords appearing
+in diagnostic message, hint, path, or resource fields.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison

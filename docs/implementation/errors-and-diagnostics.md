@@ -293,6 +293,9 @@ returns a diagnostic that references rendered connection config keys or values,
 Recon should suppress that adapter diagnostic text and return a generic
 adapter-resolution diagnostic with the original diagnostic code and severity.
 The replacement diagnostic must still include a safe, actionable message.
+Suppression should treat case-changed keys or rendered values, DSN fragments,
+tokens, passwords, and other simple transformations as unsafe when they can be
+derived from rendered profile config.
 
 Adapter diagnostics are part of the adapter compatibility surface. Future
 adapter execution, debug/profile validation commands, external adapter
