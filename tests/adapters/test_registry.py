@@ -45,6 +45,11 @@ class EmptyFactory:
         return AdapterResolutionResult()
 
 
+class RaisingFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        raise ValueError(f"password={connection.config.get('password')}")
+
+
 def test_adapter_api_compatibility_passes_for_current_api_version() -> None:
     adapter = CompatibleAdapter(connection=ConnectionConfig(name="source", type="compatible"))
 
@@ -93,3 +98,29 @@ def test_registry_reports_empty_adapter_resolution_result() -> None:
         "RC_ADAPTER_RESOLUTION_FAILED"
     ]
     assert result.diagnostics[0].resource_name == "empty"
+
+
+def test_registry_sanitizes_adapter_factory_exceptions() -> None:
+    registry = AdapterRegistry()
+    registry.register("raising", RaisingFactory())
+
+    result = registry.resolve(
+        ConnectionConfig(
+            name="warehouse",
+            type="raising",
+            config={"password": "super-secret"},
+        )
+    )
+
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert result.diagnostics[0].resource_type == "adapter"
+    assert result.diagnostics[0].resource_name == "raising"
+    assert "ValueError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text

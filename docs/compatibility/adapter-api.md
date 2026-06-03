@@ -78,10 +78,13 @@ The same test-kit design must define adapter API conformance tests separate
 from the SQL comparison matrix. At minimum, those tests must cover adapter
 factory resolution: a registered factory must return an adapter or diagnostics,
 and an empty resolution result must fail with `RC_ADAPTER_RESOLUTION_FAILED`
-instead of letting adapter-aware rendering or execution report success. They
-must also assert that adapter diagnostics carry safe non-empty messages and
-that core redaction replaces unsafe message text with a generic actionable
-message rather than dropping the message field.
+instead of letting adapter-aware rendering or execution report success. Factory
+exceptions and capability declaration exceptions must fail with sanitized
+structured diagnostics that preserve the code and useful exception type without
+preserving raw exception text. These tests must also assert that adapter
+diagnostics carry safe non-empty messages and that core redaction replaces
+unsafe message text with a generic actionable message rather than dropping the
+message field.
 
 ## Compatibility contract
 
@@ -101,7 +104,14 @@ of running with ambiguous behavior.
 
 Adapter factories must return either an adapter or one or more diagnostics.
 Returning neither is an adapter resolution failure and must surface
-`RC_ADAPTER_RESOLUTION_FAILED`.
+`RC_ADAPTER_RESOLUTION_FAILED`. Factory exceptions must also resolve to a
+generic sanitized `RC_ADAPTER_RESOLUTION_FAILED` diagnostic instead of leaking
+raw adapter exception text.
+
+Adapter capability declarations are public compatibility input to Core. If an
+adapter raises while declaring capabilities, Core must surface a sanitized
+`RC_ADAPTER_CAPABILITY_DECLARATION_FAILED` diagnostic instead of leaking raw
+adapter exception text or continuing with ambiguous capability support.
 
 The first adapter boundary separates:
 
@@ -217,7 +227,9 @@ hints alone. The shared test kit should include case-variant and
 transformation-variant redaction cases, such as `PASSWORD`, `database`,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
 independently in diagnostic message, hint, path, `resource_type`, and
-`resource_name`.
+`resource_name`. It must also include adapter factory and capability
+declaration exceptions whose raw exception messages contain rendered profile
+keys or values.
 
 A future structured redaction API or secret-classification model would be a
 durable adapter contract change. If Recon needs that model, update the adapter

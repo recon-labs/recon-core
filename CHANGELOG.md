@@ -124,6 +124,9 @@ This project follows semantic versioning once public package releases begin.
 - Adapter-aware SQL rendering now suppresses unsafe adapter-resolution
   `resource_type` values instead of preserving resource metadata that contains
   rendered profile connection keys or values.
+- Adapter-aware SQL rendering now converts adapter factory and capability
+  declaration exceptions into structured diagnostics with raw adapter error
+  text suppressed.
 - Adapter-aware SQL rendering now fails with `RC_ADAPTER_RESOLUTION_FAILED`
   when an adapter factory returns neither an adapter nor a diagnostic.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so

@@ -36,6 +36,40 @@ def test_render_check_sql_validates_required_capabilities_before_rendering() -> 
     assert "row_count" in result.diagnostics[0].message
 
 
+def test_render_check_sql_sanitizes_capability_declaration_exceptions() -> None:
+    compiled_contract, check = compiled_row_count_check()
+
+    class SecretLeakingCapabilityAdapter(DuckDbAdapter):
+        def capabilities(self) -> AdapterCapabilities:
+            raise ValueError(f"password={self.connection.config.get('password')}")
+
+    adapter = SecretLeakingCapabilityAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"password": "super-secret"},
+        )
+    )
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=DuckDbSqlRenderer(),
+    )
+
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_DECLARATION_FAILED"
+    ]
+    assert "ValueError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
+
+
 def test_render_check_sql_blocks_query_endpoints_without_leaking_query_text_or_secrets() -> None:
     compiled_contract, check = compiled_row_count_check(
         source=AuthoredEndpoint(connection="legacy", query="select * from secret_customer_source"),

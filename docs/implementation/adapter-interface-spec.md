@@ -142,7 +142,10 @@ registry.register("duckdb", DuckDbAdapterFactory())
 
 Core should resolve connection type through the registry. Adapter factories
 must return either an adapter or a diagnostic; a factory that returns neither
-fails resolution with `RC_ADAPTER_RESOLUTION_FAILED`.
+fails resolution with `RC_ADAPTER_RESOLUTION_FAILED`. A factory that raises an
+exception should also fail resolution with a generic sanitized
+`RC_ADAPTER_RESOLUTION_FAILED` diagnostic rather than surfacing raw adapter
+error text.
 Factory diagnostics are public output. They must not include credentials,
 tokens, DSNs, passwords, fully rendered connection payloads, or other
 secret-classified values from rendered profile config.
@@ -166,6 +169,12 @@ Runtime validates anything that depends on live metadata.
 Adapter API compatibility should also be validated. If an adapter declares an
 older unsupported adapter API version, Recon should fail before execution with a
 clear diagnostic.
+
+Adapter capability declaration is itself public adapter behavior. If
+`capabilities()` raises, Recon should fail rendering or execution setup with
+`RC_ADAPTER_CAPABILITY_DECLARATION_FAILED`, suppress the raw exception text, and
+include only safe context such as the adapter type, check ID, and exception
+class.
 
 ## SQL generation
 
@@ -269,7 +278,8 @@ unsupported template syntax, adapter factory diagnostics, and future optional
 dependency, API compatibility, capability, metadata, rendering, and execution
 diagnostics. Redaction conformance must cover unsafe rendered profile keys or
 values independently in diagnostic `message`, `hint`, `path`, `resource_type`,
-`resource_name`, and future structured diagnostic fields.
+`resource_name`, and future structured diagnostic fields. It must also cover
+raw adapter exceptions from factories and capability declarations.
 
 For Milestone 6 DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type

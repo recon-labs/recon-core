@@ -270,6 +270,7 @@ RC_ADAPTER_UNKNOWN_TYPE
 RC_ADAPTER_RESOLUTION_FAILED
 RC_ADAPTER_API_VERSION_UNSUPPORTED
 RC_ADAPTER_CAPABILITY_UNSUPPORTED
+RC_ADAPTER_CAPABILITY_DECLARATION_FAILED
 RC_ADAPTER_DEPENDENCY_MISSING
 RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED
 RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED
@@ -281,10 +282,11 @@ RC_ADAPTER_QUERY_FAILED
 ```
 
 Milestone 6 adapter-aware compile uses `RC_ADAPTER_*` diagnostics for adapter
-type resolution, empty adapter factory results, adapter API compatibility,
-required-capability validation, optional dependency checks, relation-only
-rendering boundaries, same-context rendering requirements, invalid relation
-names, renderer failures, and invocation-wide SQL output suppression.
+type resolution, empty adapter factory results, adapter factory exceptions,
+adapter API compatibility, capability declaration failures, required-capability
+validation, optional dependency checks, relation-only rendering boundaries,
+same-context rendering requirements, invalid relation names, renderer failures,
+and invocation-wide SQL output suppression.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include
@@ -294,6 +296,9 @@ Recon should suppress unsafe adapter diagnostic text and unsafe resource
 metadata, then return a generic adapter-resolution diagnostic with the original
 diagnostic code and severity. The replacement diagnostic must still include a
 safe, actionable message and safe resource context.
+If an adapter factory or capability declaration raises an exception, Recon
+should suppress the raw exception message and return a generic structured
+adapter diagnostic that preserves only the exception type when useful.
 Suppression should treat case-changed keys or rendered values, DSN fragments,
 tokens, passwords, and other simple transformations as unsafe when they can be
 derived from rendered profile config. Redaction tests should cover every public

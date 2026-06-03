@@ -161,6 +161,35 @@ def test_render_sql_compile_reports_empty_adapter_resolution_result(tmp_path: Pa
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_adapter_factory_exceptions(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="raising", include_password=True)
+    registry = AdapterRegistry()
+    registry.register("raising", RaisingAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
+    ]
+    assert "ValueError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -600,6 +629,42 @@ def test_render_sql_compile_marks_adapter_renderer_blocks_without_sql_artifacts(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_capability_declaration_failure_artifacts(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, include_password=True)
+    registry = AdapterRegistry()
+    registry.register("duckdb", CapabilityRaisingDuckDbAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact_text = (
+        tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
+    ).read_text(encoding="utf-8")
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_ADAPTER_CAPABILITY_DECLARATION_FAILED"
+    }
+    assert "ValueError" in diagnostic_text
+    assert "ValueError" in checks_artifact_text
+    assert "super-secret" not in diagnostic_text
+    assert "super-secret" not in checks_artifact_text
+    assert "password" not in diagnostic_text
+    assert "password" not in checks_artifact_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_marks_renderer_failures_without_sql_artifacts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -730,9 +795,28 @@ class FakeAdapterFactory:
         return AdapterResolutionResult(adapter=FakeAdapter(connection=connection))
 
 
+class CapabilityRaisingDuckDbAdapter(FakeAdapter):
+    adapter_type = "duckdb"
+
+    def capabilities(self) -> AdapterCapabilities:
+        raise ValueError(f"password={self.connection.config.get('password')}")
+
+
+class CapabilityRaisingDuckDbAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            adapter=CapabilityRaisingDuckDbAdapter(connection=connection)
+        )
+
+
 class EmptyAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult()
+
+
+class RaisingAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        raise ValueError(f"password={connection.config.get('password')}")
 
 
 class LeakyAdapterFactory:

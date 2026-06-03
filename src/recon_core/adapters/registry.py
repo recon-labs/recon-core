@@ -57,7 +57,21 @@ class AdapterRegistry:
                 )
             )
 
-        result = creator(connection)
+        try:
+            result = creator(connection)
+        except Exception as exc:
+            return AdapterResolutionResult(
+                diagnostics=(
+                    Diagnostic(
+                        code=ADAPTER_RESOLUTION_FAILED,
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"Adapter factory for type `{connection.type}` failed.",
+                        resource_type="adapter",
+                        resource_name=connection.type,
+                        hint=_factory_exception_hint(exc),
+                    ),
+                )
+            )
         if result.adapter is None and not result.diagnostics:
             return AdapterResolutionResult(
                 diagnostics=(
@@ -76,6 +90,13 @@ class AdapterRegistry:
             )
 
         return result
+
+
+def _factory_exception_hint(exc: Exception) -> str:
+    return (
+        f"Adapter factory raised {type(exc).__name__}. Raw adapter error text was "
+        "suppressed because profile diagnostics must not expose rendered connection values."
+    )
 
 
 def validate_adapter_api_compatibility(adapter: BaseAdapter) -> tuple[Diagnostic, ...]:

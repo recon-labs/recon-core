@@ -25,6 +25,7 @@ from recon_core.adapters.registry import (
     validate_adapter_api_compatibility,
 )
 from recon_core.adapters.rendering import (
+    ADAPTER_CAPABILITY_DECLARATION_FAILED,
     ADAPTER_INVALID_RELATION,
     ADAPTER_OPERATION_RENDER_FAILED,
     ADAPTER_QUERY_ENDPOINT_UNSUPPORTED,
@@ -44,6 +45,7 @@ def default_adapter_registry() -> AdapterRegistry:
 __all__ = [
     "ADAPTER_API_VERSION",
     "ADAPTER_API_VERSION_UNSUPPORTED",
+    "ADAPTER_CAPABILITY_DECLARATION_FAILED",
     "ADAPTER_CAPABILITY_UNSUPPORTED",
     "ADAPTER_RESOLUTION_FAILED",
     "ADAPTER_INVALID_RELATION",

@@ -154,7 +154,10 @@ The shared adapter test kit should include adapter API conformance tests
 separate from SQL comparison conformance. These tests should verify adapter
 registry and factory behavior, including that a factory returning neither an
 adapter nor diagnostics fails with `RC_ADAPTER_RESOLUTION_FAILED` instead of
-allowing adapter-aware rendering or execution to succeed.
+allowing adapter-aware rendering or execution to succeed. The same conformance
+suite should verify that adapter factory exceptions and capability declaration
+exceptions become sanitized structured diagnostics instead of raw exceptions
+that can leak rendered profile keys or values.
 
 The same adapter API conformance suite should cover profile rendering and
 adapter diagnostic redaction before adapter execution, connection debug or

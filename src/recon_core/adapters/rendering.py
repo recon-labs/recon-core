@@ -10,6 +10,7 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 ADAPTER_QUERY_ENDPOINT_UNSUPPORTED = "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
 ADAPTER_INVALID_RELATION = "RC_ADAPTER_INVALID_RELATION"
+ADAPTER_CAPABILITY_DECLARATION_FAILED = "RC_ADAPTER_CAPABILITY_DECLARATION_FAILED"
 ADAPTER_OPERATION_RENDER_FAILED = "RC_ADAPTER_OPERATION_RENDER_FAILED"
 
 
@@ -67,9 +68,33 @@ def render_check_sql(
     required_capabilities = ("relations",) + tuple(
         capability.value for capability in check.plan.required_capabilities
     )
+    if capabilities is None:
+        try:
+            resolved_capabilities = adapter.capabilities()
+        except Exception as exc:
+            return RenderedCheckSql(
+                check_id=check.id,
+                diagnostics=(
+                    Diagnostic(
+                        code=ADAPTER_CAPABILITY_DECLARATION_FAILED,
+                        severity=DiagnosticSeverity.ERROR,
+                        message=(
+                            f"Adapter `{adapter.adapter_type}` failed to declare capabilities "
+                            f"for check `{check.id}`."
+                        ),
+                        resource_type="compiled_check",
+                        resource_name=check.id,
+                        hint=_capability_exception_hint(exc),
+                    ),
+                ),
+                adapter_type=adapter.adapter_type,
+            )
+    else:
+        resolved_capabilities = capabilities
+
     capability_diagnostics = validate_required_capabilities(
         adapter_type=adapter.adapter_type,
-        capabilities=adapter.capabilities() if capabilities is None else capabilities,
+        capabilities=resolved_capabilities,
         required_capabilities=required_capabilities,
     )
     if capability_diagnostics:
@@ -133,6 +158,13 @@ def _renderer_exception_hint(exc: Exception) -> str:
     return (
         f"Renderer raised {type(exc).__name__}. Raw adapter error text was suppressed "
         "because rendering diagnostics are written to generated artifacts."
+    )
+
+
+def _capability_exception_hint(exc: Exception) -> str:
+    return (
+        f"Capability declaration raised {type(exc).__name__}. Raw adapter error text "
+        "was suppressed because rendering diagnostics are written to generated artifacts."
     )
 
 
