@@ -163,6 +163,9 @@ This project follows semantic versioning once public package releases begin.
 - Referenced `connections/profiles.yml` connection values that contain
   unsupported `{{ ... }}` template syntax now fail profile validation instead
   of passing raw template text to adapters.
+- CLI failures now print each diagnostic message as well as the diagnostic
+  code, so `recon compile --render-sql` profile and adapter errors expose the
+  actionable failure detail in terminal output.
 
 ## Release format
 

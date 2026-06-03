@@ -31,6 +31,7 @@ def _render_error(result: ServiceResult) -> None:
     click.echo(f"Error: {message}", err=True)
     for diagnostic in result.diagnostics:
         click.echo(f"Code: {diagnostic.code}", err=True)
+        click.echo(f"Message: {diagnostic.message}", err=True)
         if diagnostic.path:
             click.echo(f"Path: {diagnostic.path}", err=True)
         if diagnostic.hint:

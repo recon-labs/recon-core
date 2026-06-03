@@ -169,6 +169,7 @@ Successful service results should print a concise success message to standard ou
 ```text
 Error: <message>
 Code: <diagnostic code>
+Message: <diagnostic message>
 Path: <path when available>
 Hint: <hint when available>
 ```

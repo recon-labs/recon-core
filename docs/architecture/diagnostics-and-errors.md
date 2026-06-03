@@ -189,7 +189,8 @@ Milestone 5 validation timing and diagnostic code ownership are locked in
 
 ## CLI rendering
 
-The CLI should print concise diagnostics.
+The CLI should print concise diagnostics. Failed commands should include each
+diagnostic code and message, plus path and hint when available.
 
 Detailed diagnostics should be written to artifacts.
 

@@ -231,6 +231,8 @@ When a command fails, Recon should print concise diagnostic output:
 ```text
 Error: <message>
 Code: <diagnostic code>
+Message: <diagnostic message>
+Path: <path when available>
 Hint: <fix when available>
 ```
 

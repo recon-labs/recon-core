@@ -140,6 +140,26 @@ def test_compile_command_writes_compiled_artifacts_for_project() -> None:
         ]
 
 
+def test_compile_render_sql_prints_diagnostic_message_for_profile_errors() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        _write_project(profile="local")
+        _write_contract()
+        _write_profiles_with_missing_env_var()
+
+        result = runner.invoke(main, ["compile", "--render-sql"])
+
+        assert result.exit_code == 4
+        assert "Error: SQL rendering profile configuration failed." in result.output
+        assert "Code: RC_CONFIG_PROFILE_ENV_VAR_MISSING" in result.output
+        assert (
+            "Message: Connection `legacy` references missing environment variable `MISSING_DB`."
+            in result.output
+        )
+        assert "Hint: Set the environment variable or provide an env_var default." in result.output
+
+
 def test_parse_command_returns_validation_error_and_writes_manifest() -> None:
     runner = CliRunner()
 
@@ -239,14 +259,16 @@ def test_init_command_rejects_project_name_that_cannot_be_stable_id() -> None:
         assert "Names must start with a letter or underscore." in result.output
 
 
-def _write_project() -> None:
+def _write_project(*, profile: str | None = None) -> None:
     _contract_path().parent.mkdir()
     _manifest_path().parent.mkdir()
+    profile_yaml = f"profile: {profile}\n" if profile is not None else ""
     _project_path().write_text(
-        """
+        f"""
 name: ecommerce_recon
 version: 0.1.0
 config-version: 1
+{profile_yaml}\
 contract-paths:
   - contracts
 target-path: target
@@ -277,6 +299,28 @@ metrics:
 checks:
   use:
     - recon_core.basic_equivalence
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+
+def _write_profiles_with_missing_env_var() -> None:
+    profiles_path = Path("connections/profiles.yml")
+    profiles_path.parent.mkdir()
+    profiles_path.write_text(
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('MISSING_DB') }}"
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
 """.lstrip(),
         encoding="utf-8",
     )
