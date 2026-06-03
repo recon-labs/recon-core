@@ -538,7 +538,7 @@ def _sanitize_adapter_resolution_diagnostic(
             f"connection `{connection.name}`; adapter diagnostic text was suppressed "
             "because profile diagnostics must not expose rendered connection values."
         ),
-        resource_type=diagnostic.resource_type or "adapter",
+        resource_type="adapter",
         resource_name=connection.type,
         hint=(
             "Fix the adapter configuration or inspect the adapter locally "
@@ -596,6 +596,7 @@ def _diagnostic_mentions_config_token(
             diagnostic.message,
             diagnostic.hint,
             diagnostic.path,
+            diagnostic.resource_type,
             diagnostic.resource_name,
         )
         if value is not None

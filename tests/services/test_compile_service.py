@@ -230,6 +230,105 @@ def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostic
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_resource_type_only_adapter_resolution_leak(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="resource_type_leaky",
+        include_password=True,
+        password="SuperSecret",
+    )
+    registry = AdapterRegistry()
+    registry.register("resource_type_leaky", ResourceTypeLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        " ".join(
+            value
+            for value in (
+                diagnostic.message,
+                diagnostic.resource_type,
+                diagnostic.resource_name,
+                diagnostic.path,
+                diagnostic.hint,
+            )
+            if value is not None
+        )
+        for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_RESOURCE_TYPE_LEAK",
+        "RC_TEST_ADAPTER_RESOURCE_TYPE_LEAK",
+    ]
+    assert {diagnostic.resource_type for diagnostic in result.diagnostics} == {"adapter"}
+    assert "adapter diagnostic text was suppressed" in diagnostic_text
+    assert "PASSWORD" not in diagnostic_text
+    assert "supersecret" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_replaces_resource_type_when_message_triggers_sanitization(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="message_and_resource_type_leaky",
+        include_password=True,
+        password="SuperSecret",
+    )
+    registry = AdapterRegistry()
+    registry.register(
+        "message_and_resource_type_leaky",
+        MessageAndResourceTypeLeakyAdapterFactory(),
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        " ".join(
+            value
+            for value in (
+                diagnostic.message,
+                diagnostic.resource_type,
+                diagnostic.resource_name,
+                diagnostic.path,
+                diagnostic.hint,
+            )
+            if value is not None
+        )
+        for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_MESSAGE_AND_RESOURCE_TYPE_LEAK",
+        "RC_TEST_ADAPTER_MESSAGE_AND_RESOURCE_TYPE_LEAK",
+    ]
+    assert {diagnostic.resource_type for diagnostic in result.diagnostics} == {"adapter"}
+    assert "adapter diagnostic text was suppressed" in diagnostic_text
+    assert "PASSWORD" not in diagnostic_text
+    assert "supersecret" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_reports_compile_validation_before_profile_errors(
     tmp_path: Path,
 ) -> None:
@@ -668,6 +767,40 @@ class CaseVariantLeakyAdapterFactory:
                     resource_type="adapter",
                     resource_name=connection.type,
                     hint=f"Check DATABASE {database.upper()}.",
+                ),
+            )
+        )
+
+
+class ResourceTypeLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        password = str(connection.config.get("password"))
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_RESOURCE_TYPE_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter failed while resolving the selected connection.",
+                    resource_type=f"PASSWORD={password.casefold()}",
+                    resource_name=connection.type,
+                    hint="Inspect the adapter configuration.",
+                ),
+            )
+        )
+
+
+class MessageAndResourceTypeLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        password = str(connection.config.get("password"))
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_MESSAGE_AND_RESOURCE_TYPE_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Adapter failed with password={password.casefold()}.",
+                    resource_type=f"PASSWORD={password.casefold()}",
+                    resource_name=connection.type,
+                    hint="Inspect the adapter configuration.",
                 ),
             )
         )
