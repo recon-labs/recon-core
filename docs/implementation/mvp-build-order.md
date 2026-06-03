@@ -391,6 +391,8 @@ Required gate:
 
 - resolve the diagnostic output message conformance gate before locking run
   result diagnostics, exit-code diagnostics, or terminal summary behavior.
+- resolve the generated artifact lifecycle and cleanup gate before writing
+  `target/run_results.json`.
 
 Tests:
 
@@ -414,6 +416,8 @@ Required gate:
 
 - resolve the diagnostic output message conformance gate before evidence,
   report, or failure-detail diagnostics become user-facing output.
+- resolve the generated artifact lifecycle and cleanup gate before writing
+  failure details, reports, or evidence artifacts.
 
 Tests:
 
@@ -468,6 +472,8 @@ Build:
 
 - artifact freshness model for manifest, compiled artifacts, compiled SQL, run
   results, and evidence,
+- generated artifact cleanup and publish-ordering rules for stale, partial, and
+  orphaned outputs across generated artifact families,
 - cache/invalidation keys based on authored files, project config, relevant
   resource checksums, command options, and adapter-capability inputs,
 - stale-artifact diagnostics and safe fallback behavior,
@@ -477,6 +483,8 @@ Build:
 
 Required gate:
 
+- resolve the generated artifact lifecycle and cleanup gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
 - resolve the artifact freshness and cache optimization gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
 
@@ -865,6 +873,9 @@ Required gate:
 
 - resolve the query endpoint support boundary gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+- resolve the generated artifact lifecycle and cleanup gate if query endpoint
+  execution writes query-specific compiled SQL, results, evidence, or debug
+  artifacts.
 
 Recommended commit message:
 
@@ -894,6 +905,8 @@ Required gate:
 
 - resolve the selectors and contract selection semantics gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+- resolve the generated artifact lifecycle and cleanup gate before selector
+  compile/run writes partial or scoped generated artifacts.
 
 Recommended commit message:
 

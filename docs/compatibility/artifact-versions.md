@@ -43,6 +43,15 @@ Manifest writes also reject symlinked `target-path` ancestry and exact
 `manifest.json` output-file symlinks. Normal manifest regeneration still
 overwrites the current manifest file.
 
+Generated-artifact lifecycle cleanup is a compatibility gate for future core
+writers. Before adding run results, evidence, failure details, reports, state,
+docs output, or selector-scoped generated artifacts, the milestone must define
+cleanup and publish ordering so failed writes do not leave stale, partial, or
+orphaned outputs that downstream automation could mistake for trustworthy
+evidence. This is a core artifact-writer responsibility; adapters should avoid
+side effects during rendering and execution, but core owns generated file
+lifecycle behavior.
+
 These lifecycle behaviors do not require an artifact version bump by themselves
 because artifact paths, schemas, header fields, and field meanings are
 unchanged.

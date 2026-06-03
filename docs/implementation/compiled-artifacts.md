@@ -97,6 +97,13 @@ overwrite behavior is explicitly enabled. Compiled artifact filenames are built
 from safe single-segment artifact names; path-like names are invalid for
 standalone artifact writers.
 
+This cleanup rule is a core generated-artifact lifecycle gate, not an adapter
+package responsibility. Future writers for run results, evidence, failure
+details, reports, state, docs output, and selector-scoped artifacts must define
+their cleanup and publish ordering before they write generated files. A failed
+write must not leave stale, partial, or orphaned artifacts that make an unsafe
+comparison look current or trustworthy.
+
 ## Artifact header
 
 Compiled artifacts use top-level artifact header fields:

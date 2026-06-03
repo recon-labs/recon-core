@@ -169,7 +169,9 @@ adapter diagnostics returned after rendered profile config is available.
 Factory, optional dependency, API compatibility, capability, metadata,
 rendering, and execution diagnostics should be tested as public output and must
 not leak rendered connection config keys or values classified as unsafe for
-diagnostics. Adapter diagnostic conformance tests should also assert that
+diagnostics. Adapter API compatibility diagnostics are part of this
+conformance surface because they can be derived from profile-backed adapter
+instances. Adapter diagnostic conformance tests should also assert that
 adapter-provided diagnostics include safe non-empty messages and that core
 redaction replaces unsafe message text with a generic safe message instead of
 dropping the message field. Redaction tests should include case-variant and

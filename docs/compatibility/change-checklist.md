@@ -30,6 +30,9 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked whether diagnostic code, message, redaction, path,
       `resource_type`, `resource_name`, hint rendering, or future structured
       diagnostic fields changed for any public output surface.
+- [ ] Checked whether generated artifact cleanup, publish ordering, stale
+      output removal, or partial-write behavior changed for any generated
+      artifact surface.
 
 ### Changelog impact
 
