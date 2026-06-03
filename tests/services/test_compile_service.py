@@ -190,6 +190,48 @@ def test_render_sql_compile_sanitizes_adapter_factory_exceptions(tmp_path: Path)
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_adapter_api_compatibility_diagnostics(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="leaky_api", include_password=True)
+    registry = AdapterRegistry()
+    registry.register("leaky_api", LeakyApiAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        " ".join(
+            value
+            for value in (
+                diagnostic.message,
+                diagnostic.resource_type,
+                diagnostic.resource_name,
+                diagnostic.path,
+                diagnostic.hint,
+            )
+            if value is not None
+        )
+        for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_API_VERSION_UNSUPPORTED",
+        "RC_ADAPTER_API_VERSION_UNSUPPORTED",
+    ]
+    assert "adapter diagnostic text was suppressed" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -795,6 +837,16 @@ class FakeAdapterFactory:
         return AdapterResolutionResult(adapter=FakeAdapter(connection=connection))
 
 
+class LeakyApiAdapter(FakeAdapter):
+    adapter_type = "password=super-secret"
+    supported_adapter_api_version = "0"
+
+
+class LeakyApiAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(adapter=LeakyApiAdapter(connection=connection))
+
+
 class CapabilityRaisingDuckDbAdapter(FakeAdapter):
     adapter_type = "duckdb"
 
@@ -1185,6 +1237,33 @@ def test_render_sql_compile_writes_no_sql_when_compiled_artifact_path_is_invalid
         "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
     ]
     assert not (target_path / "compiled_sql").exists()
+
+
+def test_render_sql_compile_removes_sql_when_yaml_artifact_write_fails_after_rendering(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+    stale_contract_artifact_dir = (
+        tmp_path / "target" / "compiled_contracts" / ("customer_revenue.yml")
+    )
+    stale_contract_artifact_dir.mkdir(parents=True)
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Compile completed but artifacts could not be written."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
+    ]
+    assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
 def test_compile_service_writes_no_artifacts_for_invalid_stable_id_parts(

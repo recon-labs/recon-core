@@ -187,7 +187,8 @@ Initial rules:
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credential payloads in generated
   artifacts, diagnostics, terminal output, or evidence,
-- suppress adapter-resolution diagnostic text when it references rendered
+- suppress profile-backed adapter diagnostic text, including adapter factory
+  and adapter API compatibility diagnostics, when it references rendered
   connection config keys or values, while preserving the original diagnostic
   code and severity.
 
@@ -231,8 +232,8 @@ Adapter diagnostics are public output. External adapters must not place
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
 secret-classified values in diagnostic message, hint, path, `resource_type`,
 `resource_name`, or future structured diagnostic fields. Core may defensively
-suppress unsafe adapter-resolution diagnostic text and unsafe resource
-metadata, but
+suppress unsafe profile-backed adapter diagnostic text and unsafe resource
+metadata, including factory and adapter API compatibility diagnostics, but
 adapter packages and the shared test kit must treat secret-safe diagnostics as
 an adapter author requirement. A secret-safe diagnostic must still include an
 actionable message; adapter compatibility cannot rely on diagnostic codes or

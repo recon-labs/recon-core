@@ -91,6 +91,8 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile --render-sql` now rejects invalid compiled YAML artifact
   output paths before writing compiled SQL, preventing orphaned SQL artifacts
   after runtime artifact write failures.
+- `recon compile --render-sql` now discards generated SQL output if a compiled
+  YAML artifact write fails after successful in-memory SQL rendering.
 - `recon compile` now rejects symlinked `target-path` ancestry, contracts that
   compile into no checks, non-string nested `checks` mapping keys, and missing,
   null, or empty `sampling.default_policy` values when `sampling` is declared.
@@ -124,6 +126,9 @@ This project follows semantic versioning once public package releases begin.
 - Adapter-aware SQL rendering now suppresses unsafe adapter-resolution
   `resource_type` values instead of preserving resource metadata that contains
   rendered profile connection keys or values.
+- Adapter-aware SQL rendering now applies rendered-profile diagnostic redaction
+  to adapter API compatibility diagnostics, not only adapter factory
+  diagnostics.
 - Adapter-aware SQL rendering now converts adapter factory and capability
   declaration exceptions into structured diagnostics with raw adapter error
   text suppressed.

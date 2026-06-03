@@ -2,6 +2,7 @@
 
 import shutil
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -175,6 +176,7 @@ class CompileService:
                 )
                 _write_compiled_artifacts(compiled_contracts, context.paths.target_path)
             except (OSError, ValueError) as exc:
+                _discard_compiled_sql_artifacts(context.paths.target_path / COMPILED_SQL_DIR_NAME)
                 return _compiled_artifact_runtime_error(
                     exc,
                     target_path=context.paths.target_path,
@@ -487,16 +489,24 @@ def _resolve_render_sql_adapters(
     adapters_by_connection: dict[str, BaseAdapter] = {}
 
     for connection in profile.connections.values():
+        config_tokens = _connection_config_tokens(connection.config, adapter_type=connection.type)
         resolution = resolved_registry.resolve(connection)
         diagnostics.extend(
-            _sanitize_adapter_resolution_diagnostics(
+            _sanitize_profile_backed_adapter_diagnostics(
                 resolution.diagnostics,
                 connection=connection,
+                config_tokens=config_tokens,
             )
         )
         if resolution.adapter is None:
             continue
-        diagnostics.extend(validate_adapter_api_compatibility(resolution.adapter))
+        diagnostics.extend(
+            _sanitize_profile_backed_adapter_diagnostics(
+                validate_adapter_api_compatibility(resolution.adapter),
+                connection=connection,
+                config_tokens=config_tokens,
+            )
+        )
         adapters_by_connection[connection.name] = resolution.adapter
 
     return _RenderSqlAdapterResolution(
@@ -505,14 +515,14 @@ def _resolve_render_sql_adapters(
     )
 
 
-def _sanitize_adapter_resolution_diagnostics(
+def _sanitize_profile_backed_adapter_diagnostics(
     diagnostics: tuple[Diagnostic, ...],
     *,
     connection: ConnectionConfig,
+    config_tokens: frozenset[str],
 ) -> tuple[Diagnostic, ...]:
-    config_tokens = _connection_config_tokens(connection.config, adapter_type=connection.type)
     return tuple(
-        _sanitize_adapter_resolution_diagnostic(
+        _sanitize_profile_backed_adapter_diagnostic(
             diagnostic,
             connection=connection,
             config_tokens=config_tokens,
@@ -521,7 +531,7 @@ def _sanitize_adapter_resolution_diagnostics(
     )
 
 
-def _sanitize_adapter_resolution_diagnostic(
+def _sanitize_profile_backed_adapter_diagnostic(
     diagnostic: Diagnostic,
     *,
     connection: ConnectionConfig,
@@ -534,7 +544,7 @@ def _sanitize_adapter_resolution_diagnostic(
         code=diagnostic.code,
         severity=diagnostic.severity,
         message=(
-            f"Adapter `{connection.type}` reported a diagnostic while resolving "
+            f"Adapter `{connection.type}` reported a diagnostic for "
             f"connection `{connection.name}`; adapter diagnostic text was suppressed "
             "because profile diagnostics must not expose rendered connection values."
         ),
@@ -545,6 +555,11 @@ def _sanitize_adapter_resolution_diagnostic(
             "without exposing secrets."
         ),
     )
+
+
+def _discard_compiled_sql_artifacts(output_dir: Path) -> None:
+    with suppress(OSError, ValueError):
+        _clear_compiled_sql_artifact_directory(output_dir)
 
 
 def _connection_config_tokens(

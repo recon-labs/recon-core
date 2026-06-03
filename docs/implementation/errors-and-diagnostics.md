@@ -290,12 +290,13 @@ and invocation-wide SQL output suppression.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include
-connection secrets or fully rendered credential payloads. If an adapter factory
-returns a diagnostic that references rendered connection config keys or values,
-Recon should suppress unsafe adapter diagnostic text and unsafe resource
-metadata, then return a generic adapter-resolution diagnostic with the original
-diagnostic code and severity. The replacement diagnostic must still include a
-safe, actionable message and safe resource context.
+connection secrets or fully rendered credential payloads. If a profile-backed
+adapter diagnostic, including factory diagnostics and adapter API compatibility
+diagnostics, references rendered connection config keys or values, Recon should
+suppress unsafe adapter diagnostic text and unsafe resource metadata, then
+return a generic adapter diagnostic with the original diagnostic code and
+severity. The replacement diagnostic must still include a safe, actionable
+message and safe resource context.
 If an adapter factory or capability declaration raises an exception, Recon
 should suppress the raw exception message and return a generic structured
 adapter diagnostic that preserves only the exception type when useful.

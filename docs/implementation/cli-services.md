@@ -91,8 +91,9 @@ credential payloads must not be written into compiled artifacts, compiled SQL
 references, diagnostics, or terminal output. Unsupported `{{ ... }}` template
 syntax in referenced connection payloads must fail instead of passing raw
 template text to adapters. Adapter-resolution diagnostics that reference
-rendered connection config keys or values must be suppressed before they reach
-service diagnostics or terminal output.
+rendered connection config keys or values, and adapter API compatibility
+diagnostics derived from profile-backed adapter instances, must be suppressed
+before they reach service diagnostics or terminal output.
 
 ## RunService
 

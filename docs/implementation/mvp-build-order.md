@@ -327,10 +327,11 @@ Tests:
 - selected target and referenced named-connection env var rendering,
 - unsupported profile template syntax fails for referenced connections,
 - secret redaction from diagnostics and artifacts,
-- adapter-resolution diagnostics do not leak rendered connection config keys or
+- profile-backed adapter diagnostics, including adapter factory and adapter API
+  compatibility diagnostics, do not leak rendered connection config keys or
   values,
-- adapter-resolution diagnostics suppress case-changed rendered config keys or
-  values and other simple secret transformations,
+- profile-backed adapter diagnostics suppress case-changed rendered config keys
+  or values and other simple secret transformations,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,
