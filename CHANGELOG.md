@@ -118,6 +118,9 @@ This project follows semantic versioning once public package releases begin.
   not leak secrets or fully rendered credential payloads.
 - Adapter-aware SQL rendering now suppresses adapter-resolution diagnostic text
   that references rendered profile connection values.
+- Adapter-aware SQL rendering now suppresses adapter-resolution diagnostic text
+  that references rendered profile connection keys or values with different
+  casing, preventing case-changed secrets or config keys from leaking.
 - Adapter-aware SQL rendering now fails with `RC_ADAPTER_RESOLUTION_FAILED`
   when an adapter factory returns neither an adapter nor a diagnostic.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so

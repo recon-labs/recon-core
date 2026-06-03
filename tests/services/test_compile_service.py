@@ -192,6 +192,44 @@ def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostics(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="case_leaky",
+        include_password=True,
+        password="SuperSecret",
+    )
+    registry = AdapterRegistry()
+    registry.register("case_leaky", CaseVariantLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_CASE_VARIANT_LEAK",
+        "RC_TEST_ADAPTER_CASE_VARIANT_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in diagnostic_text
+    assert "PASSWORD" not in diagnostic_text
+    assert "supersecret" not in diagnostic_text
+    assert "DATABASE" not in diagnostic_text
+    assert "LOCAL.DUCKDB" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_reports_compile_validation_before_profile_errors(
     tmp_path: Path,
 ) -> None:
@@ -612,6 +650,24 @@ class LeakyAdapterFactory:
                     resource_type="adapter",
                     resource_name=connection.type,
                     hint=f"Do not leak database {connection.config.get('database')}.",
+                ),
+            )
+        )
+
+
+class CaseVariantLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        password = str(connection.config.get("password"))
+        database = str(connection.config.get("database"))
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_CASE_VARIANT_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=(f"PASSWORD={password.casefold()} " f"DATABASE={database.upper()}"),
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint=f"Check DATABASE {database.upper()}.",
                 ),
             )
         )
@@ -1101,10 +1157,11 @@ def write_profiles(
     connection_type: str = "duckdb",
     use_distinct_databases: bool = False,
     include_password: bool = False,
+    password: str = "super-secret",
 ) -> None:
     legacy_database = "legacy.duckdb" if use_distinct_databases else "local.duckdb"
     warehouse_database = "warehouse.duckdb" if use_distinct_databases else "local.duckdb"
-    password_yaml = "            password: super-secret\n" if include_password else ""
+    password_yaml = f"            password: {password}\n" if include_password else ""
     profiles_path = project_root / "connections" / "profiles.yml"
     profiles_path.parent.mkdir()
     profiles_path.write_text(

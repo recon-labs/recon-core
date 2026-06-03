@@ -565,7 +565,7 @@ def _collect_connection_config_tokens(
 ) -> None:
     if isinstance(value, Mapping):
         for key, nested_value in value.items():
-            if isinstance(key, str) and key != "type":
+            if isinstance(key, str) and key.casefold() != "type":
                 tokens.add(key)
             _collect_connection_config_tokens(
                 nested_value,
@@ -574,7 +574,7 @@ def _collect_connection_config_tokens(
             )
         return
 
-    if isinstance(value, str) and value != "" and value != adapter_type:
+    if isinstance(value, str) and value != "" and value.casefold() != adapter_type.casefold():
         tokens.add(value)
         return
 
@@ -600,7 +600,8 @@ def _diagnostic_mentions_config_token(
         )
         if value is not None
     )
-    return any(token in diagnostic_text for token in config_tokens)
+    normalized_diagnostic_text = diagnostic_text.casefold()
+    return any(token.casefold() in normalized_diagnostic_text for token in config_tokens)
 
 
 def _render_compiled_sql_in_memory(
