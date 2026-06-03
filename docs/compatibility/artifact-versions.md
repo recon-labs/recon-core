@@ -30,10 +30,13 @@ removes existing top-level `*.yml` files under `target/compiled_contracts/` and
 prevents removed, renamed, or invalid current contracts from leaving stale
 compiled artifacts for downstream automation to read.
 
-Compiled artifact cleanup and writes reject symlinked compiled artifact
-directories and symlinked `target-path` ancestry. Standalone compiled artifact
-writers also reject exact output-file symlinks and path-like artifact names so
-generated filenames cannot escape `target/compiled_contracts/` or
+Compiled artifact cleanup and writes reject compiled artifact paths that are not
+directories, symlinked compiled artifact directories, and symlinked
+`target-path` ancestry. Adapter-aware compile must reject invalid compiled YAML
+artifact paths before publishing compiled SQL, so failed compiled YAML writes do
+not leave orphaned SQL artifacts. Standalone compiled artifact writers also
+reject exact output-file symlinks and path-like artifact names so generated
+filenames cannot escape `target/compiled_contracts/` or
 `target/compiled_checks/`.
 
 Manifest writes also reject symlinked `target-path` ancestry and exact

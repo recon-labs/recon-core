@@ -785,6 +785,32 @@ def test_compile_service_rejects_symlinked_target_directory_before_cleanup(
     assert external_check_artifact.read_text(encoding="utf-8") == "stale checks\n"
 
 
+def test_render_sql_compile_writes_no_sql_when_compiled_artifact_path_is_invalid(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+    target_path = tmp_path / "target"
+    target_path.mkdir()
+    (target_path / "compiled_contracts").write_text("not a directory\n", encoding="utf-8")
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Compile completed but artifacts could not be written."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
+    ]
+    assert not (target_path / "compiled_sql").exists()
+
+
 def test_compile_service_writes_no_artifacts_for_invalid_stable_id_parts(
     tmp_path: Path,
 ) -> None:

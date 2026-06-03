@@ -412,8 +412,10 @@ def _clear_compiled_artifacts(target_path: Path) -> None:
 def _clear_compiled_artifact_directory(output_dir: Path) -> None:
     reject_symlinked_path_components(output_dir)
 
-    if not output_dir.is_dir():
+    if not output_dir.exists():
         return
+    if not output_dir.is_dir():
+        raise NotADirectoryError(f"Compiled artifact output path is not a directory: {output_dir}")
 
     for output_path in output_dir.glob("*.yml"):
         if output_path.is_file() or output_path.is_symlink():

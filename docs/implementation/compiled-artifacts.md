@@ -87,9 +87,11 @@ files from the compiled YAML directories and removes stale compiled SQL output
 before parsing and compilation continue. If parsing or fatal compile validation
 fails, old compiled artifacts are therefore absent instead of stale.
 
-Compiled artifact directories must be real directories, not symlinks. Recon
-rejects symlinked compiled artifact directories and symlinked `target-path`
-ancestry rather than following those paths during cleanup or writes. Exact
+Compiled artifact directories must be real directories, not files or symlinks.
+Recon rejects invalid compiled artifact paths and symlinked `target-path`
+ancestry rather than following those paths during cleanup or writes. For
+adapter-aware compile, these checks happen before publishing compiled SQL so a
+runtime YAML artifact write failure does not leave orphaned SQL output. Exact
 compiled artifact output files must also not be symlinks, even when overwrite
 behavior is explicitly enabled. Compiled artifact filenames are built from safe
 single-segment artifact names; path-like names are invalid for standalone

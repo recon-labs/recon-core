@@ -88,6 +88,9 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile` now rejects symlinked compiled artifact directories,
   unsupported check-pack invocation config, unknown metric fields, invalid
   sampling config, and path-like standalone compiled artifact names.
+- `recon compile --render-sql` now rejects invalid compiled YAML artifact
+  output paths before writing compiled SQL, preventing orphaned SQL artifacts
+  after runtime artifact write failures.
 - `recon compile` now rejects symlinked `target-path` ancestry, contracts that
   compile into no checks, non-string nested `checks` mapping keys, and missing,
   null, or empty `sampling.default_policy` values when `sampling` is declared.
