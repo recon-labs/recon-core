@@ -305,7 +305,8 @@ Current status:
 
 Required gates:
 
-- resolve the profiles, connections, and secrets gate before adapter execution,
+- resolve the profiles, connections, secrets, and adapter diagnostic redaction
+  gate before adapter execution,
 - resolve the adapter API, capability validation, and compiled SQL gate before
   implementing the adapter API or SQL rendering,
 - resolve the typed operation catalog expansion gate before rendering or
@@ -324,7 +325,10 @@ Tests:
 
 - selected profile and target loading,
 - selected target and referenced named-connection env var rendering,
+- unsupported profile template syntax fails for referenced connections,
 - secret redaction from diagnostics and artifacts,
+- adapter-resolution diagnostics do not leak rendered connection config keys or
+  values,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,
@@ -345,6 +349,8 @@ Build:
 
 Required gates:
 
+- resolve the profile-rendering and adapter diagnostic redaction conformance
+  gate before loading rendered profiles or resolving adapters for execution,
 - resolve the explicit authored checks and check registry gate before
   implementing explicit `checks: [...]` support or registry behavior that must
   serve explicit checks later,
@@ -1266,6 +1272,9 @@ Required gate:
 
 - resolve the adapter test kit and adapter package split gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+- resolve the profile-rendering and adapter diagnostic redaction conformance
+  gate before publishing shared test-kit expectations or external adapter
+  compatibility claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the

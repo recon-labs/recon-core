@@ -156,6 +156,18 @@ registry and factory behavior, including that a factory returning neither an
 adapter nor diagnostics fails with `RC_ADAPTER_RESOLUTION_FAILED` instead of
 allowing adapter-aware rendering or execution to succeed.
 
+The same adapter API conformance suite should cover profile rendering and
+adapter diagnostic redaction before adapter execution, connection debug or
+profile validation commands, external adapter repositories, or compatibility
+claims rely on rendered profiles. It should verify selected profile/target
+loading, referenced-connection filtering, missing environment variables,
+environment-variable defaults, unsupported `{{ ... }}` template syntax, and
+adapter diagnostics returned after rendered profile config is available.
+Factory, optional dependency, API compatibility, capability, metadata,
+rendering, and execution diagnostics should be tested as public output and must
+not leak rendered connection config keys or values classified as unsafe for
+diagnostics.
+
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison
 semantics executable across adapters and should cover:

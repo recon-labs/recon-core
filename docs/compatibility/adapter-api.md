@@ -167,7 +167,7 @@ Initial rules:
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credential payloads in generated
-  artifacts, diagnostics, terminal output, or evidence.
+  artifacts, diagnostics, terminal output, or evidence,
 - suppress adapter-resolution diagnostic text when it references rendered
   connection config keys or values, while preserving the original diagnostic
   code and severity.
@@ -179,6 +179,37 @@ cross-connection rendering or execution placement is explicitly designed.
 
 Changes to profile selection, target precedence, environment rendering, or
 secret redaction affect adapter compatibility.
+
+## Profile and diagnostic conformance
+
+Profile rendering and adapter diagnostic redaction are compatibility surfaces
+for future adapter execution, connection debug or profile validation commands,
+shared adapter test-kit work, and external adapter repositories.
+
+Before those surfaces are implemented or claimed compatible, shared conformance
+tests must cover:
+
+- selected profile and target loading,
+- referenced-connection rendering without rendering unreferenced connections,
+- missing environment variables in referenced connection payloads,
+- environment-variable defaults,
+- unsupported `{{ ... }}` template syntax,
+- adapter factory diagnostics returned after profile rendering,
+- optional dependency, API compatibility, capability, metadata, rendering, and
+  execution diagnostics once those phases exist,
+- diagnostics that reference rendered connection config keys or values.
+
+Adapter diagnostics are public output. External adapters must not place
+credentials, tokens, DSNs, passwords, rendered connection payloads, or other
+secret-classified values in diagnostic message, hint, path, or resource fields.
+Core may defensively suppress unsafe adapter-resolution diagnostic text, but
+adapter packages and the shared test kit must treat secret-safe diagnostics as
+an adapter author requirement.
+
+A future structured redaction API or secret-classification model would be a
+durable adapter contract change. If Recon needs that model, update the adapter
+ADR and compatibility docs before implementing adapter execution, debug
+commands, or external adapter compatibility claims that depend on it.
 
 ## Compiled SQL compatibility
 

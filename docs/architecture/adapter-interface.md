@@ -287,11 +287,22 @@ A future adapter test kit should validate:
 - metadata behavior,
 - typed operation rendering,
 - capability declarations,
-- check compatibility.
+- check compatibility,
+- profile rendering behavior,
+- adapter diagnostic redaction.
 
 It should also validate typed operation rendering. If core adds or changes a
 typed operation, shared adapter tests should fail until every affected adapter
 implements the operation or marks the capability unsupported.
+
+Profile and diagnostic tests should cover selected target loading, referenced
+connections only, missing env vars, env-var defaults, unsupported `{{ ... }}`
+template syntax, adapter factory diagnostics, and future optional dependency,
+API compatibility, capability, metadata, rendering, and execution diagnostics.
+Adapter diagnostics are public output, so the test kit must verify that
+credentials, tokens, DSNs, passwords, rendered connection payloads, and other
+secret-classified values do not appear in diagnostic messages, hints, paths, or
+resource fields.
 
 ## Design principle
 

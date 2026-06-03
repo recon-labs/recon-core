@@ -143,6 +143,9 @@ registry.register("duckdb", DuckDbAdapterFactory())
 Core should resolve connection type through the registry. Adapter factories
 must return either an adapter or a diagnostic; a factory that returns neither
 fails resolution with `RC_ADAPTER_RESOLUTION_FAILED`.
+Factory diagnostics are public output. They must not include credentials,
+tokens, DSNs, passwords, fully rendered connection payloads, or other
+secret-classified values from rendered profile config.
 
 The DuckDB adapter starts in `recon-core` as the local development adapter.
 External adapter packages should wait until the adapter API and shared adapter
@@ -251,10 +254,20 @@ Resolution rules:
   for contract-specific adapter rendering or execution,
 - support `env_var('NAME')` and `env_var('NAME', 'default')` initially,
 - fail on missing environment variables in referenced connection payloads,
+- fail on unsupported `{{ ... }}` template syntax in referenced connection
+  payloads,
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credentials in generated artifacts or
   diagnostics.
+
+Before shared adapter test-kit or external adapter package compatibility is
+claimed, adapter API conformance tests must cover profile rendering and
+diagnostic redaction. Those tests should include selected target loading,
+referenced-connection filtering, missing env vars, env-var defaults,
+unsupported template syntax, adapter factory diagnostics, and future optional
+dependency, API compatibility, capability, metadata, rendering, and execution
+diagnostics.
 
 For Milestone 6 DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type

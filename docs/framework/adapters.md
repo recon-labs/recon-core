@@ -257,6 +257,14 @@ Generated artifacts and diagnostics may include profile name, target name,
 adapter type, and non-secret relation identifiers. They must not include
 secrets or fully rendered credential payloads.
 
+Adapter diagnostics are public output. Adapter authors should not include
+credentials, tokens, DSNs, passwords, rendered connection payloads, or other
+secret-classified values in diagnostic message, hint, path, or resource fields.
+Before external adapter packages or a shared adapter test kit are published,
+the test kit must include profile-rendering and diagnostic-redaction
+conformance cases for adapter factories and future dependency, API,
+capability, metadata, rendering, and execution diagnostics.
+
 ## Query endpoint boundary
 
 Milestone 6 is relation-only for executable adapter-aware rendering and
@@ -326,7 +334,9 @@ Purpose:
 - SQL compilation tests,
 - metadata tests,
 - capability validation,
-- check compatibility tests.
+- check compatibility tests,
+- profile-rendering tests,
+- diagnostic-redaction tests.
 
 The test kit should include shared tests for typed operation rendering and
 capability declarations. Every production adapter should run the shared test kit

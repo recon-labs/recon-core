@@ -88,7 +88,11 @@ or attached-database rendering is designed.
 Profile rendering must render only the selected target environment and the
 named connections referenced by selected contracts. Secrets and fully rendered
 credential payloads must not be written into compiled artifacts, compiled SQL
-references, diagnostics, or terminal output.
+references, diagnostics, or terminal output. Unsupported `{{ ... }}` template
+syntax in referenced connection payloads must fail instead of passing raw
+template text to adapters. Adapter-resolution diagnostics that reference
+rendered connection config keys or values must be suppressed before they reach
+service diagnostics or terminal output.
 
 ## RunService
 
@@ -102,8 +106,10 @@ Responsibilities:
 - return run summary and exit category.
 
 Run-time profile loading follows the same selected-target and secret redaction
-rules as adapter-aware compile. `RunService` must revalidate adapter API
-compatibility and required capabilities before execution.
+rules as adapter-aware compile. `RunService` must also preserve the same
+unsupported-template and adapter diagnostic redaction behavior before execution.
+`RunService` must revalidate adapter API compatibility and required
+capabilities before execution.
 
 ## CLI options
 
