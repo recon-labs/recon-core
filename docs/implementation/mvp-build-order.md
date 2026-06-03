@@ -327,11 +327,12 @@ Tests:
 - selected target and referenced named-connection env var rendering,
 - unsupported profile template syntax fails for referenced connections,
 - secret redaction from diagnostics and artifacts,
-- profile-backed adapter diagnostics, including adapter factory and adapter API
-  compatibility diagnostics, do not leak rendered connection config keys or
-  values,
+- profile-backed adapter diagnostics, including adapter factory, adapter API
+  compatibility, and render-phase diagnostics, do not leak rendered connection
+  config keys or values,
 - profile-backed adapter diagnostics suppress case-changed rendered config keys
-  or values and other simple secret transformations,
+  or values, non-string rendered values, unsafe `rendering.adapter_type`
+  metadata, and other simple secret transformations,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,
@@ -1317,8 +1318,9 @@ Required gate:
 - include case-variant rendered-config redaction cases in shared adapter
   diagnostic assertions before creating or splitting the test-kit repository,
 - include field-by-field adapter diagnostic redaction cases for message, hint,
-  path, `resource_type`, `resource_name`, and future structured diagnostic
-  fields before creating or splitting the test-kit repository,
+  path, `resource_type`, `resource_name`, `rendering.adapter_type`, and future
+  structured diagnostic fields before creating or splitting the test-kit
+  repository,
 - include sanitized adapter factory exception and sanitized capability
   declaration exception cases before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,

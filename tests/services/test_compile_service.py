@@ -263,6 +263,52 @@ def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_non_string_adapter_resolution_values(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="numeric_leaky",
+        include_password=True,
+        password="123456",
+    )
+    registry = AdapterRegistry()
+    registry.register("numeric_leaky", NumericValueLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        " ".join(
+            value
+            for value in (
+                diagnostic.message,
+                diagnostic.resource_type,
+                diagnostic.resource_name,
+                diagnostic.path,
+                diagnostic.hint,
+            )
+            if value is not None
+        )
+        for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_NUMERIC_LEAK",
+        "RC_TEST_ADAPTER_NUMERIC_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in diagnostic_text
+    assert "123456" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -808,6 +854,60 @@ def test_render_sql_compile_sanitizes_renderer_failure_artifacts(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_render_phase_adapter_metadata(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, include_password=True)
+    registry = AdapterRegistry()
+    registry.register("duckdb", LeakyRenderPhaseAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    checks_artifact_text = (
+        tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
+    ).read_text(encoding="utf-8")
+    diagnostic_text = "\n".join(
+        " ".join(
+            value
+            for value in (
+                diagnostic.message,
+                diagnostic.resource_type,
+                diagnostic.resource_name,
+                diagnostic.path,
+                diagnostic.hint,
+            )
+            if value is not None
+        )
+        for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    }
+    assert "adapter diagnostic text was suppressed" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "super-secret" not in checks_artifact_text
+    assert "password" not in diagnostic_text
+    assert "password" not in checks_artifact_text
+    assert all(
+        check["rendering"]["adapter_type"] == "duckdb" for check in checks_artifact["checks"]
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 class FakeAdapter(BaseAdapter):
     adapter_type = "fake"
     adapter_version = "0.0.test"
@@ -890,6 +990,22 @@ class LeakyAdapterFactory:
         )
 
 
+class NumericValueLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_NUMERIC_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=str(connection.config.get("password")),
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint="Inspect the adapter configuration.",
+                ),
+            )
+        )
+
+
 class CaseVariantLeakyAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         password = str(connection.config.get("password"))
@@ -940,6 +1056,15 @@ class MessageAndResourceTypeLeakyAdapterFactory:
                 ),
             )
         )
+
+
+class LeakyRenderPhaseAdapter(FakeAdapter):
+    adapter_type = "password=super-secret"
+
+
+class LeakyRenderPhaseAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(adapter=LeakyRenderPhaseAdapter(connection=connection))
 
 
 def test_compile_service_ignores_indexed_non_contract_files_for_compiled_output(

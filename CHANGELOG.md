@@ -129,6 +129,9 @@ This project follows semantic versioning once public package releases begin.
 - Adapter-aware SQL rendering now applies rendered-profile diagnostic redaction
   to adapter API compatibility diagnostics, not only adapter factory
   diagnostics.
+- Adapter-aware SQL rendering now applies rendered-profile redaction to
+  render-phase adapter diagnostics and `rendering.adapter_type` metadata, and
+  treats non-string rendered profile values as redaction candidates.
 - Adapter-aware SQL rendering now converts adapter factory and capability
   declaration exceptions into structured diagnostics with raw adapter error
   text suppressed.

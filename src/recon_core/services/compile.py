@@ -531,6 +531,40 @@ def _sanitize_profile_backed_adapter_diagnostics(
     )
 
 
+def _sanitize_profile_backed_render_result(
+    render_result: RenderedCheckSql,
+    *,
+    connection: ConnectionConfig,
+    config_tokens: frozenset[str],
+) -> RenderedCheckSql:
+    return replace(
+        render_result,
+        diagnostics=_sanitize_profile_backed_adapter_diagnostics(
+            render_result.diagnostics,
+            connection=connection,
+            config_tokens=config_tokens,
+        ),
+        adapter_type=_sanitize_profile_backed_adapter_type(
+            render_result.adapter_type,
+            connection=connection,
+            config_tokens=config_tokens,
+        ),
+    )
+
+
+def _sanitize_profile_backed_adapter_type(
+    adapter_type: str | None,
+    *,
+    connection: ConnectionConfig,
+    config_tokens: frozenset[str],
+) -> str | None:
+    if adapter_type is None:
+        return None
+    if not _text_mentions_config_token(adapter_type, config_tokens):
+        return adapter_type
+    return connection.type
+
+
 def _sanitize_profile_backed_adapter_diagnostic(
     diagnostic: Diagnostic,
     *,
@@ -577,25 +611,52 @@ def _collect_connection_config_tokens(
     *,
     adapter_type: str,
     tokens: set[str],
+    current_key: str | None = None,
 ) -> None:
     if isinstance(value, Mapping):
         for key, nested_value in value.items():
-            if isinstance(key, str) and key.casefold() != "type":
-                tokens.add(key)
+            key_text = key if isinstance(key, str) else None
+            if key_text is not None and key_text.casefold() != "type":
+                tokens.add(key_text)
             _collect_connection_config_tokens(
                 nested_value,
                 adapter_type=adapter_type,
                 tokens=tokens,
+                current_key=key_text,
             )
         return
 
-    if isinstance(value, str) and value != "" and value.casefold() != adapter_type.casefold():
-        tokens.add(value)
+    if isinstance(value, str):
+        if value != "" and value.casefold() != adapter_type.casefold():
+            tokens.add(value)
         return
 
     if isinstance(value, list | tuple):
         for item in value:
-            _collect_connection_config_tokens(item, adapter_type=adapter_type, tokens=tokens)
+            _collect_connection_config_tokens(
+                item,
+                adapter_type=adapter_type,
+                tokens=tokens,
+                current_key=current_key,
+            )
+        return
+
+    if value is None or isinstance(value, bool):
+        return
+
+    token = str(value)
+    if token != "" and (
+        len(token) >= 3 or (current_key is not None and _is_secret_like_config_key(current_key))
+    ):
+        tokens.add(token)
+
+
+def _is_secret_like_config_key(key: str) -> bool:
+    normalized_key = key.casefold()
+    return any(
+        secret_word in normalized_key
+        for secret_word in ("password", "passwd", "pwd", "secret", "token", "credential", "key")
+    )
 
 
 def _diagnostic_mentions_config_token(
@@ -616,8 +677,12 @@ def _diagnostic_mentions_config_token(
         )
         if value is not None
     )
-    normalized_diagnostic_text = diagnostic_text.casefold()
-    return any(token.casefold() in normalized_diagnostic_text for token in config_tokens)
+    return _text_mentions_config_token(diagnostic_text, config_tokens)
+
+
+def _text_mentions_config_token(text: str, config_tokens: frozenset[str]) -> bool:
+    normalized_text = text.casefold()
+    return any(token.casefold() in normalized_text for token in config_tokens)
 
 
 def _render_compiled_sql_in_memory(
@@ -635,6 +700,15 @@ def _render_compiled_sql_in_memory(
         target_adapter = adapters_by_connection.get(target_connection)
         if source_adapter is None or target_adapter is None:
             continue
+        source_config_tokens = _connection_config_tokens(
+            source_adapter.connection.config,
+            adapter_type=source_adapter.connection.type,
+        )
+        source_adapter_type = _sanitize_profile_backed_adapter_type(
+            source_adapter.adapter_type,
+            connection=source_adapter.connection,
+            config_tokens=source_config_tokens,
+        )
         if source_adapter.adapter_type != target_adapter.adapter_type:
             diagnostic = Diagnostic(
                 code=MIXED_ADAPTER_TYPES_UNSUPPORTED,
@@ -674,7 +748,7 @@ def _render_compiled_sql_in_memory(
                 results_by_check_id,
                 compiled_contract=compiled_contract,
                 diagnostic=diagnostic,
-                adapter_type=source_adapter.adapter_type,
+                adapter_type=source_adapter_type,
             )
             continue
 
@@ -688,12 +762,17 @@ def _render_compiled_sql_in_memory(
                 resource_name=source_adapter.adapter_type,
                 hint="Use an adapter with a SQL renderer.",
             )
+            diagnostic = _sanitize_profile_backed_adapter_diagnostic(
+                diagnostic,
+                connection=source_adapter.connection,
+                config_tokens=source_config_tokens,
+            )
             diagnostics.append(diagnostic)
             _set_contract_render_block(
                 results_by_check_id,
                 compiled_contract=compiled_contract,
                 diagnostic=diagnostic,
-                adapter_type=source_adapter.adapter_type,
+                adapter_type=source_adapter_type,
             )
             continue
 
@@ -703,6 +782,11 @@ def _render_compiled_sql_in_memory(
                 check=check,
                 adapter=source_adapter,
                 renderer=renderer,
+            )
+            render_result = _sanitize_profile_backed_render_result(
+                render_result,
+                connection=source_adapter.connection,
+                config_tokens=source_config_tokens,
             )
             results_by_check_id[check.id] = render_result
             diagnostics.extend(render_result.diagnostics)

@@ -187,10 +187,10 @@ Initial rules:
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credential payloads in generated
   artifacts, diagnostics, terminal output, or evidence,
-- suppress profile-backed adapter diagnostic text, including adapter factory
-  and adapter API compatibility diagnostics, when it references rendered
-  connection config keys or values, while preserving the original diagnostic
-  code and severity.
+- suppress profile-backed adapter diagnostic text, including adapter factory,
+  adapter API compatibility, and render-phase adapter diagnostics, when it
+  references rendered connection config keys or values, while preserving the
+  original diagnostic code and severity.
 
 For current DuckDB SQL rendering, source and target connection names may differ
 only when the referenced profile entries resolve to the same adapter type and
@@ -233,7 +233,8 @@ credentials, tokens, DSNs, passwords, rendered connection payloads, or other
 secret-classified values in diagnostic message, hint, path, `resource_type`,
 `resource_name`, or future structured diagnostic fields. Core may defensively
 suppress unsafe profile-backed adapter diagnostic text and unsafe resource
-metadata, including factory and adapter API compatibility diagnostics, but
+metadata, including factory, adapter API compatibility, and render-phase
+diagnostics plus `rendering.adapter_type` metadata, but
 adapter packages and the shared test kit must treat secret-safe diagnostics as
 an adapter author requirement. A secret-safe diagnostic must still include an
 actionable message; adapter compatibility cannot rely on diagnostic codes or

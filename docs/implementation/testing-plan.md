@@ -171,14 +171,16 @@ rendering, and execution diagnostics should be tested as public output and must
 not leak rendered connection config keys or values classified as unsafe for
 diagnostics. Adapter API compatibility diagnostics are part of this
 conformance surface because they can be derived from profile-backed adapter
-instances. Adapter diagnostic conformance tests should also assert that
-adapter-provided diagnostics include safe non-empty messages and that core
-redaction replaces unsafe message text with a generic safe message instead of
-dropping the message field. Redaction tests should include case-variant and
-simple transformation cases, including uppercase or lowercase config keys,
-case-changed rendered values, DSN substrings, tokens, and passwords appearing
-independently in diagnostic message, hint, path, `resource_type`,
-`resource_name`, and any future structured diagnostic fields.
+instances; render-phase diagnostics and `rendering.adapter_type` metadata are
+part of the same surface. Adapter diagnostic conformance tests should also
+assert that adapter-provided diagnostics include safe non-empty messages and
+that core redaction replaces unsafe message text with a generic safe message
+instead of dropping the message field. Redaction tests should include
+case-variant and simple transformation cases, including uppercase or lowercase
+config keys, non-string rendered values, case-changed rendered values, DSN
+substrings, tokens, and passwords appearing independently in diagnostic
+message, hint, path, `resource_type`, `resource_name`, `rendering.adapter_type`,
+and any future structured diagnostic fields.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison
