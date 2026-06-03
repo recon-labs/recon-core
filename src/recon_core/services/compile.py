@@ -1,8 +1,10 @@
 """Compile command service."""
 
 import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
 from recon_core.adapters import (
     ADAPTER_CAPABILITY_UNSUPPORTED,
@@ -37,7 +39,7 @@ from recon_core.compiler import (
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.parser import load_parsed_project
 from recon_core.profiles import load_selected_profile
-from recon_core.profiles.models import SelectedProfile
+from recon_core.profiles.models import ConnectionConfig, SelectedProfile
 from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
 
@@ -486,7 +488,12 @@ def _resolve_render_sql_adapters(
 
     for connection in profile.connections.values():
         resolution = resolved_registry.resolve(connection)
-        diagnostics.extend(resolution.diagnostics)
+        diagnostics.extend(
+            _sanitize_adapter_resolution_diagnostics(
+                resolution.diagnostics,
+                connection=connection,
+            )
+        )
         if resolution.adapter is None:
             continue
         diagnostics.extend(validate_adapter_api_compatibility(resolution.adapter))
@@ -496,6 +503,104 @@ def _resolve_render_sql_adapters(
         adapters_by_connection=adapters_by_connection,
         diagnostics=tuple(diagnostics),
     )
+
+
+def _sanitize_adapter_resolution_diagnostics(
+    diagnostics: tuple[Diagnostic, ...],
+    *,
+    connection: ConnectionConfig,
+) -> tuple[Diagnostic, ...]:
+    config_tokens = _connection_config_tokens(connection.config, adapter_type=connection.type)
+    return tuple(
+        _sanitize_adapter_resolution_diagnostic(
+            diagnostic,
+            connection=connection,
+            config_tokens=config_tokens,
+        )
+        for diagnostic in diagnostics
+    )
+
+
+def _sanitize_adapter_resolution_diagnostic(
+    diagnostic: Diagnostic,
+    *,
+    connection: ConnectionConfig,
+    config_tokens: frozenset[str],
+) -> Diagnostic:
+    if not _diagnostic_mentions_config_token(diagnostic, config_tokens):
+        return diagnostic
+
+    return Diagnostic(
+        code=diagnostic.code,
+        severity=diagnostic.severity,
+        message=(
+            f"Adapter `{connection.type}` reported a diagnostic while resolving "
+            f"connection `{connection.name}`; adapter diagnostic text was suppressed "
+            "because profile diagnostics must not expose rendered connection values."
+        ),
+        resource_type=diagnostic.resource_type or "adapter",
+        resource_name=connection.type,
+        hint=(
+            "Fix the adapter configuration or inspect the adapter locally "
+            "without exposing secrets."
+        ),
+    )
+
+
+def _connection_config_tokens(
+    value: Mapping[str, Any],
+    *,
+    adapter_type: str,
+) -> frozenset[str]:
+    tokens: set[str] = set()
+    _collect_connection_config_tokens(value, adapter_type=adapter_type, tokens=tokens)
+    return frozenset(tokens)
+
+
+def _collect_connection_config_tokens(
+    value: object,
+    *,
+    adapter_type: str,
+    tokens: set[str],
+) -> None:
+    if isinstance(value, Mapping):
+        for key, nested_value in value.items():
+            if isinstance(key, str) and key != "type":
+                tokens.add(key)
+            _collect_connection_config_tokens(
+                nested_value,
+                adapter_type=adapter_type,
+                tokens=tokens,
+            )
+        return
+
+    if isinstance(value, str) and value != "" and value != adapter_type:
+        tokens.add(value)
+        return
+
+    if isinstance(value, list | tuple):
+        for item in value:
+            _collect_connection_config_tokens(item, adapter_type=adapter_type, tokens=tokens)
+
+
+def _diagnostic_mentions_config_token(
+    diagnostic: Diagnostic,
+    config_tokens: frozenset[str],
+) -> bool:
+    if not config_tokens:
+        return False
+
+    diagnostic_text = "\n".join(
+        value
+        for value in (
+            diagnostic.message,
+            diagnostic.hint,
+            diagnostic.path,
+            diagnostic.resource_name,
+        )
+        if value is not None
+    )
+    return any(token in diagnostic_text for token in config_tokens)
 
 
 def _render_compiled_sql_in_memory(

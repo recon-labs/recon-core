@@ -259,6 +259,47 @@ profiles:
     assert "WAREHOUSE_DB" not in diagnostic_text
 
 
+def test_load_selected_profile_rejects_unsupported_template_expression(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('MISSING_DB') | lower }}"
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile(
+        context_result.context,
+        contracts=(contract(source_connection="legacy", target_connection="warehouse"),),
+    )
+
+    assert not result.succeeded
+    assert result.profile is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_CONFIG"
+    ]
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+    assert "env_var('MISSING_DB') | lower" not in diagnostic_text
+    assert "{{" not in diagnostic_text
+    assert "}}" not in diagnostic_text
+
+
 def test_load_selected_profile_sanitizes_invalid_yaml_diagnostics(
     tmp_path: Path,
 ) -> None:

@@ -359,6 +359,22 @@ def _render_string(
     environ: Mapping[str, str],
     diagnostics: list[Diagnostic],
 ) -> str:
+    if _contains_unsupported_template_expression(value):
+        diagnostics.append(
+            _diagnostic(
+                INVALID_PROFILE_CONFIG,
+                f"Connection `{connection_name}` contains unsupported profile template syntax.",
+                path=profile_path,
+                resource_type="profile_connection",
+                resource_name=connection_name,
+                hint=(
+                    "Use only env_var('NAME') or env_var('NAME', 'default') in "
+                    "connections/profiles.yml."
+                ),
+            )
+        )
+        return value
+
     def replace(match: re.Match[str]) -> str:
         env_name = match.group("name")
         default = match.group("default")
@@ -383,6 +399,32 @@ def _render_string(
         return ""
 
     return _ENV_VAR_PATTERN.sub(replace, value)
+
+
+def _contains_unsupported_template_expression(value: str) -> bool:
+    if "{{" not in value and "}}" not in value:
+        return False
+
+    valid_spans = tuple(match.span() for match in _ENV_VAR_PATTERN.finditer(value))
+    marker_positions = tuple(_template_marker_positions(value, "{{")) + tuple(
+        _template_marker_positions(value, "}}")
+    )
+    return any(not _position_in_spans(position, valid_spans) for position in marker_positions)
+
+
+def _template_marker_positions(value: str, marker: str) -> tuple[int, ...]:
+    positions: list[int] = []
+    start = 0
+    while True:
+        position = value.find(marker, start)
+        if position == -1:
+            return tuple(positions)
+        positions.append(position)
+        start = position + len(marker)
+
+
+def _position_in_spans(position: int, spans: tuple[tuple[int, int], ...]) -> bool:
+    return any(start <= position < end for start, end in spans)
 
 
 def _construct_mapping_without_duplicate_keys(

@@ -16,6 +16,7 @@ from recon_core.adapters import (
     RenderedSql,
 )
 from recon_core.adapters.duckdb import DuckDbAdapterFactory, DuckDbSqlRenderer
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
 from recon_core.services import CompileService
 from recon_core.services.results import ExitCategory
@@ -157,6 +158,37 @@ def test_render_sql_compile_reports_empty_adapter_resolution_result(tmp_path: Pa
         "RC_ADAPTER_RESOLUTION_FAILED",
         "RC_ADAPTER_RESOLUTION_FAILED",
     ]
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="leaky", include_password=True)
+    registry = AdapterRegistry()
+    registry.register("leaky", LeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_LEAK",
+        "RC_TEST_ADAPTER_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in diagnostic_text
+    assert "password" not in diagnostic_text
+    assert "local.duckdb" not in diagnostic_text
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -564,6 +596,25 @@ class FakeAdapterFactory:
 class EmptyAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult()
+
+
+class LeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=(
+                        f"Connection database={connection.config.get('database')} "
+                        f"password={connection.config.get('password')}"
+                    ),
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint=f"Do not leak database {connection.config.get('database')}.",
+                ),
+            )
+        )
 
 
 def test_compile_service_ignores_indexed_non_contract_files_for_compiled_output(
@@ -1049,9 +1100,11 @@ def write_profiles(
     *,
     connection_type: str = "duckdb",
     use_distinct_databases: bool = False,
+    include_password: bool = False,
 ) -> None:
     legacy_database = "legacy.duckdb" if use_distinct_databases else "local.duckdb"
     warehouse_database = "warehouse.duckdb" if use_distinct_databases else "local.duckdb"
+    password_yaml = "            password: super-secret\n" if include_password else ""
     profiles_path = project_root / "connections" / "profiles.yml"
     profiles_path.parent.mkdir()
     profiles_path.write_text(
@@ -1065,9 +1118,11 @@ profiles:
           legacy:
             type: {connection_type}
             database: {legacy_database}
+{password_yaml.rstrip()}
           warehouse:
             type: {connection_type}
             database: {warehouse_database}
+{password_yaml.rstrip()}
 """.lstrip(),
         encoding="utf-8",
     )

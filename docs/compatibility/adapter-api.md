@@ -162,10 +162,15 @@ Initial rules:
   connection payloads referenced by the selected contracts,
 - support `env_var('NAME')` and `env_var('NAME', 'default')`,
 - fail on missing environment variables in referenced connection payloads,
+- fail on unsupported `{{ ... }}` template syntax in referenced connection
+  payloads,
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credential payloads in generated
   artifacts, diagnostics, terminal output, or evidence.
+- suppress adapter-resolution diagnostic text when it references rendered
+  connection config keys or values, while preserving the original diagnostic
+  code and severity.
 
 For current DuckDB SQL rendering, source and target connection names may differ
 only when the referenced profile entries resolve to the same adapter type and

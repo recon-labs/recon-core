@@ -288,7 +288,10 @@ names, renderer failures, and invocation-wide SQL output suppression.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include
-connection secrets or fully rendered credential payloads.
+connection secrets or fully rendered credential payloads. If an adapter factory
+returns a diagnostic that references rendered connection config keys or values,
+Recon should suppress that adapter diagnostic text and return a generic
+adapter-resolution diagnostic with the original diagnostic code and severity.
 
 ## Runtime diagnostics
 

@@ -116,6 +116,8 @@ This project follows semantic versioning once public package releases begin.
 - Adapter-aware SQL rendering now suppresses raw adapter renderer exception
   messages in diagnostics and compiled-check artifacts so renderer failures do
   not leak secrets or fully rendered credential payloads.
+- Adapter-aware SQL rendering now suppresses adapter-resolution diagnostic text
+  that references rendered profile connection values.
 - Adapter-aware SQL rendering now fails with `RC_ADAPTER_RESOLUTION_FAILED`
   when an adapter factory returns neither an adapter nor a diagnostic.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so
@@ -158,6 +160,9 @@ This project follows semantic versioning once public package releases begin.
 - Invalid `connections/profiles.yml` YAML diagnostics no longer include the
   raw YAML parser message, preventing malformed secret-bearing lines from
   appearing in CLI diagnostics.
+- Referenced `connections/profiles.yml` connection values that contain
+  unsupported `{{ ... }}` template syntax now fail profile validation instead
+  of passing raw template text to adapters.
 
 ## Release format
 

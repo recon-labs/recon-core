@@ -107,6 +107,8 @@ Profile rendering rules:
 - support `env_var('NAME')` and `env_var('NAME', 'default')` initially,
 - fail when a referenced connection payload contains a missing environment
   variable,
+- fail when a referenced connection payload contains unsupported `{{ ... }}`
+  template syntax instead of passing raw template text to adapters,
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never write secrets or fully rendered credential payloads into generated
