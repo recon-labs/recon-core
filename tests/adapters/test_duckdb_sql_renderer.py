@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from recon_core.adapters import Relation
@@ -36,7 +38,7 @@ _TARGET_RELATION_SQL = '"qa"."customer_target"'
 
 def _aggregate_input_predicate(relation: str, column: str = "revenue") -> str:
     input_type = f'typeof((select "{column}" from {relation} limit 1))'
-    return f"({input_type} in ({_DUCKDB_NUMERIC_SUM_TYPES}) or {input_type} like 'DECIMAL(%')"
+    return f"({input_type} in ({_DUCKDB_NUMERIC_SUM_TYPES}) or {input_type} like 'DECIMAL(%)')"
 
 
 def _single_aggregate_type_check(
@@ -370,6 +372,32 @@ def test_render_aggregate_comparison_plan(
     )
 
 
+def test_render_aggregate_type_check_uses_closed_decimal_pattern(
+    renderer: DuckDbSqlRenderer,
+    source_relation: Relation,
+    target_relation: Relation,
+) -> None:
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.compare_aggregates().to_dict(),
+        ),
+        source_relation=source_relation,
+        target_relation=target_relation,
+    )
+
+    assert "like 'DECIMAL(%)')" in rendered[-1].sql
+
+
 def test_render_grouped_aggregate_comparison_plan(
     renderer: DuckDbSqlRenderer,
     source_relation: Relation,
@@ -642,6 +670,39 @@ def test_aggregate_large_bigint_preserves_exact_difference(
     assert con.execute(rendered[-1].sql).fetchall() == [(9007199254740992, 9007199254740993, -1)]
 
 
+def test_aggregate_decimal_input_preserves_exact_difference(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (revenue decimal(10, 2))")
+    con.execute("create table target_table (revenue decimal(10, 2))")
+    con.execute("insert into source_table values (10.25)")
+    con.execute("insert into target_table values (9.00)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+            ).to_dict(),
+            TypedOperation.compare_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    assert con.execute(rendered[-1].sql).fetchall() == [
+        (Decimal("10.25"), Decimal("9.00"), Decimal("1.25"))
+    ]
+
+
 def test_aggregate_uhugeint_input_raises_recon_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
@@ -876,6 +937,41 @@ def test_grouped_aggregate_large_bigint_preserves_exact_difference(
 
     assert con.execute(rendered[-1].sql).fetchall() == [
         ("2026-01", "2026-01", 9007199254740992, 9007199254740993, -1)
+    ]
+
+
+def test_grouped_aggregate_decimal_input_preserves_exact_difference(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (month varchar, revenue decimal(10, 2))")
+    con.execute("create table target_table (month varchar, revenue decimal(10, 2))")
+    con.execute("insert into source_table values ('2026-01', 10.25)")
+    con.execute("insert into target_table values ('2026-01', 9.00)")
+
+    rendered = renderer.render_plan(
+        (
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.SOURCE,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.grouped_aggregate(
+                side=OperationSide.TARGET,
+                aggregate="sum",
+                column="revenue",
+                group_by=("month",),
+            ).to_dict(),
+            TypedOperation.compare_grouped_aggregates().to_dict(),
+        ),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    assert con.execute(rendered[-1].sql).fetchall() == [
+        ("2026-01", "2026-01", Decimal("10.25"), Decimal("9.00"), Decimal("1.25"))
     ]
 
 

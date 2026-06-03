@@ -705,7 +705,7 @@ def _aggregate_input_type_supported_predicate(type_expression: str) -> str:
     numeric_types = ", ".join(
         _sql_string_literal(type_name) for type_name in _DUCKDB_NUMERIC_SUM_TYPES
     )
-    return f"({type_expression} in ({numeric_types}) or {type_expression} like 'DECIMAL(%')"
+    return f"({type_expression} in ({numeric_types}) or {type_expression} like 'DECIMAL(%)')"
 
 
 def _operation_step_name(*, index: int, operation: Mapping[str, Any]) -> str:
