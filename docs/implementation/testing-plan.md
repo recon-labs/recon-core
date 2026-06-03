@@ -181,6 +181,11 @@ semantics executable across adapters and should cover:
 - unsigned large-integer aggregate inputs, such as DuckDB `UHUGEINT`, either
   prove exact aggregate comparison behavior or fail with clear adapter-level
   errors,
+- empty aggregate result semantics are explicit before execution conformance is
+  claimed, including cases where an engine returns `NULL` for `sum` on empty
+  groups rather than zero, how two empty aggregate results compare, how empty
+  aggregate `NULL` is distinguished from numeric zero, and how run
+  results/evidence surface that distinction,
 - empty source/target relations with mismatched key or group-key types still
   fail instead of producing empty trustworthy-looking comparison output,
 - grouped aggregate renderers do not use cross-type coalescing for source and

@@ -211,6 +211,13 @@ approximate `DOUBLE` values for `sum(UHUGEINT)`. Grouped aggregate comparison
 results expose source and target group keys separately as `source_<key>` and
 `target_<key>` columns instead of coalescing group keys across sides.
 
+Future adapter execution and shared adapter test-kit work must define empty
+aggregate result semantics before aggregate comparison conformance is claimed.
+For example, engines such as DuckDB return `NULL` for `sum` on empty groups
+rather than zero. Recon must lock how two empty aggregate results compare, how
+empty aggregate `NULL` differs from numeric zero, and how that behavior appears
+in run results and evidence.
+
 Rendered SQL belongs under:
 
 ```text

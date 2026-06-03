@@ -253,6 +253,13 @@ same rendered connection config; cross-file or cross-connection rendering
 remains future work. Connection lifecycle, metadata fetching, and check
 execution remain future work.
 
+Future check execution and shared adapter conformance tests must explicitly
+define empty aggregate result semantics before aggregate comparison execution is
+claimed. Engines such as DuckDB return `NULL` for `sum` on empty groups instead
+of zero, so Recon must lock whether two empty aggregate results compare equal,
+how empty aggregate `NULL` differs from numeric zero, and how run results and
+evidence expose the distinction.
+
 ## Query endpoint boundary
 
 Milestone 6 is relation-only for executable adapter-aware behavior. Query

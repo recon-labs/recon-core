@@ -67,7 +67,12 @@ non-numeric metric comparisons cannot pass through dialect implicit casts,
 aggregate-specific boolean semantics, raw dialect binder errors, or lossy casts
 that round valid exact numeric aggregate values. For engines with unsigned
 large-integer types, the matrix must prove exact aggregate behavior or require
-the adapter to reject those inputs.
+the adapter to reject those inputs. The matrix must also lock empty aggregate
+result semantics before execution tests or adapter packages rely on aggregate
+comparison output: engines such as DuckDB return `NULL` for `sum` on empty
+groups rather than zero, so the test kit must define whether two empty aggregate
+results compare equal, how empty aggregate `NULL` differs from numeric zero,
+and how that distinction is surfaced in run results and evidence.
 
 The same test-kit design must define adapter API conformance tests separate
 from the SQL comparison matrix. At minimum, those tests must cover adapter

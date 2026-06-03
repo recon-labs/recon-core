@@ -199,6 +199,13 @@ aggregate comparison output keeps source and target group keys separate as
 `source_<key>` and `target_<key>` columns instead of coalescing group keys
 across sides.
 
+Future adapter execution and the shared adapter test kit must explicitly define
+empty aggregate result semantics before aggregate comparison conformance is
+claimed. Engines can return `NULL` for `sum` on empty groups instead of zero;
+Recon must define whether two empty aggregate results compare equal, how that
+differs from comparing numeric zero, and how the distinction appears in run
+results and evidence.
+
 Milestone 6 adapter-aware rendering should migrate rendering statuses to:
 
 ```text
