@@ -113,6 +113,9 @@ This project follows semantic versioning once public package releases begin.
   DuckDB optional dependencies, unsupported adapter API versions, unsupported
   required capabilities, query endpoints, invalid relation names, and renderer
   failures without writing misleading SQL artifacts.
+- Adapter-aware SQL rendering now suppresses raw adapter renderer exception
+  messages in diagnostics and compiled-check artifacts so renderer failures do
+  not leak secrets or fully rendered credential payloads.
 - Adapter-aware SQL rendering now fails with `RC_ADAPTER_RESOLUTION_FAILED`
   when an adapter factory returns neither an adapter nor a diagnostic.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so

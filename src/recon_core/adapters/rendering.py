@@ -98,7 +98,7 @@ def render_check_sql(
                     ),
                     resource_type="compiled_check",
                     resource_name=check.id,
-                    hint=f"Renderer error: {exc}",
+                    hint=_renderer_exception_hint(exc),
                 ),
             ),
         )
@@ -126,6 +126,13 @@ def _query_endpoint_diagnostic(contract_name: str, side: str) -> Diagnostic:
         resource_type="contract_endpoint",
         resource_name=contract_name,
         hint="Use a relation endpoint for Milestone 6 adapter-aware SQL rendering.",
+    )
+
+
+def _renderer_exception_hint(exc: Exception) -> str:
+    return (
+        f"Renderer raised {type(exc).__name__}. Raw adapter error text was suppressed "
+        "because rendering diagnostics are written to generated artifacts."
     )
 
 

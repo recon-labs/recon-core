@@ -1,7 +1,12 @@
+from collections.abc import Mapping
+from typing import Any
+
 from recon_core.adapters import (
     AdapterCapabilities,
     CapabilitySupport,
     ConnectionConfig,
+    Relation,
+    RenderedSql,
 )
 from recon_core.adapters.duckdb import DuckDbAdapter, DuckDbSqlRenderer
 from recon_core.adapters.rendering import render_check_sql
@@ -89,6 +94,43 @@ def test_render_check_sql_renders_in_memory_without_leaking_connection_payloads(
     assert '"qa"."customer_source"' in rendered_sql
     assert '"qa"."customer_target"' in rendered_sql
     assert "super-secret" not in rendered_sql
+
+
+def test_render_check_sql_sanitizes_renderer_exception_diagnostics() -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"password": "super-secret"},
+        )
+    )
+
+    class SecretLeakingRenderer(DuckDbSqlRenderer):
+        def render_plan(
+            self,
+            operations: tuple[Mapping[str, Any], ...],
+            *,
+            source_relation: Relation,
+            target_relation: Relation,
+        ) -> tuple[RenderedSql, ...]:
+            raise ValueError("password=super-secret")
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=SecretLeakingRenderer(),
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_OPERATION_RENDER_FAILED"
+    ]
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+    assert "ValueError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
 
 
 def compiled_row_count_check(

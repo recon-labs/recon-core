@@ -1,4 +1,6 @@
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -11,8 +13,9 @@ from recon_core.adapters import (
     ColumnMetadata,
     QueryResult,
     Relation,
+    RenderedSql,
 )
-from recon_core.adapters.duckdb import DuckDbAdapterFactory
+from recon_core.adapters.duckdb import DuckDbAdapterFactory, DuckDbSqlRenderer
 from recon_core.profiles import ConnectionConfig
 from recon_core.services import CompileService
 from recon_core.services.results import ExitCategory
@@ -477,6 +480,55 @@ def test_render_sql_compile_marks_renderer_failures_without_sql_artifacts(
     }
     assert all(check["rendering"]["status"] == "failed" for check in checks_artifact["checks"])
     assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_sanitizes_renderer_failure_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    class SecretLeakingDuckDbSqlRenderer(DuckDbSqlRenderer):
+        def render_plan(
+            self,
+            operations: tuple[Mapping[str, Any], ...],
+            *,
+            source_relation: Relation,
+            target_relation: Relation,
+        ) -> tuple[RenderedSql, ...]:
+            raise ValueError("password=super-secret")
+
+    monkeypatch.setattr(
+        "recon_core.services.compile.DuckDbSqlRenderer",
+        SecretLeakingDuckDbSqlRenderer,
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact_text = (
+        tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
+    ).read_text(encoding="utf-8")
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert "ValueError" in diagnostic_text
+    assert "ValueError" in checks_artifact_text
+    assert "super-secret" not in diagnostic_text
+    assert "super-secret" not in checks_artifact_text
+    assert "password" not in diagnostic_text
+    assert "password" not in checks_artifact_text
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
