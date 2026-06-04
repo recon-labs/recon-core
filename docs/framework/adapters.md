@@ -280,9 +280,10 @@ execution diagnostics. This is a cross-repo gate: factory exceptions and
 `capabilities()` exceptions must become sanitized structured diagnostics before
 any external adapter repo or shared test-kit repo claims compatibility.
 Adapter setup failures must also keep compiled SQL absent, mark affected
-compiled checks blocked with structured diagnostics, and de-duplicate repeated
-source/target setup diagnostics in service or CLI output before those claims are
-made.
+compiled checks blocked with structured diagnostics, treat factory results that
+include both adapters and diagnostics as setup failures, de-duplicate repeated
+same-connection setup diagnostics in service or CLI output, and preserve
+distinct source/target connection setup diagnostics before those claims are made.
 
 ## Query endpoint boundary
 
@@ -366,7 +367,8 @@ exceptions, sanitized adapter metadata exceptions, empty and malformed
 renderer output failures, field-by-field diagnostic redaction, and safe
 non-empty diagnostic messages. It must also include adapter setup failure cases
 that assert no compiled SQL output, blocked compiled-check metadata, and
-de-duplicated repeated source/target service diagnostics.
+de-duplicated repeated same-connection service diagnostics while preserving
+distinct source/target connection diagnostics.
 
 ## Design principle
 

@@ -138,6 +138,59 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_preserves_factory_diagnostics_when_adapter_is_returned(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="diagnostic_adapter")
+    registry = AdapterRegistry()
+    registry.register("diagnostic_adapter", DiagnosticAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_WITH_DIAGNOSTIC",
+    ]
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_WITH_DIAGNOSTIC")
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_keeps_distinct_connection_setup_diagnostics(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="connection_diagnostic")
+    registry = AdapterRegistry()
+    registry.register("connection_diagnostic", ConnectionDiagnosticAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_CONNECTION_SETUP_FAILED",
+        "RC_TEST_CONNECTION_SETUP_FAILED",
+    ]
+    assert {diagnostic.message for diagnostic in result.diagnostics} == {
+        "Connection `legacy` setup failed.",
+        "Connection `warehouse` setup failed.",
+    }
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_CONNECTION_SETUP_FAILED")
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_reports_empty_adapter_resolution_result(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
@@ -245,6 +298,7 @@ def test_render_sql_compile_sanitizes_adapter_api_compatibility_diagnostics(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_API_VERSION_UNSUPPORTED",
+        "RC_ADAPTER_API_VERSION_UNSUPPORTED",
     ]
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "super-secret" not in diagnostic_text
@@ -346,6 +400,7 @@ def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_TEST_ADAPTER_LEAK",
+        "RC_TEST_ADAPTER_LEAK",
     ]
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "password" not in diagnostic_text
@@ -421,6 +476,7 @@ def test_render_sql_compile_sanitizes_non_string_adapter_resolution_values(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_TEST_ADAPTER_NUMERIC_LEAK",
+        "RC_TEST_ADAPTER_NUMERIC_LEAK",
     ]
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "123456" not in diagnostic_text
@@ -455,6 +511,7 @@ def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostic
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_CASE_VARIANT_LEAK",
         "RC_TEST_ADAPTER_CASE_VARIANT_LEAK",
     ]
     assert "adapter diagnostic text was suppressed" in diagnostic_text
@@ -504,6 +561,7 @@ def test_render_sql_compile_sanitizes_resource_type_only_adapter_resolution_leak
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_RESOURCE_TYPE_LEAK",
         "RC_TEST_ADAPTER_RESOURCE_TYPE_LEAK",
     ]
     assert {diagnostic.resource_type for diagnostic in result.diagnostics} == {"adapter"}
@@ -555,6 +613,7 @@ def test_render_sql_compile_replaces_resource_type_when_message_triggers_sanitiz
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_MESSAGE_AND_RESOURCE_TYPE_LEAK",
         "RC_TEST_ADAPTER_MESSAGE_AND_RESOURCE_TYPE_LEAK",
     ]
     assert {diagnostic.resource_type for diagnostic in result.diagnostics} == {"adapter"}
@@ -1236,6 +1295,39 @@ class FakeAdapter(BaseAdapter):
 class FakeAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult(adapter=FakeAdapter(connection=connection))
+
+
+class DiagnosticAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            adapter=FakeAdapter(connection=connection),
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_WITH_DIAGNOSTIC",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter factory returned an adapter with a setup diagnostic.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint="Fix the adapter factory setup diagnostic.",
+                ),
+            ),
+        )
+
+
+class ConnectionDiagnosticAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_CONNECTION_SETUP_FAILED",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Connection `{connection.name}` setup failed.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint="Fix the adapter setup failure.",
+                ),
+            )
+        )
 
 
 class LeakyApiAdapter(FakeAdapter):

@@ -79,24 +79,27 @@ from the SQL comparison matrix. At minimum, those tests must cover adapter
 factory resolution: a registered factory must return an adapter or diagnostics,
 and an empty or malformed resolution result must fail with
 `RC_ADAPTER_RESOLUTION_FAILED` instead of letting adapter-aware rendering or
-execution report success. Missing or invalid adapter API version declarations
-must fail with `RC_ADAPTER_API_VERSION_UNSUPPORTED`, and missing, non-string,
-empty, or exception-raising `adapter_type` metadata must fail with
+execution report success. If a factory returns both an adapter and diagnostics,
+the diagnostics are setup failures and the adapter must not be used for
+rendering or execution. Missing or invalid adapter API version declarations must
+fail with `RC_ADAPTER_API_VERSION_UNSUPPORTED`, and missing, non-string, empty,
+or exception-raising `adapter_type` metadata must fail with
 `RC_ADAPTER_METADATA_INVALID` before rendering or execution. Malformed
-capability support states must become structured required-capability
-diagnostics instead of uncaught exceptions. Factory exceptions, adapter
-metadata exceptions, and capability declaration exceptions must fail with
-sanitized structured diagnostics that preserve the code and useful exception
-type without preserving raw exception text. These tests must also assert that
-adapter diagnostics carry safe non-empty messages and that core redaction
-replaces unsafe message text with a generic actionable message rather than
-dropping the message field.
+capability support states must become structured required-capability diagnostics
+instead of uncaught exceptions. Factory exceptions, adapter metadata exceptions,
+and capability declaration exceptions must fail with sanitized structured
+diagnostics that preserve the code and useful exception type without preserving
+raw exception text. These tests must also assert that adapter diagnostics carry
+safe non-empty messages and that core redaction replaces unsafe message text
+with a generic actionable message rather than dropping the message field.
 
 Adapter setup failures during adapter-aware compile must also produce blocked
 compiled-check metadata without writing compiled SQL. If both source and target
 adapter resolution fail for the same connection, service and CLI diagnostics
 must de-duplicate the repeated setup diagnostic while compiled artifacts still
-explain why each affected check is blocked.
+explain why each affected check is blocked. Setup diagnostics for distinct
+referenced connections must remain visible in service and CLI output even when
+they share the same diagnostic code, adapter type, or hint.
 
 Renderer conformance tests must prove that a renderer returns at least one SQL
 step for each rendered check. Empty renderer output must fail with
@@ -113,8 +116,9 @@ adapter repository with a compatibility claim until the shared conformance
 suite includes those sanitized factory-exception, capability-declaration, and
 diagnostic-redaction cases, plus malformed adapter metadata and empty renderer
 output cases, malformed non-empty renderer output cases, blocked compiled-check
-metadata for adapter setup failures, and de-duplicated repeated source/target
-adapter setup diagnostics.
+metadata for adapter setup failures, preserved diagnostics when factories
+return both an adapter and diagnostics, de-duplicated repeated same-connection
+setup diagnostics, and distinct source/target connection setup diagnostics.
 
 ## Compatibility contract
 
@@ -260,6 +264,8 @@ tests must cover:
   checks blocked with structured diagnostics,
 - repeated source/target adapter setup failures for the same connection that are
   de-duplicated in service and CLI diagnostics,
+- distinct referenced-connection setup failures that remain visible in service
+  and CLI diagnostics,
 - diagnostics that reference rendered connection config keys or values,
 - diagnostics that reference rendered connection config keys or values with
   changed casing or other simple transformations.

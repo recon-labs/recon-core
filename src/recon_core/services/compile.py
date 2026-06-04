@@ -445,6 +445,7 @@ def _dedupe_adapter_setup_diagnostics(
         key = (
             diagnostic.code,
             diagnostic.severity,
+            diagnostic.message,
             diagnostic.resource_type,
             diagnostic.resource_name,
             diagnostic.path,
@@ -552,7 +553,7 @@ def _resolve_render_sql_adapters(
             config_tokens=config_tokens,
         )
         connection_diagnostics.extend(resolution_diagnostics)
-        if resolution.adapter is None:
+        if resolution_diagnostics or resolution.adapter is None:
             diagnostics.extend(connection_diagnostics)
             if connection_diagnostics:
                 diagnostics_by_connection[connection.name] = _dedupe_diagnostics(

@@ -121,6 +121,10 @@ This project follows semantic versioning once public package releases begin.
 - Adapter-aware SQL rendering now writes blocked compiled-check metadata for
   adapter setup failures and de-duplicates repeated source/target adapter setup
   diagnostics in the service result.
+- Adapter-aware SQL rendering now treats adapter factory diagnostics as setup
+  failures even when a factory also returns an adapter, preserving the real
+  diagnostic in blocked compiled-check artifacts and keeping distinct
+  source/target connection setup diagnostics visible in service output.
 - Adapter-aware SQL rendering now suppresses raw adapter renderer exception
   messages in diagnostics and compiled-check artifacts so renderer failures do
   not leak secrets or fully rendered credential payloads.

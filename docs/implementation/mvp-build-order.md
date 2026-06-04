@@ -339,8 +339,9 @@ Tests:
 - compiled SQL artifact path and traceability tests,
 - unsupported query endpoint diagnostics for adapter-aware rendering.
 - adapter setup failures produce blocked compiled-check metadata, write no
-  compiled SQL, and de-duplicate repeated source/target setup diagnostics in
-  service output.
+  compiled SQL, preserve diagnostics when factories return both adapters and
+  diagnostics, de-duplicate repeated same-connection setup diagnostics, and keep
+  distinct source/target connection setup diagnostics visible in service output.
 
 ## Milestone 7: check engine
 
@@ -364,9 +365,10 @@ Required gates:
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
 - preserve the adapter-aware compile contract that setup failures write no SQL,
-  mark affected compiled checks blocked, and de-duplicate repeated source/target
-  setup diagnostics before adapter execution surfaces these diagnostics at run
-  time,
+  mark affected compiled checks blocked, preserve factory diagnostics even when
+  an adapter is also returned, de-duplicate repeated same-connection setup
+  diagnostics, and keep distinct source/target connection setup diagnostics
+  visible before adapter execution surfaces these diagnostics at run time,
 - resolve the explicit authored checks and check registry gate before
   implementing explicit `checks: [...]` support or registry behavior that must
   serve explicit checks later,
@@ -1335,9 +1337,11 @@ Required gate:
   declaration exception cases before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,
 - include adapter setup failure cases that assert no compiled SQL output,
-  blocked compiled-check metadata, and de-duplicated repeated source/target
-  service diagnostics before creating or splitting the test-kit repository or
-  publishing external adapter compatibility claims,
+  blocked compiled-check metadata, preserved diagnostics when factories return
+  both adapters and diagnostics, de-duplicated repeated same-connection service
+  diagnostics, and preserved distinct source/target connection diagnostics
+  before creating or splitting the test-kit repository or publishing external
+  adapter compatibility claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the
