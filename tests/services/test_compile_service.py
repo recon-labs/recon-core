@@ -1055,6 +1055,58 @@ def test_render_sql_compile_marks_empty_renderer_output_failed_without_sql_artif
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_marks_malformed_renderer_output_failed_without_crashing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    class MalformedDuckDbSqlRenderer:
+        adapter_type = "duckdb"
+
+        def render_operation(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("render_plan should be used by the service")
+
+        def render_plan(self, *args: object, **kwargs: object) -> tuple[RenderedSql, ...]:
+            return (cast(RenderedSql, object()),)
+
+        def quote_identifier(self, identifier: str) -> str:
+            return identifier
+
+        def render_relation(self, relation: object) -> str:
+            return str(relation)
+
+    monkeypatch.setattr(
+        "recon_core.services.compile.DuckDbSqlRenderer",
+        MalformedDuckDbSqlRenderer,
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_ADAPTER_OPERATION_RENDER_FAILED"
+    }
+    assert all(check["rendering"]["status"] == "failed" for check in checks_artifact["checks"])
+    assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_render_phase_adapter_metadata(
     tmp_path: Path,
 ) -> None:

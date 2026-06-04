@@ -135,7 +135,7 @@ def render_check_sql(
         )
 
     try:
-        rendered_sql = renderer.render_plan(
+        rendered_sql: object = renderer.render_plan(
             tuple(operation.to_dict() for operation in check.plan.operations),
             source_relation=source_relation,
             target_relation=target_relation,
@@ -156,6 +156,19 @@ def render_check_sql(
             ),
         )
 
+    invalid_output_diagnostic = _invalid_rendered_sql_output_diagnostic(
+        rendered_sql,
+        adapter_type=adapter_type,
+        check_id=check.id,
+    )
+    if invalid_output_diagnostic is not None:
+        return RenderedCheckSql(
+            check_id=check.id,
+            adapter_type=adapter_type,
+            diagnostics=(invalid_output_diagnostic,),
+        )
+
+    assert isinstance(rendered_sql, tuple)
     if not rendered_sql:
         return RenderedCheckSql(
             check_id=check.id,
@@ -176,6 +189,57 @@ def render_check_sql(
         )
 
     return RenderedCheckSql(check_id=check.id, sql=rendered_sql, adapter_type=adapter_type)
+
+
+def _invalid_rendered_sql_output_diagnostic(
+    rendered_sql: object,
+    *,
+    adapter_type: str,
+    check_id: str,
+) -> Diagnostic | None:
+    reason = _invalid_rendered_sql_output_reason(rendered_sql)
+    if reason is None:
+        return None
+
+    return Diagnostic(
+        code=ADAPTER_OPERATION_RENDER_FAILED,
+        severity=DiagnosticSeverity.ERROR,
+        message=f"Adapter `{adapter_type}` returned invalid rendered SQL for check `{check_id}`.",
+        resource_type="compiled_check",
+        resource_name=check_id,
+        hint=(
+            f"{reason} Fix the renderer to return a non-empty tuple of RenderedSql "
+            "steps with non-empty string `sql`, `operation_type`, and `step_name` fields."
+        ),
+    )
+
+
+def _invalid_rendered_sql_output_reason(rendered_sql: object) -> str | None:
+    if not isinstance(rendered_sql, tuple):
+        return "Renderer output must be a tuple of RenderedSql steps."
+
+    for index, rendered_step in enumerate(rendered_sql):
+        if not isinstance(rendered_step, RenderedSql):
+            return f"Renderer output step {index} is not a RenderedSql instance."
+        if not isinstance(rendered_step.sql, str) or rendered_step.sql.strip() == "":
+            return f"Renderer output step {index} must define non-empty string SQL."
+        if (
+            not isinstance(rendered_step.operation_type, str)
+            or rendered_step.operation_type.strip() == ""
+        ):
+            return f"Renderer output step {index} must define a non-empty operation type."
+        if not isinstance(rendered_step.step_name, str) or rendered_step.step_name.strip() == "":
+            return f"Renderer output step {index} must define a non-empty step name."
+        if not isinstance(rendered_step.required_capabilities, tuple) or not all(
+            isinstance(capability, str) and capability.strip() != ""
+            for capability in rendered_step.required_capabilities
+        ):
+            return (
+                f"Renderer output step {index} must define required capabilities as "
+                "a tuple of non-empty strings."
+            )
+
+    return None
 
 
 def _endpoint_diagnostics(contract: CompiledContractArtifact) -> tuple[Diagnostic, ...]:

@@ -223,6 +223,10 @@ rendering is a `blocked` capability diagnostic, not `not_rendered`.
 If a renderer returns no SQL steps for a check, Recon treats that as
 `RC_ADAPTER_RENDERED_SQL_EMPTY` and marks the check `failed`; `rendered` must
 not be paired with empty `rendering.sql_paths`.
+If a renderer returns malformed non-empty output, such as non-`RenderedSql`
+steps or empty/non-string SQL metadata fields, Recon treats that as
+`RC_ADAPTER_OPERATION_RENDER_FAILED` and marks the check `failed` before
+compiled SQL artifacts are written.
 
 If any check in an adapter-aware compile invocation produces a rendering
 diagnostic, Recon writes no compiled SQL files for that invocation. Checks with
@@ -354,9 +358,9 @@ capability declarations. Every production adapter should run the shared test kit
 in CI after the adapter API stabilizes. The first version of that shared suite
 must include profile-rendering and diagnostic-redaction conformance, including
 sanitized adapter factory exceptions, sanitized capability declaration
-exceptions, sanitized adapter metadata exceptions, empty renderer output
-failures, field-by-field diagnostic redaction, and safe non-empty diagnostic
-messages.
+exceptions, sanitized adapter metadata exceptions, empty and malformed
+renderer output failures, field-by-field diagnostic redaction, and safe
+non-empty diagnostic messages.
 
 ## Design principle
 

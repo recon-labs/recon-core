@@ -160,7 +160,8 @@ invalid adapter API version declarations fail with
 `RC_ADAPTER_API_VERSION_UNSUPPORTED`, malformed capability support states become
 structured diagnostics, invalid or exception-raising `adapter_type` metadata
 fails with `RC_ADAPTER_METADATA_INVALID`, empty renderer output fails with
-`RC_ADAPTER_RENDERED_SQL_EMPTY`, and adapter factory exceptions, adapter
+`RC_ADAPTER_RENDERED_SQL_EMPTY`, malformed non-empty renderer output fails with
+`RC_ADAPTER_OPERATION_RENDER_FAILED`, and adapter factory exceptions, adapter
 metadata exceptions, and capability declaration exceptions become sanitized
 structured diagnostics instead of raw exceptions that can leak rendered profile
 keys or values.

@@ -158,7 +158,8 @@ Compiled-check `rendering.sql_paths` stores paths relative to the configured
 `target-path`, and `rendering.adapter_type` stores the adapter type when known.
 Checks with `rendering.status: rendered` must have one or more SQL paths. Empty
 renderer output is a rendering failure and must not be represented as successful
-rendering with empty `sql_paths`.
+rendering with empty `sql_paths`. Malformed non-empty renderer output is also a
+rendering failure and must not reach compiled SQL artifact writing.
 For example:
 
 ```text

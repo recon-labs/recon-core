@@ -1,5 +1,7 @@
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
+
+import pytest
 
 from recon_core.adapters import (
     AdapterCapabilities,
@@ -192,6 +194,82 @@ def test_render_check_sql_rejects_empty_renderer_output() -> None:
     assert result.sql == ()
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_RENDERED_SQL_EMPTY"
+    ]
+
+
+@pytest.mark.parametrize(
+    "rendered_sql",
+    [
+        pytest.param((cast(RenderedSql, object()),), id="non-rendered-sql-step"),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql=cast(str, object()),
+                    operation_type="row_count",
+                    step_name="00-row_count-source",
+                ),
+            ),
+            id="non-string-sql",
+        ),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="",
+                    operation_type="row_count",
+                    step_name="00-row_count-source",
+                ),
+            ),
+            id="empty-sql",
+        ),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="",
+                    step_name="00-row_count-source",
+                ),
+            ),
+            id="empty-operation-type",
+        ),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="",
+                ),
+            ),
+            id="empty-step-name",
+        ),
+    ],
+)
+def test_render_check_sql_rejects_malformed_renderer_output(
+    rendered_sql: tuple[object, ...],
+) -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+
+    class MalformedRenderer(DuckDbSqlRenderer):
+        def render_plan(
+            self,
+            operations: tuple[Mapping[str, Any], ...],
+            *,
+            source_relation: Relation,
+            target_relation: Relation,
+        ) -> tuple[RenderedSql, ...]:
+            return cast(tuple[RenderedSql, ...], rendered_sql)
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=MalformedRenderer(),
+    )
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_OPERATION_RENDER_FAILED"
     ]
 
 

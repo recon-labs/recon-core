@@ -149,6 +149,8 @@ This project follows semantic versioning once public package releases begin.
   leaking raw adapter exception text.
 - Adapter-aware SQL rendering now treats empty renderer output as a rendering
   failure instead of marking checks as `rendered` with empty SQL paths.
+- Adapter-aware SQL rendering now treats malformed non-empty renderer output as
+  a rendering failure instead of crashing during compiled SQL artifact writing.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so
   source and target `NULL` groups compare as the same group.
 - DuckDB key-diff SQL now compares distinct non-null key sets, keeping null-key

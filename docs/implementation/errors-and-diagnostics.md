@@ -289,7 +289,8 @@ declarations, capability declaration failures, malformed capability support
 states, required-capability validation, optional dependency checks,
 relation-only rendering boundaries, same-context rendering requirements,
 invalid relation names, invalid adapter metadata, renderer failures, empty
-renderer output, and invocation-wide SQL output suppression.
+renderer output, malformed non-empty renderer output, and invocation-wide SQL
+output suppression.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include

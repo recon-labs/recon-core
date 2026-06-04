@@ -291,6 +291,7 @@ A future adapter test kit should validate:
 - adapter API version declarations,
 - malformed adapter factory results,
 - check compatibility,
+- empty and malformed renderer output failures,
 - profile rendering behavior,
 - adapter diagnostic redaction,
 - safe non-empty adapter diagnostic messages.

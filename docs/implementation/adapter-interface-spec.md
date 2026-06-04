@@ -192,6 +192,10 @@ compiler. Milestone 6 does not expand the typed operation catalog.
 For every check marked `rendered`, the renderer must return at least one SQL
 step. Empty renderer output is `RC_ADAPTER_RENDERED_SQL_EMPTY` and must be
 recorded as a rendering failure, not as `rendered` with empty `sql_paths`.
+Malformed non-empty renderer output is also a rendering failure. Core expects
+`render_plan()` to return a tuple of `RenderedSql` steps with non-empty string
+`sql`, `operation_type`, and `step_name` fields. Invalid output is reported as
+`RC_ADAPTER_OPERATION_RENDER_FAILED` before compiled SQL artifact writing.
 
 Examples of core-owned typed operations:
 
@@ -290,7 +294,7 @@ diagnostics. Redaction conformance must cover unsafe rendered profile keys or
 values independently in diagnostic `message`, `hint`, `path`, `resource_type`,
 `resource_name`, and future structured diagnostic fields. It must also cover
 raw adapter exceptions from factories, adapter metadata declarations, and
-capability declarations, plus empty renderer output diagnostics.
+capability declarations, plus empty and malformed renderer output diagnostics.
 
 For Milestone 6 DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type
