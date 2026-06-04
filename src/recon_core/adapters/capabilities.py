@@ -53,7 +53,7 @@ def validate_required_capabilities(
                 severity=DiagnosticSeverity.ERROR,
                 message=(
                     f"Adapter `{adapter_type}` does not satisfy required capability "
-                    f"`{capability}`; support state `{support.value}`."
+                    f"`{capability}`; support state `{_support_state_label(support)}`."
                 ),
                 resource_type="adapter_capability",
                 resource_name=capability,
@@ -62,3 +62,9 @@ def validate_required_capabilities(
         )
 
     return tuple(diagnostics)
+
+
+def _support_state_label(support: object) -> str:
+    if isinstance(support, CapabilitySupport):
+        return support.value
+    return "invalid support state"

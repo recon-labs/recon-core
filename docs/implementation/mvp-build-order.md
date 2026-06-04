@@ -1321,6 +1321,9 @@ Required gate:
   path, `resource_type`, `resource_name`, `rendering.adapter_type`, and future
   structured diagnostic fields before creating or splitting the test-kit
   repository,
+- include malformed adapter factory result, missing or invalid adapter API
+  version declaration, and malformed capability support-state cases before
+  creating or splitting the test-kit repository,
 - include sanitized adapter factory exception and sanitized capability
   declaration exception cases before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,

@@ -33,10 +33,11 @@ compiled artifacts for downstream automation to read.
 Compiled artifact cleanup and writes reject compiled artifact paths that are not
 directories, symlinked compiled artifact directories, and symlinked
 `target-path` ancestry. Adapter-aware compile must reject invalid compiled YAML
-artifact paths before publishing compiled SQL, so failed compiled YAML writes do
-not leave orphaned SQL artifacts. Standalone compiled artifact writers also
-reject exact output-file symlinks and path-like artifact names so generated
-filenames cannot escape `target/compiled_contracts/` or
+artifact paths before publishing compiled SQL, and failed compiled YAML writes
+must not leave orphaned SQL artifacts or partial compiled YAML files from the
+same invocation. Standalone compiled artifact writers also reject exact
+output-file symlinks and path-like artifact names so generated filenames cannot
+escape `target/compiled_contracts/` or
 `target/compiled_checks/`.
 
 Manifest writes also reject symlinked `target-path` ancestry and exact

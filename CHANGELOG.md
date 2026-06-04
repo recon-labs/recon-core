@@ -93,6 +93,9 @@ This project follows semantic versioning once public package releases begin.
   after runtime artifact write failures.
 - `recon compile --render-sql` now discards generated SQL output if a compiled
   YAML artifact write fails after successful in-memory SQL rendering.
+- `recon compile --render-sql` now also discards any partial compiled YAML
+  artifacts written earlier in the same invocation when a later compiled YAML
+  artifact write fails after in-memory SQL rendering.
 - `recon compile` now rejects symlinked `target-path` ancestry, contracts that
   compile into no checks, non-string nested `checks` mapping keys, and missing,
   null, or empty `sampling.default_policy` values when `sampling` is declared.
@@ -137,6 +140,10 @@ This project follows semantic versioning once public package releases begin.
   text suppressed.
 - Adapter-aware SQL rendering now fails with `RC_ADAPTER_RESOLUTION_FAILED`
   when an adapter factory returns neither an adapter nor a diagnostic.
+- Adapter-aware SQL rendering now reports malformed adapter factory resolution
+  results, missing or invalid adapter API version declarations, and malformed
+  capability support states as structured diagnostics instead of uncaught
+  exceptions.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so
   source and target `NULL` groups compare as the same group.
 - DuckDB key-diff SQL now compares distinct non-null key sets, keeping null-key

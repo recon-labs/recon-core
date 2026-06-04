@@ -77,14 +77,17 @@ and how that distinction is surfaced in run results and evidence.
 The same test-kit design must define adapter API conformance tests separate
 from the SQL comparison matrix. At minimum, those tests must cover adapter
 factory resolution: a registered factory must return an adapter or diagnostics,
-and an empty resolution result must fail with `RC_ADAPTER_RESOLUTION_FAILED`
-instead of letting adapter-aware rendering or execution report success. Factory
-exceptions and capability declaration exceptions must fail with sanitized
-structured diagnostics that preserve the code and useful exception type without
-preserving raw exception text. These tests must also assert that adapter
-diagnostics carry safe non-empty messages and that core redaction replaces
-unsafe message text with a generic actionable message rather than dropping the
-message field.
+and an empty or malformed resolution result must fail with
+`RC_ADAPTER_RESOLUTION_FAILED` instead of letting adapter-aware rendering or
+execution report success. Missing or invalid adapter API version declarations
+must fail with `RC_ADAPTER_API_VERSION_UNSUPPORTED`, and malformed capability
+support states must become structured required-capability diagnostics instead
+of uncaught exceptions. Factory exceptions and capability declaration
+exceptions must fail with sanitized structured diagnostics that preserve the
+code and useful exception type without preserving raw exception text. These
+tests must also assert that adapter diagnostics carry safe non-empty messages
+and that core redaction replaces unsafe message text with a generic actionable
+message rather than dropping the message field.
 
 These requirements are a release gate for the adapter ecosystem. Do not create,
 publish, or split `recon-adapter-testkit`, `recon-duckdb`, or any production
@@ -109,15 +112,18 @@ support the required adapter API version fails with a clear diagnostic instead
 of running with ambiguous behavior.
 
 Adapter factories must return either an adapter or one or more diagnostics.
-Returning neither is an adapter resolution failure and must surface
-`RC_ADAPTER_RESOLUTION_FAILED`. Factory exceptions must also resolve to a
-generic sanitized `RC_ADAPTER_RESOLUTION_FAILED` diagnostic instead of leaking
-raw adapter exception text.
+Returning neither, or returning a malformed resolution object, is an adapter
+resolution failure and must surface `RC_ADAPTER_RESOLUTION_FAILED`. Factory
+exceptions must also resolve to a generic sanitized
+`RC_ADAPTER_RESOLUTION_FAILED` diagnostic instead of leaking raw adapter
+exception text.
 
 Adapter capability declarations are public compatibility input to Core. If an
 adapter raises while declaring capabilities, Core must surface a sanitized
 `RC_ADAPTER_CAPABILITY_DECLARATION_FAILED` diagnostic instead of leaking raw
 adapter exception text or continuing with ambiguous capability support.
+Malformed capability support states must produce structured diagnostics instead
+of uncaught exceptions.
 
 The first adapter boundary separates:
 

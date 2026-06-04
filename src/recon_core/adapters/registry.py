@@ -72,22 +72,12 @@ class AdapterRegistry:
                     ),
                 )
             )
+        if not isinstance(result, AdapterResolutionResult):
+            return _invalid_resolution_result(connection)
         if result.adapter is None and not result.diagnostics:
-            return AdapterResolutionResult(
-                diagnostics=(
-                    Diagnostic(
-                        code=ADAPTER_RESOLUTION_FAILED,
-                        severity=DiagnosticSeverity.ERROR,
-                        message=(
-                            f"Adapter factory for type `{connection.type}` returned no "
-                            "adapter and no diagnostic."
-                        ),
-                        resource_type="adapter",
-                        resource_name=connection.type,
-                        hint="Fix the adapter factory to return an adapter or a diagnostic.",
-                    ),
-                )
-            )
+            return _invalid_resolution_result(connection)
+        if result.adapter is not None and not isinstance(result.adapter, BaseAdapter):
+            return _invalid_resolution_result(connection)
 
         return result
 
@@ -101,23 +91,75 @@ def _factory_exception_hint(exc: Exception) -> str:
 
 def validate_adapter_api_compatibility(adapter: BaseAdapter) -> tuple[Diagnostic, ...]:
     """Validate adapter API compatibility."""
-    if adapter.supported_adapter_api_version == ADAPTER_API_VERSION:
+    adapter_type = _safe_adapter_type(adapter)
+    try:
+        supported_adapter_api_version = adapter.supported_adapter_api_version
+    except Exception:
+        supported_adapter_api_version = None
+
+    if supported_adapter_api_version == ADAPTER_API_VERSION:
         return ()
+
+    if not isinstance(supported_adapter_api_version, str) or supported_adapter_api_version == "":
+        return (
+            Diagnostic(
+                code=ADAPTER_API_VERSION_UNSUPPORTED,
+                severity=DiagnosticSeverity.ERROR,
+                message=(
+                    f"Adapter `{adapter_type}` does not declare a valid supported "
+                    f"adapter API version; Recon Core requires `{ADAPTER_API_VERSION}`."
+                ),
+                resource_type="adapter",
+                resource_name=adapter_type,
+                hint=(
+                    "Declare the adapter API version supported by this adapter and "
+                    "use an adapter version compatible with this Recon Core version."
+                ),
+            ),
+        )
 
     return (
         Diagnostic(
             code=ADAPTER_API_VERSION_UNSUPPORTED,
             severity=DiagnosticSeverity.ERROR,
             message=(
-                f"Adapter `{adapter.adapter_type}` supports adapter API "
-                f"`{adapter.supported_adapter_api_version}`, but Recon Core requires "
+                f"Adapter `{adapter_type}` supports adapter API "
+                f"`{supported_adapter_api_version}`, but Recon Core requires "
                 f"`{ADAPTER_API_VERSION}`."
             ),
             resource_type="adapter",
-            resource_name=adapter.adapter_type,
+            resource_name=adapter_type,
             hint="Use an adapter version compatible with this Recon Core version.",
         ),
     )
+
+
+def _invalid_resolution_result(connection: ConnectionConfig) -> AdapterResolutionResult:
+    return AdapterResolutionResult(
+        diagnostics=(
+            Diagnostic(
+                code=ADAPTER_RESOLUTION_FAILED,
+                severity=DiagnosticSeverity.ERROR,
+                message=(
+                    f"Adapter factory for type `{connection.type}` returned an invalid "
+                    "resolution result."
+                ),
+                resource_type="adapter",
+                resource_name=connection.type,
+                hint="Fix the adapter factory to return an adapter or a diagnostic.",
+            ),
+        )
+    )
+
+
+def _safe_adapter_type(adapter: BaseAdapter) -> str:
+    try:
+        adapter_type = adapter.adapter_type
+    except Exception:
+        return type(adapter).__name__
+    if not isinstance(adapter_type, str) or adapter_type == "":
+        return type(adapter).__name__
+    return adapter_type
 
 
 def _adapter_creator(

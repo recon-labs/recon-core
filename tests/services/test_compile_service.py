@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import yaml
@@ -10,6 +10,7 @@ from recon_core.adapters import (
     AdapterRegistry,
     AdapterResolutionResult,
     BaseAdapter,
+    CapabilitySupport,
     ColumnMetadata,
     QueryResult,
     Relation,
@@ -161,6 +162,28 @@ def test_render_sql_compile_reports_empty_adapter_resolution_result(tmp_path: Pa
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_reports_invalid_adapter_resolution_result(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="invalid_resolution")
+    registry = AdapterRegistry()
+    registry.register("invalid_resolution", InvalidResolutionAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
+    ]
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_adapter_factory_exceptions(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
@@ -260,6 +283,34 @@ def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "password" not in diagnostic_text
     assert "local.duckdb" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_reports_missing_adapter_api_version(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="missing_api")
+    registry = AdapterRegistry()
+    registry.register("missing_api", MissingApiVersionAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_API_VERSION_UNSUPPORTED",
+        "RC_ADAPTER_API_VERSION_UNSUPPORTED",
+    ]
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -753,6 +804,34 @@ def test_render_sql_compile_sanitizes_capability_declaration_failure_artifacts(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_reports_invalid_capability_support_state(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", InvalidCapabilityDuckDbAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact_text = (
+        tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
+    ).read_text(encoding="utf-8")
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert "RC_ADAPTER_CAPABILITY_UNSUPPORTED" in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
+    assert "invalid support state" in checks_artifact_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_marks_renderer_failures_without_sql_artifacts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -947,6 +1026,20 @@ class LeakyApiAdapterFactory:
         return AdapterResolutionResult(adapter=LeakyApiAdapter(connection=connection))
 
 
+class RaisingApiVersion:
+    def __get__(self, instance: object, owner: object | None = None) -> str:
+        raise AttributeError("password=super-secret")
+
+
+class MissingApiVersionAdapter(FakeAdapter):
+    supported_adapter_api_version = cast(str, RaisingApiVersion())
+
+
+class MissingApiVersionAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(adapter=MissingApiVersionAdapter(connection=connection))
+
+
 class CapabilityRaisingDuckDbAdapter(FakeAdapter):
     adapter_type = "duckdb"
 
@@ -961,9 +1054,32 @@ class CapabilityRaisingDuckDbAdapterFactory:
         )
 
 
+class InvalidCapabilityDuckDbAdapter(FakeAdapter):
+    adapter_type = "duckdb"
+
+    def capabilities(self) -> AdapterCapabilities:
+        invalid_support: dict[str, Any] = {
+            "relations": CapabilitySupport.FULL,
+            "row_count": "wat",
+        }
+        return AdapterCapabilities(invalid_support)
+
+
+class InvalidCapabilityDuckDbAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            adapter=InvalidCapabilityDuckDbAdapter(connection=connection)
+        )
+
+
 class EmptyAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult()
+
+
+class InvalidResolutionAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return None  # type: ignore[return-value]
 
 
 class RaisingAdapterFactory:
@@ -1388,6 +1504,34 @@ def test_render_sql_compile_removes_sql_when_yaml_artifact_write_fails_after_ren
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
     ]
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_removes_partial_yaml_when_artifact_write_fails_after_rendering(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path, name="aaa", file_name="aaa.yml")
+    write_contract(tmp_path, name="bbb", file_name="bbb.yml")
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+    blocking_contract_path = tmp_path / "target" / "compiled_contracts" / "bbb.yml"
+    blocking_contract_path.mkdir(parents=True)
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Compile completed but artifacts could not be written."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
+    ]
+    assert not (tmp_path / "target" / "compiled_contracts" / "aaa.yml").exists()
+    assert not (tmp_path / "target" / "compiled_checks" / "aaa.yml").exists()
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 

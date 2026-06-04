@@ -108,7 +108,8 @@ class CompileService:
             if not compilation.succeeded:
                 try:
                     _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
-                except OSError as exc:
+                except (OSError, ValueError) as exc:
+                    _discard_compiled_yaml_artifacts(context.paths.target_path)
                     return _compiled_artifact_runtime_error(
                         exc,
                         target_path=context.paths.target_path,
@@ -157,6 +158,7 @@ class CompileService:
                 try:
                     _write_compiled_artifacts(compiled_contracts, context.paths.target_path)
                 except (OSError, ValueError) as exc:
+                    _discard_compiled_yaml_artifacts(context.paths.target_path)
                     return _compiled_artifact_runtime_error(
                         exc,
                         target_path=context.paths.target_path,
@@ -177,6 +179,7 @@ class CompileService:
                 _write_compiled_artifacts(compiled_contracts, context.paths.target_path)
             except (OSError, ValueError) as exc:
                 _discard_compiled_sql_artifacts(context.paths.target_path / COMPILED_SQL_DIR_NAME)
+                _discard_compiled_yaml_artifacts(context.paths.target_path)
                 return _compiled_artifact_runtime_error(
                     exc,
                     target_path=context.paths.target_path,
@@ -207,7 +210,8 @@ class CompileService:
 
         try:
             _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
-        except OSError as exc:
+        except (OSError, ValueError) as exc:
+            _discard_compiled_yaml_artifacts(context.paths.target_path)
             return _compiled_artifact_runtime_error(
                 exc,
                 target_path=context.paths.target_path,
@@ -594,6 +598,12 @@ def _sanitize_profile_backed_adapter_diagnostic(
 def _discard_compiled_sql_artifacts(output_dir: Path) -> None:
     with suppress(OSError, ValueError):
         _clear_compiled_sql_artifact_directory(output_dir)
+
+
+def _discard_compiled_yaml_artifacts(target_path: Path) -> None:
+    for directory_name in (COMPILED_CONTRACTS_DIR_NAME, COMPILED_CHECKS_DIR_NAME):
+        with suppress(OSError, ValueError):
+            _clear_compiled_artifact_directory(target_path / directory_name)
 
 
 def _connection_config_tokens(

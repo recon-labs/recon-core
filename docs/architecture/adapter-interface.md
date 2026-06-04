@@ -287,6 +287,9 @@ A future adapter test kit should validate:
 - metadata behavior,
 - typed operation rendering,
 - capability declarations,
+- malformed capability support states,
+- adapter API version declarations,
+- malformed adapter factory results,
 - check compatibility,
 - profile rendering behavior,
 - adapter diagnostic redaction,
@@ -298,8 +301,10 @@ implements the operation or marks the capability unsupported.
 
 Profile and diagnostic tests should cover selected target loading, referenced
 connections only, missing env vars, env-var defaults, unsupported `{{ ... }}`
-template syntax, adapter factory diagnostics, and future optional dependency,
-API compatibility, capability, metadata, rendering, and execution diagnostics.
+template syntax, adapter factory diagnostics, malformed factory results,
+missing or invalid adapter API version declarations, malformed capability
+support states, and future optional dependency, API compatibility, capability,
+metadata, rendering, and execution diagnostics.
 Adapter diagnostics are public output, so the test kit must verify that
 credentials, tokens, DSNs, passwords, rendered connection payloads, and other
 secret-classified values do not appear in diagnostic messages, hints, paths,

@@ -282,11 +282,13 @@ RC_ADAPTER_QUERY_FAILED
 ```
 
 Milestone 6 adapter-aware compile uses `RC_ADAPTER_*` diagnostics for adapter
-type resolution, empty adapter factory results, adapter factory exceptions,
-adapter API compatibility, capability declaration failures, required-capability
-validation, optional dependency checks, relation-only rendering boundaries,
-same-context rendering requirements, invalid relation names, renderer failures,
-and invocation-wide SQL output suppression.
+type resolution, empty or malformed adapter factory results, adapter factory
+exceptions, adapter API compatibility, missing or invalid adapter API version
+declarations, capability declaration failures, malformed capability support
+states, required-capability validation, optional dependency checks,
+relation-only rendering boundaries, same-context rendering requirements,
+invalid relation names, renderer failures, and invocation-wide SQL output
+suppression.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include
@@ -299,9 +301,10 @@ diagnostic with the original diagnostic code and severity. The replacement
 diagnostic must still include a safe, actionable message and safe resource
 context. Rendered profile values include scalar YAML values after rendering,
 including non-string values such as numeric credentials.
-If an adapter factory or capability declaration raises an exception, Recon
-should suppress the raw exception message and return a generic structured
-adapter diagnostic that preserves only the exception type when useful.
+If an adapter factory returns a malformed result, or if an adapter factory or
+capability declaration raises an exception, Recon should suppress raw adapter
+payloads and return a generic structured adapter diagnostic that preserves only
+the exception type when useful.
 Suppression should treat case-changed keys or rendered values, DSN fragments,
 tokens, passwords, and other simple transformations as unsafe when they can be
 derived from rendered profile config. Redaction tests should cover every public

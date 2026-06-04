@@ -77,6 +77,8 @@ version condition is validated.
 Compile without an adapter may produce typed plans with
 `rendering.status: not_rendered`. Adapter-aware rendering and runtime execution
 must validate support states before rendering or executing required operations.
+Malformed support-state values must become structured diagnostics instead of
+uncaught adapter errors.
 
 Milestone 6 uses only the capability subset required by currently emitted typed
 operations. It does not expand the typed operation catalog.

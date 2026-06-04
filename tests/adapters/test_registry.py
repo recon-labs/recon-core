@@ -1,3 +1,5 @@
+from typing import cast
+
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
     AdapterCapabilities,
@@ -50,6 +52,20 @@ class RaisingFactory:
         raise ValueError(f"password={connection.config.get('password')}")
 
 
+class InvalidResolutionFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return None  # type: ignore[return-value]
+
+
+class RaisingApiVersion:
+    def __get__(self, instance: object, owner: object | None = None) -> str:
+        raise AttributeError("password=super-secret")
+
+
+class MissingApiVersionAdapter(CompatibleAdapter):
+    supported_adapter_api_version = cast(str, RaisingApiVersion())
+
+
 def test_adapter_api_compatibility_passes_for_current_api_version() -> None:
     adapter = CompatibleAdapter(connection=ConnectionConfig(name="source", type="compatible"))
 
@@ -64,6 +80,23 @@ def test_adapter_api_compatibility_fails_for_unsupported_api_version() -> None:
     assert [diagnostic.code for diagnostic in diagnostics] == ["RC_ADAPTER_API_VERSION_UNSUPPORTED"]
     assert "0.0" in diagnostics[0].message
     assert ADAPTER_API_VERSION in diagnostics[0].message
+
+
+def test_adapter_api_compatibility_reports_missing_version_without_raw_error() -> None:
+    adapter = MissingApiVersionAdapter(
+        connection=ConnectionConfig(
+            name="source",
+            type="compatible",
+            config={"password": "super-secret"},
+        )
+    )
+
+    diagnostics = validate_adapter_api_compatibility(adapter)
+    diagnostic_text = f"{diagnostics[0].message} {diagnostics[0].hint}"
+
+    assert [diagnostic.code for diagnostic in diagnostics] == ["RC_ADAPTER_API_VERSION_UNSUPPORTED"]
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
 
 
 def test_registry_resolves_registered_adapter() -> None:
@@ -98,6 +131,20 @@ def test_registry_reports_empty_adapter_resolution_result() -> None:
         "RC_ADAPTER_RESOLUTION_FAILED"
     ]
     assert result.diagnostics[0].resource_name == "empty"
+
+
+def test_registry_reports_invalid_adapter_resolution_result() -> None:
+    registry = AdapterRegistry()
+    registry.register("invalid", InvalidResolutionFactory())
+
+    result = registry.resolve(ConnectionConfig(name="source", type="invalid"))
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert result.diagnostics[0].resource_name == "invalid"
 
 
 def test_registry_sanitizes_adapter_factory_exceptions() -> None:

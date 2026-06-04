@@ -142,10 +142,10 @@ registry.register("duckdb", DuckDbAdapterFactory())
 
 Core should resolve connection type through the registry. Adapter factories
 must return either an adapter or a diagnostic; a factory that returns neither
-fails resolution with `RC_ADAPTER_RESOLUTION_FAILED`. A factory that raises an
-exception should also fail resolution with a generic sanitized
-`RC_ADAPTER_RESOLUTION_FAILED` diagnostic rather than surfacing raw adapter
-error text.
+or returns a malformed resolution result fails resolution with
+`RC_ADAPTER_RESOLUTION_FAILED`. A factory that raises an exception should also
+fail resolution with a generic sanitized `RC_ADAPTER_RESOLUTION_FAILED`
+diagnostic rather than surfacing raw adapter error text.
 Factory diagnostics are public output. They must not include credentials,
 tokens, DSNs, passwords, fully rendered connection payloads, or other
 secret-classified values from rendered profile config.
@@ -167,14 +167,15 @@ capabilities before SQL files are written.
 Runtime validates anything that depends on live metadata.
 
 Adapter API compatibility should also be validated. If an adapter declares an
-older unsupported adapter API version, Recon should fail before execution with a
-clear diagnostic.
+older unsupported adapter API version, or does not declare a valid adapter API
+version, Recon should fail before execution with a clear diagnostic.
 
 Adapter capability declaration is itself public adapter behavior. If
 `capabilities()` raises, Recon should fail rendering or execution setup with
 `RC_ADAPTER_CAPABILITY_DECLARATION_FAILED`, suppress the raw exception text, and
 include only safe context such as the adapter type, check ID, and exception
-class.
+class. Malformed capability support states should become structured
+required-capability diagnostics instead of uncaught exceptions.
 
 ## SQL generation
 
