@@ -165,6 +165,10 @@ fails with `RC_ADAPTER_METADATA_INVALID`, empty renderer output fails with
 step names, and adapter factory exceptions, adapter metadata exceptions, and
 capability declaration exceptions become sanitized structured diagnostics
 instead of raw exceptions that can leak rendered profile keys or values.
+Adapter setup failure cases must also verify that adapter-aware compile writes
+no compiled SQL, marks affected compiled checks blocked with structured
+diagnostics, and de-duplicates repeated source/target setup diagnostics in
+service and CLI output.
 
 The same adapter API conformance suite should cover profile rendering and
 adapter diagnostic redaction before adapter execution, connection debug or

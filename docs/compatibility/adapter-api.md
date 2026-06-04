@@ -92,6 +92,12 @@ adapter diagnostics carry safe non-empty messages and that core redaction
 replaces unsafe message text with a generic actionable message rather than
 dropping the message field.
 
+Adapter setup failures during adapter-aware compile must also produce blocked
+compiled-check metadata without writing compiled SQL. If both source and target
+adapter resolution fail for the same connection, service and CLI diagnostics
+must de-duplicate the repeated setup diagnostic while compiled artifacts still
+explain why each affected check is blocked.
+
 Renderer conformance tests must prove that a renderer returns at least one SQL
 step for each rendered check. Empty renderer output must fail with
 `RC_ADAPTER_RENDERED_SQL_EMPTY`; it must not produce `rendering.status:
@@ -106,7 +112,9 @@ publish, or split `recon-adapter-testkit`, `recon-duckdb`, or any production
 adapter repository with a compatibility claim until the shared conformance
 suite includes those sanitized factory-exception, capability-declaration, and
 diagnostic-redaction cases, plus malformed adapter metadata and empty renderer
-output cases and malformed non-empty renderer output cases.
+output cases, malformed non-empty renderer output cases, blocked compiled-check
+metadata for adapter setup failures, and de-duplicated repeated source/target
+adapter setup diagnostics.
 
 ## Compatibility contract
 
@@ -248,6 +256,10 @@ tests must cover:
 - adapter factory diagnostics returned after profile rendering,
 - optional dependency, API compatibility, capability, metadata, rendering, and
   execution diagnostics once those phases exist,
+- adapter setup failures that write no compiled SQL and mark affected compiled
+  checks blocked with structured diagnostics,
+- repeated source/target adapter setup failures for the same connection that are
+  de-duplicated in service and CLI diagnostics,
 - diagnostics that reference rendered connection config keys or values,
 - diagnostics that reference rendered connection config keys or values with
   changed casing or other simple transformations.

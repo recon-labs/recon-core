@@ -338,6 +338,9 @@ Tests:
 - adapter capability support-state validation,
 - compiled SQL artifact path and traceability tests,
 - unsupported query endpoint diagnostics for adapter-aware rendering.
+- adapter setup failures produce blocked compiled-check metadata, write no
+  compiled SQL, and de-duplicate repeated source/target setup diagnostics in
+  service output.
 
 ## Milestone 7: check engine
 
@@ -360,6 +363,10 @@ Required gates:
   `resource_type`, `resource_name`, and future structured diagnostic fields,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
+- preserve the adapter-aware compile contract that setup failures write no SQL,
+  mark affected compiled checks blocked, and de-duplicate repeated source/target
+  setup diagnostics before adapter execution surfaces these diagnostics at run
+  time,
 - resolve the explicit authored checks and check registry gate before
   implementing explicit `checks: [...]` support or registry behavior that must
   serve explicit checks later,
@@ -1327,6 +1334,10 @@ Required gate:
 - include sanitized adapter factory exception and sanitized capability
   declaration exception cases before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,
+- include adapter setup failure cases that assert no compiled SQL output,
+  blocked compiled-check metadata, and de-duplicated repeated source/target
+  service diagnostics before creating or splitting the test-kit repository or
+  publishing external adapter compatibility claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the
