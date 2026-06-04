@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from recon_core.adapters.base import BaseAdapter, SqlRenderer
 from recon_core.adapters.capabilities import AdapterCapabilities, validate_required_capabilities
 from recon_core.adapters.models import Relation, RenderedSql
+from recon_core.adapters.registry import resolve_adapter_type
 from recon_core.compiler.models import CompiledCheck, CompiledContractArtifact
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -12,6 +13,7 @@ ADAPTER_QUERY_ENDPOINT_UNSUPPORTED = "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
 ADAPTER_INVALID_RELATION = "RC_ADAPTER_INVALID_RELATION"
 ADAPTER_CAPABILITY_DECLARATION_FAILED = "RC_ADAPTER_CAPABILITY_DECLARATION_FAILED"
 ADAPTER_OPERATION_RENDER_FAILED = "RC_ADAPTER_OPERATION_RENDER_FAILED"
+ADAPTER_RENDERED_SQL_EMPTY = "RC_ADAPTER_RENDERED_SQL_EMPTY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,12 +39,21 @@ def render_check_sql(
     capabilities: AdapterCapabilities | None = None,
 ) -> RenderedCheckSql:
     """Render one compiled check to in-memory SQL without writing artifacts."""
+    adapter_type_resolution = resolve_adapter_type(adapter)
+    if adapter_type_resolution.diagnostics:
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=adapter_type_resolution.diagnostics,
+        )
+    adapter_type = adapter_type_resolution.adapter_type
+    assert adapter_type is not None
+
     endpoint_diagnostics = _endpoint_diagnostics(contract)
     if endpoint_diagnostics:
         return RenderedCheckSql(
             check_id=check.id,
             diagnostics=endpoint_diagnostics,
-            adapter_type=adapter.adapter_type,
+            adapter_type=adapter_type,
         )
 
     source_relation, source_diagnostics = _relation_from_name(
@@ -60,7 +71,7 @@ def render_check_sql(
         return RenderedCheckSql(
             check_id=check.id,
             diagnostics=relation_diagnostics,
-            adapter_type=adapter.adapter_type,
+            adapter_type=adapter_type,
         )
 
     assert source_relation is not None
@@ -79,7 +90,7 @@ def render_check_sql(
                         code=ADAPTER_CAPABILITY_DECLARATION_FAILED,
                         severity=DiagnosticSeverity.ERROR,
                         message=(
-                            f"Adapter `{adapter.adapter_type}` failed to declare capabilities "
+                            f"Adapter `{adapter_type}` failed to declare capabilities "
                             f"for check `{check.id}`."
                         ),
                         resource_type="compiled_check",
@@ -87,14 +98,14 @@ def render_check_sql(
                         hint=_capability_exception_hint(exc),
                     ),
                 ),
-                adapter_type=adapter.adapter_type,
+                adapter_type=adapter_type,
             )
     else:
         resolved_capabilities = capabilities
 
     try:
         capability_diagnostics = validate_required_capabilities(
-            adapter_type=adapter.adapter_type,
+            adapter_type=adapter_type,
             capabilities=resolved_capabilities,
             required_capabilities=required_capabilities,
         )
@@ -106,7 +117,7 @@ def render_check_sql(
                     code=ADAPTER_CAPABILITY_DECLARATION_FAILED,
                     severity=DiagnosticSeverity.ERROR,
                     message=(
-                        f"Adapter `{adapter.adapter_type}` declared invalid capabilities "
+                        f"Adapter `{adapter_type}` declared invalid capabilities "
                         f"for check `{check.id}`."
                     ),
                     resource_type="compiled_check",
@@ -114,13 +125,13 @@ def render_check_sql(
                     hint=_capability_exception_hint(exc),
                 ),
             ),
-            adapter_type=adapter.adapter_type,
+            adapter_type=adapter_type,
         )
     if capability_diagnostics:
         return RenderedCheckSql(
             check_id=check.id,
             diagnostics=capability_diagnostics,
-            adapter_type=adapter.adapter_type,
+            adapter_type=adapter_type,
         )
 
     try:
@@ -132,14 +143,12 @@ def render_check_sql(
     except Exception as exc:
         return RenderedCheckSql(
             check_id=check.id,
-            adapter_type=adapter.adapter_type,
+            adapter_type=adapter_type,
             diagnostics=(
                 Diagnostic(
                     code=ADAPTER_OPERATION_RENDER_FAILED,
                     severity=DiagnosticSeverity.ERROR,
-                    message=(
-                        f"Adapter `{adapter.adapter_type}` failed to render check `{check.id}`."
-                    ),
+                    message=(f"Adapter `{adapter_type}` failed to render check `{check.id}`."),
                     resource_type="compiled_check",
                     resource_name=check.id,
                     hint=_renderer_exception_hint(exc),
@@ -147,7 +156,26 @@ def render_check_sql(
             ),
         )
 
-    return RenderedCheckSql(check_id=check.id, sql=rendered_sql, adapter_type=adapter.adapter_type)
+    if not rendered_sql:
+        return RenderedCheckSql(
+            check_id=check.id,
+            adapter_type=adapter_type,
+            diagnostics=(
+                Diagnostic(
+                    code=ADAPTER_RENDERED_SQL_EMPTY,
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Adapter `{adapter_type}` rendered no SQL for check `{check.id}`.",
+                    resource_type="compiled_check",
+                    resource_name=check.id,
+                    hint=(
+                        "Fix the renderer to return one or more SQL steps for each rendered "
+                        "check or return a rendering diagnostic."
+                    ),
+                ),
+            ),
+        )
+
+    return RenderedCheckSql(check_id=check.id, sql=rendered_sql, adapter_type=adapter_type)
 
 
 def _endpoint_diagnostics(contract: CompiledContractArtifact) -> tuple[Diagnostic, ...]:

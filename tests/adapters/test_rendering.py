@@ -167,6 +167,34 @@ def test_render_check_sql_sanitizes_renderer_exception_diagnostics() -> None:
     assert "password" not in diagnostic_text
 
 
+def test_render_check_sql_rejects_empty_renderer_output() -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+
+    class EmptyRenderer(DuckDbSqlRenderer):
+        def render_plan(
+            self,
+            operations: tuple[Mapping[str, Any], ...],
+            *,
+            source_relation: Relation,
+            target_relation: Relation,
+        ) -> tuple[RenderedSql, ...]:
+            return ()
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=EmptyRenderer(),
+    )
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RENDERED_SQL_EMPTY"
+    ]
+
+
 def compiled_row_count_check(
     *,
     source: AuthoredEndpoint | None = None,

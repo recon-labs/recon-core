@@ -170,6 +170,12 @@ Adapter API compatibility should also be validated. If an adapter declares an
 older unsupported adapter API version, or does not declare a valid adapter API
 version, Recon should fail before execution with a clear diagnostic.
 
+Adapter metadata is public adapter behavior. If `adapter_type` is missing,
+empty, non-string, or raises while being read, Recon should fail rendering or
+execution setup with `RC_ADAPTER_METADATA_INVALID`, suppress raw adapter error
+text, and include only safe context such as the adapter class name and exception
+class.
+
 Adapter capability declaration is itself public adapter behavior. If
 `capabilities()` raises, Recon should fail rendering or execution setup with
 `RC_ADAPTER_CAPABILITY_DECLARATION_FAILED`, suppress the raw exception text, and
@@ -183,6 +189,9 @@ Core check logic should define typed abstract operations.
 
 Adapters should provide dialect-specific SQL for the operations emitted by the
 compiler. Milestone 6 does not expand the typed operation catalog.
+For every check marked `rendered`, the renderer must return at least one SQL
+step. Empty renderer output is `RC_ADAPTER_RENDERED_SQL_EMPTY` and must be
+recorded as a rendering failure, not as `rendered` with empty `sql_paths`.
 
 Examples of core-owned typed operations:
 
@@ -280,7 +289,8 @@ dependency, API compatibility, capability, metadata, rendering, and execution
 diagnostics. Redaction conformance must cover unsafe rendered profile keys or
 values independently in diagnostic `message`, `hint`, `path`, `resource_type`,
 `resource_name`, and future structured diagnostic fields. It must also cover
-raw adapter exceptions from factories and capability declarations.
+raw adapter exceptions from factories, adapter metadata declarations, and
+capability declarations, plus empty renderer output diagnostics.
 
 For Milestone 6 DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type

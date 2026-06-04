@@ -220,6 +220,9 @@ means all required SQL was produced. `blocked` means rendering was skipped
 because validation failed. `failed` means rendering was attempted and failed
 due to an adapter or renderer error. A missing renderer during adapter-aware
 rendering is a `blocked` capability diagnostic, not `not_rendered`.
+If a renderer returns no SQL steps for a check, Recon treats that as
+`RC_ADAPTER_RENDERED_SQL_EMPTY` and marks the check `failed`; `rendered` must
+not be paired with empty `rendering.sql_paths`.
 
 If any check in an adapter-aware compile invocation produces a rendering
 diagnostic, Recon writes no compiled SQL files for that invocation. Checks with
@@ -351,7 +354,8 @@ capability declarations. Every production adapter should run the shared test kit
 in CI after the adapter API stabilizes. The first version of that shared suite
 must include profile-rendering and diagnostic-redaction conformance, including
 sanitized adapter factory exceptions, sanitized capability declaration
-exceptions, field-by-field diagnostic redaction, and safe non-empty diagnostic
+exceptions, sanitized adapter metadata exceptions, empty renderer output
+failures, field-by-field diagnostic redaction, and safe non-empty diagnostic
 messages.
 
 ## Design principle

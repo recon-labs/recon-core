@@ -255,6 +255,76 @@ def test_render_sql_compile_sanitizes_adapter_api_compatibility_diagnostics(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_reports_non_string_adapter_type_metadata(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="numeric_adapter_type")
+    registry = AdapterRegistry()
+    registry.register("numeric_adapter_type", NonStringAdapterTypeAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_METADATA_INVALID",
+        "RC_ADAPTER_METADATA_INVALID",
+    ]
+    assert all(
+        diagnostic.resource_name == "NonStringAdapterTypeAdapter"
+        for diagnostic in result.diagnostics
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_sanitizes_raising_adapter_type_metadata(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="raising_adapter_type", include_password=True)
+    registry = AdapterRegistry()
+    registry.register("raising_adapter_type", RaisingAdapterTypeAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    diagnostic_text = "\n".join(
+        " ".join(
+            value
+            for value in (
+                diagnostic.message,
+                diagnostic.resource_type,
+                diagnostic.resource_name,
+                diagnostic.path,
+                diagnostic.hint,
+            )
+            if value is not None
+        )
+        for diagnostic in result.diagnostics
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_METADATA_INVALID",
+        "RC_ADAPTER_METADATA_INVALID",
+    ]
+    assert "RuntimeError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -933,6 +1003,58 @@ def test_render_sql_compile_sanitizes_renderer_failure_artifacts(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_marks_empty_renderer_output_failed_without_sql_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    class EmptyDuckDbSqlRenderer:
+        adapter_type = "duckdb"
+
+        def render_operation(self, *args: object, **kwargs: object) -> object:
+            raise AssertionError("render_plan should be used by the service")
+
+        def render_plan(self, *args: object, **kwargs: object) -> tuple[RenderedSql, ...]:
+            return ()
+
+        def quote_identifier(self, identifier: str) -> str:
+            return identifier
+
+        def render_relation(self, relation: object) -> str:
+            return str(relation)
+
+    monkeypatch.setattr(
+        "recon_core.services.compile.DuckDbSqlRenderer",
+        EmptyDuckDbSqlRenderer,
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_ADAPTER_RENDERED_SQL_EMPTY"
+    }
+    assert all(check["rendering"]["status"] == "failed" for check in checks_artifact["checks"])
+    assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_render_phase_adapter_metadata(
     tmp_path: Path,
 ) -> None:
@@ -1038,6 +1160,29 @@ class MissingApiVersionAdapter(FakeAdapter):
 class MissingApiVersionAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult(adapter=MissingApiVersionAdapter(connection=connection))
+
+
+class NonStringAdapterTypeAdapter(FakeAdapter):
+    adapter_type = cast(Any, 123)
+
+
+class NonStringAdapterTypeAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(adapter=NonStringAdapterTypeAdapter(connection=connection))
+
+
+class RaisingAdapterType:
+    def __get__(self, instance: object, owner: object | None = None) -> str:
+        raise RuntimeError("password=super-secret")
+
+
+class RaisingAdapterTypeAdapter(FakeAdapter):
+    adapter_type = cast(str, RaisingAdapterType())
+
+
+class RaisingAdapterTypeAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(adapter=RaisingAdapterTypeAdapter(connection=connection))
 
 
 class CapabilityRaisingDuckDbAdapter(FakeAdapter):

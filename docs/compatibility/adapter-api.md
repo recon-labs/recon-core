@@ -80,20 +80,29 @@ factory resolution: a registered factory must return an adapter or diagnostics,
 and an empty or malformed resolution result must fail with
 `RC_ADAPTER_RESOLUTION_FAILED` instead of letting adapter-aware rendering or
 execution report success. Missing or invalid adapter API version declarations
-must fail with `RC_ADAPTER_API_VERSION_UNSUPPORTED`, and malformed capability
-support states must become structured required-capability diagnostics instead
-of uncaught exceptions. Factory exceptions and capability declaration
-exceptions must fail with sanitized structured diagnostics that preserve the
-code and useful exception type without preserving raw exception text. These
-tests must also assert that adapter diagnostics carry safe non-empty messages
-and that core redaction replaces unsafe message text with a generic actionable
-message rather than dropping the message field.
+must fail with `RC_ADAPTER_API_VERSION_UNSUPPORTED`, and missing, non-string,
+empty, or exception-raising `adapter_type` metadata must fail with
+`RC_ADAPTER_METADATA_INVALID` before rendering or execution. Malformed
+capability support states must become structured required-capability
+diagnostics instead of uncaught exceptions. Factory exceptions, adapter
+metadata exceptions, and capability declaration exceptions must fail with
+sanitized structured diagnostics that preserve the code and useful exception
+type without preserving raw exception text. These tests must also assert that
+adapter diagnostics carry safe non-empty messages and that core redaction
+replaces unsafe message text with a generic actionable message rather than
+dropping the message field.
+
+Renderer conformance tests must prove that a renderer returns at least one SQL
+step for each rendered check. Empty renderer output must fail with
+`RC_ADAPTER_RENDERED_SQL_EMPTY`; it must not produce `rendering.status:
+rendered` with empty `rendering.sql_paths`.
 
 These requirements are a release gate for the adapter ecosystem. Do not create,
 publish, or split `recon-adapter-testkit`, `recon-duckdb`, or any production
 adapter repository with a compatibility claim until the shared conformance
 suite includes those sanitized factory-exception, capability-declaration, and
-diagnostic-redaction cases.
+diagnostic-redaction cases, plus malformed adapter metadata and empty renderer
+output cases.
 
 ## Compatibility contract
 
@@ -124,6 +133,11 @@ adapter raises while declaring capabilities, Core must surface a sanitized
 adapter exception text or continuing with ambiguous capability support.
 Malformed capability support states must produce structured diagnostics instead
 of uncaught exceptions.
+
+Adapter metadata declarations are public compatibility input to Core. If
+`adapter_type` is missing, empty, non-string, or raises while being read, Core
+must surface `RC_ADAPTER_METADATA_INVALID` without leaking raw adapter exception
+text or rendered profile values.
 
 The first adapter boundary separates:
 
@@ -249,8 +263,8 @@ transformation-variant redaction cases, such as `PASSWORD`, `database`,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
 independently in diagnostic message, hint, path, `resource_type`, and
 `resource_name`. It must also include adapter factory and capability
-declaration exceptions whose raw exception messages contain rendered profile
-keys or values.
+declaration exceptions and exception-raising adapter metadata whose raw
+exception messages contain rendered profile keys or values.
 
 A future structured redaction API or secret-classification model would be a
 durable adapter contract change. If Recon needs that model, update the adapter

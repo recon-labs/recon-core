@@ -10,6 +10,7 @@ from typing import Any
 from recon_core.adapters import (
     ADAPTER_CAPABILITY_UNSUPPORTED,
     ADAPTER_OPERATION_RENDER_FAILED,
+    ADAPTER_RENDERED_SQL_EMPTY,
     AdapterRegistry,
     BaseAdapter,
     RenderedCheckSql,
@@ -18,6 +19,7 @@ from recon_core.adapters import (
     validate_adapter_api_compatibility,
 )
 from recon_core.adapters.duckdb import DuckDbSqlRenderer
+from recon_core.adapters.registry import resolve_adapter_type
 from recon_core.artifacts import (
     COMPILED_CHECKS_DIR_NAME,
     COMPILED_CONTRACTS_DIR_NAME,
@@ -384,7 +386,10 @@ def _rendering_output_suppressed_diagnostic(check: CompiledCheck) -> Diagnostic:
 
 
 def _render_failure_status(diagnostics: tuple[Diagnostic, ...]) -> RenderingStatus:
-    if any(diagnostic.code == ADAPTER_OPERATION_RENDER_FAILED for diagnostic in diagnostics):
+    if any(
+        diagnostic.code in {ADAPTER_OPERATION_RENDER_FAILED, ADAPTER_RENDERED_SQL_EMPTY}
+        for diagnostic in diagnostics
+    ):
         return RenderingStatus.FAILED
     return RenderingStatus.BLOCKED
 
@@ -504,6 +509,14 @@ def _resolve_render_sql_adapters(
         )
         if resolution.adapter is None:
             continue
+        metadata_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
+            resolve_adapter_type(resolution.adapter).diagnostics,
+            connection=connection,
+            config_tokens=config_tokens,
+        )
+        diagnostics.extend(metadata_diagnostics)
+        if metadata_diagnostics:
+            continue
         diagnostics.extend(
             _sanitize_profile_backed_adapter_diagnostics(
                 validate_adapter_api_compatibility(resolution.adapter),
@@ -557,12 +570,12 @@ def _sanitize_profile_backed_render_result(
 
 
 def _sanitize_profile_backed_adapter_type(
-    adapter_type: str | None,
+    adapter_type: object | None,
     *,
     connection: ConnectionConfig,
     config_tokens: frozenset[str],
 ) -> str | None:
-    if adapter_type is None:
+    if not isinstance(adapter_type, str) or adapter_type == "":
         return None
     if not _text_mentions_config_token(adapter_type, config_tokens):
         return adapter_type
@@ -714,12 +727,42 @@ def _render_compiled_sql_in_memory(
             source_adapter.connection.config,
             adapter_type=source_adapter.connection.type,
         )
-        source_adapter_type = _sanitize_profile_backed_adapter_type(
-            source_adapter.adapter_type,
+        target_config_tokens = _connection_config_tokens(
+            target_adapter.connection.config,
+            adapter_type=target_adapter.connection.type,
+        )
+        source_adapter_type_resolution = resolve_adapter_type(source_adapter)
+        target_adapter_type_resolution = resolve_adapter_type(target_adapter)
+        source_metadata_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
+            source_adapter_type_resolution.diagnostics,
             connection=source_adapter.connection,
             config_tokens=source_config_tokens,
         )
-        if source_adapter.adapter_type != target_adapter.adapter_type:
+        target_metadata_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
+            target_adapter_type_resolution.diagnostics,
+            connection=target_adapter.connection,
+            config_tokens=target_config_tokens,
+        )
+        metadata_diagnostics = source_metadata_diagnostics + target_metadata_diagnostics
+        if metadata_diagnostics:
+            diagnostics.extend(metadata_diagnostics)
+            _set_contract_render_block(
+                results_by_check_id,
+                compiled_contract=compiled_contract,
+                diagnostic=metadata_diagnostics[0],
+            )
+            continue
+        assert source_adapter_type_resolution.adapter_type is not None
+        assert target_adapter_type_resolution.adapter_type is not None
+        source_adapter_type = _sanitize_profile_backed_adapter_type(
+            source_adapter_type_resolution.adapter_type,
+            connection=source_adapter.connection,
+            config_tokens=source_config_tokens,
+        )
+        if (
+            source_adapter_type_resolution.adapter_type
+            != target_adapter_type_resolution.adapter_type
+        ):
             diagnostic = Diagnostic(
                 code=MIXED_ADAPTER_TYPES_UNSUPPORTED,
                 severity=DiagnosticSeverity.ERROR,
@@ -762,14 +805,17 @@ def _render_compiled_sql_in_memory(
             )
             continue
 
-        renderer = _renderer_for_adapter_type(source_adapter.adapter_type)
+        renderer = _renderer_for_adapter_type(source_adapter_type_resolution.adapter_type)
         if renderer is None:
             diagnostic = Diagnostic(
                 code=ADAPTER_CAPABILITY_UNSUPPORTED,
                 severity=DiagnosticSeverity.ERROR,
-                message=f"Adapter `{source_adapter.adapter_type}` does not have a SQL renderer.",
+                message=(
+                    f"Adapter `{source_adapter_type_resolution.adapter_type}` "
+                    "does not have a SQL renderer."
+                ),
                 resource_type="adapter",
-                resource_name=source_adapter.adapter_type,
+                resource_name=source_adapter_type_resolution.adapter_type,
                 hint="Use an adapter with a SQL renderer.",
             )
             diagnostic = _sanitize_profile_backed_adapter_diagnostic(

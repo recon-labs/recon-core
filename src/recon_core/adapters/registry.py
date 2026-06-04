@@ -1,6 +1,7 @@
 """Adapter registry and compatibility validation."""
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Protocol, cast
 
 from recon_core.adapters.base import BaseAdapter
@@ -14,6 +15,7 @@ from recon_core.profiles import ConnectionConfig
 ADAPTER_UNKNOWN_TYPE = "RC_ADAPTER_UNKNOWN_TYPE"
 ADAPTER_API_VERSION_UNSUPPORTED = "RC_ADAPTER_API_VERSION_UNSUPPORTED"
 ADAPTER_RESOLUTION_FAILED = "RC_ADAPTER_RESOLUTION_FAILED"
+ADAPTER_METADATA_INVALID = "RC_ADAPTER_METADATA_INVALID"
 
 
 class AdapterFactory(Protocol):
@@ -24,6 +26,14 @@ class AdapterFactory(Protocol):
 
 
 AdapterCreator = Callable[[ConnectionConfig], AdapterResolutionResult]
+
+
+@dataclass(frozen=True, slots=True)
+class AdapterTypeResolution:
+    """Validated adapter type metadata."""
+
+    adapter_type: str | None
+    diagnostics: tuple[Diagnostic, ...] = ()
 
 
 class AdapterRegistry:
@@ -134,6 +144,25 @@ def validate_adapter_api_compatibility(adapter: BaseAdapter) -> tuple[Diagnostic
     )
 
 
+def resolve_adapter_type(adapter: BaseAdapter) -> AdapterTypeResolution:
+    """Read adapter_type without letting malformed adapter metadata escape."""
+    try:
+        adapter_type = adapter.adapter_type
+    except Exception as exc:
+        return AdapterTypeResolution(
+            adapter_type=None,
+            diagnostics=(_invalid_adapter_type_diagnostic(adapter, exc=exc),),
+        )
+
+    if not isinstance(adapter_type, str) or adapter_type == "":
+        return AdapterTypeResolution(
+            adapter_type=None,
+            diagnostics=(_invalid_adapter_type_diagnostic(adapter),),
+        )
+
+    return AdapterTypeResolution(adapter_type=adapter_type)
+
+
 def _invalid_resolution_result(connection: ConnectionConfig) -> AdapterResolutionResult:
     return AdapterResolutionResult(
         diagnostics=(
@@ -152,14 +181,32 @@ def _invalid_resolution_result(connection: ConnectionConfig) -> AdapterResolutio
     )
 
 
+def _invalid_adapter_type_diagnostic(
+    adapter: BaseAdapter,
+    *,
+    exc: Exception | None = None,
+) -> Diagnostic:
+    adapter_name = type(adapter).__name__
+    hint = "Declare `adapter_type` as a non-empty string on the adapter class."
+    if exc is not None:
+        hint = (
+            f"Adapter metadata raised {type(exc).__name__}. Raw adapter error text was "
+            "suppressed because profile diagnostics must not expose rendered connection values. "
+            "Declare `adapter_type` as a non-empty string on the adapter class."
+        )
+
+    return Diagnostic(
+        code=ADAPTER_METADATA_INVALID,
+        severity=DiagnosticSeverity.ERROR,
+        message=f"Adapter `{adapter_name}` does not declare a valid `adapter_type`.",
+        resource_type="adapter",
+        resource_name=adapter_name,
+        hint=hint,
+    )
+
+
 def _safe_adapter_type(adapter: BaseAdapter) -> str:
-    try:
-        adapter_type = adapter.adapter_type
-    except Exception:
-        return type(adapter).__name__
-    if not isinstance(adapter_type, str) or adapter_type == "":
-        return type(adapter).__name__
-    return adapter_type
+    return resolve_adapter_type(adapter).adapter_type or type(adapter).__name__
 
 
 def _adapter_creator(

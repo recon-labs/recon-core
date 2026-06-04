@@ -144,6 +144,11 @@ This project follows semantic versioning once public package releases begin.
   results, missing or invalid adapter API version declarations, and malformed
   capability support states as structured diagnostics instead of uncaught
   exceptions.
+- Adapter-aware SQL rendering now reports invalid or raising adapter
+  `adapter_type` metadata as structured diagnostics instead of crashing or
+  leaking raw adapter exception text.
+- Adapter-aware SQL rendering now treats empty renderer output as a rendering
+  failure instead of marking checks as `rendered` with empty SQL paths.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so
   source and target `NULL` groups compare as the same group.
 - DuckDB key-diff SQL now compares distinct non-null key sets, keeping null-key

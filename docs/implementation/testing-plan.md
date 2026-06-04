@@ -158,9 +158,12 @@ adapter nor diagnostics, or returning a malformed resolution result, fails with
 execution to succeed. The same conformance suite should verify that missing or
 invalid adapter API version declarations fail with
 `RC_ADAPTER_API_VERSION_UNSUPPORTED`, malformed capability support states become
-structured diagnostics, and adapter factory exceptions and capability
-declaration exceptions become sanitized structured diagnostics instead of raw
-exceptions that can leak rendered profile keys or values.
+structured diagnostics, invalid or exception-raising `adapter_type` metadata
+fails with `RC_ADAPTER_METADATA_INVALID`, empty renderer output fails with
+`RC_ADAPTER_RENDERED_SQL_EMPTY`, and adapter factory exceptions, adapter
+metadata exceptions, and capability declaration exceptions become sanitized
+structured diagnostics instead of raw exceptions that can leak rendered profile
+keys or values.
 
 The same adapter API conformance suite should cover profile rendering and
 adapter diagnostic redaction before adapter execution, connection debug or
