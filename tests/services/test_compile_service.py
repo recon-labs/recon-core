@@ -107,10 +107,8 @@ def test_render_sql_compile_resolves_adapter_before_sql_rendering(tmp_path: Path
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering adapter configuration failed."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_ADAPTER_UNKNOWN_TYPE",
-        "RC_ADAPTER_UNKNOWN_TYPE",
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_ADAPTER_UNKNOWN_TYPE"]
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_UNKNOWN_TYPE")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -131,12 +129,12 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_DEPENDENCY_MISSING",
-        "RC_ADAPTER_DEPENDENCY_MISSING",
     ]
     assert all(
         diagnostic.hint is not None and "recon-core[duckdb]" in diagnostic.hint
         for diagnostic in result.diagnostics
     )
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_DEPENDENCY_MISSING")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -157,8 +155,8 @@ def test_render_sql_compile_reports_empty_adapter_resolution_result(tmp_path: Pa
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_RESOLUTION_FAILED",
-        "RC_ADAPTER_RESOLUTION_FAILED",
     ]
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -179,8 +177,8 @@ def test_render_sql_compile_reports_invalid_adapter_resolution_result(tmp_path: 
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_RESOLUTION_FAILED",
-        "RC_ADAPTER_RESOLUTION_FAILED",
     ]
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -205,11 +203,11 @@ def test_render_sql_compile_sanitizes_adapter_factory_exceptions(tmp_path: Path)
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_RESOLUTION_FAILED",
-        "RC_ADAPTER_RESOLUTION_FAILED",
     ]
     assert "ValueError" in diagnostic_text
     assert "super-secret" not in diagnostic_text
     assert "password" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -247,11 +245,11 @@ def test_render_sql_compile_sanitizes_adapter_api_compatibility_diagnostics(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_API_VERSION_UNSUPPORTED",
-        "RC_ADAPTER_API_VERSION_UNSUPPORTED",
     ]
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "super-secret" not in diagnostic_text
     assert "password" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_API_VERSION_UNSUPPORTED")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -274,12 +272,12 @@ def test_render_sql_compile_reports_non_string_adapter_type_metadata(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_METADATA_INVALID",
-        "RC_ADAPTER_METADATA_INVALID",
     ]
     assert all(
         diagnostic.resource_name == "NonStringAdapterTypeAdapter"
         for diagnostic in result.diagnostics
     )
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_METADATA_INVALID")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -317,11 +315,11 @@ def test_render_sql_compile_sanitizes_raising_adapter_type_metadata(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_METADATA_INVALID",
-        "RC_ADAPTER_METADATA_INVALID",
     ]
     assert "RuntimeError" in diagnostic_text
     assert "super-secret" not in diagnostic_text
     assert "password" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_METADATA_INVALID")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -348,11 +346,11 @@ def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_TEST_ADAPTER_LEAK",
-        "RC_TEST_ADAPTER_LEAK",
     ]
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "password" not in diagnostic_text
     assert "local.duckdb" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_LEAK")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -377,10 +375,10 @@ def test_render_sql_compile_reports_missing_adapter_api_version(tmp_path: Path) 
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_API_VERSION_UNSUPPORTED",
-        "RC_ADAPTER_API_VERSION_UNSUPPORTED",
     ]
     assert "super-secret" not in diagnostic_text
     assert "password" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_API_VERSION_UNSUPPORTED")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -423,10 +421,10 @@ def test_render_sql_compile_sanitizes_non_string_adapter_resolution_values(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_TEST_ADAPTER_NUMERIC_LEAK",
-        "RC_TEST_ADAPTER_NUMERIC_LEAK",
     ]
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "123456" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_NUMERIC_LEAK")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -458,13 +456,13 @@ def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostic
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_TEST_ADAPTER_CASE_VARIANT_LEAK",
-        "RC_TEST_ADAPTER_CASE_VARIANT_LEAK",
     ]
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "PASSWORD" not in diagnostic_text
     assert "supersecret" not in diagnostic_text
     assert "DATABASE" not in diagnostic_text
     assert "LOCAL.DUCKDB" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_CASE_VARIANT_LEAK")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -507,12 +505,12 @@ def test_render_sql_compile_sanitizes_resource_type_only_adapter_resolution_leak
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_TEST_ADAPTER_RESOURCE_TYPE_LEAK",
-        "RC_TEST_ADAPTER_RESOURCE_TYPE_LEAK",
     ]
     assert {diagnostic.resource_type for diagnostic in result.diagnostics} == {"adapter"}
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "PASSWORD" not in diagnostic_text
     assert "supersecret" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_RESOURCE_TYPE_LEAK")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -558,12 +556,15 @@ def test_render_sql_compile_replaces_resource_type_when_message_triggers_sanitiz
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_TEST_ADAPTER_MESSAGE_AND_RESOURCE_TYPE_LEAK",
-        "RC_TEST_ADAPTER_MESSAGE_AND_RESOURCE_TYPE_LEAK",
     ]
     assert {diagnostic.resource_type for diagnostic in result.diagnostics} == {"adapter"}
     assert "adapter diagnostic text was suppressed" in diagnostic_text
     assert "PASSWORD" not in diagnostic_text
     assert "supersecret" not in diagnostic_text
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_TEST_ADAPTER_MESSAGE_AND_RESOURCE_TYPE_LEAK",
+    )
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -1375,7 +1376,7 @@ class CaseVariantLeakyAdapterFactory:
                 Diagnostic(
                     code="RC_TEST_ADAPTER_CASE_VARIANT_LEAK",
                     severity=DiagnosticSeverity.ERROR,
-                    message=(f"PASSWORD={password.casefold()} " f"DATABASE={database.upper()}"),
+                    message=(f"PASSWORD={password.casefold()} DATABASE={database.upper()}"),
                     resource_type="adapter",
                     resource_name=connection.type,
                     hint=f"Check DATABASE {database.upper()}.",
@@ -1992,6 +1993,22 @@ profiles:
 """.lstrip(),
         encoding="utf-8",
     )
+
+
+def _assert_render_sql_blocked_artifact(project_root: Path, diagnostic_code: str) -> None:
+    checks_artifact = yaml.safe_load(
+        (project_root / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert all(check["rendering"]["status"] == "blocked" for check in checks_artifact["checks"])
+    assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert {
+        diagnostic["code"]
+        for check in checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {diagnostic_code}
 
 
 def _path_list_yaml(field_name: str, paths: tuple[str, ...] | None) -> str:

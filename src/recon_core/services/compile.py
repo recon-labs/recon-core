@@ -142,6 +142,26 @@ class CompileService:
                 registry=self.adapter_registry,
             )
             if adapter_resolution.diagnostics:
+                render_result = _render_compiled_sql_in_memory(
+                    compilation.contracts,
+                    adapters_by_connection=adapter_resolution.adapters_by_connection,
+                    adapter_diagnostics_by_connection=(
+                        adapter_resolution.diagnostics_by_connection
+                    ),
+                )
+                compiled_contracts = _apply_render_failure_metadata(
+                    compilation.contracts,
+                    render_results_by_check_id=render_result.results_by_check_id,
+                )
+                try:
+                    _write_compiled_artifacts(compiled_contracts, context.paths.target_path)
+                except (OSError, ValueError) as exc:
+                    _discard_compiled_yaml_artifacts(context.paths.target_path)
+                    return _compiled_artifact_runtime_error(
+                        exc,
+                        target_path=context.paths.target_path,
+                        project_root=context.project_root,
+                    )
                 return ServiceResult(
                     exit_category=ExitCategory.CONFIGURATION_ERROR,
                     message="SQL rendering adapter configuration failed.",
@@ -416,6 +436,29 @@ def _dedupe_diagnostics(diagnostics: tuple[Diagnostic, ...]) -> tuple[Diagnostic
     return tuple(unique)
 
 
+def _dedupe_adapter_setup_diagnostics(
+    diagnostics: tuple[Diagnostic, ...],
+) -> tuple[Diagnostic, ...]:
+    unique: list[Diagnostic] = []
+    seen: set[tuple[object, ...]] = set()
+    for diagnostic in diagnostics:
+        key = (
+            diagnostic.code,
+            diagnostic.severity,
+            diagnostic.resource_type,
+            diagnostic.resource_name,
+            diagnostic.path,
+            diagnostic.line,
+            diagnostic.column,
+            diagnostic.hint,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(diagnostic)
+    return tuple(unique)
+
+
 def _clear_compiled_artifacts(target_path: Path) -> None:
     _clear_compiled_artifact_directory(target_path / COMPILED_CONTRACTS_DIR_NAME)
     _clear_compiled_artifact_directory(target_path / COMPILED_CHECKS_DIR_NAME)
@@ -479,6 +522,7 @@ def _compiled_artifact_runtime_error(
 @dataclass(frozen=True, slots=True)
 class _RenderSqlAdapterResolution:
     adapters_by_connection: dict[str, BaseAdapter]
+    diagnostics_by_connection: dict[str, tuple[Diagnostic, ...]]
     diagnostics: tuple[Diagnostic, ...] = ()
 
 
@@ -496,39 +540,55 @@ def _resolve_render_sql_adapters(
     resolved_registry = default_adapter_registry() if registry is None else registry
     diagnostics: list[Diagnostic] = []
     adapters_by_connection: dict[str, BaseAdapter] = {}
+    diagnostics_by_connection: dict[str, tuple[Diagnostic, ...]] = {}
 
     for connection in profile.connections.values():
         config_tokens = _connection_config_tokens(connection.config, adapter_type=connection.type)
+        connection_diagnostics: list[Diagnostic] = []
         resolution = resolved_registry.resolve(connection)
-        diagnostics.extend(
-            _sanitize_profile_backed_adapter_diagnostics(
-                resolution.diagnostics,
-                connection=connection,
-                config_tokens=config_tokens,
-            )
+        resolution_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
+            resolution.diagnostics,
+            connection=connection,
+            config_tokens=config_tokens,
         )
+        connection_diagnostics.extend(resolution_diagnostics)
         if resolution.adapter is None:
+            diagnostics.extend(connection_diagnostics)
+            if connection_diagnostics:
+                diagnostics_by_connection[connection.name] = _dedupe_diagnostics(
+                    tuple(connection_diagnostics)
+                )
             continue
         metadata_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
             resolve_adapter_type(resolution.adapter).diagnostics,
             connection=connection,
             config_tokens=config_tokens,
         )
-        diagnostics.extend(metadata_diagnostics)
+        connection_diagnostics.extend(metadata_diagnostics)
         if metadata_diagnostics:
-            continue
-        diagnostics.extend(
-            _sanitize_profile_backed_adapter_diagnostics(
-                validate_adapter_api_compatibility(resolution.adapter),
-                connection=connection,
-                config_tokens=config_tokens,
+            diagnostics.extend(connection_diagnostics)
+            diagnostics_by_connection[connection.name] = _dedupe_diagnostics(
+                tuple(connection_diagnostics)
             )
+            continue
+        api_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
+            validate_adapter_api_compatibility(resolution.adapter),
+            connection=connection,
+            config_tokens=config_tokens,
         )
+        connection_diagnostics.extend(api_diagnostics)
+        diagnostics.extend(connection_diagnostics)
+        if api_diagnostics:
+            diagnostics_by_connection[connection.name] = _dedupe_diagnostics(
+                tuple(connection_diagnostics)
+            )
+            continue
         adapters_by_connection[connection.name] = resolution.adapter
 
     return _RenderSqlAdapterResolution(
         adapters_by_connection=adapters_by_connection,
-        diagnostics=tuple(diagnostics),
+        diagnostics_by_connection=diagnostics_by_connection,
+        diagnostics=_dedupe_adapter_setup_diagnostics(tuple(diagnostics)),
     )
 
 
@@ -602,8 +662,7 @@ def _sanitize_profile_backed_adapter_diagnostic(
         resource_type="adapter",
         resource_name=connection.type,
         hint=(
-            "Fix the adapter configuration or inspect the adapter locally "
-            "without exposing secrets."
+            "Fix the adapter configuration or inspect the adapter locally without exposing secrets."
         ),
     )
 
@@ -712,13 +771,29 @@ def _render_compiled_sql_in_memory(
     compiled_contracts: tuple[ContractCompilationArtifacts, ...],
     *,
     adapters_by_connection: dict[str, BaseAdapter],
+    adapter_diagnostics_by_connection: Mapping[str, tuple[Diagnostic, ...]] | None = None,
 ) -> _RenderSqlCompilationResult:
     diagnostics: list[Diagnostic] = []
     results_by_check_id: dict[str, RenderedCheckSql] = {}
+    connection_diagnostics = adapter_diagnostics_by_connection or {}
 
     for compiled_contract in compiled_contracts:
         source_connection = compiled_contract.contract_artifact.source.connection
         target_connection = compiled_contract.contract_artifact.target.connection
+        adapter_diagnostics = _adapter_diagnostics_for_contract_connections(
+            source_connection,
+            target_connection,
+            diagnostics_by_connection=connection_diagnostics,
+        )
+        if adapter_diagnostics:
+            diagnostics.extend(adapter_diagnostics)
+            _set_contract_render_block(
+                results_by_check_id,
+                compiled_contract=compiled_contract,
+                diagnostics=adapter_diagnostics,
+            )
+            continue
+
         source_adapter = adapters_by_connection.get(source_connection)
         target_adapter = adapters_by_connection.get(target_connection)
         if source_adapter is None or target_adapter is None:
@@ -749,7 +824,7 @@ def _render_compiled_sql_in_memory(
             _set_contract_render_block(
                 results_by_check_id,
                 compiled_contract=compiled_contract,
-                diagnostic=metadata_diagnostics[0],
+                diagnostics=metadata_diagnostics,
             )
             continue
         assert source_adapter_type_resolution.adapter_type is not None
@@ -778,7 +853,7 @@ def _render_compiled_sql_in_memory(
             _set_contract_render_block(
                 results_by_check_id,
                 compiled_contract=compiled_contract,
-                diagnostic=diagnostic,
+                diagnostics=(diagnostic,),
             )
             continue
         if not _same_connection_context(source_adapter, target_adapter):
@@ -800,7 +875,7 @@ def _render_compiled_sql_in_memory(
             _set_contract_render_block(
                 results_by_check_id,
                 compiled_contract=compiled_contract,
-                diagnostic=diagnostic,
+                diagnostics=(diagnostic,),
                 adapter_type=source_adapter_type,
             )
             continue
@@ -827,7 +902,7 @@ def _render_compiled_sql_in_memory(
             _set_contract_render_block(
                 results_by_check_id,
                 compiled_contract=compiled_contract,
-                diagnostic=diagnostic,
+                diagnostics=(diagnostic,),
                 adapter_type=source_adapter_type,
             )
             continue
@@ -853,17 +928,35 @@ def _render_compiled_sql_in_memory(
     )
 
 
+def _adapter_diagnostics_for_contract_connections(
+    source_connection: str,
+    target_connection: str,
+    *,
+    diagnostics_by_connection: Mapping[str, tuple[Diagnostic, ...]],
+) -> tuple[Diagnostic, ...]:
+    diagnostics: list[Diagnostic] = []
+    seen_connections: set[str] = set()
+
+    for connection_name in (source_connection, target_connection):
+        if connection_name in seen_connections:
+            continue
+        seen_connections.add(connection_name)
+        diagnostics.extend(diagnostics_by_connection.get(connection_name, ()))
+
+    return _dedupe_diagnostics(tuple(diagnostics))
+
+
 def _set_contract_render_block(
     results_by_check_id: dict[str, RenderedCheckSql],
     *,
     compiled_contract: ContractCompilationArtifacts,
-    diagnostic: Diagnostic,
+    diagnostics: tuple[Diagnostic, ...],
     adapter_type: str | None = None,
 ) -> None:
     for check in compiled_contract.checks_artifact.checks:
         results_by_check_id[check.id] = RenderedCheckSql(
             check_id=check.id,
-            diagnostics=(diagnostic,),
+            diagnostics=diagnostics,
             adapter_type=adapter_type,
         )
 
