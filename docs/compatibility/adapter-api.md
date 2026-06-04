@@ -96,9 +96,10 @@ Renderer conformance tests must prove that a renderer returns at least one SQL
 step for each rendered check. Empty renderer output must fail with
 `RC_ADAPTER_RENDERED_SQL_EMPTY`; it must not produce `rendering.status:
 rendered` with empty `rendering.sql_paths`. Malformed non-empty renderer
-output, including non-`RenderedSql` steps or empty/non-string rendered SQL
-metadata fields, must fail with `RC_ADAPTER_OPERATION_RENDER_FAILED` before
-compiled SQL artifacts are written.
+output, including non-`RenderedSql` steps, empty/non-string rendered SQL
+metadata fields, unsafe path-like step names, or duplicate step names, must
+fail with `RC_ADAPTER_OPERATION_RENDER_FAILED` before compiled SQL artifacts
+are written.
 
 These requirements are a release gate for the adapter ecosystem. Do not create,
 publish, or split `recon-adapter-testkit`, `recon-duckdb`, or any production

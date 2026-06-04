@@ -241,6 +241,46 @@ def test_render_check_sql_rejects_empty_renderer_output() -> None:
             ),
             id="empty-step-name",
         ),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="../outside",
+                ),
+            ),
+            id="path-like-step-name",
+        ),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="same",
+                ),
+                RenderedSql(
+                    sql="select 2",
+                    operation_type="row_count",
+                    step_name="same",
+                ),
+            ),
+            id="duplicate-step-name",
+        ),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="Same",
+                ),
+                RenderedSql(
+                    sql="select 2",
+                    operation_type="row_count",
+                    step_name="same",
+                ),
+            ),
+            id="case-insensitive-duplicate-step-name",
+        ),
     ],
 )
 def test_render_check_sql_rejects_malformed_renderer_output(

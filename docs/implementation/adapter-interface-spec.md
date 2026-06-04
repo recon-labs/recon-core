@@ -194,8 +194,9 @@ step. Empty renderer output is `RC_ADAPTER_RENDERED_SQL_EMPTY` and must be
 recorded as a rendering failure, not as `rendered` with empty `sql_paths`.
 Malformed non-empty renderer output is also a rendering failure. Core expects
 `render_plan()` to return a tuple of `RenderedSql` steps with non-empty string
-`sql`, `operation_type`, and `step_name` fields. Invalid output is reported as
-`RC_ADAPTER_OPERATION_RENDER_FAILED` before compiled SQL artifact writing.
+`sql` and `operation_type` fields, plus unique safe single-segment `step_name`
+values. Invalid output is reported as `RC_ADAPTER_OPERATION_RENDER_FAILED`
+before compiled SQL artifact writing.
 
 Examples of core-owned typed operations:
 

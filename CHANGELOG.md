@@ -151,6 +151,8 @@ This project follows semantic versioning once public package releases begin.
   failure instead of marking checks as `rendered` with empty SQL paths.
 - Adapter-aware SQL rendering now treats malformed non-empty renderer output as
   a rendering failure instead of crashing during compiled SQL artifact writing.
+- Adapter-aware SQL rendering now treats unsafe or duplicate rendered SQL step
+  names as rendering failures instead of runtime artifact write failures.
 - DuckDB grouped aggregate comparison SQL now uses null-safe group key joins so
   source and target `NULL` groups compare as the same group.
 - DuckDB key-diff SQL now compares distinct non-null key sets, keeping null-key

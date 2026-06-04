@@ -1055,9 +1055,56 @@ def test_render_sql_compile_marks_empty_renderer_output_failed_without_sql_artif
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+@pytest.mark.parametrize(
+    "rendered_sql",
+    [
+        pytest.param((cast(RenderedSql, object()),), id="non-rendered-sql-step"),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="../outside",
+                ),
+            ),
+            id="path-like-step-name",
+        ),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="same",
+                ),
+                RenderedSql(
+                    sql="select 2",
+                    operation_type="row_count",
+                    step_name="same",
+                ),
+            ),
+            id="duplicate-step-name",
+        ),
+        pytest.param(
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="Same",
+                ),
+                RenderedSql(
+                    sql="select 2",
+                    operation_type="row_count",
+                    step_name="same",
+                ),
+            ),
+            id="case-insensitive-duplicate-step-name",
+        ),
+    ],
+)
 def test_render_sql_compile_marks_malformed_renderer_output_failed_without_crashing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    rendered_sql: tuple[object, ...],
 ) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
@@ -1072,7 +1119,7 @@ def test_render_sql_compile_marks_malformed_renderer_output_failed_without_crash
             raise AssertionError("render_plan should be used by the service")
 
         def render_plan(self, *args: object, **kwargs: object) -> tuple[RenderedSql, ...]:
-            return (cast(RenderedSql, object()),)
+            return cast(tuple[RenderedSql, ...], rendered_sql)
 
         def quote_identifier(self, identifier: str) -> str:
             return identifier
