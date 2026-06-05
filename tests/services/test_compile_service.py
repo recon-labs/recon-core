@@ -636,6 +636,51 @@ def test_render_sql_compile_sanitizes_numeric_diagnostic_fields(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_short_numeric_diagnostic_fields(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="short_numeric_field_leaky",
+        port=12,
+    )
+    registry = AdapterRegistry()
+    registry.register("short_numeric_field_leaky", ShortNumericFieldLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_SHORT_NUMERIC_FIELD_LEAK",
+        "RC_TEST_ADAPTER_SHORT_NUMERIC_FIELD_LEAK",
+    ]
+    assert all(diagnostic.line is None for diagnostic in result.diagnostics)
+    assert all(diagnostic.column is None for diagnostic in result.diagnostics)
+    assert all(
+        diagnostic["line"] is None and diagnostic["column"] is None
+        for check in checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    )
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_TEST_ADAPTER_SHORT_NUMERIC_FIELD_LEAK",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -1668,6 +1713,24 @@ class NumericFieldLeakyAdapterFactory:
         )
 
 
+class ShortNumericFieldLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_SHORT_NUMERIC_FIELD_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter setup failed safely.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    line=int(str(connection.config.get("port"))),
+                    column=int(str(connection.config.get("port"))),
+                    hint="Inspect the adapter configuration.",
+                ),
+            )
+        )
+
+
 class CaseVariantLeakyAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         password = str(connection.config.get("password"))
@@ -2269,10 +2332,12 @@ def write_profiles(
     use_distinct_databases: bool = False,
     include_password: bool = False,
     password: str = "super-secret",
+    port: int | None = None,
 ) -> None:
     legacy_database = "legacy.duckdb" if use_distinct_databases else "local.duckdb"
     warehouse_database = "warehouse.duckdb" if use_distinct_databases else "local.duckdb"
     password_yaml = f"            password: {password}\n" if include_password else ""
+    port_yaml = f"            port: {port}\n" if port is not None else ""
     profiles_path = project_root / "connections" / "profiles.yml"
     profiles_path.parent.mkdir()
     profiles_path.write_text(
@@ -2287,10 +2352,12 @@ profiles:
             type: {connection_type}
             database: {legacy_database}
 {password_yaml.rstrip()}
+{port_yaml.rstrip()}
           warehouse:
             type: {connection_type}
             database: {warehouse_database}
 {password_yaml.rstrip()}
+{port_yaml.rstrip()}
 """.lstrip(),
         encoding="utf-8",
     )

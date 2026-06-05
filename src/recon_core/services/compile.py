@@ -591,6 +591,10 @@ def _resolve_render_sql_adapters(
 
     for connection in profile.connections.values():
         config_tokens = _connection_config_tokens(connection.config, adapter_type=connection.type)
+        numeric_field_tokens = _connection_config_numeric_field_tokens(
+            connection.config,
+            adapter_type=connection.type,
+        )
         connection_diagnostics: list[Diagnostic] = []
         resolution = resolved_registry.resolve(connection)
         resolution_diagnostics = _connection_scoped_adapter_setup_diagnostics(
@@ -598,6 +602,7 @@ def _resolve_render_sql_adapters(
                 resolution.diagnostics,
                 connection=connection,
                 config_tokens=config_tokens,
+                numeric_field_tokens=numeric_field_tokens,
             ),
             connection=connection,
         )
@@ -614,6 +619,7 @@ def _resolve_render_sql_adapters(
                 resolve_adapter_type(resolution.adapter).diagnostics,
                 connection=connection,
                 config_tokens=config_tokens,
+                numeric_field_tokens=numeric_field_tokens,
             ),
             connection=connection,
         )
@@ -629,6 +635,7 @@ def _resolve_render_sql_adapters(
                 validate_adapter_api_compatibility(resolution.adapter),
                 connection=connection,
                 config_tokens=config_tokens,
+                numeric_field_tokens=numeric_field_tokens,
             ),
             connection=connection,
         )
@@ -653,12 +660,14 @@ def _sanitize_profile_backed_adapter_diagnostics(
     *,
     connection: ConnectionConfig,
     config_tokens: frozenset[str],
+    numeric_field_tokens: frozenset[int],
 ) -> tuple[Diagnostic, ...]:
     return tuple(
         _sanitize_profile_backed_adapter_diagnostic(
             diagnostic,
             connection=connection,
             config_tokens=config_tokens,
+            numeric_field_tokens=numeric_field_tokens,
         )
         for diagnostic in diagnostics
     )
@@ -691,6 +700,7 @@ def _sanitize_profile_backed_render_result(
     *,
     connection: ConnectionConfig,
     config_tokens: frozenset[str],
+    numeric_field_tokens: frozenset[int],
 ) -> RenderedCheckSql:
     return replace(
         render_result,
@@ -698,6 +708,7 @@ def _sanitize_profile_backed_render_result(
             render_result.diagnostics,
             connection=connection,
             config_tokens=config_tokens,
+            numeric_field_tokens=numeric_field_tokens,
         ),
         adapter_type=_sanitize_profile_backed_adapter_type(
             render_result.adapter_type,
@@ -725,8 +736,13 @@ def _sanitize_profile_backed_adapter_diagnostic(
     *,
     connection: ConnectionConfig,
     config_tokens: frozenset[str],
+    numeric_field_tokens: frozenset[int],
 ) -> Diagnostic:
-    if not _diagnostic_mentions_config_token(diagnostic, config_tokens):
+    if not _diagnostic_mentions_config_token(
+        diagnostic,
+        config_tokens,
+        numeric_field_tokens,
+    ):
         return diagnostic
 
     return Diagnostic(
@@ -763,6 +779,20 @@ def _connection_config_tokens(
 ) -> frozenset[str]:
     tokens: set[str] = set()
     _collect_connection_config_tokens(value, adapter_type=adapter_type, tokens=tokens)
+    return frozenset(tokens)
+
+
+def _connection_config_numeric_field_tokens(
+    value: Mapping[str, Any],
+    *,
+    adapter_type: str,
+) -> frozenset[int]:
+    tokens: set[int] = set()
+    _collect_connection_config_numeric_field_tokens(
+        value,
+        adapter_type=adapter_type,
+        tokens=tokens,
+    )
     return frozenset(tokens)
 
 
@@ -811,6 +841,38 @@ def _collect_connection_config_tokens(
         tokens.add(token)
 
 
+def _collect_connection_config_numeric_field_tokens(
+    value: object,
+    *,
+    adapter_type: str,
+    tokens: set[int],
+) -> None:
+    if isinstance(value, Mapping):
+        for nested_value in value.values():
+            _collect_connection_config_numeric_field_tokens(
+                nested_value,
+                adapter_type=adapter_type,
+                tokens=tokens,
+            )
+        return
+
+    if isinstance(value, list | tuple):
+        for item in value:
+            _collect_connection_config_numeric_field_tokens(
+                item,
+                adapter_type=adapter_type,
+                tokens=tokens,
+            )
+        return
+
+    if isinstance(value, str) and value.casefold() == adapter_type.casefold():
+        return
+
+    numeric_value = _integer_like_value(value)
+    if numeric_value is not None:
+        tokens.add(numeric_value)
+
+
 def _is_secret_like_config_key(key: str) -> bool:
     normalized_key = key.casefold()
     return any(
@@ -822,7 +884,11 @@ def _is_secret_like_config_key(key: str) -> bool:
 def _diagnostic_mentions_config_token(
     diagnostic: Diagnostic,
     config_tokens: frozenset[str],
+    numeric_field_tokens: frozenset[int],
 ) -> bool:
+    if _diagnostic_numeric_fields_match_config_token(diagnostic, numeric_field_tokens):
+        return True
+
     if not config_tokens:
         return False
 
@@ -842,9 +908,43 @@ def _diagnostic_mentions_config_token(
     return _text_mentions_config_token(diagnostic_text, config_tokens)
 
 
+def _diagnostic_numeric_fields_match_config_token(
+    diagnostic: Diagnostic,
+    numeric_field_tokens: frozenset[int],
+) -> bool:
+    if not numeric_field_tokens:
+        return False
+
+    return any(
+        numeric_value in numeric_field_tokens
+        for numeric_value in (
+            _integer_like_value(diagnostic.line),
+            _integer_like_value(diagnostic.column),
+        )
+        if numeric_value is not None
+    )
+
+
 def _text_mentions_config_token(text: str, config_tokens: frozenset[str]) -> bool:
     normalized_text = text.casefold()
     return any(token.casefold() in normalized_text for token in config_tokens)
+
+
+def _integer_like_value(value: object) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else None
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped == "":
+            return None
+        digits = stripped[1:] if stripped[:1] in {"+", "-"} else stripped
+        if digits.isdecimal():
+            return int(stripped)
+    return None
 
 
 def _render_compiled_sql_in_memory(
@@ -882,7 +982,15 @@ def _render_compiled_sql_in_memory(
             source_adapter.connection.config,
             adapter_type=source_adapter.connection.type,
         )
+        source_numeric_field_tokens = _connection_config_numeric_field_tokens(
+            source_adapter.connection.config,
+            adapter_type=source_adapter.connection.type,
+        )
         target_config_tokens = _connection_config_tokens(
+            target_adapter.connection.config,
+            adapter_type=target_adapter.connection.type,
+        )
+        target_numeric_field_tokens = _connection_config_numeric_field_tokens(
             target_adapter.connection.config,
             adapter_type=target_adapter.connection.type,
         )
@@ -892,11 +1000,13 @@ def _render_compiled_sql_in_memory(
             source_adapter_type_resolution.diagnostics,
             connection=source_adapter.connection,
             config_tokens=source_config_tokens,
+            numeric_field_tokens=source_numeric_field_tokens,
         )
         target_metadata_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
             target_adapter_type_resolution.diagnostics,
             connection=target_adapter.connection,
             config_tokens=target_config_tokens,
+            numeric_field_tokens=target_numeric_field_tokens,
         )
         metadata_diagnostics = source_metadata_diagnostics + target_metadata_diagnostics
         if metadata_diagnostics:
@@ -977,6 +1087,7 @@ def _render_compiled_sql_in_memory(
                 diagnostic,
                 connection=source_adapter.connection,
                 config_tokens=source_config_tokens,
+                numeric_field_tokens=source_numeric_field_tokens,
             )
             diagnostics.append(diagnostic)
             _set_contract_render_block(
@@ -998,6 +1109,7 @@ def _render_compiled_sql_in_memory(
                 render_result,
                 connection=source_adapter.connection,
                 config_tokens=source_config_tokens,
+                numeric_field_tokens=source_numeric_field_tokens,
             )
             results_by_check_id[check.id] = render_result
             diagnostics.extend(render_result.diagnostics)
