@@ -215,6 +215,19 @@ unsafe resource metadata, numeric `line`/`column`, and
 `rendering.adapter_type`, so the suite proves exact short-token redaction and
 not only long secret-like tokens.
 
+Before check execution, runner/results, evidence/reporting, debug commands, or
+adapter test-kit execution surfaces are implemented or claimed compatible, add
+source/target data privacy conformance tests. These tests should assert that
+terminal output, logs, diagnostics, `run_results.json`, failure details,
+reports, evidence, adapter runtime errors, database error text, and test
+snapshots do not expose raw rows, comparison keys, normalized values, aggregate
+values, row counts, relation names, query text, or other source/target context
+unless the source/target data privacy policy explicitly classifies the output
+as public or allows controlled export. Cases should cover pass, fail, error,
+skipped, truncation, disabled failure export, masked/hash-only output, adapter
+runtime errors, and database errors so a value suppressed in one public surface
+cannot leak through another.
+
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison
 semantics executable across adapters and should cover:

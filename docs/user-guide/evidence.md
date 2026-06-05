@@ -59,7 +59,16 @@ Future failure details may be written under:
 target/failures/
 ```
 
-Failure details may include sensitive data. Use row limits and masking/redaction when available.
+Failure details may include sensitive source/target data. Future run results,
+reports, terminal output, logs, adapter runtime errors, and test snapshots may
+also expose source/target values or private source/target context if privacy
+defaults are not defined.
+
+Before those surfaces are implemented, Recon must define when raw rows,
+comparison keys, normalized values, aggregate values, row counts, relation
+names, query text, and runtime error text are public, sensitive, or
+policy-controlled. Use row limits, disabling failure export, and
+masking/redaction when available.
 
 ## Full versus sampled evidence
 

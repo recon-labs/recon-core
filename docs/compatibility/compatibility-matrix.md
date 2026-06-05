@@ -35,6 +35,7 @@ adapter test kit, Hub metadata, and integrations.
 | CDC policy and delete semantics | Planned | First CDC execution, asymmetric delete representation, and advanced CDC modes are gated before implementation. |
 | Semi-structured comparison | Planned | JSON path and semi-structured projection semantics are not implemented yet. |
 | Profile and secret handling | Implemented for adapter-aware compile | Selected-target rendering, referenced-connection filtering, env-var rendering, unsupported-template rejection, profile-backed adapter diagnostic suppression including adapter API compatibility and render-phase diagnostics, `rendering.adapter_type` redaction, non-string rendered-value redaction including numeric `line`/`column` diagnostic fields and short numeric rendered scalars such as port values in diagnostic text, unsafe resource metadata, and `rendering.adapter_type`, and same adapter connection-context enforcement are implemented for `--render-sql`; run-time profile loading, debug/profile validation commands, and shared conformance tests are future work. |
+| Source/target data privacy | Planned and gated | Before check execution, runner/results, evidence/reporting, failure details, debug commands, adapter execution, or adapter test-kit compatibility claims can expose source/target data, Recon must define privacy defaults for terminal output, logs, diagnostics, run results, evidence, reports, failure details, adapter runtime errors, and test snapshots. Raw source/target rows, comparison keys, normalized values, aggregate values, row counts, relation names, query text, and runtime error text must be classified as public, sensitive, or policy-controlled before those surfaces are implemented. |
 | Adapter API | `ADAPTER_API_VERSION = "1"`, pre-alpha | No stable external adapter API release yet; current boundary separates `BaseAdapter` and `SqlRenderer`. |
 | Capability catalog | Draft with ADR 0020 support states | Support-state validation exists; the in-core DuckDB local adapter declares the current rendering subset. |
 | Adapter install extras and packaging strategy | `recon-core[duckdb]` implemented | The DuckDB local development adapter remains in-core; separate production adapter packages are future work. |
@@ -44,10 +45,10 @@ adapter test kit, Hub metadata, and integrations.
 | CLI command and option behavior | MVP commands are pre-alpha | Future commands/options, documentation generation, and destructive init overwrite behavior are gated before becoming automation contracts. |
 | Check and policy packages | Planned | Package loading, official package content releases, and domain-package boundaries are gated. |
 | Package dependency installer and lock workflow | Planned | `recon deps`, `packages.yml`, package locks, and install/update behavior are not implemented yet. |
-| Run results | Planned | No stable result artifact version yet. |
-| Evidence reports | Planned | No stable evidence format yet. |
+| Run results | Planned | No stable result artifact version yet; result shape, source/target value privacy defaults, diagnostic sanitization, and artifact references are gated before implementation. |
+| Evidence reports | Planned | No stable evidence format yet; evidence/report output, source/target value privacy defaults, failure-detail policy, truncation behavior, and redaction/masking defaults are gated before implementation. |
 | Result table writer | Planned | No database/table result writer schema exists yet. |
-| Failure detail JSONL and large-result handling | Planned | CSV-first failure details are planned; JSONL, streaming, pagination, and truncation semantics are gated. |
+| Failure detail JSONL and large-result handling | Planned | CSV-first failure details are planned; raw-value export defaults, masking/redaction behavior, JSONL, streaming, pagination, and truncation semantics are gated. |
 | State backend | Planned | Local state is gated; remote/database-backed state has a separate gate before production use. |
 | Hub and integration metadata | Planned | No Hub index, action, orchestrator, catalog, issue, or vault metadata contract exists yet. |
 | Docs site and examples repo split | Planned | External docs/examples repos should not split until ownership, CI, and release coordination are defined. |

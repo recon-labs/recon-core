@@ -371,6 +371,10 @@ Required gates:
   values,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
+- resolve the source/target data privacy, evidence, and failure-detail policy
+  gate before check execution can emit source/target values, runtime adapter
+  errors, database errors, or data-derived values through terminal output,
+  diagnostics, logs, run results, evidence, or adapter test-kit snapshots,
 - preserve the adapter-aware compile contract that setup failures write no SQL,
   mark affected compiled checks blocked, preserve factory diagnostics even when
   an adapter is also returned, de-duplicate repeated same-connection setup
@@ -392,7 +396,9 @@ Tests:
 - aggregate metric result,
 - check result serialization,
 - check-engine diagnostics preserve code, severity, message, path, resource
-  context, and hint where available.
+  context, and hint where available,
+- check-engine public output does not leak raw source/target values unless the
+  source/target data privacy policy explicitly allows that output.
 
 ## Milestone 8: runner and results
 
@@ -408,6 +414,10 @@ Required gate:
 
 - resolve the diagnostic output message conformance gate before locking run
   result diagnostics, exit-code diagnostics, or terminal summary behavior.
+- resolve the source/target data privacy, evidence, and failure-detail policy
+  gate before writing `target/run_results.json`, terminal summaries, runtime
+  diagnostics, or logs that can include source/target values, relation names,
+  query text, adapter runtime errors, or database error text.
 - resolve the generated artifact lifecycle and cleanup gate before writing
   `target/run_results.json`.
 
@@ -418,7 +428,10 @@ Tests:
 - runtime error,
 - exit code mapping,
 - run results and terminal output preserve diagnostic code and message for
-  runtime, adapter, prerequisite, and result-write failures.
+  runtime, adapter, prerequisite, and result-write failures,
+- run results and terminal output follow source/target data privacy defaults for
+  raw rows, keys, values, aggregates, relation names, query text, and runtime
+  error text.
 
 ## Milestone 9: evidence
 
@@ -433,6 +446,10 @@ Required gate:
 
 - resolve the diagnostic output message conformance gate before evidence,
   report, or failure-detail diagnostics become user-facing output.
+- resolve the source/target data privacy, evidence, and failure-detail policy
+  gate before writing failure details, reports, evidence, or failure links that
+  can expose raw rows, comparison keys, normalized values, aggregate values,
+  row counts, relation names, query text, adapter errors, or database errors.
 - resolve the generated artifact lifecycle and cleanup gate before writing
   failure details, reports, or evidence artifacts.
 
@@ -443,7 +460,10 @@ Tests:
 - row limit respected,
 - artifact paths in run results,
 - evidence and report diagnostics preserve safe actionable messages instead of
-  emitting only diagnostic codes or hints.
+  emitting only diagnostic codes or hints,
+- failure details, reports, and evidence follow source/target data privacy
+  defaults for raw-value export, masking/redaction, truncation, and generated
+  artifact references.
 
 ## Milestone 10: examples and docs alignment
 

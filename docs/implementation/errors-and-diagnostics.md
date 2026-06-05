@@ -391,6 +391,15 @@ even when the diagnostic code is present. Redaction may replace unsafe message
 text with a generic safe message, but it must not leave users with only a code
 or hint.
 
+Runtime diagnostics and adapter/database error diagnostics must also follow the
+source/target data privacy policy before check execution, runner/results,
+evidence/reporting, debug commands, or adapter test-kit surfaces expose source
+or target data. Raw rows, comparison keys, normalized values, aggregate values,
+row counts, relation names, query text, and database error text must not leak
+through diagnostic `message`, `hint`, `path`, resource metadata, line/column
+fields, terminal output, run results, evidence, reports, logs, or test snapshots
+unless the policy explicitly allows that output.
+
 ## Hints
 
 Hints should help users fix the issue.

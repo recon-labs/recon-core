@@ -137,7 +137,10 @@ numeric `line` and `column` diagnostic redaction cases, short numeric rendered
 scalar redaction cases in text fields, resource metadata, and
 `rendering.adapter_type`, and core render-sql compile-validation
 blocked-metadata integration cases where the test kit drives core compile
-flows.
+flows. If the test kit or external adapter package claims execution
+compatibility, it must also include source/target data privacy conformance for
+runtime diagnostics, adapter/database errors, run results, evidence, failure
+details, reports, logs, and test snapshots before compatibility is claimed.
 
 ## Compatibility contract
 
