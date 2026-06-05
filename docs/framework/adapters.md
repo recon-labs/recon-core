@@ -281,6 +281,10 @@ factories and future dependency, API, capability, metadata, rendering, and
 execution diagnostics. This is a cross-repo gate: factory exceptions and
 `capabilities()` exceptions must become sanitized structured diagnostics before
 any external adapter repo or shared test-kit repo claims compatibility.
+Malformed factory diagnostic payloads are adapter-boundary failures, not
+adapter-authored diagnostics; they must become `RC_ADAPTER_RESOLUTION_FAILED`
+before profile-backed redaction, rendering, execution, or artifact-writing code
+consumes them.
 Adapter setup failures must also keep compiled SQL absent, mark affected
 compiled checks blocked with structured diagnostics, treat factory results that
 include both adapters and diagnostics as setup failures, de-duplicate repeated

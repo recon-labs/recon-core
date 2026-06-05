@@ -1339,9 +1339,10 @@ Required gate:
 - include core render-sql compile-validation blocked-metadata integration cases
   before creating or splitting any test-kit harness that drives core compile
   flows,
-- include malformed adapter factory result, missing or invalid adapter API
-  version declaration, and malformed capability support-state cases before
-  creating or splitting the test-kit repository,
+- include malformed adapter factory result, malformed factory diagnostic
+  payload, missing or invalid adapter API version declaration, and malformed
+  capability support-state cases before creating or splitting the test-kit
+  repository,
 - include sanitized adapter factory exception and sanitized capability
   declaration exception cases before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,

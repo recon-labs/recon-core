@@ -155,8 +155,11 @@ separate from SQL comparison conformance. These tests should verify adapter
 registry and factory behavior, including that a factory returning neither an
 adapter nor diagnostics, or returning a malformed resolution result, fails with
 `RC_ADAPTER_RESOLUTION_FAILED` instead of allowing adapter-aware rendering or
-execution to succeed. The same conformance suite should verify that missing or
-invalid adapter API version declarations fail with
+execution to succeed. Malformed diagnostic containers or entries inside a
+factory resolution result are malformed resolution results and must also fail
+with `RC_ADAPTER_RESOLUTION_FAILED` before diagnostic redaction, rendering, or
+execution consumes them. The same conformance suite should verify that missing
+or invalid adapter API version declarations fail with
 `RC_ADAPTER_API_VERSION_UNSUPPORTED`, malformed capability support states become
 structured diagnostics, invalid or exception-raising `adapter_type` metadata
 fails with `RC_ADAPTER_METADATA_INVALID`, empty renderer output fails with
@@ -165,8 +168,9 @@ fails with `RC_ADAPTER_METADATA_INVALID`, empty renderer output fails with
 step names, and adapter factory exceptions, adapter metadata exceptions, and
 capability declaration exceptions become sanitized structured diagnostics
 instead of raw exceptions that can leak rendered profile keys or values.
-Factories that return both an adapter and diagnostics should be treated as setup
-failures; the returned adapter must not be used for rendering or execution.
+Factories that return both an adapter and diagnostics, or both an adapter and
+malformed diagnostics, should be treated as setup failures; the returned adapter
+must not be used for rendering or execution.
 Adapter setup failure cases must also verify that adapter-aware compile writes
 no compiled SQL, marks affected compiled checks blocked with structured
 diagnostics, de-duplicates repeated same-connection setup diagnostics in service

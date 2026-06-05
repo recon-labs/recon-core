@@ -231,6 +231,10 @@ Core should use an adapter registry to resolve adapter type to adapter
 implementation. Adapter factories must return either an adapter or a
 diagnostic; returning neither is a resolution failure, not a successful
 adapter-aware invocation.
+Factory diagnostic payloads are part of the adapter boundary. Malformed
+diagnostic containers or entries are malformed resolution results and must fail
+with `RC_ADAPTER_RESOLUTION_FAILED` before compile, redaction, rendering, or
+execution code consumes them.
 
 ```text
 postgres -> recon-postgres
@@ -290,6 +294,7 @@ A future adapter test kit should validate:
 - malformed capability support states,
 - adapter API version declarations,
 - malformed adapter factory results,
+- malformed adapter factory diagnostic payloads,
 - check compatibility,
 - empty and malformed renderer output failures,
 - render-sql compile-validation blocked metadata when the test kit drives core
@@ -305,9 +310,10 @@ implements the operation or marks the capability unsupported.
 Profile and diagnostic tests should cover selected target loading, referenced
 connections only, missing env vars, env-var defaults, unsupported `{{ ... }}`
 template syntax, adapter factory diagnostics, malformed factory results,
-missing or invalid adapter API version declarations, malformed capability
-support states, and future optional dependency, API compatibility, capability,
-metadata, rendering, and execution diagnostics.
+malformed factory diagnostic payloads, missing or invalid adapter API version
+declarations, malformed capability support states, and future optional
+dependency, API compatibility, capability, metadata, rendering, and execution
+diagnostics.
 Adapter diagnostics are public output, so the test kit must verify that
 credentials, tokens, DSNs, passwords, rendered connection payloads, and other
 secret-classified values do not appear in diagnostic messages, hints, paths,

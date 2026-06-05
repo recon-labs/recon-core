@@ -284,10 +284,11 @@ RC_ADAPTER_QUERY_FAILED
 ```
 
 Milestone 6 adapter-aware compile uses `RC_ADAPTER_*` diagnostics for adapter
-type resolution, empty or malformed adapter factory results, adapter factory
-exceptions, adapter API compatibility, missing or invalid adapter API version
-declarations, capability declaration failures, malformed capability support
-states, required-capability validation, optional dependency checks,
+type resolution, empty or malformed adapter factory results, malformed factory
+diagnostic payloads, adapter factory exceptions, adapter API compatibility,
+missing or invalid adapter API version declarations, capability declaration
+failures, malformed capability support states, required-capability validation,
+optional dependency checks,
 relation-only rendering boundaries, same-context rendering requirements,
 invalid relation names, invalid adapter metadata, renderer failures, empty
 renderer output, malformed non-empty renderer output, and invocation-wide SQL

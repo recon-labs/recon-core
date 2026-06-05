@@ -396,7 +396,9 @@ Milestone 6 implementation should add tests before code for:
   connections for contract-specific invocations,
 - secret redaction from diagnostics and generated artifacts,
 - adapter API version compatibility,
-- adapter registry resolution by connection type,
+- adapter registry resolution by connection type, including malformed factory
+  results and malformed factory diagnostic payloads as
+  `RC_ADAPTER_RESOLUTION_FAILED`,
 - relation-endpoint support validation for selected contracts,
 - capability support-state validation for operation-specific requirements,
 - DuckDB renderer capability declarations,
