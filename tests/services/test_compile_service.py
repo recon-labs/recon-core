@@ -681,6 +681,98 @@ def test_render_sql_compile_sanitizes_short_numeric_diagnostic_fields(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_short_numeric_text_and_resource_fields(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="short_numeric_text_leaky",
+        port=12,
+    )
+    registry = AdapterRegistry()
+    registry.register("short_numeric_text_leaky", ShortNumericTextLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = yaml.safe_dump(
+        {
+            "service": [diagnostic.to_dict() for diagnostic in result.diagnostics],
+            "artifact": checks_artifact,
+        },
+        sort_keys=False,
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_SHORT_NUMERIC_TEXT_LEAK",
+        "RC_TEST_ADAPTER_SHORT_NUMERIC_TEXT_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "12" not in public_output
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_TEST_ADAPTER_SHORT_NUMERIC_TEXT_LEAK",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_sanitizes_short_numeric_rendering_adapter_type(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="short_numeric_adapter_type",
+        port=12,
+    )
+    registry = AdapterRegistry()
+    registry.register("short_numeric_adapter_type", ShortNumericAdapterTypeAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = yaml.safe_dump(
+        {
+            "service": [diagnostic.to_dict() for diagnostic in result.diagnostics],
+            "artifact": checks_artifact,
+        },
+        sort_keys=False,
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "12" not in public_output
+    assert {check["rendering"].get("adapter_type") for check in checks_artifact["checks"]} == {
+        "short_numeric_adapter_type"
+    }
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -1728,6 +1820,34 @@ class ShortNumericFieldLeakyAdapterFactory:
                     hint="Inspect the adapter configuration.",
                 ),
             )
+        )
+
+
+class ShortNumericTextLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        port = str(connection.config.get("port"))
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_SHORT_NUMERIC_TEXT_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Adapter setup failed at endpoint {port}.",
+                    resource_type="adapter",
+                    resource_name=port,
+                    hint=f"Inspect endpoint {port}.",
+                ),
+            )
+        )
+
+
+class ShortNumericAdapterTypeAdapter(FakeAdapter):
+    adapter_type = "12"
+
+
+class ShortNumericAdapterTypeAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            adapter=ShortNumericAdapterTypeAdapter(connection=connection)
         )
 
 

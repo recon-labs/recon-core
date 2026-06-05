@@ -714,6 +714,7 @@ def _sanitize_profile_backed_render_result(
             render_result.adapter_type,
             connection=connection,
             config_tokens=config_tokens,
+            numeric_field_tokens=numeric_field_tokens,
         ),
     )
 
@@ -723,10 +724,14 @@ def _sanitize_profile_backed_adapter_type(
     *,
     connection: ConnectionConfig,
     config_tokens: frozenset[str],
+    numeric_field_tokens: frozenset[int],
 ) -> str | None:
     if not isinstance(adapter_type, str) or adapter_type == "":
         return None
-    if not _text_mentions_config_token(adapter_type, config_tokens):
+    if not _text_mentions_config_token(
+        adapter_type,
+        config_tokens,
+    ) and not _text_mentions_numeric_config_token(adapter_type, numeric_field_tokens):
         return adapter_type
     return connection.type
 
@@ -905,7 +910,10 @@ def _diagnostic_mentions_config_token(
         )
         if value is not None
     )
-    return _text_mentions_config_token(diagnostic_text, config_tokens)
+    return _text_mentions_config_token(
+        diagnostic_text,
+        config_tokens,
+    ) or _text_mentions_numeric_config_token(diagnostic_text, numeric_field_tokens)
 
 
 def _diagnostic_numeric_fields_match_config_token(
@@ -928,6 +936,40 @@ def _diagnostic_numeric_fields_match_config_token(
 def _text_mentions_config_token(text: str, config_tokens: frozenset[str]) -> bool:
     normalized_text = text.casefold()
     return any(token.casefold() in normalized_text for token in config_tokens)
+
+
+def _text_mentions_numeric_config_token(
+    text: str,
+    numeric_field_tokens: frozenset[int],
+) -> bool:
+    return any(
+        _text_mentions_numeric_token(text, str(numeric_token))
+        for numeric_token in numeric_field_tokens
+    )
+
+
+def _text_mentions_numeric_token(text: str, token: str) -> bool:
+    start = 0
+    while True:
+        index = text.find(token, start)
+        if index == -1:
+            return False
+        end = index + len(token)
+        if _numeric_token_has_text_boundaries(text, index, end):
+            return True
+        start = index + 1
+
+
+def _numeric_token_has_text_boundaries(text: str, start: int, end: int) -> bool:
+    previous_char = text[start - 1] if start > 0 else ""
+    next_char = text[end] if end < len(text) else ""
+    next_next_char = text[end + 1] if end + 1 < len(text) else ""
+
+    if previous_char.isalnum() or previous_char in {"_", "+", "-"}:
+        return False
+    if next_char.isalnum() or next_char == "_":
+        return False
+    return not (next_char == "." and next_next_char.isdecimal())
 
 
 def _integer_like_value(value: object) -> int | None:
@@ -1023,6 +1065,7 @@ def _render_compiled_sql_in_memory(
             source_adapter_type_resolution.adapter_type,
             connection=source_adapter.connection,
             config_tokens=source_config_tokens,
+            numeric_field_tokens=source_numeric_field_tokens,
         )
         if (
             source_adapter_type_resolution.adapter_type
