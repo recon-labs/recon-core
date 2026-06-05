@@ -98,8 +98,9 @@ compiled-check metadata without writing compiled SQL. If both source and target
 adapter resolution fail for the same connection, service and CLI diagnostics
 must de-duplicate the repeated setup diagnostic while compiled artifacts still
 explain why each affected check is blocked. Setup diagnostics for distinct
-referenced connections must remain visible in service and CLI output even when
-they share the same diagnostic code, adapter type, or hint.
+referenced connections must remain visible in service, CLI, and blocked
+compiled-check artifact output even when they share the same diagnostic code,
+adapter type, or hint.
 
 Renderer conformance tests must prove that a renderer returns at least one SQL
 step for each rendered check. Empty renderer output must fail with
@@ -265,7 +266,7 @@ tests must cover:
 - repeated source/target adapter setup failures for the same connection that are
   de-duplicated in service and CLI diagnostics,
 - distinct referenced-connection setup failures that remain visible in service
-  and CLI diagnostics,
+  and CLI diagnostics and blocked compiled-check artifacts,
 - diagnostics that reference rendered connection config keys or values,
 - diagnostics that reference rendered connection config keys or values with
   changed casing or other simple transformations.

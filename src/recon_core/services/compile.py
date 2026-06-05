@@ -547,10 +547,13 @@ def _resolve_render_sql_adapters(
         config_tokens = _connection_config_tokens(connection.config, adapter_type=connection.type)
         connection_diagnostics: list[Diagnostic] = []
         resolution = resolved_registry.resolve(connection)
-        resolution_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
-            resolution.diagnostics,
+        resolution_diagnostics = _connection_scoped_adapter_setup_diagnostics(
+            _sanitize_profile_backed_adapter_diagnostics(
+                resolution.diagnostics,
+                connection=connection,
+                config_tokens=config_tokens,
+            ),
             connection=connection,
-            config_tokens=config_tokens,
         )
         connection_diagnostics.extend(resolution_diagnostics)
         if resolution_diagnostics or resolution.adapter is None:
@@ -560,10 +563,13 @@ def _resolve_render_sql_adapters(
                     tuple(connection_diagnostics)
                 )
             continue
-        metadata_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
-            resolve_adapter_type(resolution.adapter).diagnostics,
+        metadata_diagnostics = _connection_scoped_adapter_setup_diagnostics(
+            _sanitize_profile_backed_adapter_diagnostics(
+                resolve_adapter_type(resolution.adapter).diagnostics,
+                connection=connection,
+                config_tokens=config_tokens,
+            ),
             connection=connection,
-            config_tokens=config_tokens,
         )
         connection_diagnostics.extend(metadata_diagnostics)
         if metadata_diagnostics:
@@ -572,10 +578,13 @@ def _resolve_render_sql_adapters(
                 tuple(connection_diagnostics)
             )
             continue
-        api_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
-            validate_adapter_api_compatibility(resolution.adapter),
+        api_diagnostics = _connection_scoped_adapter_setup_diagnostics(
+            _sanitize_profile_backed_adapter_diagnostics(
+                validate_adapter_api_compatibility(resolution.adapter),
+                connection=connection,
+                config_tokens=config_tokens,
+            ),
             connection=connection,
-            config_tokens=config_tokens,
         )
         connection_diagnostics.extend(api_diagnostics)
         diagnostics.extend(connection_diagnostics)
@@ -607,6 +616,28 @@ def _sanitize_profile_backed_adapter_diagnostics(
         )
         for diagnostic in diagnostics
     )
+
+
+def _connection_scoped_adapter_setup_diagnostics(
+    diagnostics: tuple[Diagnostic, ...],
+    *,
+    connection: ConnectionConfig,
+) -> tuple[Diagnostic, ...]:
+    return tuple(
+        _connection_scoped_adapter_setup_diagnostic(diagnostic, connection=connection)
+        for diagnostic in diagnostics
+    )
+
+
+def _connection_scoped_adapter_setup_diagnostic(
+    diagnostic: Diagnostic,
+    *,
+    connection: ConnectionConfig,
+) -> Diagnostic:
+    connection_marker = f"connection `{connection.name}`".casefold()
+    if connection_marker in diagnostic.message.casefold():
+        return diagnostic
+    return replace(diagnostic, message=f"Connection `{connection.name}`: {diagnostic.message}")
 
 
 def _sanitize_profile_backed_render_result(

@@ -107,8 +107,22 @@ def test_render_sql_compile_resolves_adapter_before_sql_rendering(tmp_path: Path
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering adapter configuration failed."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_ADAPTER_UNKNOWN_TYPE"]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_UNKNOWN_TYPE",
+        "RC_ADAPTER_UNKNOWN_TYPE",
+    ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message="Unknown adapter type `unsupported_engine`.",
+    )
     _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_UNKNOWN_TYPE")
+    _assert_blocked_artifact_includes_messages(
+        tmp_path,
+        {
+            "Connection `legacy`: Unknown adapter type `unsupported_engine`.",
+            "Connection `warehouse`: Unknown adapter type `unsupported_engine`.",
+        },
+    )
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -129,12 +143,24 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_DEPENDENCY_MISSING",
+        "RC_ADAPTER_DEPENDENCY_MISSING",
     ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message="DuckDB adapter dependency is not installed.",
+    )
     assert all(
         diagnostic.hint is not None and "recon-core[duckdb]" in diagnostic.hint
         for diagnostic in result.diagnostics
     )
     _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_DEPENDENCY_MISSING")
+    _assert_blocked_artifact_includes_messages(
+        tmp_path,
+        {
+            "Connection `legacy`: DuckDB adapter dependency is not installed.",
+            "Connection `warehouse`: DuckDB adapter dependency is not installed.",
+        },
+    )
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -157,7 +183,12 @@ def test_render_sql_compile_preserves_factory_diagnostics_when_adapter_is_return
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_TEST_ADAPTER_WITH_DIAGNOSTIC",
+        "RC_TEST_ADAPTER_WITH_DIAGNOSTIC",
     ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message="Adapter factory returned an adapter with a setup diagnostic.",
+    )
     _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_WITH_DIAGNOSTIC")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
@@ -208,7 +239,12 @@ def test_render_sql_compile_reports_empty_adapter_resolution_result(tmp_path: Pa
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
     ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message="Adapter factory for type `empty` returned an invalid resolution result.",
+    )
     _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
@@ -230,7 +266,15 @@ def test_render_sql_compile_reports_invalid_adapter_resolution_result(tmp_path: 
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
     ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message=(
+            "Adapter factory for type `invalid_resolution` returned an invalid "
+            "resolution result."
+        ),
+    )
     _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
@@ -256,7 +300,12 @@ def test_render_sql_compile_sanitizes_adapter_factory_exceptions(tmp_path: Path)
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
     ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message="Adapter factory for type `raising` failed.",
+    )
     assert "ValueError" in diagnostic_text
     assert "super-secret" not in diagnostic_text
     assert "password" not in diagnostic_text
@@ -326,7 +375,14 @@ def test_render_sql_compile_reports_non_string_adapter_type_metadata(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_METADATA_INVALID",
+        "RC_ADAPTER_METADATA_INVALID",
     ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message=(
+            "Adapter `NonStringAdapterTypeAdapter` does not declare a valid `adapter_type`."
+        ),
+    )
     assert all(
         diagnostic.resource_name == "NonStringAdapterTypeAdapter"
         for diagnostic in result.diagnostics
@@ -369,7 +425,14 @@ def test_render_sql_compile_sanitizes_raising_adapter_type_metadata(
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_METADATA_INVALID",
+        "RC_ADAPTER_METADATA_INVALID",
     ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message=(
+            "Adapter `RaisingAdapterTypeAdapter` does not declare a valid `adapter_type`."
+        ),
+    )
     assert "RuntimeError" in diagnostic_text
     assert "super-secret" not in diagnostic_text
     assert "password" not in diagnostic_text
@@ -430,7 +493,15 @@ def test_render_sql_compile_reports_missing_adapter_api_version(tmp_path: Path) 
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_API_VERSION_UNSUPPORTED",
+        "RC_ADAPTER_API_VERSION_UNSUPPORTED",
     ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message=(
+            "Adapter `fake` does not declare a valid supported "
+            "adapter API version; Recon Core requires `1`."
+        ),
+    )
     assert "super-secret" not in diagnostic_text
     assert "password" not in diagnostic_text
     _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_API_VERSION_UNSUPPORTED")
@@ -2101,6 +2172,35 @@ def _assert_render_sql_blocked_artifact(project_root: Path, diagnostic_code: str
         for check in checks_artifact["checks"]
         for diagnostic in check["diagnostics"]
     } == {diagnostic_code}
+
+
+def _assert_distinct_connection_diagnostic_messages(
+    diagnostics: tuple[Diagnostic, ...],
+    *,
+    unscoped_message: str,
+) -> None:
+    assert {diagnostic.message for diagnostic in diagnostics} == {
+        f"Connection `legacy`: {unscoped_message}",
+        f"Connection `warehouse`: {unscoped_message}",
+    }
+
+
+def _assert_blocked_artifact_includes_messages(
+    project_root: Path,
+    expected_messages: set[str],
+) -> None:
+    checks_artifact = yaml.safe_load(
+        (project_root / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    artifact_messages = {
+        diagnostic["message"]
+        for check in checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    }
+
+    assert expected_messages <= artifact_messages
 
 
 def _path_list_yaml(field_name: str, paths: tuple[str, ...] | None) -> str:
