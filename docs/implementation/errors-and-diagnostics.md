@@ -328,12 +328,14 @@ failure without exposing credentials, tokens, DSNs, rendered connection
 payloads, or other secret-classified values in any public diagnostic field.
 Shared adapter test-kit redaction cases must include numeric `line` and
 `column` fields when those values match rendered scalar profile values, not only
-string diagnostic text. These cases must include short numeric rendered scalars
-such as port values; long password-shaped numeric values alone do not prove exact
-numeric diagnostic-field redaction. Core compile-flow conformance must also
-verify `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` appears in
-compiled-check metadata when compile validation prevents a requested adapter
-rendering phase from starting.
+string diagnostic text. These cases must also include short numeric rendered
+scalars such as port values when they appear in diagnostic `message`, `hint`,
+`path`, `resource_type`, `resource_name`, numeric `line`/`column`, and
+`rendering.adapter_type`; long password-shaped numeric values alone do not prove
+exact short-token redaction. Core compile-flow conformance must also verify
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` appears in compiled-check
+metadata when compile validation prevents a requested adapter rendering phase
+from starting.
 
 ## Runtime diagnostics
 

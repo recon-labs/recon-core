@@ -133,9 +133,11 @@ output cases, malformed non-empty renderer output cases, blocked compiled-check
 metadata for adapter setup failures, preserved diagnostics when factories
 return both an adapter and diagnostics, de-duplicated repeated same-connection
 setup diagnostics, distinct source/target connection setup diagnostics,
-numeric `line` and `column` diagnostic redaction cases, and core render-sql
-compile-validation blocked-metadata integration cases where the test kit drives
-core compile flows.
+numeric `line` and `column` diagnostic redaction cases, short numeric rendered
+scalar redaction cases in text fields, resource metadata, and
+`rendering.adapter_type`, and core render-sql compile-validation
+blocked-metadata integration cases where the test kit drives core compile
+flows.
 
 ## Compatibility contract
 
@@ -291,7 +293,10 @@ tests must cover:
   changed casing or other simple transformations,
 - numeric diagnostic fields such as `line` and `column` when they match rendered
   scalar profile values, including integer-valued fields, numeric strings, and
-  short numeric scalars such as port values.
+  short numeric scalars such as port values,
+- short numeric rendered scalar values, such as `port: 12`, when they appear in
+  diagnostic text, unsafe resource metadata, or `rendering.adapter_type`, not
+  only when they appear in numeric diagnostic fields.
 
 Adapter diagnostics are public output. External adapters must not place
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
@@ -307,11 +312,13 @@ hints alone. The shared test kit should include case-variant and
 transformation-variant redaction cases, such as `PASSWORD`, `database`,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
 independently in diagnostic message, hint, path, `resource_type`,
-`resource_name`, `line`, and `column`. Numeric diagnostic-field cases must
-include short rendered scalar values such as `12`; long password-shaped numeric
-values alone are not sufficient. It must also include adapter factory and
-capability declaration exceptions and exception-raising adapter metadata whose
-raw exception messages contain rendered profile keys or values.
+`resource_name`, `line`, `column`, and `rendering.adapter_type`. Short numeric
+rendered scalar cases must include text fields, resource metadata,
+`rendering.adapter_type`, and numeric fields such as `line` and `column`; long
+password-shaped numeric values alone are not sufficient. It must also include
+adapter factory and capability declaration exceptions and exception-raising
+adapter metadata whose raw exception messages contain rendered profile keys or
+values.
 
 A future structured redaction API or secret-classification model would be a
 durable adapter contract change. If Recon needs that model, update the adapter
