@@ -308,6 +308,15 @@ otherwise renderable checks are marked `blocked` with
 written, and adapter factories/renderers are not invoked when compile
 validation has already failed.
 
+If the shared adapter test kit, an external adapter repository, or future
+adapter execution claims compatibility for runtime output, it must also prove
+that raw adapter, database, and runtime exception text is summarized before it
+reaches diagnostics, terminal output, logs, run results, evidence, reports,
+failure details, or test snapshots. Raw exception text can contain executed
+query text, relation names, row values, credentials, rendered connection
+details, or engine-specific private payloads and is not safe public output by
+default.
+
 For Milestone 6 DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type
 and connection config. Distinct connection contexts are blocked until explicit

@@ -30,6 +30,7 @@ Current implementation status:
 | Tolerance, null, and normalization | High-level authored fields exist; MVP policy surface locked by ADR 0009; full resolver and execution not implemented. |
 | Adapter API | Implemented as a pre-alpha boundary with `ADAPTER_API_VERSION = "1"`; not stable for external adapter packages yet. |
 | Adapter capabilities | Support-state validation exists; the in-core DuckDB local adapter declares the current rendering subset. |
+| Diagnostic output and exception sanitization | Current CLI failures print code and safe message; current project/resource YAML diagnostics suppress raw parser snippets. Future run, evidence, debug, adapter, and test-kit surfaces are gated. |
 | External adapter repos | Planned, not split yet. |
 | Adapter test kit | Planned, not created yet. |
 | Run results and evidence | Planned, not implemented yet. |
@@ -66,6 +67,7 @@ Compatibility surfaces include, but are not limited to:
 - adapter capabilities,
 - typed check-plan operations or payloads,
 - generated artifact formats, paths, or version fields,
+- diagnostic output, redaction, and low-level exception sanitization,
 - manifest, run result, evidence, failure detail, state, or watermark formats,
 - package loading or package resource compatibility,
 - supported Python or `recon-core` version ranges,

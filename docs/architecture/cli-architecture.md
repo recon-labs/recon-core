@@ -176,6 +176,13 @@ Hint: <hint when available>
 
 CLI rendering should use structured service results and diagnostics. Command handlers should not assemble ad hoc framework errors.
 
+Because failed commands print diagnostic messages to standard error, CLI output
+is a public diagnostic surface. Command handlers and services must not pass raw
+YAML parser errors, adapter exceptions, database errors, source/target query
+text, row values, rendered profile values, or credentials into terminal
+messages. Unsafe details should be summarized before the diagnostic reaches the
+CLI renderer.
+
 Example:
 
 ```text

@@ -30,6 +30,11 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked whether diagnostic code, message, redaction, path,
       `resource_type`, `resource_name`, `line`, `column`, hint rendering, or
       future structured diagnostic fields changed for any public output surface.
+- [ ] Checked whether raw parser, adapter, database, runtime, or evidence
+      writer exception text can quote authored YAML snippets, source/target
+      query text, relation names, row values, rendered profile values,
+      credentials, or other private literals in CLI output, logs, artifacts,
+      reports, or test snapshots.
 - [ ] Checked whether generated artifact cleanup, publish ordering, stale
       output removal, or partial-write behavior changed for any generated
       artifact surface.
@@ -72,6 +77,10 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked whether any shared adapter test-kit compile-flow harness must
       assert `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and no
       adapter invocation when compile validation already failed.
+- [ ] Checked source/target privacy cases for raw adapter, database, and
+      runtime exception text before any adapter test-kit or external adapter
+      repository claims execution, diagnostics, run-result, evidence, report,
+      log, or snapshot compatibility.
 - [ ] Documented unsupported capability behavior when adapters are not required
       to implement a new operation.
 

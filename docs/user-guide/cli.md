@@ -96,6 +96,11 @@ If project config loads but contract parsing fails, `recon parse` still writes
 If one entry in a multi-contract file is invalid, valid entries from that file
 are still included in the manifest while diagnostics report the invalid entry.
 
+Malformed YAML diagnostics are concise and do not print raw YAML parser
+snippets. Contract endpoints may include source/target query text or private
+literals, so terminal output and manifest diagnostics summarize invalid YAML
+without echoing the offending line.
+
 If project root discovery or project config loading fails, `recon parse` exits
 with code `4` and does not write a manifest.
 

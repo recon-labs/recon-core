@@ -32,6 +32,8 @@ Examples:
 - duplicate contract names,
 - missing source/target,
 - invalid YAML,
+- invalid YAML diagnostics do not expose raw parser snippets, source/target
+  query text, credentials, or other private literals from the offending file,
 - unknown fields.
 
 Milestone 4.6 resource-indexing tests should cover:
@@ -225,8 +227,8 @@ values, row counts, relation names, query text, or other source/target context
 unless the source/target data privacy policy explicitly classifies the output
 as public or allows controlled export. Cases should cover pass, fail, error,
 skipped, truncation, disabled failure export, masked/hash-only output, adapter
-runtime errors, and database errors so a value suppressed in one public surface
-cannot leak through another.
+runtime errors, database errors, and raw adapter/database/runtime exception text
+so a value suppressed in one public surface cannot leak through another.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison
@@ -310,6 +312,9 @@ Examples:
 - terminal summaries,
 - failed commands print each diagnostic code and message, including profile,
   adapter, runtime, and evidence diagnostics as those phases are implemented.
+- failed parse/config commands do not print raw YAML parser snippets,
+  source/target query text, rendered profile values, credentials, or private
+  literals from malformed authored files.
 
 ## Golden tests
 

@@ -46,6 +46,12 @@ authored or defaulted. ADR 0017 requires this so missing default optional
 resource directories can be skipped while explicitly configured missing paths
 can fail clearly.
 
+Project config diagnostics are public output. Invalid `recon_project.yml`
+messages should summarize YAML parser failures rather than echoing raw parser
+snippets, because future config and package fields may contain private project
+details. Preserve safe context such as diagnostic code, severity, path, and
+hint instead of copying low-level exception text into the message.
+
 Recommended implementation shape:
 
 ```python
@@ -113,6 +119,11 @@ Profile rendering rules:
   connections for contract-specific invocations,
 - never write secrets or fully rendered credential payloads into generated
   artifacts, diagnostics, or terminal output.
+
+Profile YAML and rendered-profile diagnostics must follow the same rule. Raw
+parser errors, template errors, adapter exceptions, and database errors should
+not be surfaced when they can quote rendered profile values, credentials, DSN
+fragments, or source/target context.
 
 ## Resource config
 

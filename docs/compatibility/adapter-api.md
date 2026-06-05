@@ -139,8 +139,11 @@ scalar redaction cases in text fields, resource metadata, and
 blocked-metadata integration cases where the test kit drives core compile
 flows. If the test kit or external adapter package claims execution
 compatibility, it must also include source/target data privacy conformance for
-runtime diagnostics, adapter/database errors, run results, evidence, failure
-details, reports, logs, and test snapshots before compatibility is claimed.
+runtime diagnostics, raw adapter/database/runtime exception text, rendered or
+executed query text, run results, evidence, failure details, reports, logs, and
+test snapshots before compatibility is claimed. Raw low-level exception text is
+not a safe adapter diagnostic message unless it has been classified and
+sanitized under the source/target data privacy policy.
 
 ## Compatibility contract
 

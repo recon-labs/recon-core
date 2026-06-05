@@ -155,6 +155,12 @@ must print each diagnostic code and message. Future run, evidence, debug, and
 profile-validation commands should follow the same rule and preserve path,
 resource context, and hint when available.
 
+Services must return safe public diagnostic messages because CLI renderers,
+artifacts, logs, and future reports may all consume the same diagnostics. Raw
+YAML parser errors, adapter exceptions, database errors, rendered profile
+values, source/target query text, relation names, row values, and credentials
+should be summarized before they leave the service boundary.
+
 ## Exit mapping
 
 Service outcomes should map to exit codes.

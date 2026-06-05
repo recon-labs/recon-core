@@ -129,6 +129,17 @@ Check-pack resource schema diagnostics locked by ADR 0018:
 | --- | --- | --- |
 | `RC_PARSE_INVALID_CHECK_PACK_CONFIG_SCHEMA` | parse | error |
 
+Invalid authored YAML diagnostics are public output. Low-level YAML parser
+errors often quote the offending line or nearby snippet, and contract files can
+contain source/target query text or private literals. `RC_PARSE_INVALID_YAML`
+messages should therefore use safe summaries such as `Invalid YAML in resource
+file.` instead of raw parser exception text. Known structural cases may use
+safe category-specific messages, such as duplicate-key or unsupported-mapping
+summaries, but they must not echo authored key values or source/target
+snippets. Tests should assert that terminal output and manifest diagnostics do
+not expose offending query text, row-like values, credentials, or other private
+literals from malformed contract or resource files.
+
 ## Configuration diagnostics
 
 Examples:
@@ -148,6 +159,13 @@ Future package/resource namespace diagnostics locked by ADR 0017:
 | `RC_CONFIG_RESERVED_RESOURCE_NAMESPACE` | config | error |
 | `RC_CONFIG_DUPLICATE_PACKAGE_NAMESPACE` | config | error |
 | `RC_CONFIG_PACKAGE_NOT_INSTALLED` | config | error |
+
+Configuration YAML diagnostics follow the same sanitization rule as parse
+diagnostics. `RC_CONFIG_INVALID_PROJECT_YAML` and future profile/package config
+YAML diagnostics must not directly use raw YAML parser exception text when the
+exception can quote authored snippets, rendered profile values, credentials, or
+private project details. Use safe summary messages and preserve the diagnostic
+code, severity, path, and safe hint instead.
 
 ## Compile diagnostics
 
@@ -399,6 +417,15 @@ row counts, relation names, query text, and database error text must not leak
 through diagnostic `message`, `hint`, `path`, resource metadata, line/column
 fields, terminal output, run results, evidence, reports, logs, or test snapshots
 unless the policy explicitly allows that output.
+
+Do not pass raw low-level exception strings directly into public diagnostics
+when those exceptions can contain authored YAML snippets, rendered connection
+values, source/target query text, relation names, row values, or database error
+payloads. This includes YAML parser errors, adapter factory errors, adapter
+metadata/capability errors, database client errors, runtime execution errors,
+and future evidence writer errors. Public diagnostics should summarize the
+failure with safe text and keep useful machine context through the diagnostic
+code, severity, path, resource fields, and safe hints.
 
 ## Hints
 
