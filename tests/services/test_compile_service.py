@@ -271,8 +271,7 @@ def test_render_sql_compile_reports_invalid_adapter_resolution_result(tmp_path: 
     _assert_distinct_connection_diagnostic_messages(
         result.diagnostics,
         unscoped_message=(
-            "Adapter factory for type `invalid_resolution` returned an invalid "
-            "resolution result."
+            "Adapter factory for type `invalid_resolution` returned an invalid resolution result."
         ),
     )
     _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
@@ -555,6 +554,56 @@ def test_render_sql_compile_sanitizes_non_string_adapter_resolution_values(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_numeric_diagnostic_fields(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="numeric_field_leaky",
+        include_password=True,
+        password="123456",
+    )
+    registry = AdapterRegistry()
+    registry.register("numeric_field_leaky", NumericFieldLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_NUMERIC_FIELD_LEAK",
+        "RC_TEST_ADAPTER_NUMERIC_FIELD_LEAK",
+    ]
+    assert all(diagnostic.line is None for diagnostic in result.diagnostics)
+    assert all(diagnostic.column is None for diagnostic in result.diagnostics)
+    assert all(
+        diagnostic["line"] is None and diagnostic["column"] is None
+        for check in checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    )
+    assert "123456" not in yaml.safe_dump(
+        {
+            "service": [diagnostic.to_dict() for diagnostic in result.diagnostics],
+            "artifact": checks_artifact,
+        },
+        sort_keys=False,
+    )
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_NUMERIC_FIELD_LEAK")
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -721,6 +770,38 @@ def test_render_sql_compile_reports_compile_validation_before_profile_errors(
         "RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS"
     ]
     assert checks_artifact["checks"] == []
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_marks_renderable_checks_blocked_when_compile_validation_fails(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path, name="valid_contract", file_name="valid_contract.yml")
+    write_contract(
+        tmp_path,
+        name="invalid_contract",
+        file_name="invalid_contract.yml",
+        include_grain=False,
+    )
+
+    result = CompileService(start_path=tmp_path, render_sql=True).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "valid_contract.yml").read_text(encoding="utf-8")
+    )
+
+    assert result.exit_category is ExitCategory.VALIDATION_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS"
+    ]
+    assert {check["rendering"]["status"] for check in checks_artifact["checks"]} == {"blocked"}
+    assert all(check["rendering"]["sql_paths"] == [] for check in checks_artifact["checks"])
+    assert {
+        diagnostic["code"]
+        for check in checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {"RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS"}
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -1524,6 +1605,24 @@ class NumericValueLeakyAdapterFactory:
                     message=str(connection.config.get("password")),
                     resource_type="adapter",
                     resource_name=connection.type,
+                    hint="Inspect the adapter configuration.",
+                ),
+            )
+        )
+
+
+class NumericFieldLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_NUMERIC_FIELD_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter setup failed safely.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    line=int(str(connection.config.get("password"))),
+                    column=int(str(connection.config.get("password"))),
                     hint="Inspect the adapter configuration.",
                 ),
             )

@@ -51,6 +51,11 @@ failed
 intentionally skipped because validation failed. `failed` means rendering was
 attempted and failed due to adapter or renderer error.
 
+When `recon compile --render-sql` cannot start adapter rendering because compile
+validation already failed, otherwise renderable checks are marked `blocked` with
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` so artifacts do not imply
+that adapter-aware rendering was not requested.
+
 If any check produces a rendering diagnostic during `recon compile
 --render-sql`, Recon writes no compiled SQL files for that invocation. Checks
 that could not pass validation or capability checks are marked `blocked`, checks

@@ -278,6 +278,7 @@ RC_ADAPTER_INVALID_RELATION
 RC_ADAPTER_OPERATION_RENDER_FAILED
 RC_ADAPTER_RENDERED_SQL_EMPTY
 RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED
+RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS
 RC_ADAPTER_METADATA_INVALID
 RC_ADAPTER_QUERY_FAILED
 ```
@@ -290,7 +291,11 @@ states, required-capability validation, optional dependency checks,
 relation-only rendering boundaries, same-context rendering requirements,
 invalid relation names, invalid adapter metadata, renderer failures, empty
 renderer output, malformed non-empty renderer output, and invocation-wide SQL
-output suppression.
+output suppression. When `recon compile --render-sql` cannot start adapter
+rendering because compile validation already failed, otherwise renderable checks
+should use `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` in compiled
+checks artifacts so generated metadata does not imply that rendering was not
+requested.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include
@@ -311,8 +316,8 @@ Suppression should treat case-changed keys or rendered values, DSN fragments,
 tokens, passwords, and other simple transformations as unsafe when they can be
 derived from rendered profile config. Redaction tests should cover every public
 diagnostic field independently: `message`, `hint`, `path`, `resource_type`,
-`resource_name`, `rendering.adapter_type`, and any future structured diagnostic
-fields.
+`resource_name`, `line`, `column`, `rendering.adapter_type`, and any future
+structured diagnostic fields.
 
 Adapter diagnostics are part of the adapter compatibility surface. Future
 adapter execution, debug/profile validation commands, external adapter

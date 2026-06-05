@@ -50,6 +50,9 @@ COMPILED_ARTIFACT_WRITE_FAILED = "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
 MIXED_ADAPTER_TYPES_UNSUPPORTED = "RC_ADAPTER_MIXED_ADAPTER_TYPES_UNSUPPORTED"
 ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED = "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
 ADAPTER_RENDERING_OUTPUT_SUPPRESSED = "RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED"
+ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS = (
+    "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,8 +111,11 @@ class CompileService:
 
         if self.render_sql:
             if not compilation.succeeded:
+                compiled_contracts = _apply_compile_diagnostic_render_block_metadata(
+                    compilation.contracts
+                )
                 try:
-                    _write_compiled_artifacts(compilation.contracts, context.paths.target_path)
+                    _write_compiled_artifacts(compiled_contracts, context.paths.target_path)
                 except (OSError, ValueError) as exc:
                     _discard_compiled_yaml_artifacts(context.paths.target_path)
                     return _compiled_artifact_runtime_error(
@@ -402,6 +408,46 @@ def _rendering_output_suppressed_diagnostic(check: CompiledCheck) -> Diagnostic:
         resource_type="compiled_check",
         resource_name=check.id,
         hint="Fix the rendering diagnostics and rerun `recon compile --render-sql`.",
+    )
+
+
+def _apply_compile_diagnostic_render_block_metadata(
+    compiled_contracts: tuple[ContractCompilationArtifacts, ...],
+) -> tuple[ContractCompilationArtifacts, ...]:
+    rendered_contracts: list[ContractCompilationArtifacts] = []
+
+    for compiled_contract in compiled_contracts:
+        rendered_checks = tuple(
+            _with_blocked_rendering(
+                check,
+                diagnostics=(_rendering_blocked_by_compile_diagnostic(check),),
+            )
+            for check in compiled_contract.checks_artifact.checks
+        )
+        rendered_contracts.append(
+            replace(
+                compiled_contract,
+                checks_artifact=replace(
+                    compiled_contract.checks_artifact,
+                    checks=rendered_checks,
+                ),
+            )
+        )
+
+    return tuple(rendered_contracts)
+
+
+def _rendering_blocked_by_compile_diagnostic(check: CompiledCheck) -> Diagnostic:
+    return Diagnostic(
+        code=ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS,
+        severity=DiagnosticSeverity.ERROR,
+        message=(
+            f"SQL rendering for check `{check.id}` was blocked because compile "
+            "validation produced diagnostics before adapter rendering could start."
+        ),
+        resource_type="compiled_check",
+        resource_name=check.id,
+        hint="Fix the compile diagnostics and rerun `recon compile --render-sql`.",
     )
 
 
@@ -781,13 +827,15 @@ def _diagnostic_mentions_config_token(
         return False
 
     diagnostic_text = "\n".join(
-        value
+        str(value)
         for value in (
             diagnostic.message,
             diagnostic.hint,
             diagnostic.path,
             diagnostic.resource_type,
             diagnostic.resource_name,
+            diagnostic.line,
+            diagnostic.column,
         )
         if value is not None
     )

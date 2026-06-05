@@ -143,6 +143,9 @@ This project follows semantic versioning once public package releases begin.
 - Adapter-aware SQL rendering now applies rendered-profile redaction to
   render-phase adapter diagnostics and `rendering.adapter_type` metadata, and
   treats non-string rendered profile values as redaction candidates.
+- Adapter-aware SQL rendering now suppresses unsafe profile-backed adapter
+  diagnostic `line` and `column` values when they match rendered scalar profile
+  values.
 - Adapter-aware SQL rendering now converts adapter factory and capability
   declaration exceptions into structured diagnostics with raw adapter error
   text suppressed.
@@ -192,6 +195,9 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile --render-sql` now marks all checks as `blocked` or `failed`
   when a rendering diagnostic prevents SQL artifact output, avoiding
   misleading `not_rendered` metadata for adapter-aware compile results.
+- `recon compile --render-sql` now marks otherwise renderable checks as
+  `blocked` when compile validation diagnostics prevent adapter rendering from
+  starting, avoiding `not_rendered` metadata when rendering was requested.
 - `recon compile --render-sql` now adds a structured suppression diagnostic to
   otherwise renderable checks whose SQL paths are intentionally omitted because
   another check blocked SQL output for the invocation.

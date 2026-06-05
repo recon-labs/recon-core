@@ -269,14 +269,16 @@ tests must cover:
   and CLI diagnostics and blocked compiled-check artifacts,
 - diagnostics that reference rendered connection config keys or values,
 - diagnostics that reference rendered connection config keys or values with
-  changed casing or other simple transformations.
+  changed casing or other simple transformations,
+- numeric diagnostic fields such as `line` and `column` when they match rendered
+  scalar profile values.
 
 Adapter diagnostics are public output. External adapters must not place
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
 secret-classified values in diagnostic message, hint, path, `resource_type`,
-`resource_name`, or future structured diagnostic fields. Core may defensively
-suppress unsafe profile-backed adapter diagnostic text and unsafe resource
-metadata, including factory, adapter API compatibility, and render-phase
+`resource_name`, `line`, `column`, or future structured diagnostic fields. Core
+may defensively suppress unsafe profile-backed adapter diagnostic text and unsafe
+resource metadata, including factory, adapter API compatibility, and render-phase
 diagnostics plus `rendering.adapter_type` metadata, but
 adapter packages and the shared test kit must treat secret-safe diagnostics as
 an adapter author requirement. A secret-safe diagnostic must still include an
@@ -284,8 +286,8 @@ actionable message; adapter compatibility cannot rely on diagnostic codes or
 hints alone. The shared test kit should include case-variant and
 transformation-variant redaction cases, such as `PASSWORD`, `database`,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
-independently in diagnostic message, hint, path, `resource_type`, and
-`resource_name`. It must also include adapter factory and capability
+independently in diagnostic message, hint, path, `resource_type`,
+`resource_name`, `line`, and `column`. It must also include adapter factory and capability
 declaration exceptions and exception-raising adapter metadata whose raw
 exception messages contain rendered profile keys or values.
 
