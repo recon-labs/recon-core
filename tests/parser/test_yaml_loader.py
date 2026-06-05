@@ -46,7 +46,7 @@ def test_load_yaml_file_reads_utf8_file(tmp_path: Path) -> None:
 
 def test_load_yaml_text_reports_invalid_yaml() -> None:
     result = load_yaml_text(
-        "name: customer_revenue\nsource: [legacy\n",
+        "name: customer_revenue\nsource: select * from customers where ssn: secret-ssn\n",
         path="contracts/customer_revenue.yml",
     )
 
@@ -57,10 +57,13 @@ def test_load_yaml_text_reports_invalid_yaml() -> None:
     diagnostic = result.diagnostics[0]
     assert diagnostic.code == "RC_PARSE_INVALID_YAML"
     assert diagnostic.severity is DiagnosticSeverity.ERROR
+    assert diagnostic.message == "Invalid YAML in resource file."
     assert diagnostic.path == "contracts/customer_revenue.yml"
     assert diagnostic.line is not None
     assert diagnostic.column is not None
     assert diagnostic.hint == "Fix the YAML syntax in this resource file."
+    assert "secret-ssn" not in diagnostic.message
+    assert "select * from customers" not in diagnostic.message
 
 
 def test_load_yaml_text_reports_duplicate_yaml_keys() -> None:
@@ -82,7 +85,7 @@ name: duplicate_customer_revenue
     assert diagnostic.path == "contracts/customer_revenue.yml"
     assert diagnostic.line is not None
     assert diagnostic.column is not None
-    assert "Duplicate YAML key" in diagnostic.message
+    assert diagnostic.message == "Invalid YAML in resource file: duplicate YAML key."
 
 
 def test_load_yaml_text_reports_unhashable_mapping_keys() -> None:
@@ -104,7 +107,7 @@ def test_load_yaml_text_reports_unhashable_mapping_keys() -> None:
     assert diagnostic.path == "contracts/customer_revenue.yml"
     assert diagnostic.line is not None
     assert diagnostic.column is not None
-    assert "Unsupported YAML mapping key" in diagnostic.message
+    assert diagnostic.message == "Invalid YAML in resource file: unsupported YAML mapping key."
 
 
 def test_load_yaml_file_reports_unreadable_file(tmp_path: Path) -> None:

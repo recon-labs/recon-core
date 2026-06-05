@@ -159,6 +159,9 @@ This project follows semantic versioning once public package releases begin.
   with malformed diagnostic payloads as structured
   `RC_ADAPTER_RESOLUTION_FAILED` diagnostics instead of crashing during
   diagnostic redaction.
+- YAML parse diagnostics now suppress raw parser snippets in public diagnostic
+  messages so malformed authored files do not leak source/target query text or
+  private literals through CLI output, manifest diagnostics, or logs.
 - Adapter-aware SQL rendering now reports invalid or raising adapter
   `adapter_type` metadata as structured diagnostics instead of crashing or
   leaking raw adapter exception text.

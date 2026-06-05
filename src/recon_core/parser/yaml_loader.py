@@ -103,10 +103,20 @@ def _invalid_yaml_diagnostic(path: str, error: yaml.YAMLError) -> Diagnostic:
     return Diagnostic(
         code=INVALID_YAML,
         severity=DiagnosticSeverity.ERROR,
-        message=f"Invalid YAML in resource file: {error}",
+        message=_safe_yaml_error_message("Invalid YAML in resource file", error),
         resource_type="resource_file",
         path=path,
         line=line,
         column=column,
         hint="Fix the YAML syntax in this resource file.",
     )
+
+
+def _safe_yaml_error_message(prefix: str, error: yaml.YAMLError) -> str:
+    problem = getattr(error, "problem", None)
+    if isinstance(problem, str):
+        if problem.startswith("Duplicate YAML key:"):
+            return f"{prefix}: duplicate YAML key."
+        if problem.startswith("Unsupported YAML mapping key:"):
+            return f"{prefix}: unsupported YAML mapping key."
+    return f"{prefix}."

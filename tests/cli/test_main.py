@@ -160,6 +160,37 @@ def test_compile_render_sql_prints_diagnostic_message_for_profile_errors() -> No
         assert "Hint: Set the environment variable or provide an env_var default." in result.output
 
 
+def test_parse_command_does_not_print_raw_yaml_snippets_for_invalid_contract() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        _write_project()
+        _contract_path().write_text(
+            """
+version: 1
+name: customer_revenue
+source:
+  connection: legacy
+  query: select * from customers where ssn: secret-ssn
+target:
+  connection: warehouse
+  relation: qa.customer_target
+checks:
+  use:
+    - recon_core.basic_equivalence
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(main, ["parse"])
+
+        assert result.exit_code == 2
+        assert "Code: RC_PARSE_INVALID_YAML" in result.output
+        assert "Message: Invalid YAML in resource file." in result.output
+        assert "secret-ssn" not in result.output
+        assert "select * from customers" not in result.output
+
+
 def test_parse_command_returns_validation_error_and_writes_manifest() -> None:
     runner = CliRunner()
 

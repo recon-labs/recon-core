@@ -488,13 +488,23 @@ def _invalid_yaml_diagnostic(project_file: Path, error: yaml.YAMLError) -> Diagn
     return Diagnostic(
         code=INVALID_PROJECT_YAML,
         severity=DiagnosticSeverity.ERROR,
-        message=f"Invalid YAML in project config: {error}",
+        message=_safe_yaml_error_message("Invalid YAML in project config", error),
         resource_type="project_config",
         path=str(project_file),
         line=line,
         column=column,
         hint="Fix the YAML syntax in recon_project.yml.",
     )
+
+
+def _safe_yaml_error_message(prefix: str, error: yaml.YAMLError) -> str:
+    problem = getattr(error, "problem", None)
+    if isinstance(problem, str):
+        if problem.startswith("Duplicate YAML key:"):
+            return f"{prefix}: duplicate YAML key."
+        if problem.startswith("Unsupported YAML mapping key:"):
+            return f"{prefix}: unsupported YAML mapping key."
+    return f"{prefix}."
 
 
 def _invalid_config_diagnostic(
