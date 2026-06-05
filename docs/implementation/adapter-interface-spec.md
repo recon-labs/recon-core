@@ -146,6 +146,11 @@ or returns a malformed resolution result fails resolution with
 `RC_ADAPTER_RESOLUTION_FAILED`. A factory that raises an exception should also
 fail resolution with a generic sanitized `RC_ADAPTER_RESOLUTION_FAILED`
 diagnostic rather than surfacing raw adapter error text.
+Resolution diagnostics must be structured `Diagnostic` entries. Malformed
+diagnostic containers or entries inside an otherwise valid resolution wrapper
+are malformed resolution results and must fail with
+`RC_ADAPTER_RESOLUTION_FAILED` before downstream compile, redaction, rendering,
+or execution code consumes them.
 Factory diagnostics are public output. They must not include credentials,
 tokens, DSNs, passwords, fully rendered connection payloads, or other
 secret-classified values from rendered profile config.

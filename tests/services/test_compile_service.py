@@ -278,6 +278,38 @@ def test_render_sql_compile_reports_invalid_adapter_resolution_result(tmp_path: 
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_reports_malformed_adapter_resolution_diagnostics(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="malformed_diagnostics")
+    registry = AdapterRegistry()
+    registry.register("malformed_diagnostics", MalformedDiagnosticsAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
+    ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message=(
+            "Adapter factory for type `malformed_diagnostics` returned an invalid "
+            "resolution result."
+        ),
+    )
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_adapter_factory_exceptions(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
@@ -1569,6 +1601,13 @@ class EmptyAdapterFactory:
 class InvalidResolutionAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return None  # type: ignore[return-value]
+
+
+class MalformedDiagnosticsAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=cast(tuple[Diagnostic, ...], ("not-a-diagnostic",))
+        )
 
 
 class RaisingAdapterFactory:

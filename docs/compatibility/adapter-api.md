@@ -79,11 +79,14 @@ from the SQL comparison matrix. At minimum, those tests must cover adapter
 factory resolution: a registered factory must return an adapter or diagnostics,
 and an empty or malformed resolution result must fail with
 `RC_ADAPTER_RESOLUTION_FAILED` instead of letting adapter-aware rendering or
-execution report success. If a factory returns both an adapter and diagnostics,
-the diagnostics are setup failures and the adapter must not be used for
-rendering or execution. Missing or invalid adapter API version declarations must
-fail with `RC_ADAPTER_API_VERSION_UNSUPPORTED`, and missing, non-string, empty,
-or exception-raising `adapter_type` metadata must fail with
+execution report success. Malformed diagnostic payloads inside a resolution
+result are malformed resolution results and must fail with
+`RC_ADAPTER_RESOLUTION_FAILED` before any compile-service diagnostic redaction,
+rendering, or execution code consumes them. If a factory returns both an adapter
+and diagnostics, the diagnostics are setup failures and the adapter must not be
+used for rendering or execution. Missing or invalid adapter API version
+declarations must fail with `RC_ADAPTER_API_VERSION_UNSUPPORTED`, and missing,
+non-string, empty, or exception-raising `adapter_type` metadata must fail with
 `RC_ADAPTER_METADATA_INVALID` before rendering or execution. Malformed
 capability support states must become structured required-capability diagnostics
 instead of uncaught exceptions. Factory exceptions, adapter metadata exceptions,
@@ -153,7 +156,10 @@ of running with ambiguous behavior.
 Adapter factories must return either an adapter or one or more diagnostics.
 Returning neither, or returning a malformed resolution object, is an adapter
 resolution failure and must surface `RC_ADAPTER_RESOLUTION_FAILED`. Factory
-exceptions must also resolve to a generic sanitized
+resolution diagnostics must be a tuple of structured diagnostics; malformed
+diagnostic containers or entries are malformed resolution results and must
+surface `RC_ADAPTER_RESOLUTION_FAILED`. Factory exceptions must also resolve to
+a generic sanitized
 `RC_ADAPTER_RESOLUTION_FAILED` diagnostic instead of leaking raw adapter
 exception text.
 

@@ -84,6 +84,8 @@ class AdapterRegistry:
             )
         if not isinstance(result, AdapterResolutionResult):
             return _invalid_resolution_result(connection)
+        if not _valid_resolution_diagnostics(result):
+            return _invalid_resolution_result(connection)
         if result.adapter is None and not result.diagnostics:
             return _invalid_resolution_result(connection)
         if result.adapter is not None and not isinstance(result.adapter, BaseAdapter):
@@ -178,6 +180,13 @@ def _invalid_resolution_result(connection: ConnectionConfig) -> AdapterResolutio
                 hint="Fix the adapter factory to return an adapter or a diagnostic.",
             ),
         )
+    )
+
+
+def _valid_resolution_diagnostics(result: AdapterResolutionResult) -> bool:
+    diagnostics = result.diagnostics
+    return isinstance(diagnostics, tuple) and all(
+        isinstance(diagnostic, Diagnostic) for diagnostic in diagnostics
     )
 
 

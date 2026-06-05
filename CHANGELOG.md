@@ -155,6 +155,10 @@ This project follows semantic versioning once public package releases begin.
   results, missing or invalid adapter API version declarations, and malformed
   capability support states as structured diagnostics instead of uncaught
   exceptions.
+- Adapter-aware SQL rendering now reports adapter factory resolution results
+  with malformed diagnostic payloads as structured
+  `RC_ADAPTER_RESOLUTION_FAILED` diagnostics instead of crashing during
+  diagnostic redaction.
 - Adapter-aware SQL rendering now reports invalid or raising adapter
   `adapter_type` metadata as structured diagnostics instead of crashing or
   leaking raw adapter exception text.

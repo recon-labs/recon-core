@@ -12,6 +12,7 @@ from recon_core.adapters import (
     Relation,
     validate_adapter_api_compatibility,
 )
+from recon_core.diagnostics import Diagnostic
 
 
 class CompatibleAdapter(BaseAdapter):
@@ -55,6 +56,21 @@ class RaisingFactory:
 class InvalidResolutionFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return None  # type: ignore[return-value]
+
+
+class MalformedDiagnosticsFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=cast(tuple[Diagnostic, ...], ("not-a-diagnostic",))
+        )
+
+
+class NoneDiagnosticsWithAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            adapter=CompatibleAdapter(connection=connection),
+            diagnostics=cast(tuple[Diagnostic, ...], None),
+        )
 
 
 class RaisingApiVersion:
@@ -145,6 +161,34 @@ def test_registry_reports_invalid_adapter_resolution_result() -> None:
         "RC_ADAPTER_RESOLUTION_FAILED"
     ]
     assert result.diagnostics[0].resource_name == "invalid"
+
+
+def test_registry_reports_malformed_adapter_resolution_diagnostics() -> None:
+    registry = AdapterRegistry()
+    registry.register("malformed", MalformedDiagnosticsFactory())
+
+    result = registry.resolve(ConnectionConfig(name="source", type="malformed"))
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert result.diagnostics[0].resource_name == "malformed"
+
+
+def test_registry_reports_none_diagnostics_with_adapter() -> None:
+    registry = AdapterRegistry()
+    registry.register("none_diagnostics", NoneDiagnosticsWithAdapterFactory())
+
+    result = registry.resolve(ConnectionConfig(name="source", type="none_diagnostics"))
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert result.diagnostics[0].resource_name == "none_diagnostics"
 
 
 def test_registry_sanitizes_adapter_factory_exceptions() -> None:
