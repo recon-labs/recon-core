@@ -76,7 +76,7 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
 ## Rollout
 
 1. Start with `recon-core`.
-2. Split `recon-postgres`, `recon-snowflake`, and `recon-adapter-testkit` after typed check plans, adapter API versioning, and shared adapter tests stabilize. Shared adapter tests must include profile-rendering, diagnostic-redaction, adapter metadata, capability declaration, and empty or malformed renderer output conformance, including sanitized adapter factory exceptions, sanitized adapter metadata exceptions, and sanitized capability declaration exceptions, before any split repo claims compatibility.
+2. Split `recon-postgres`, `recon-snowflake`, and `recon-adapter-testkit` after typed check plans, adapter API versioning, and shared adapter tests stabilize. Shared adapter tests must include profile-rendering, diagnostic-redaction, adapter metadata, capability declaration, and empty or malformed renderer output conformance, including sanitized adapter factory exceptions, sanitized adapter metadata exceptions, sanitized capability declaration exceptions, and short numeric rendered-scalar `line`/`column` redaction cases, before any split repo claims compatibility.
 3. Add official check/policy packages.
 4. Add `recon-hub-index`.
 5. Add integrations such as `recon-airflow`.

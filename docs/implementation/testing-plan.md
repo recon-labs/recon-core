@@ -209,7 +209,9 @@ substrings, tokens, and passwords appearing independently in diagnostic
 message, hint, path, `resource_type`, `resource_name`, `line`, `column`,
 `rendering.adapter_type`, and any future structured diagnostic fields. Numeric
 field cases must cover integer-valued `line` and `column` diagnostics as well as
-numeric strings that match rendered scalar profile values.
+numeric strings that match rendered scalar profile values. They must include
+short numeric rendered scalars, for example `port: 12`, so the suite proves
+exact numeric diagnostic-field redaction and not only long secret-like tokens.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison

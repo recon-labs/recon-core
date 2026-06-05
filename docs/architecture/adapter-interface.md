@@ -325,7 +325,9 @@ rely on codes or hints alone. The test kit should include case-variant and
 transformation-variant diagnostics, including uppercase config keys, lowercase
 or uppercase rendered values, DSN fragments, tokens, and password values in
 each public diagnostic field independently. Numeric `line` and `column` cases
-must not bypass redaction when they match rendered scalar profile values.
+must not bypass redaction when they match rendered scalar profile values,
+including short numeric scalars such as port values. Testing only long
+password-shaped numeric values is not enough for adapter compatibility.
 
 ## Design principle
 

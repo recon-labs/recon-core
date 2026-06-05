@@ -332,8 +332,8 @@ Tests:
   config keys or values,
 - profile-backed adapter diagnostics suppress case-changed rendered config keys
   or values, non-string rendered values, unsafe `rendering.adapter_type`
-  metadata, numeric `line`/`column` fields, and other simple secret
-  transformations,
+  metadata, numeric `line`/`column` fields, short numeric rendered scalars such
+  as port values, and other simple secret transformations,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,
@@ -367,7 +367,8 @@ Required gates:
 - require adapter/profile diagnostic redaction conformance to cover unsafe
   rendered profile keys or values independently in message, hint, path,
   `resource_type`, `resource_name`, `line`, `column`, and future structured
-  diagnostic fields,
+  diagnostic fields, including short numeric rendered scalars such as port
+  values,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
 - preserve the adapter-aware compile contract that setup failures write no SQL,
@@ -1336,6 +1337,8 @@ Required gate:
   path, `resource_type`, `resource_name`, `line`, `column`,
   `rendering.adapter_type`, and future structured diagnostic fields before
   creating or splitting the test-kit repository,
+- include short numeric rendered-scalar `line`/`column` cases, such as
+  `port: 12`, before creating or splitting the test-kit repository,
 - include core render-sql compile-validation blocked-metadata integration cases
   before creating or splitting any test-kit harness that drives core compile
   flows,

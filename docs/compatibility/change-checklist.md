@@ -67,6 +67,8 @@ review. This checklist is a process guide; it is not a CI gate.
       adapter diagnostics can reference rendered profile config in message,
       hint, path, `resource_type`, `resource_name`, `line`, `column`, or future
       structured diagnostic fields.
+- [ ] Checked numeric diagnostic-field redaction for short rendered scalar
+      profile values, such as `port: 12`, not only long secret-like tokens.
 - [ ] Checked whether any shared adapter test-kit compile-flow harness must
       assert `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and no
       adapter invocation when compile validation already failed.
