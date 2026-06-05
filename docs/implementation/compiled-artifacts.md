@@ -55,6 +55,10 @@ When `recon compile --render-sql` cannot start adapter rendering because compile
 validation already failed, otherwise renderable checks are marked `blocked` with
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` so artifacts do not imply
 that adapter-aware rendering was not requested.
+This is a core artifact conformance requirement for future compile-flow and
+adapter test-kit integration harnesses: adapter factories and renderers should
+not be invoked after compile validation has already failed, and generated
+metadata must still show that rendering was requested and blocked.
 
 If any check produces a rendering diagnostic during `recon compile
 --render-sql`, Recon writes no compiled SQL files for that invocation. Checks

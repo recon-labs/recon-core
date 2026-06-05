@@ -176,7 +176,9 @@ When adapter-aware rendering was requested but compile validation prevents the
 adapter phase from starting, otherwise renderable checks may keep empty
 `rendering.sql_paths`, use `rendering.status: blocked`, and carry
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` without changing the
-compiled artifact version.
+compiled artifact version. Future compile-flow conformance tests and any shared
+adapter test-kit harness that invokes core `render-sql` flows must assert this
+status/diagnostic combination instead of accepting `not_rendered` metadata.
 When invocation-wide rendering diagnostics suppress all SQL output, otherwise
 renderable checks may keep empty `rendering.sql_paths` and carry a structured
 suppression diagnostic without changing the compiled artifact version.

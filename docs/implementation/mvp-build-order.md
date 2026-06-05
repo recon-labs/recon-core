@@ -332,7 +332,8 @@ Tests:
   config keys or values,
 - profile-backed adapter diagnostics suppress case-changed rendered config keys
   or values, non-string rendered values, unsafe `rendering.adapter_type`
-  metadata, and other simple secret transformations,
+  metadata, numeric `line`/`column` fields, and other simple secret
+  transformations,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,
@@ -342,6 +343,10 @@ Tests:
   compiled SQL, preserve diagnostics when factories return both adapters and
   diagnostics, de-duplicate repeated same-connection setup diagnostics, and keep
   distinct source/target connection setup diagnostics visible in service output.
+- compile validation failures that prevent a requested adapter rendering phase
+  from starting still mark otherwise renderable checks `blocked` with
+  `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and do not invoke
+  adapter factories or renderers.
 
 ## Milestone 7: check engine
 
@@ -361,7 +366,8 @@ Required gates:
   gate before loading rendered profiles or resolving adapters for execution,
 - require adapter/profile diagnostic redaction conformance to cover unsafe
   rendered profile keys or values independently in message, hint, path,
-  `resource_type`, `resource_name`, and future structured diagnostic fields,
+  `resource_type`, `resource_name`, `line`, `column`, and future structured
+  diagnostic fields,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
 - preserve the adapter-aware compile contract that setup failures write no SQL,
@@ -1327,9 +1333,12 @@ Required gate:
 - include case-variant rendered-config redaction cases in shared adapter
   diagnostic assertions before creating or splitting the test-kit repository,
 - include field-by-field adapter diagnostic redaction cases for message, hint,
-  path, `resource_type`, `resource_name`, `rendering.adapter_type`, and future
-  structured diagnostic fields before creating or splitting the test-kit
-  repository,
+  path, `resource_type`, `resource_name`, `line`, `column`,
+  `rendering.adapter_type`, and future structured diagnostic fields before
+  creating or splitting the test-kit repository,
+- include core render-sql compile-validation blocked-metadata integration cases
+  before creating or splitting any test-kit harness that drives core compile
+  flows,
 - include malformed adapter factory result, missing or invalid adapter API
   version declaration, and malformed capability support-state cases before
   creating or splitting the test-kit repository,

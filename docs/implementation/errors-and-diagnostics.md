@@ -325,6 +325,12 @@ packages, and shared adapter test-kit conformance must require adapter-provided
 diagnostics to include safe non-empty messages. Those messages must explain the
 failure without exposing credentials, tokens, DSNs, rendered connection
 payloads, or other secret-classified values in any public diagnostic field.
+Shared adapter test-kit redaction cases must include numeric `line` and
+`column` fields when those values match rendered scalar profile values, not only
+string diagnostic text. Core compile-flow conformance must also verify
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` appears in compiled-check
+metadata when compile validation prevents a requested adapter rendering phase
+from starting.
 
 ## Runtime diagnostics
 

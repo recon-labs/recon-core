@@ -230,6 +230,11 @@ Meanings:
 - `failed`: rendering was attempted but failed because of an adapter or
   rendering error.
 
+Implementation note, 2026-06-05: when `--render-sql` is requested but compile
+validation prevents adapter rendering from starting, otherwise renderable checks
+use `blocked` with `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, not
+`not_rendered`.
+
 If any check in a `recon compile --render-sql` invocation produces a rendering
 diagnostic, the invocation writes no compiled SQL files. Checks with validation
 or capability blockers are marked `blocked`, renderer errors are marked

@@ -266,12 +266,14 @@ secrets or fully rendered credential payloads.
 
 Adapter diagnostics are public output. Adapter authors should not include
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
-secret-classified values in diagnostic message, hint, path, or resource fields.
+secret-classified values in diagnostic message, hint, path, resource fields,
+`line`, `column`, or future structured diagnostic fields.
 Adapter diagnostics should still include safe actionable messages; redaction
 may replace unsafe text, but compatibility should not depend on diagnostic
 codes or hints alone. Adapter diagnostics must remain safe even when they use
 case-changed config keys, case-changed rendered values, DSN fragments, tokens,
-passwords, or other simple transformations of rendered profile config.
+passwords, numeric `line`/`column` values, or other simple transformations of
+rendered profile config.
 Before external adapter packages or a shared adapter test kit are published,
 the test kit must include profile-rendering and diagnostic-redaction
 conformance cases, including safe non-empty diagnostic messages, for adapter
@@ -285,6 +287,11 @@ include both adapters and diagnostics as setup failures, de-duplicate repeated
 same-connection setup diagnostics in service or CLI output, and preserve
 distinct source/target connection setup diagnostics in service, CLI, and
 blocked compiled-check artifact output before those claims are made.
+If a shared adapter test-kit harness drives `recon compile --render-sql`, it
+must also include the core compile-validation case where adapter rendering is
+requested but not started: otherwise renderable checks are marked `blocked` with
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, no compiled SQL is
+written, and adapter factories/renderers are not invoked.
 
 ## Query endpoint boundary
 
@@ -370,7 +377,10 @@ non-empty diagnostic messages. It must also include adapter setup failure cases
 that assert no compiled SQL output, blocked compiled-check metadata, and
 de-duplicated repeated same-connection service diagnostics while preserving
 distinct source/target connection diagnostics in service and blocked
-compiled-check artifact output.
+compiled-check artifact output. Field-by-field diagnostic redaction includes
+`line` and `column`, and compile-flow harnesses must cover
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` when compile validation
+prevents a requested adapter rendering phase from starting.
 
 ## Design principle
 

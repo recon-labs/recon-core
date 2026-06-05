@@ -293,9 +293,15 @@ unsupported template syntax, adapter factory diagnostics, and future optional
 dependency, API compatibility, capability, metadata, rendering, and execution
 diagnostics. Redaction conformance must cover unsafe rendered profile keys or
 values independently in diagnostic `message`, `hint`, `path`, `resource_type`,
-`resource_name`, and future structured diagnostic fields. It must also cover
-raw adapter exceptions from factories, adapter metadata declarations, and
-capability declarations, plus empty and malformed renderer output diagnostics.
+`resource_name`, `line`, `column`, and future structured diagnostic fields. It
+must also cover raw adapter exceptions from factories, adapter metadata
+declarations, and capability declarations, plus empty and malformed renderer
+output diagnostics. If a shared adapter test-kit harness drives core
+`render-sql` flows, it must also cover compile-validation blocked metadata:
+otherwise renderable checks are marked `blocked` with
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, no compiled SQL is
+written, and adapter factories/renderers are not invoked when compile
+validation has already failed.
 
 For Milestone 6 DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type

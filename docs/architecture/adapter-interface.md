@@ -292,6 +292,8 @@ A future adapter test kit should validate:
 - malformed adapter factory results,
 - check compatibility,
 - empty and malformed renderer output failures,
+- render-sql compile-validation blocked metadata when the test kit drives core
+  compile flows,
 - profile rendering behavior,
 - adapter diagnostic redaction,
 - safe non-empty adapter diagnostic messages.
@@ -309,13 +311,15 @@ metadata, rendering, and execution diagnostics.
 Adapter diagnostics are public output, so the test kit must verify that
 credentials, tokens, DSNs, passwords, rendered connection payloads, and other
 secret-classified values do not appear in diagnostic messages, hints, paths,
-`resource_type`, `resource_name`, or future structured diagnostic fields.
+`resource_type`, `resource_name`, `line`, `column`, or future structured
+diagnostic fields.
 Redaction may replace unsafe diagnostic text or unsafe resource metadata, but
 adapter diagnostics must still include an actionable safe message and must not
 rely on codes or hints alone. The test kit should include case-variant and
 transformation-variant diagnostics, including uppercase config keys, lowercase
 or uppercase rendered values, DSN fragments, tokens, and password values in
-each public diagnostic field independently.
+each public diagnostic field independently. Numeric `line` and `column` cases
+must not bypass redaction when they match rendered scalar profile values.
 
 ## Design principle
 

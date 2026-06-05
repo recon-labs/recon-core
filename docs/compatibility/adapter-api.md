@@ -102,6 +102,16 @@ referenced connections must remain visible in service, CLI, and blocked
 compiled-check artifact output even when they share the same diagnostic code,
 adapter type, or hint.
 
+Compile validation failures that prevent adapter rendering from starting are a
+core artifact conformance case. When `recon compile --render-sql` is requested
+and validation diagnostics already make the compile fail, otherwise renderable
+checks must be marked `blocked` with
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`; they must not remain
+`not_rendered`, because that would imply SQL rendering was not requested. Any
+future adapter test-kit harness that drives core `render-sql` flows must include
+this as an integration case and assert that adapter factories and renderers are
+not invoked after compile validation has already failed.
+
 Renderer conformance tests must prove that a renderer returns at least one SQL
 step for each rendered check. Empty renderer output must fail with
 `RC_ADAPTER_RENDERED_SQL_EMPTY`; it must not produce `rendering.status:
@@ -119,7 +129,10 @@ diagnostic-redaction cases, plus malformed adapter metadata and empty renderer
 output cases, malformed non-empty renderer output cases, blocked compiled-check
 metadata for adapter setup failures, preserved diagnostics when factories
 return both an adapter and diagnostics, de-duplicated repeated same-connection
-setup diagnostics, and distinct source/target connection setup diagnostics.
+setup diagnostics, distinct source/target connection setup diagnostics,
+numeric `line` and `column` diagnostic redaction cases, and core render-sql
+compile-validation blocked-metadata integration cases where the test kit drives
+core compile flows.
 
 ## Compatibility contract
 
@@ -271,7 +284,7 @@ tests must cover:
 - diagnostics that reference rendered connection config keys or values with
   changed casing or other simple transformations,
 - numeric diagnostic fields such as `line` and `column` when they match rendered
-  scalar profile values.
+  scalar profile values, including integer-valued fields and numeric strings.
 
 Adapter diagnostics are public output. External adapters must not place
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
@@ -287,9 +300,9 @@ hints alone. The shared test kit should include case-variant and
 transformation-variant redaction cases, such as `PASSWORD`, `database`,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
 independently in diagnostic message, hint, path, `resource_type`,
-`resource_name`, `line`, and `column`. It must also include adapter factory and capability
-declaration exceptions and exception-raising adapter metadata whose raw
-exception messages contain rendered profile keys or values.
+`resource_name`, `line`, and `column`. It must also include adapter factory and
+capability declaration exceptions and exception-raising adapter metadata whose
+raw exception messages contain rendered profile keys or values.
 
 A future structured redaction API or secret-classification model would be a
 durable adapter contract change. If Recon needs that model, update the adapter

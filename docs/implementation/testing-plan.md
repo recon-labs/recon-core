@@ -173,6 +173,15 @@ diagnostics, de-duplicates repeated same-connection setup diagnostics in service
 and CLI output, and preserves distinct source/target connection setup
 diagnostics.
 
+Adapter-aware compile tests should also cover the core-owned case where compile
+validation fails before adapter rendering starts. When `--render-sql` was
+requested, otherwise renderable checks must be marked `blocked` with
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, compiled SQL must not be
+written, and adapter factories/renderers must not be invoked. A future shared
+adapter test kit only needs this case when it drives core compile flows; pure
+adapter API conformance should reference the core artifact requirement instead
+of duplicating compiler validation tests.
+
 The same adapter API conformance suite should cover profile rendering and
 adapter diagnostic redaction before adapter execution, connection debug or
 profile validation commands, external adapter repositories, or compatibility
@@ -193,8 +202,10 @@ instead of dropping the message field. Redaction tests should include
 case-variant and simple transformation cases, including uppercase or lowercase
 config keys, non-string rendered values, case-changed rendered values, DSN
 substrings, tokens, and passwords appearing independently in diagnostic
-message, hint, path, `resource_type`, `resource_name`, `rendering.adapter_type`,
-and any future structured diagnostic fields.
+message, hint, path, `resource_type`, `resource_name`, `line`, `column`,
+`rendering.adapter_type`, and any future structured diagnostic fields. Numeric
+field cases must cover integer-valued `line` and `column` diagnostics as well as
+numeric strings that match rendered scalar profile values.
 
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 define a SQL comparison conformance matrix. The matrix should make comparison
@@ -253,6 +264,9 @@ Examples:
 - check requirements included,
 - identity metadata included,
 - blocked checks include `blocked_by` and `skip_reason`,
+- render-sql requests blocked by compile validation use `rendering.status:
+  blocked` with `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, not
+  `not_rendered`,
 - artifact versions included.
 - diagnostics preserve code, severity, message, path, resource context, and
   hint where available.

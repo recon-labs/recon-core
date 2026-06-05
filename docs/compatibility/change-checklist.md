@@ -28,11 +28,14 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated `docs/compatibility/public-contract-inventory.md` when a public
       surface was added, removed, renamed, stabilized, or changed.
 - [ ] Checked whether diagnostic code, message, redaction, path,
-      `resource_type`, `resource_name`, hint rendering, or future structured
-      diagnostic fields changed for any public output surface.
+      `resource_type`, `resource_name`, `line`, `column`, hint rendering, or
+      future structured diagnostic fields changed for any public output surface.
 - [ ] Checked whether generated artifact cleanup, publish ordering, stale
       output removal, or partial-write behavior changed for any generated
       artifact surface.
+- [ ] Checked whether render-sql requests that fail before adapter rendering
+      still write accurate `rendering.status` metadata instead of implying
+      rendering was not requested.
 
 ### Changelog impact
 
@@ -62,8 +65,11 @@ review. This checklist is a process guide; it is not a CI gate.
       redaction behavior, or adapter-provided diagnostic fields changed.
 - [ ] Checked case-variant and simple-transformation redaction cases when
       adapter diagnostics can reference rendered profile config in message,
-      hint, path, `resource_type`, `resource_name`, or future structured
-      diagnostic fields.
+      hint, path, `resource_type`, `resource_name`, `line`, `column`, or future
+      structured diagnostic fields.
+- [ ] Checked whether any shared adapter test-kit compile-flow harness must
+      assert `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and no
+      adapter invocation when compile validation already failed.
 - [ ] Documented unsupported capability behavior when adapters are not required
       to implement a new operation.
 

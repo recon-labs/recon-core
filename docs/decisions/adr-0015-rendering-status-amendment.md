@@ -35,6 +35,11 @@ Implementation note, 2026-06-01: the migration from earlier draft statuses to
 `blocked` and `failed` has been applied in code, tests, compiled-artifact
 examples, and compatibility docs.
 
+Implementation note, 2026-06-05: when `recon compile --render-sql` is requested
+but compile validation prevents the adapter rendering phase from starting,
+otherwise renderable checks are still `blocked`, not `not_rendered`, and carry
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`.
+
 ## Relationship to ADR 0015
 
 This amendment qualifies ADR 0015's rendering-status section. ADR 0015 remains the compiled artifact schema decision, but ADR 0020 and this amendment control Milestone 6 adapter-aware rendering-status migration wording.
