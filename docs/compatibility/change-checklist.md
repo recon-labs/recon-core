@@ -68,6 +68,12 @@ review. This checklist is a process guide; it is not a CI gate.
       behavior changed.
 - [ ] Updated adapter diagnostic expectations when diagnostic messages,
       redaction behavior, or adapter-provided diagnostic fields changed.
+- [ ] Checked adapter factory diagnostic field-shape conformance when adapter
+      resolution is involved: invalid `Diagnostic` field values, including
+      string severities, empty or non-string `code` or `message`, non-string
+      optional context fields, and non-integer `line` or `column`, must become
+      `RC_ADAPTER_RESOLUTION_FAILED` before redaction, rendering, artifact
+      writing, or execution consumes them.
 - [ ] Checked case-variant and simple-transformation redaction cases when
       adapter diagnostics can reference rendered profile config in message,
       hint, path, `resource_type`, `resource_name`, `line`, `column`, or future

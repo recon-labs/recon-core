@@ -284,7 +284,11 @@ any external adapter repo or shared test-kit repo claims compatibility.
 Malformed factory diagnostic payloads are adapter-boundary failures, not
 adapter-authored diagnostics; they must become `RC_ADAPTER_RESOLUTION_FAILED`
 before profile-backed redaction, rendering, execution, or artifact-writing code
-consumes them.
+consumes them. This includes invalid `Diagnostic` field values, not only
+malformed containers or non-`Diagnostic` entries: resolution diagnostics must
+carry a non-empty string `code`, `DiagnosticSeverity` severity, non-empty string
+`message`, optional string context fields, and optional integer `line` and
+`column` fields.
 Adapter setup failures must also keep compiled SQL absent, mark affected
 compiled checks blocked with structured diagnostics, treat factory results that
 include both adapters and diagnostics as setup failures, de-duplicate repeated
@@ -377,12 +381,15 @@ must include profile-rendering and diagnostic-redaction conformance, including
 sanitized adapter factory exceptions, sanitized capability declaration
 exceptions, sanitized adapter metadata exceptions, empty and malformed
 renderer output failures, field-by-field diagnostic redaction, and safe
-non-empty diagnostic messages. It must also include adapter setup failure cases
-that assert no compiled SQL output, blocked compiled-check metadata, and
-de-duplicated repeated same-connection service diagnostics while preserving
-distinct source/target connection diagnostics in service and blocked
-compiled-check artifact output. Field-by-field diagnostic redaction includes
-`line` and `column`, and compile-flow harnesses must cover
+non-empty diagnostic messages. It must also include malformed factory
+diagnostic payload cases for invalid `Diagnostic` field values, including
+string severities, empty or non-string `code` or `message`, non-string optional
+context fields, and non-integer `line` or `column` values. Adapter setup
+failure cases must assert no compiled SQL output, blocked compiled-check
+metadata, and de-duplicated repeated same-connection service diagnostics while
+preserving distinct source/target connection diagnostics in service and
+blocked compiled-check artifact output. Field-by-field diagnostic redaction
+includes `line` and `column`, and compile-flow harnesses must cover
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` when compile validation
 prevents a requested adapter rendering phase from starting.
 

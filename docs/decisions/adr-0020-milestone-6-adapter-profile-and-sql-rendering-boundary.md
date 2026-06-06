@@ -398,7 +398,10 @@ Milestone 6 implementation should add tests before code for:
 - adapter API version compatibility,
 - adapter registry resolution by connection type, including malformed factory
   results and malformed factory diagnostic payloads as
-  `RC_ADAPTER_RESOLUTION_FAILED`,
+  `RC_ADAPTER_RESOLUTION_FAILED`; malformed diagnostic payloads include
+  invalid `Diagnostic` field values such as string severities, empty or
+  non-string `code` or `message`, non-string optional context fields, and
+  non-integer `line` or `column` values,
 - relation-endpoint support validation for selected contracts,
 - capability support-state validation for operation-specific requirements,
 - DuckDB renderer capability declarations,

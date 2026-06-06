@@ -160,7 +160,11 @@ adapter nor diagnostics, or returning a malformed resolution result, fails with
 execution to succeed. Malformed diagnostic containers or entries inside a
 factory resolution result are malformed resolution results and must also fail
 with `RC_ADAPTER_RESOLUTION_FAILED` before diagnostic redaction, rendering, or
-execution consumes them. The same conformance suite should verify that missing
+artifact-writing, or execution consumes them. Malformed field values are part
+of this boundary: representative conformance cases should include a string
+severity such as `"error"` instead of `DiagnosticSeverity`, empty or non-string
+`code` or `message`, non-string optional context fields, and non-integer
+`line` or `column` values. The same conformance suite should verify that missing
 or invalid adapter API version declarations fail with
 `RC_ADAPTER_API_VERSION_UNSUPPORTED`, malformed capability support states become
 structured diagnostics, invalid or exception-raising `adapter_type` metadata

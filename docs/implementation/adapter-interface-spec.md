@@ -147,10 +147,14 @@ or returns a malformed resolution result fails resolution with
 fail resolution with a generic sanitized `RC_ADAPTER_RESOLUTION_FAILED`
 diagnostic rather than surfacing raw adapter error text.
 Resolution diagnostics must be structured `Diagnostic` entries. Malformed
-diagnostic containers or entries inside an otherwise valid resolution wrapper
-are malformed resolution results and must fail with
+diagnostic containers, entries, or field values inside an otherwise valid
+resolution wrapper are malformed resolution results and must fail with
 `RC_ADAPTER_RESOLUTION_FAILED` before downstream compile, redaction, rendering,
-or execution code consumes them.
+artifact-writing, or execution code consumes them. Resolution diagnostics must
+be serialization-safe at the adapter boundary: `code` and `message` must be
+non-empty strings, `severity` must be a `DiagnosticSeverity`, optional text
+context fields must be strings when present, and `line` and `column` must be
+integers when present.
 Factory diagnostics are public output. They must not include credentials,
 tokens, DSNs, passwords, fully rendered connection payloads, or other
 secret-classified values from rendered profile config.

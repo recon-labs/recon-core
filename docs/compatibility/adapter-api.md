@@ -82,9 +82,17 @@ and an empty or malformed resolution result must fail with
 execution report success. Malformed diagnostic payloads inside a resolution
 result are malformed resolution results and must fail with
 `RC_ADAPTER_RESOLUTION_FAILED` before any compile-service diagnostic redaction,
-rendering, or execution code consumes them. If a factory returns both an adapter
-and diagnostics, the diagnostics are setup failures and the adapter must not be
-used for rendering or execution. Missing or invalid adapter API version
+rendering, artifact-writing, or execution code consumes them. This includes
+field-level malformed diagnostics, not only malformed containers or non-
+`Diagnostic` entries: adapter-provided resolution diagnostics must have a
+non-empty string `code`, a `DiagnosticSeverity` `severity`, a non-empty string
+`message`, optional string `resource_type`, `resource_name`, `path`, and `hint`
+fields, and optional integer `line` and `column` fields. Representative
+test-kit cases must include a string severity such as `"error"`, empty or
+non-string `code` or `message`, non-string resource metadata, and non-integer
+`line` or `column` values. If a factory returns both an adapter and diagnostics,
+the diagnostics are setup failures and the adapter must not be used for
+rendering or execution. Missing or invalid adapter API version
 declarations must fail with `RC_ADAPTER_API_VERSION_UNSUPPORTED`, and missing,
 non-string, empty, or exception-raising `adapter_type` metadata must fail with
 `RC_ADAPTER_METADATA_INVALID` before rendering or execution. Malformed
@@ -165,9 +173,13 @@ Adapter factories must return either an adapter or one or more diagnostics.
 Returning neither, or returning a malformed resolution object, is an adapter
 resolution failure and must surface `RC_ADAPTER_RESOLUTION_FAILED`. Factory
 resolution diagnostics must be a tuple of structured diagnostics; malformed
-diagnostic containers or entries are malformed resolution results and must
-surface `RC_ADAPTER_RESOLUTION_FAILED`. Factory exceptions must also resolve to
-a generic sanitized
+diagnostic containers, entries, or field values are malformed resolution
+results and must surface `RC_ADAPTER_RESOLUTION_FAILED`. Structured resolution
+diagnostics must be safe to serialize before profile-backed redaction,
+rendering, artifact writing, or execution sees them: `code` and `message` must
+be non-empty strings, `severity` must be a `DiagnosticSeverity`, optional
+text context fields must be strings when present, and `line` and `column` must
+be integers when present. Factory exceptions must also resolve to a generic sanitized
 `RC_ADAPTER_RESOLUTION_FAILED` diagnostic instead of leaking raw adapter
 exception text.
 
