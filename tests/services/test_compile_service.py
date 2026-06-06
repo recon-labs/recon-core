@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
@@ -797,6 +798,50 @@ def test_render_sql_compile_sanitizes_decimal_short_numeric_text_and_resource_fi
     _assert_render_sql_blocked_artifact(
         tmp_path,
         "RC_TEST_ADAPTER_DECIMAL_SHORT_NUMERIC_TEXT_LEAK",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_sanitizes_integer_equivalent_text_for_quoted_decimal_profile_values(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="integer_equivalent_quoted_decimal_text_leaky",
+        port='"12.0"',
+    )
+    registry = AdapterRegistry()
+    registry.register(
+        "integer_equivalent_quoted_decimal_text_leaky",
+        IntegerEquivalentQuotedDecimalTextLeakyAdapterFactory(),
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_INTEGER_EQUIVALENT_QUOTED_DECIMAL_TEXT_LEAK",
+        "RC_TEST_ADAPTER_INTEGER_EQUIVALENT_QUOTED_DECIMAL_TEXT_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "endpoint 12" not in public_output
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_TEST_ADAPTER_INTEGER_EQUIVALENT_QUOTED_DECIMAL_TEXT_LEAK",
     )
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
@@ -1938,6 +1983,24 @@ class DecimalShortNumericTextLeakyAdapterFactory:
         )
 
 
+class IntegerEquivalentQuotedDecimalTextLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        port = str(int(Decimal(str(connection.config.get("port")))))
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_INTEGER_EQUIVALENT_QUOTED_DECIMAL_TEXT_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Adapter setup failed at endpoint {port}.",
+                    resource_type=f"endpoint-{port}",
+                    resource_name=port,
+                    path=f"adapter://endpoint/{port}",
+                    hint=f"Inspect endpoint {port}.",
+                ),
+            )
+        )
+
+
 class ShortNumericAdapterTypeAdapter(FakeAdapter):
     adapter_type = "12"
 
@@ -2550,7 +2613,7 @@ def write_profiles(
     use_distinct_databases: bool = False,
     include_password: bool = False,
     password: str = "super-secret",
-    port: int | None = None,
+    port: int | str | None = None,
 ) -> None:
     legacy_database = "legacy.duckdb" if use_distinct_databases else "local.duckdb"
     warehouse_database = "warehouse.duckdb" if use_distinct_databases else "local.duckdb"

@@ -999,9 +999,7 @@ def _integer_like_value(value: object) -> int | None:
         stripped = value.strip()
         if stripped == "":
             return None
-        digits = stripped[1:] if stripped[:1] in {"+", "-"} else stripped
-        if digits.isdecimal():
-            return int(stripped)
+        return _integer_like_numeric_literal(stripped)
     return None
 
 
