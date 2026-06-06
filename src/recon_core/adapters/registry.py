@@ -186,8 +186,36 @@ def _invalid_resolution_result(connection: ConnectionConfig) -> AdapterResolutio
 def _valid_resolution_diagnostics(result: AdapterResolutionResult) -> bool:
     diagnostics = result.diagnostics
     return isinstance(diagnostics, tuple) and all(
-        isinstance(diagnostic, Diagnostic) for diagnostic in diagnostics
+        _valid_resolution_diagnostic(diagnostic) for diagnostic in diagnostics
     )
+
+
+def _valid_resolution_diagnostic(diagnostic: object) -> bool:
+    if not isinstance(diagnostic, Diagnostic):
+        return False
+    return (
+        _non_empty_string(diagnostic.code)
+        and isinstance(diagnostic.severity, DiagnosticSeverity)
+        and _non_empty_string(diagnostic.message)
+        and _optional_string(diagnostic.resource_type)
+        and _optional_string(diagnostic.resource_name)
+        and _optional_string(diagnostic.path)
+        and _optional_int(diagnostic.line)
+        and _optional_int(diagnostic.column)
+        and _optional_string(diagnostic.hint)
+    )
+
+
+def _non_empty_string(value: object) -> bool:
+    return isinstance(value, str) and value != ""
+
+
+def _optional_string(value: object) -> bool:
+    return value is None or isinstance(value, str)
+
+
+def _optional_int(value: object) -> bool:
+    return value is None or (isinstance(value, int) and not isinstance(value, bool))
 
 
 def _invalid_adapter_type_diagnostic(

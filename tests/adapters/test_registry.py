@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, cast
 
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
@@ -62,6 +62,19 @@ class MalformedDiagnosticsFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult(
             diagnostics=cast(tuple[Diagnostic, ...], ("not-a-diagnostic",))
+        )
+
+
+class MalformedDiagnosticFieldsFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_MALFORMED_DIAGNOSTIC_FIELD",
+                    severity=cast(Any, "error"),
+                    message="Malformed diagnostic field.",
+                ),
+            )
         )
 
 
@@ -175,6 +188,20 @@ def test_registry_reports_malformed_adapter_resolution_diagnostics() -> None:
         "RC_ADAPTER_RESOLUTION_FAILED"
     ]
     assert result.diagnostics[0].resource_name == "malformed"
+
+
+def test_registry_reports_malformed_adapter_resolution_diagnostic_fields() -> None:
+    registry = AdapterRegistry()
+    registry.register("malformed_fields", MalformedDiagnosticFieldsFactory())
+
+    result = registry.resolve(ConnectionConfig(name="source", type="malformed_fields"))
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert result.diagnostics[0].resource_name == "malformed_fields"
 
 
 def test_registry_reports_none_diagnostics_with_adapter() -> None:

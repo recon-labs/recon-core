@@ -310,6 +310,41 @@ def test_render_sql_compile_reports_malformed_adapter_resolution_diagnostics(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_reports_malformed_adapter_resolution_diagnostic_fields(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="malformed_diagnostic_fields")
+    registry = AdapterRegistry()
+    registry.register(
+        "malformed_diagnostic_fields",
+        MalformedDiagnosticFieldsAdapterFactory(),
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
+    ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message=(
+            "Adapter factory for type `malformed_diagnostic_fields` returned an invalid "
+            "resolution result."
+        ),
+    )
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_adapter_factory_exceptions(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
@@ -1744,6 +1779,19 @@ class MalformedDiagnosticsAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult(
             diagnostics=cast(tuple[Diagnostic, ...], ("not-a-diagnostic",))
+        )
+
+
+class MalformedDiagnosticFieldsAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_MALFORMED_DIAGNOSTIC_FIELD",
+                    severity=cast(Any, "error"),
+                    message="Malformed diagnostic field.",
+                ),
+            )
         )
 
 

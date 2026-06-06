@@ -156,9 +156,9 @@ This project follows semantic versioning once public package releases begin.
   capability support states as structured diagnostics instead of uncaught
   exceptions.
 - Adapter-aware SQL rendering now reports adapter factory resolution results
-  with malformed diagnostic payloads as structured
-  `RC_ADAPTER_RESOLUTION_FAILED` diagnostics instead of crashing during
-  diagnostic redaction.
+  with malformed diagnostic payloads, including invalid `Diagnostic` field
+  values, as structured `RC_ADAPTER_RESOLUTION_FAILED` diagnostics instead of
+  crashing during diagnostic redaction or artifact serialization.
 - YAML parse diagnostics now suppress raw parser snippets in public diagnostic
   messages so malformed authored files do not leak source/target query text or
   private literals through CLI output, manifest diagnostics, or logs.
