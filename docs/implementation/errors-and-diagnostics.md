@@ -326,7 +326,8 @@ diagnostic text and unsafe resource metadata, then return a generic adapter
 diagnostic with the original diagnostic code and severity. The replacement
 diagnostic must still include a safe, actionable message and safe resource
 context. Rendered profile values include scalar YAML values after rendering,
-including non-string values such as numeric credentials.
+including non-string values such as numeric credentials and rendered numeric
+strings such as quoted YAML or env-var-derived `"12.0"`.
 If an adapter factory returns a malformed result, or if an adapter factory,
 adapter metadata declaration, or capability declaration raises an exception,
 Recon should suppress raw adapter payloads and return a generic structured
@@ -352,6 +353,8 @@ scalars such as port values when they appear in diagnostic `message`, `hint`,
 `rendering.adapter_type`. Short numeric cases must include equivalent formatted
 variants such as `12`, `12.0`, `+12`, and integer-equivalent scientific
 notation, because adapters may stringify the same rendered scalar differently.
+They must cover rendered numeric strings such as `"12.0"` as profile values, not
+only adapter diagnostics that emit decimal text from integer profile values.
 Long password-shaped numeric values alone do not prove exact short-token
 redaction. Core compile-flow conformance must also verify
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` appears in compiled-check

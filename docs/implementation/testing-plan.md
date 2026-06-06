@@ -221,9 +221,13 @@ unsafe resource metadata, numeric `line`/`column`, and
 `rendering.adapter_type`, so the suite proves exact short-token redaction and
 not only long secret-like tokens. Short numeric scalar cases should include
 alternate integer-equivalent representations such as `12.0`, `+12`, and
-`1.2e1`, and assertions should inspect the specific public diagnostic or
-rendering fields under test rather than scanning whole generated artifacts where
-checksums or stable IDs can contain unrelated short numerals.
+`1.2e1`. They must cover both directions: an integer-like profile scalar emitted
+by an adapter as a decimal or scientific string, and a rendered numeric-string
+profile scalar such as `"12.0"` or an env-var-rendered string emitted by an
+adapter as `12`, `+12`, or `1.2e1`. Assertions should inspect the specific
+public diagnostic or rendering fields under test rather than scanning whole
+generated artifacts where checksums or stable IDs can contain unrelated short
+numerals.
 
 Before check execution, runner/results, evidence/reporting, debug commands, or
 adapter test-kit execution surfaces are implemented or claimed compatible, add

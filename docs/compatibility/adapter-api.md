@@ -319,7 +319,9 @@ tests must cover:
   only when they appear in numeric diagnostic fields. These cases must include
   alternate integer-equivalent representations such as `12.0`, `+12`, and
   `1.2e1`, because adapters and database clients may format the same rendered
-  scalar differently.
+  scalar differently. They must also include rendered numeric-string profile
+  values, such as quoted YAML or env-var-derived `"12.0"`, when an adapter emits
+  the equivalent value as `12`, `+12`, or `1.2e1`.
 
 Adapter diagnostics are public output. External adapters must not place
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
@@ -339,7 +341,10 @@ independently in diagnostic message, hint, path, `resource_type`,
 rendered scalar cases must include text fields, resource metadata,
 `rendering.adapter_type`, and numeric fields such as `line` and `column`; they
 must also include equivalent formatted variants such as `12.0`, `+12`, and
-`1.2e1`. Long password-shaped numeric values alone are not sufficient. It must
+`1.2e1`, including the reverse case where the rendered profile value is a
+numeric string such as `"12.0"` and the adapter emits an integer-equivalent
+variant such as `12`. Long password-shaped numeric values alone are not
+sufficient. It must
 also include adapter factory and capability declaration exceptions and
 exception-raising adapter metadata whose raw exception messages contain rendered
 profile keys or values.

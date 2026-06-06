@@ -335,7 +335,10 @@ password-shaped numeric values is not enough for adapter compatibility. The
 matrix must also include equivalent formatted numeric variants such as `12.0`,
 `+12`, and `1.2e1` in diagnostic text, resource metadata, and
 `rendering.adapter_type`, because adapters and database clients may stringify
-the same rendered scalar differently.
+the same rendered scalar differently. This must include both integer profile
+values emitted as formatted numeric text and rendered numeric-string profile
+values, such as quoted YAML or env-var-derived `"12.0"`, emitted as `12`, `+12`,
+or `1.2e1`.
 
 ## Design principle
 
