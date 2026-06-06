@@ -617,6 +617,87 @@ def test_render_sql_compile_sanitizes_numeric_adapter_resolution_diagnostic_code
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_embedded_adapter_resolution_diagnostic_codes(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="embedded_code_leaky", include_password=True)
+    registry = AdapterRegistry()
+    registry.register("embedded_code_leaky", EmbeddedCodeLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "super-secret" not in public_output
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_sanitizes_embedded_numeric_adapter_resolution_diagnostic_codes(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="embedded_numeric_code_leaky",
+        port=12,
+    )
+    registry = AdapterRegistry()
+    registry.register(
+        "embedded_numeric_code_leaky",
+        EmbeddedNumericCodeLeakyAdapterFactory(),
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "12" not in public_output
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_reports_missing_adapter_api_version(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
@@ -2091,6 +2172,38 @@ class NumericCodeLeakyAdapterFactory:
             diagnostics=(
                 Diagnostic(
                     code=str(connection.config.get("port")),
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter setup failed safely.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint="Inspect the adapter configuration.",
+                ),
+            )
+        )
+
+
+class EmbeddedCodeLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code=f"RC{connection.config.get('password')}LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter setup failed safely.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint="Inspect the adapter configuration.",
+                ),
+            )
+        )
+
+
+class EmbeddedNumericCodeLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code=f"RC{connection.config.get('port')}LEAK",
                     severity=DiagnosticSeverity.ERROR,
                     message="Adapter setup failed safely.",
                     resource_type="adapter",

@@ -583,6 +583,12 @@ class _RenderSqlCompilationResult:
     diagnostics: tuple[Diagnostic, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class _DiagnosticCodeConfigTokens:
+    boundary_tokens: frozenset[str]
+    embedded_value_tokens: frozenset[str]
+
+
 def _resolve_render_sql_adapters(
     profile: SelectedProfile,
     *,
@@ -595,6 +601,10 @@ def _resolve_render_sql_adapters(
 
     for connection in profile.connections.values():
         config_tokens = _connection_config_tokens(connection.config, adapter_type=connection.type)
+        code_config_tokens = _connection_config_code_tokens(
+            connection.config,
+            adapter_type=connection.type,
+        )
         numeric_field_tokens = _connection_config_numeric_field_tokens(
             connection.config,
             adapter_type=connection.type,
@@ -606,6 +616,7 @@ def _resolve_render_sql_adapters(
                 resolution.diagnostics,
                 connection=connection,
                 config_tokens=config_tokens,
+                code_config_tokens=code_config_tokens,
                 numeric_field_tokens=numeric_field_tokens,
             ),
             connection=connection,
@@ -623,6 +634,7 @@ def _resolve_render_sql_adapters(
                 resolve_adapter_type(resolution.adapter).diagnostics,
                 connection=connection,
                 config_tokens=config_tokens,
+                code_config_tokens=code_config_tokens,
                 numeric_field_tokens=numeric_field_tokens,
             ),
             connection=connection,
@@ -639,6 +651,7 @@ def _resolve_render_sql_adapters(
                 validate_adapter_api_compatibility(resolution.adapter),
                 connection=connection,
                 config_tokens=config_tokens,
+                code_config_tokens=code_config_tokens,
                 numeric_field_tokens=numeric_field_tokens,
             ),
             connection=connection,
@@ -664,6 +677,7 @@ def _sanitize_profile_backed_adapter_diagnostics(
     *,
     connection: ConnectionConfig,
     config_tokens: frozenset[str],
+    code_config_tokens: _DiagnosticCodeConfigTokens,
     numeric_field_tokens: frozenset[int],
 ) -> tuple[Diagnostic, ...]:
     return tuple(
@@ -671,6 +685,7 @@ def _sanitize_profile_backed_adapter_diagnostics(
             diagnostic,
             connection=connection,
             config_tokens=config_tokens,
+            code_config_tokens=code_config_tokens,
             numeric_field_tokens=numeric_field_tokens,
         )
         for diagnostic in diagnostics
@@ -704,6 +719,7 @@ def _sanitize_profile_backed_render_result(
     *,
     connection: ConnectionConfig,
     config_tokens: frozenset[str],
+    code_config_tokens: _DiagnosticCodeConfigTokens,
     numeric_field_tokens: frozenset[int],
 ) -> RenderedCheckSql:
     return replace(
@@ -712,6 +728,7 @@ def _sanitize_profile_backed_render_result(
             render_result.diagnostics,
             connection=connection,
             config_tokens=config_tokens,
+            code_config_tokens=code_config_tokens,
             numeric_field_tokens=numeric_field_tokens,
         ),
         adapter_type=_sanitize_profile_backed_adapter_type(
@@ -745,11 +762,12 @@ def _sanitize_profile_backed_adapter_diagnostic(
     *,
     connection: ConnectionConfig,
     config_tokens: frozenset[str],
+    code_config_tokens: _DiagnosticCodeConfigTokens,
     numeric_field_tokens: frozenset[int],
 ) -> Diagnostic:
     code_mentions_config_token = _diagnostic_code_mentions_config_token(
         diagnostic,
-        config_tokens,
+        code_config_tokens,
         numeric_field_tokens,
     )
     if not code_mentions_config_token and not _diagnostic_mentions_config_token(
@@ -781,12 +799,15 @@ def _sanitize_profile_backed_adapter_diagnostic(
 
 def _diagnostic_code_mentions_config_token(
     diagnostic: Diagnostic,
-    config_tokens: frozenset[str],
+    code_config_tokens: _DiagnosticCodeConfigTokens,
     numeric_field_tokens: frozenset[int],
 ) -> bool:
     return _code_mentions_config_token(
         diagnostic.code,
-        config_tokens,
+        code_config_tokens.boundary_tokens,
+    ) or _text_mentions_config_token(
+        diagnostic.code,
+        code_config_tokens.embedded_value_tokens,
     ) or _code_mentions_numeric_config_token(diagnostic.code, numeric_field_tokens)
 
 
@@ -823,6 +844,24 @@ def _connection_config_numeric_field_tokens(
         tokens=tokens,
     )
     return frozenset(tokens)
+
+
+def _connection_config_code_tokens(
+    value: Mapping[str, Any],
+    *,
+    adapter_type: str,
+) -> _DiagnosticCodeConfigTokens:
+    boundary_tokens = set(_connection_config_tokens(value, adapter_type=adapter_type))
+    embedded_value_tokens: set[str] = set()
+    _collect_connection_config_code_tokens(
+        value,
+        adapter_type=adapter_type,
+        embedded_value_tokens=embedded_value_tokens,
+    )
+    return _DiagnosticCodeConfigTokens(
+        boundary_tokens=frozenset(boundary_tokens),
+        embedded_value_tokens=frozenset(embedded_value_tokens),
+    )
 
 
 def _collect_connection_config_tokens(
@@ -868,6 +907,49 @@ def _collect_connection_config_tokens(
         len(token) >= 3 or (current_key is not None and _is_secret_like_config_key(current_key))
     ):
         tokens.add(token)
+
+
+def _collect_connection_config_code_tokens(
+    value: object,
+    *,
+    adapter_type: str,
+    embedded_value_tokens: set[str],
+    current_key: str | None = None,
+) -> None:
+    if isinstance(value, Mapping):
+        for key, nested_value in value.items():
+            key_text = key if isinstance(key, str) else None
+            _collect_connection_config_code_tokens(
+                nested_value,
+                adapter_type=adapter_type,
+                embedded_value_tokens=embedded_value_tokens,
+                current_key=key_text,
+            )
+        return
+
+    if isinstance(value, str):
+        if value != "" and value.casefold() != adapter_type.casefold():
+            embedded_value_tokens.add(value)
+        return
+
+    if isinstance(value, list | tuple):
+        for item in value:
+            _collect_connection_config_code_tokens(
+                item,
+                adapter_type=adapter_type,
+                embedded_value_tokens=embedded_value_tokens,
+                current_key=current_key,
+            )
+        return
+
+    if value is None or isinstance(value, bool):
+        return
+
+    token = str(value)
+    if token != "" and (
+        len(token) >= 3 or (current_key is not None and _is_secret_like_config_key(current_key))
+    ):
+        embedded_value_tokens.add(token)
 
 
 def _collect_connection_config_numeric_field_tokens(
@@ -1003,8 +1085,6 @@ def _code_mentions_numeric_config_token(
 
 def _code_mentions_numeric_token(text: str, token: int) -> bool:
     for match in _NUMERIC_LITERAL_PATTERN.finditer(text):
-        if not _code_token_has_text_boundaries(text, match.start(), match.end()):
-            continue
         if _integer_like_numeric_literal(match.group(0)) == token:
             return True
     return False
@@ -1103,11 +1183,19 @@ def _render_compiled_sql_in_memory(
             source_adapter.connection.config,
             adapter_type=source_adapter.connection.type,
         )
+        source_code_config_tokens = _connection_config_code_tokens(
+            source_adapter.connection.config,
+            adapter_type=source_adapter.connection.type,
+        )
         source_numeric_field_tokens = _connection_config_numeric_field_tokens(
             source_adapter.connection.config,
             adapter_type=source_adapter.connection.type,
         )
         target_config_tokens = _connection_config_tokens(
+            target_adapter.connection.config,
+            adapter_type=target_adapter.connection.type,
+        )
+        target_code_config_tokens = _connection_config_code_tokens(
             target_adapter.connection.config,
             adapter_type=target_adapter.connection.type,
         )
@@ -1121,12 +1209,14 @@ def _render_compiled_sql_in_memory(
             source_adapter_type_resolution.diagnostics,
             connection=source_adapter.connection,
             config_tokens=source_config_tokens,
+            code_config_tokens=source_code_config_tokens,
             numeric_field_tokens=source_numeric_field_tokens,
         )
         target_metadata_diagnostics = _sanitize_profile_backed_adapter_diagnostics(
             target_adapter_type_resolution.diagnostics,
             connection=target_adapter.connection,
             config_tokens=target_config_tokens,
+            code_config_tokens=target_code_config_tokens,
             numeric_field_tokens=target_numeric_field_tokens,
         )
         metadata_diagnostics = source_metadata_diagnostics + target_metadata_diagnostics
@@ -1209,6 +1299,7 @@ def _render_compiled_sql_in_memory(
                 diagnostic,
                 connection=source_adapter.connection,
                 config_tokens=source_config_tokens,
+                code_config_tokens=source_code_config_tokens,
                 numeric_field_tokens=source_numeric_field_tokens,
             )
             diagnostics.append(diagnostic)
@@ -1231,6 +1322,7 @@ def _render_compiled_sql_in_memory(
                 render_result,
                 connection=source_adapter.connection,
                 config_tokens=source_config_tokens,
+                code_config_tokens=source_code_config_tokens,
                 numeric_field_tokens=source_numeric_field_tokens,
             )
             results_by_check_id[check.id] = render_result
