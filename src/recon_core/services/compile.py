@@ -1,9 +1,11 @@
 """Compile command service."""
 
+import re
 import shutil
 from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass, replace
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +55,7 @@ ADAPTER_RENDERING_OUTPUT_SUPPRESSED = "RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED"
 ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS = (
     "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS"
 )
+_NUMERIC_LITERAL_PATTERN = re.compile(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 
 
 @dataclass(frozen=True, slots=True)
@@ -894,7 +897,7 @@ def _diagnostic_mentions_config_token(
     if _diagnostic_numeric_fields_match_config_token(diagnostic, numeric_field_tokens):
         return True
 
-    if not config_tokens:
+    if not config_tokens and not numeric_field_tokens:
         return False
 
     diagnostic_text = "\n".join(
@@ -943,33 +946,46 @@ def _text_mentions_numeric_config_token(
     numeric_field_tokens: frozenset[int],
 ) -> bool:
     return any(
-        _text_mentions_numeric_token(text, str(numeric_token))
+        _text_mentions_numeric_token(text, numeric_token)
         for numeric_token in numeric_field_tokens
     )
 
 
-def _text_mentions_numeric_token(text: str, token: str) -> bool:
-    start = 0
-    while True:
-        index = text.find(token, start)
-        if index == -1:
-            return False
-        end = index + len(token)
-        if _numeric_token_has_text_boundaries(text, index, end):
+def _text_mentions_numeric_token(text: str, token: int) -> bool:
+    for match in _NUMERIC_LITERAL_PATTERN.finditer(text):
+        if not _numeric_literal_has_text_boundaries(text, match.start(), match.end()):
+            continue
+        if _integer_like_numeric_literal(match.group(0)) == token:
             return True
-        start = index + 1
+    return False
 
 
-def _numeric_token_has_text_boundaries(text: str, start: int, end: int) -> bool:
+def _numeric_literal_has_text_boundaries(text: str, start: int, end: int) -> bool:
+    previous_previous_char = text[start - 2] if start > 1 else ""
     previous_char = text[start - 1] if start > 0 else ""
     next_char = text[end] if end < len(text) else ""
     next_next_char = text[end + 1] if end + 1 < len(text) else ""
 
     if previous_char.isalnum() or previous_char in {"_", "+", "-"}:
         return False
+    if previous_char == "." and previous_previous_char.isdecimal():
+        return False
     if next_char.isalnum() or next_char == "_":
         return False
     return not (next_char == "." and next_next_char.isdecimal())
+
+
+def _integer_like_numeric_literal(value: str) -> int | None:
+    try:
+        numeric_value = Decimal(value)
+    except InvalidOperation:
+        return None
+    if not numeric_value.is_finite():
+        return None
+    integer_value = numeric_value.to_integral_value()
+    if numeric_value != integer_value:
+        return None
+    return int(integer_value)
 
 
 def _integer_like_value(value: object) -> int | None:

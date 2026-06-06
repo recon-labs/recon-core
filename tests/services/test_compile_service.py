@@ -19,7 +19,7 @@ from recon_core.adapters import (
 from recon_core.adapters.duckdb import DuckDbAdapterFactory, DuckDbSqlRenderer
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
-from recon_core.services import CompileService
+from recon_core.services import CompileService, ServiceResult
 from recon_core.services.results import ExitCategory
 
 
@@ -740,13 +740,7 @@ def test_render_sql_compile_sanitizes_short_numeric_text_and_resource_fields(
             encoding="utf-8"
         )
     )
-    public_output = yaml.safe_dump(
-        {
-            "service": [diagnostic.to_dict() for diagnostic in result.diagnostics],
-            "artifact": checks_artifact,
-        },
-        sort_keys=False,
-    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering adapter configuration failed."
@@ -759,6 +753,50 @@ def test_render_sql_compile_sanitizes_short_numeric_text_and_resource_fields(
     _assert_render_sql_blocked_artifact(
         tmp_path,
         "RC_TEST_ADAPTER_SHORT_NUMERIC_TEXT_LEAK",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_sanitizes_decimal_short_numeric_text_and_resource_fields(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="decimal_short_numeric_text_leaky",
+        port=12,
+    )
+    registry = AdapterRegistry()
+    registry.register(
+        "decimal_short_numeric_text_leaky",
+        DecimalShortNumericTextLeakyAdapterFactory(),
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_DECIMAL_SHORT_NUMERIC_TEXT_LEAK",
+        "RC_TEST_ADAPTER_DECIMAL_SHORT_NUMERIC_TEXT_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "12.0" not in public_output
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_TEST_ADAPTER_DECIMAL_SHORT_NUMERIC_TEXT_LEAK",
     )
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
@@ -787,13 +825,7 @@ def test_render_sql_compile_sanitizes_short_numeric_rendering_adapter_type(
             encoding="utf-8"
         )
     )
-    public_output = yaml.safe_dump(
-        {
-            "service": [diagnostic.to_dict() for diagnostic in result.diagnostics],
-            "artifact": checks_artifact,
-        },
-        sort_keys=False,
-    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering failed."
@@ -1888,6 +1920,24 @@ class ShortNumericTextLeakyAdapterFactory:
         )
 
 
+class DecimalShortNumericTextLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        port = f"{int(str(connection.config.get('port'))):.1f}"
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_DECIMAL_SHORT_NUMERIC_TEXT_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Adapter setup failed at endpoint {port}.",
+                    resource_type=f"endpoint-{port}",
+                    resource_name=port,
+                    path=f"adapter://endpoint/{port}",
+                    hint=f"Inspect endpoint {port}.",
+                ),
+            )
+        )
+
+
 class ShortNumericAdapterTypeAdapter(FakeAdapter):
     adapter_type = "12"
 
@@ -2574,6 +2624,28 @@ def _assert_blocked_artifact_includes_messages(
     }
 
     assert expected_messages <= artifact_messages
+
+
+def _public_diagnostic_and_rendering_output(
+    result: ServiceResult,
+    checks_artifact: Mapping[str, Any],
+) -> str:
+    return cast(
+        str,
+        yaml.safe_dump(
+            {
+                "service": [diagnostic.to_dict() for diagnostic in result.diagnostics],
+                "checks": [
+                    {
+                        "rendering": check["rendering"],
+                        "diagnostics": check["diagnostics"],
+                    }
+                    for check in checks_artifact["checks"]
+                ],
+            },
+            sort_keys=False,
+        ),
+    )
 
 
 def _path_list_yaml(field_name: str, paths: tuple[str, ...] | None) -> str:
