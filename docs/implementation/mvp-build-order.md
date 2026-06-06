@@ -333,7 +333,8 @@ Tests:
 - profile-backed adapter diagnostics suppress case-changed rendered config keys
   or values, non-string rendered values, unsafe `rendering.adapter_type`
   metadata, numeric `line`/`column` fields, short numeric rendered scalars such
-  as port values, and other simple secret transformations,
+  as port values, integer-equivalent formatted variants such as `12.0`, `+12`,
+  and `1.2e1`, and other simple secret transformations,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,
@@ -368,7 +369,7 @@ Required gates:
   rendered profile keys or values independently in message, hint, path,
   `resource_type`, `resource_name`, `line`, `column`, and future structured
   diagnostic fields, including short numeric rendered scalars such as port
-  values,
+  values and equivalent formatted variants such as `12.0`, `+12`, and `1.2e1`,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
 - resolve the source/target data privacy, evidence, and failure-detail policy
@@ -1357,8 +1358,10 @@ Required gate:
   path, `resource_type`, `resource_name`, `line`, `column`,
   `rendering.adapter_type`, and future structured diagnostic fields before
   creating or splitting the test-kit repository,
-- include short numeric rendered-scalar `line`/`column` cases, such as
-  `port: 12`, before creating or splitting the test-kit repository,
+- include short numeric rendered-scalar cases, such as `port: 12`, `12.0`,
+  `+12`, and `1.2e1`, across diagnostic text, resource metadata,
+  `rendering.adapter_type`, and numeric `line`/`column` before creating or
+  splitting the test-kit repository,
 - include core render-sql compile-validation blocked-metadata integration cases
   before creating or splitting any test-kit harness that drives core compile
   flows,

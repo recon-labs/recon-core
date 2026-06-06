@@ -332,11 +332,11 @@ adapter metadata declaration, or capability declaration raises an exception,
 Recon should suppress raw adapter payloads and return a generic structured
 adapter diagnostic that preserves only the exception type when useful.
 Suppression should treat case-changed keys or rendered values, DSN fragments,
-tokens, passwords, and other simple transformations as unsafe when they can be
-derived from rendered profile config. Redaction tests should cover every public
-diagnostic field independently: `message`, `hint`, `path`, `resource_type`,
-`resource_name`, `line`, `column`, `rendering.adapter_type`, and any future
-structured diagnostic fields.
+tokens, passwords, numeric formatting changes, and other simple transformations
+as unsafe when they can be derived from rendered profile config. Redaction tests
+should cover every public diagnostic field independently: `message`, `hint`,
+`path`, `resource_type`, `resource_name`, `line`, `column`,
+`rendering.adapter_type`, and any future structured diagnostic fields.
 
 Adapter diagnostics are part of the adapter compatibility surface. Future
 adapter execution, debug/profile validation commands, external adapter
@@ -349,8 +349,11 @@ Shared adapter test-kit redaction cases must include numeric `line` and
 string diagnostic text. These cases must also include short numeric rendered
 scalars such as port values when they appear in diagnostic `message`, `hint`,
 `path`, `resource_type`, `resource_name`, numeric `line`/`column`, and
-`rendering.adapter_type`; long password-shaped numeric values alone do not prove
-exact short-token redaction. Core compile-flow conformance must also verify
+`rendering.adapter_type`. Short numeric cases must include equivalent formatted
+variants such as `12`, `12.0`, `+12`, and integer-equivalent scientific
+notation, because adapters may stringify the same rendered scalar differently.
+Long password-shaped numeric values alone do not prove exact short-token
+redaction. Core compile-flow conformance must also verify
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` appears in compiled-check
 metadata when compile validation prevents a requested adapter rendering phase
 from starting.

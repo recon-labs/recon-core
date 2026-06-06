@@ -219,7 +219,11 @@ numeric strings that match rendered scalar profile values. They must include
 short numeric rendered scalars, for example `port: 12`, in diagnostic text,
 unsafe resource metadata, numeric `line`/`column`, and
 `rendering.adapter_type`, so the suite proves exact short-token redaction and
-not only long secret-like tokens.
+not only long secret-like tokens. Short numeric scalar cases should include
+alternate integer-equivalent representations such as `12.0`, `+12`, and
+`1.2e1`, and assertions should inspect the specific public diagnostic or
+rendering fields under test rather than scanning whole generated artifacts where
+checksums or stable IDs can contain unrelated short numerals.
 
 Before check execution, runner/results, evidence/reporting, debug commands, or
 adapter test-kit execution surfaces are implemented or claimed compatible, add
