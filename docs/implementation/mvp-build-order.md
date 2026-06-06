@@ -366,10 +366,11 @@ Required gates:
 - resolve the profile-rendering and adapter diagnostic redaction conformance
   gate before loading rendered profiles or resolving adapters for execution,
 - require adapter/profile diagnostic redaction conformance to cover unsafe
-  rendered profile keys or values independently in message, hint, path,
-  `resource_type`, `resource_name`, `line`, `column`, and future structured
-  diagnostic fields, including short numeric rendered scalars such as port
-  values and equivalent formatted variants such as `12.0`, `+12`, and `1.2e1`,
+  rendered profile keys or values independently in diagnostic code, message,
+  hint, path, `resource_type`, `resource_name`, `line`, `column`, and future
+  structured diagnostic fields, including short numeric rendered scalars such as
+  port values and equivalent formatted variants such as `12.0`, `+12`, and
+  `1.2e1`,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
 - resolve the source/target data privacy, evidence, and failure-detail policy
@@ -1354,12 +1355,12 @@ Required gate:
   shared adapter diagnostic assertions or adapter compatibility claims,
 - include case-variant rendered-config redaction cases in shared adapter
   diagnostic assertions before creating or splitting the test-kit repository,
-- include field-by-field adapter diagnostic redaction cases for message, hint,
-  path, `resource_type`, `resource_name`, `line`, `column`,
+- include field-by-field adapter diagnostic redaction cases for diagnostic code,
+  message, hint, path, `resource_type`, `resource_name`, `line`, `column`,
   `rendering.adapter_type`, and future structured diagnostic fields before
   creating or splitting the test-kit repository,
 - include short numeric rendered-scalar cases, such as `port: 12`, `12.0`,
-  `+12`, and `1.2e1`, across diagnostic text, resource metadata,
+  `+12`, and `1.2e1`, across diagnostic codes, diagnostic text, resource metadata,
   `rendering.adapter_type`, and numeric `line`/`column` before creating or
   splitting the test-kit repository,
 - include core render-sql compile-validation blocked-metadata integration cases

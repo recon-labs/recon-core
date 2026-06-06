@@ -320,20 +320,21 @@ capability support states, and future optional dependency, API compatibility,
 capability, metadata, rendering, and execution diagnostics.
 Adapter diagnostics are public output, so the test kit must verify that
 credentials, tokens, DSNs, passwords, rendered connection payloads, and other
-secret-classified values do not appear in diagnostic messages, hints, paths,
-`resource_type`, `resource_name`, `line`, `column`, or future structured
+secret-classified values do not appear in diagnostic codes, messages, hints,
+paths, `resource_type`, `resource_name`, `line`, `column`, or future structured
 diagnostic fields.
-Redaction may replace unsafe diagnostic text or unsafe resource metadata, but
-adapter diagnostics must still include an actionable safe message and must not
-rely on codes or hints alone. The test kit should include case-variant and
-transformation-variant diagnostics, including uppercase config keys, lowercase
-or uppercase rendered values, DSN fragments, tokens, and password values in
-each public diagnostic field independently. Numeric `line` and `column` cases
+Redaction may replace unsafe diagnostic codes, diagnostic text, or unsafe
+resource metadata, but adapter diagnostics must still include an actionable safe
+message and must not rely on codes or hints alone. The test kit should include
+case-variant and transformation-variant diagnostics, including uppercase config
+keys, lowercase or uppercase rendered values, DSN fragments, tokens, and
+password values in each public diagnostic field independently. Numeric `line`
+and `column` cases
 must not bypass redaction when they match rendered scalar profile values,
 including short numeric scalars such as port values. Testing only long
 password-shaped numeric values is not enough for adapter compatibility. The
 matrix must also include equivalent formatted numeric variants such as `12.0`,
-`+12`, and `1.2e1` in diagnostic text, resource metadata, and
+`+12`, and `1.2e1` in diagnostic codes, diagnostic text, resource metadata, and
 `rendering.adapter_type`, because adapters and database clients may stringify
 the same rendered scalar differently. This must include both integer profile
 values emitted as formatted numeric text and rendered numeric-string profile

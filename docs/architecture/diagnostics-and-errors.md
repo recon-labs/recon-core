@@ -215,11 +215,12 @@ Redaction must happen before diagnostics are rendered or written. Secret-safe
 rendering should remove credentials, tokens, DSNs, rendered connection payloads,
 source/target query text, relation names, row values, database error payloads,
 raw parser snippets, and other secret-classified or source/target-sensitive
-values from diagnostic message, hint, path, `resource_type`, `resource_name`,
-`line`, `column`, and future structured diagnostic fields without dropping the
-diagnostic message entirely. If a message or resource field cannot be made
-safe, Recon should replace it with generic safe text while preserving the
-original code, severity, and non-secret context.
+values from diagnostic `code`, message, hint, path, `resource_type`,
+`resource_name`, `line`, `column`, and future structured diagnostic fields
+without dropping the diagnostic message entirely. If a message or resource field
+cannot be made safe, Recon should replace it with generic safe text while
+preserving severity and non-secret context. If an adapter-provided diagnostic
+code is unsafe, Recon should replace it with a safe generic code.
 
 Low-level exception text is not automatically safe diagnostic text. Parser and
 configuration diagnostics from authored YAML should summarize YAML parser

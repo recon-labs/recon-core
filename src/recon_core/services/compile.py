@@ -52,6 +52,7 @@ COMPILED_ARTIFACT_WRITE_FAILED = "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
 MIXED_ADAPTER_TYPES_UNSUPPORTED = "RC_ADAPTER_MIXED_ADAPTER_TYPES_UNSUPPORTED"
 ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED = "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
 ADAPTER_RENDERING_OUTPUT_SUPPRESSED = "RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED"
+ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED = "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED"
 ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS = (
     "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS"
 )
@@ -746,7 +747,12 @@ def _sanitize_profile_backed_adapter_diagnostic(
     config_tokens: frozenset[str],
     numeric_field_tokens: frozenset[int],
 ) -> Diagnostic:
-    if not _diagnostic_mentions_config_token(
+    code_mentions_config_token = _diagnostic_code_mentions_config_token(
+        diagnostic,
+        config_tokens,
+        numeric_field_tokens,
+    )
+    if not code_mentions_config_token and not _diagnostic_mentions_config_token(
         diagnostic,
         config_tokens,
         numeric_field_tokens,
@@ -754,7 +760,11 @@ def _sanitize_profile_backed_adapter_diagnostic(
         return diagnostic
 
     return Diagnostic(
-        code=diagnostic.code,
+        code=(
+            ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED
+            if code_mentions_config_token
+            else diagnostic.code
+        ),
         severity=diagnostic.severity,
         message=(
             f"Adapter `{connection.type}` reported a diagnostic for "
@@ -767,6 +777,17 @@ def _sanitize_profile_backed_adapter_diagnostic(
             "Fix the adapter configuration or inspect the adapter locally without exposing secrets."
         ),
     )
+
+
+def _diagnostic_code_mentions_config_token(
+    diagnostic: Diagnostic,
+    config_tokens: frozenset[str],
+    numeric_field_tokens: frozenset[int],
+) -> bool:
+    return _code_mentions_config_token(
+        diagnostic.code,
+        config_tokens,
+    ) or _code_mentions_numeric_config_token(diagnostic.code, numeric_field_tokens)
 
 
 def _discard_compiled_sql_artifacts(output_dir: Path) -> None:
@@ -949,6 +970,50 @@ def _text_mentions_numeric_config_token(
         _text_mentions_numeric_token(text, numeric_token)
         for numeric_token in numeric_field_tokens
     )
+
+
+def _code_mentions_config_token(text: str, config_tokens: frozenset[str]) -> bool:
+    normalized_text = text.casefold()
+    return any(
+        _code_mentions_token(normalized_text, token.casefold())
+        for token in config_tokens
+        if token != ""
+    )
+
+
+def _code_mentions_token(normalized_text: str, token: str) -> bool:
+    start = normalized_text.find(token)
+    while start != -1:
+        end = start + len(token)
+        if _code_token_has_text_boundaries(normalized_text, start, end):
+            return True
+        start = normalized_text.find(token, start + 1)
+    return False
+
+
+def _code_mentions_numeric_config_token(
+    text: str,
+    numeric_field_tokens: frozenset[int],
+) -> bool:
+    return any(
+        _code_mentions_numeric_token(text, numeric_token)
+        for numeric_token in numeric_field_tokens
+    )
+
+
+def _code_mentions_numeric_token(text: str, token: int) -> bool:
+    for match in _NUMERIC_LITERAL_PATTERN.finditer(text):
+        if not _code_token_has_text_boundaries(text, match.start(), match.end()):
+            continue
+        if _integer_like_numeric_literal(match.group(0)) == token:
+            return True
+    return False
+
+
+def _code_token_has_text_boundaries(text: str, start: int, end: int) -> bool:
+    previous_char = text[start - 1] if start > 0 else ""
+    next_char = text[end] if end < len(text) else ""
+    return not previous_char.isalnum() and not next_char.isalnum()
 
 
 def _text_mentions_numeric_token(text: str, token: int) -> bool:

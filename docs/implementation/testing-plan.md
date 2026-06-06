@@ -212,7 +212,7 @@ instead of dropping the message field. Redaction tests should include
 case-variant and simple transformation cases, including uppercase or lowercase
 config keys, non-string rendered values, case-changed rendered values, DSN
 substrings, tokens, and passwords appearing independently in diagnostic
-message, hint, path, `resource_type`, `resource_name`, `line`, `column`,
+`code`, message, hint, path, `resource_type`, `resource_name`, `line`, `column`,
 `rendering.adapter_type`, and any future structured diagnostic fields. Numeric
 field cases must cover integer-valued `line` and `column` diagnostics as well as
 numeric strings that match rendered scalar profile values. They must include

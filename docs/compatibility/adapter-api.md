@@ -142,7 +142,7 @@ metadata for adapter setup failures, preserved diagnostics when factories
 return both an adapter and diagnostics, de-duplicated repeated same-connection
 setup diagnostics, distinct source/target connection setup diagnostics,
 numeric `line` and `column` diagnostic redaction cases, short numeric rendered
-scalar redaction cases in text fields, resource metadata, and
+scalar redaction cases in diagnostic codes, text fields, resource metadata, and
 `rendering.adapter_type`, including alternate public representations of the same
 scalar such as `12`, `12.0`, `+12`, and integer-equivalent scientific notation,
 and core render-sql compile-validation
@@ -267,8 +267,10 @@ Initial rules:
   artifacts, diagnostics, terminal output, or evidence,
 - suppress profile-backed adapter diagnostic text, including adapter factory,
   adapter API compatibility, and render-phase adapter diagnostics, when it
-  references rendered connection config keys or values, while preserving the
-  original diagnostic code and severity.
+  references rendered connection config keys or values, while preserving severity
+  and the original diagnostic code only when the code is safe. Unsafe
+  adapter-provided diagnostic codes are replaced with
+  `RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED`.
 
 For current DuckDB SQL rendering, source and target connection names may differ
 only when the referenced profile entries resolve to the same adapter type and
@@ -325,20 +327,21 @@ tests must cover:
 
 Adapter diagnostics are public output. External adapters must not place
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
-secret-classified values in diagnostic message, hint, path, `resource_type`,
-`resource_name`, `line`, `column`, or future structured diagnostic fields. Core
-may defensively suppress unsafe profile-backed adapter diagnostic text and unsafe
-resource metadata, including factory, adapter API compatibility, and render-phase
-diagnostics plus `rendering.adapter_type` metadata, but
+secret-classified values in diagnostic `code`, message, hint, path,
+`resource_type`, `resource_name`, `line`, `column`, or future structured
+diagnostic fields. Core may defensively suppress unsafe profile-backed adapter
+diagnostic codes, diagnostic text, and unsafe resource metadata, including
+factory, adapter API compatibility, and render-phase diagnostics plus
+`rendering.adapter_type` metadata, but
 adapter packages and the shared test kit must treat secret-safe diagnostics as
 an adapter author requirement. A secret-safe diagnostic must still include an
 actionable message; adapter compatibility cannot rely on diagnostic codes or
 hints alone. The shared test kit should include case-variant and
 transformation-variant redaction cases, such as `PASSWORD`, `database`,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
-independently in diagnostic message, hint, path, `resource_type`,
+independently in diagnostic `code`, message, hint, path, `resource_type`,
 `resource_name`, `line`, `column`, and `rendering.adapter_type`. Short numeric
-rendered scalar cases must include text fields, resource metadata,
+rendered scalar cases must include code, text fields, resource metadata,
 `rendering.adapter_type`, and numeric fields such as `line` and `column`; they
 must also include equivalent formatted variants such as `12.0`, `+12`, and
 `1.2e1`, including the reverse case where the rendered profile value is a

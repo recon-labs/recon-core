@@ -323,9 +323,12 @@ adapter diagnostic, including factory diagnostics, adapter API compatibility
 diagnostics, and render-phase adapter diagnostics, references rendered
 connection config keys or values, Recon should suppress unsafe adapter
 diagnostic text and unsafe resource metadata, then return a generic adapter
-diagnostic with the original diagnostic code and severity. The replacement
-diagnostic must still include a safe, actionable message and safe resource
-context. Rendered profile values include scalar YAML values after rendering,
+diagnostic with the original severity and the original diagnostic code only when
+the code is safe. If an adapter-provided diagnostic code references rendered
+connection config keys or values, Recon should replace it with
+`RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED`. The replacement diagnostic must still
+include a safe, actionable message and safe resource context. Rendered profile
+values include scalar YAML values after rendering,
 including non-string values such as numeric credentials and rendered numeric
 strings such as quoted YAML or env-var-derived `"12.0"`.
 If an adapter factory returns a malformed result, or if an adapter factory,
@@ -335,8 +338,8 @@ adapter diagnostic that preserves only the exception type when useful.
 Suppression should treat case-changed keys or rendered values, DSN fragments,
 tokens, passwords, numeric formatting changes, and other simple transformations
 as unsafe when they can be derived from rendered profile config. Redaction tests
-should cover every public diagnostic field independently: `message`, `hint`,
-`path`, `resource_type`, `resource_name`, `line`, `column`,
+should cover every public diagnostic field independently: `code`, `message`,
+`hint`, `path`, `resource_type`, `resource_name`, `line`, `column`,
 `rendering.adapter_type`, and any future structured diagnostic fields.
 
 Adapter diagnostics are part of the adapter compatibility surface. Future
@@ -344,7 +347,8 @@ adapter execution, debug/profile validation commands, external adapter
 packages, and shared adapter test-kit conformance must require adapter-provided
 diagnostics to include safe non-empty messages. Those messages must explain the
 failure without exposing credentials, tokens, DSNs, rendered connection
-payloads, or other secret-classified values in any public diagnostic field.
+payloads, or other secret-classified values in any public diagnostic field,
+including diagnostic `code`.
 Shared adapter test-kit redaction cases must include numeric `line` and
 `column` fields when those values match rendered scalar profile values, not only
 string diagnostic text. These cases must also include short numeric rendered

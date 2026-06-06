@@ -151,6 +151,9 @@ This project follows semantic versioning once public package releases begin.
 - Adapter-aware SQL rendering now suppresses unsafe profile-backed adapter
   diagnostic `line` and `column` values when they match rendered scalar profile
   values, including short numeric rendered scalars such as port values.
+- Adapter-aware SQL rendering now replaces unsafe adapter-provided diagnostic
+  codes when they reference rendered profile keys or values, preventing CLI and
+  artifact output from leaking sensitive profile data through `Code:` fields.
 - Adapter-aware SQL rendering now converts adapter factory and capability
   declaration exceptions into structured diagnostics with raw adapter error
   text suppressed.

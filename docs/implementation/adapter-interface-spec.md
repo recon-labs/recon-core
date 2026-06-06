@@ -301,8 +301,9 @@ referenced-connection filtering, missing env vars, env-var defaults,
 unsupported template syntax, adapter factory diagnostics, and future optional
 dependency, API compatibility, capability, metadata, rendering, and execution
 diagnostics. Redaction conformance must cover unsafe rendered profile keys or
-values independently in diagnostic `message`, `hint`, `path`, `resource_type`,
-`resource_name`, `line`, `column`, and future structured diagnostic fields. It
+values independently in diagnostic `code`, `message`, `hint`, `path`,
+`resource_type`, `resource_name`, `line`, `column`, and future structured
+diagnostic fields. It
 must also cover raw adapter exceptions from factories, adapter metadata
 declarations, and capability declarations, plus empty and malformed renderer
 output diagnostics. If a shared adapter test-kit harness drives core

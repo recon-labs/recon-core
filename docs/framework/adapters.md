@@ -266,11 +266,11 @@ secrets or fully rendered credential payloads.
 
 Adapter diagnostics are public output. Adapter authors should not include
 credentials, tokens, DSNs, passwords, rendered connection payloads, or other
-secret-classified values in diagnostic message, hint, path, resource fields,
-`line`, `column`, or future structured diagnostic fields.
+secret-classified values in diagnostic code, message, hint, path, resource
+fields, `line`, `column`, or future structured diagnostic fields.
 Adapter diagnostics should still include safe actionable messages; redaction
-may replace unsafe text, but compatibility should not depend on diagnostic
-codes or hints alone. Adapter diagnostics must remain safe even when they use
+may replace unsafe codes or text, but compatibility should not depend on
+diagnostic codes or hints alone. Adapter diagnostics must remain safe even when they use
 case-changed config keys, case-changed rendered values, DSN fragments, tokens,
 passwords, numeric `line`/`column` values, or other simple transformations of
 rendered profile config. Short numeric profile values must remain safe when an
@@ -391,9 +391,9 @@ failure cases must assert no compiled SQL output, blocked compiled-check
 metadata, and de-duplicated repeated same-connection service diagnostics while
 preserving distinct source/target connection diagnostics in service and
 blocked compiled-check artifact output. Field-by-field diagnostic redaction
-includes `line` and `column`, short numeric rendered scalars, equivalent
-formatted variants such as `12.0`, `+12`, and `1.2e1`, unsafe resource
-metadata, and `rendering.adapter_type`. Compile-flow harnesses must cover
+includes diagnostic code, `line` and `column`, short numeric rendered scalars,
+equivalent formatted variants such as `12.0`, `+12`, and `1.2e1`, unsafe
+resource metadata, and `rendering.adapter_type`. Compile-flow harnesses must cover
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` when compile validation
 prevents a requested adapter rendering phase from starting.
 
