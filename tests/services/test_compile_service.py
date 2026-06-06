@@ -846,6 +846,101 @@ def test_render_sql_compile_sanitizes_integer_equivalent_text_for_quoted_decimal
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+@pytest.mark.parametrize(
+    "emitted_port",
+    ["+12", "1.2e1"],
+)
+def test_render_sql_compile_sanitizes_integer_equivalent_formatted_text_variants(
+    tmp_path: Path,
+    emitted_port: str,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="formatted_numeric_text_leaky",
+        port=12,
+    )
+    registry = AdapterRegistry()
+    registry.register(
+        "formatted_numeric_text_leaky",
+        FormattedNumericTextLeakyAdapterFactory(emitted_port=emitted_port),
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_FORMATTED_NUMERIC_TEXT_LEAK",
+        "RC_TEST_ADAPTER_FORMATTED_NUMERIC_TEXT_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert f"endpoint {emitted_port}" not in public_output
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_TEST_ADAPTER_FORMATTED_NUMERIC_TEXT_LEAK",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_sanitizes_env_var_rendered_numeric_string_variants(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RECON_TEST_PORT", "12.0")
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="formatted_numeric_text_leaky",
+        port='"{{ env_var(\'RECON_TEST_PORT\') }}"',
+    )
+    registry = AdapterRegistry()
+    registry.register(
+        "formatted_numeric_text_leaky",
+        FormattedNumericTextLeakyAdapterFactory(emitted_port="1.2e1"),
+    )
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_FORMATTED_NUMERIC_TEXT_LEAK",
+        "RC_TEST_ADAPTER_FORMATTED_NUMERIC_TEXT_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "endpoint 1.2e1" not in public_output
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_TEST_ADAPTER_FORMATTED_NUMERIC_TEXT_LEAK",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_short_numeric_rendering_adapter_type(
     tmp_path: Path,
 ) -> None:
@@ -1996,6 +2091,26 @@ class IntegerEquivalentQuotedDecimalTextLeakyAdapterFactory:
                     resource_name=port,
                     path=f"adapter://endpoint/{port}",
                     hint=f"Inspect endpoint {port}.",
+                ),
+            )
+        )
+
+
+class FormattedNumericTextLeakyAdapterFactory:
+    def __init__(self, *, emitted_port: str) -> None:
+        self.emitted_port = emitted_port
+
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_FORMATTED_NUMERIC_TEXT_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Adapter setup failed at endpoint {self.emitted_port}.",
+                    resource_type=f"endpoint-{self.emitted_port}",
+                    resource_name=self.emitted_port,
+                    path=f"adapter://endpoint/{self.emitted_port}",
+                    hint=f"Inspect endpoint {self.emitted_port}.",
                 ),
             )
         )
