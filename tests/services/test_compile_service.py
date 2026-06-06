@@ -539,6 +539,43 @@ def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_adapter_resolution_diagnostic_codes(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="code_leaky", include_password=True)
+    registry = AdapterRegistry()
+    registry.register("code_leaky", CodeLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "super-secret" not in public_output
+    _assert_render_sql_blocked_artifact(
+        tmp_path,
+        "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
+    )
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_reports_missing_adapter_api_version(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
@@ -1986,6 +2023,22 @@ class LeakyAdapterFactory:
                     resource_type="adapter",
                     resource_name=connection.type,
                     hint=f"Do not leak database {connection.config.get('database')}.",
+                ),
+            )
+        )
+
+
+class CodeLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code=str(connection.config.get("password")),
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter setup failed safely.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint="Inspect the adapter configuration.",
                 ),
             )
         )
