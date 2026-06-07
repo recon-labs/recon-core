@@ -101,6 +101,8 @@ profiles:
     "connection_type",
     [
         pytest.param("\"{{ env_var('RECON_ADAPTER', 'duckdb') }}\"", id="jinja-env-var"),
+        pytest.param('"{% if true %}duckdb{% endif %}"', id="jinja-statement"),
+        pytest.param('"{# duckdb #}"', id="jinja-comment"),
         pytest.param("env_var('RECON_ADAPTER', 'duckdb')", id="bare-env-var"),
     ],
 )
@@ -347,6 +349,56 @@ profiles:
     assert "env_var('MISSING_DB') | lower" not in diagnostic_text
     assert "{{" not in diagnostic_text
     assert "}}" not in diagnostic_text
+
+
+@pytest.mark.parametrize(
+    "database_value",
+    [
+        pytest.param('"{% if env %}prod.duckdb{% endif %}"', id="jinja-statement"),
+        pytest.param('"{# prod.duckdb #}"', id="jinja-comment"),
+    ],
+)
+def test_load_selected_profile_rejects_unsupported_template_fragments(
+    tmp_path: Path,
+    database_value: str,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        f"""
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: {database_value}
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile(
+        context_result.context,
+        contracts=(contract(source_connection="legacy", target_connection="warehouse"),),
+    )
+
+    assert not result.succeeded
+    assert result.profile is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_CONFIG"
+    ]
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+    assert "{%" not in diagnostic_text
+    assert "%}" not in diagnostic_text
+    assert "{#" not in diagnostic_text
+    assert "#}" not in diagnostic_text
 
 
 def test_load_selected_profile_rejects_unsupported_bare_env_var_expression(

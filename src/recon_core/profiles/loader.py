@@ -32,6 +32,7 @@ _BARE_ENV_VAR_PATTERN = re.compile(
     r"""(?:,\s*(['"])(?P<default>.*?)\3\s*)?\)"""
 )
 _ENV_VAR_CALL_PATTERN = re.compile(r"\benv_var\s*\(")
+_TEMPLATE_MARKERS = ("{{", "}}", "{%", "%}", "{#", "#}")
 
 
 class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
@@ -331,7 +332,7 @@ def _referenced_connections(
 
 
 def _connection_type_uses_template(value: str) -> bool:
-    return "{{" in value or "}}" in value or re.search(r"\benv_var\s*\(", value) is not None
+    return _contains_template_marker(value) or re.search(r"\benv_var\s*\(", value) is not None
 
 
 def _render_value(
@@ -432,14 +433,20 @@ def _render_string(
 
 
 def _contains_unsupported_template_expression(value: str) -> bool:
-    if "{{" not in value and "}}" not in value:
+    if not _contains_template_marker(value):
         return False
 
     valid_spans = tuple(match.span() for match in _ENV_VAR_PATTERN.finditer(value))
-    marker_positions = tuple(_template_marker_positions(value, "{{")) + tuple(
-        _template_marker_positions(value, "}}")
+    marker_positions = tuple(
+        position
+        for marker in _TEMPLATE_MARKERS
+        for position in _template_marker_positions(value, marker)
     )
     return any(not _position_in_spans(position, valid_spans) for position in marker_positions)
+
+
+def _contains_template_marker(value: str) -> bool:
+    return any(marker in value for marker in _TEMPLATE_MARKERS)
 
 
 def _contains_unsupported_env_var_expression(value: str) -> bool:

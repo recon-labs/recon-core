@@ -103,6 +103,8 @@ def test_render_sql_compile_requires_profiles_file(tmp_path: Path) -> None:
     "connection_type",
     [
         pytest.param("\"{{ env_var('SECRET_ADAPTER_TYPE') }}\"", id="jinja-env-var"),
+        pytest.param('"{% if true %}duckdb{% endif %}"', id="jinja-statement"),
+        pytest.param('"{# duckdb #}"', id="jinja-comment"),
         pytest.param("env_var('SECRET_ADAPTER_TYPE')", id="bare-env-var"),
     ],
 )
