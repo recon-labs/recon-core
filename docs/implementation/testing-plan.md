@@ -209,11 +209,12 @@ adapter test kit only needs this case when it drives core compile flows; pure
 adapter API conformance should reference the core artifact requirement instead
 of duplicating compiler validation tests.
 
-The same adapter API conformance suite should cover profile rendering and
-adapter diagnostic redaction before adapter execution, connection debug or
-profile validation commands, external adapter repositories, or compatibility
-claims rely on rendered profiles. It should verify selected profile/target
-loading, referenced-connection filtering, missing environment variables,
+The same adapter API conformance suite must satisfy the Adapter/Profile
+Diagnostic Conformance Gate in `docs/compatibility/adapter-api.md` before
+adapter execution, connection debug or profile validation commands, external
+adapter repositories, or compatibility claims rely on rendered profiles. It
+should verify selected profile/target loading, referenced-connection filtering,
+missing environment variables,
 environment-variable defaults, unsupported `{{ ... }}` template syntax, literal
 adapter `type` handling, and adapter diagnostics returned after rendered
 profile config is available. Literal adapter `type` cases should verify that

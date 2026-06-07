@@ -75,11 +75,14 @@ Purpose:
 
 Adapter test kit should appear after the typed check-plan and base adapter
 interfaces stabilize. Its first compatibility suite must include
-profile-rendering and diagnostic-redaction conformance before external adapter
-repos are published or treated as compatible. That conformance must prove that
-adapter factory exceptions, capability declaration exceptions, and
+the Adapter/Profile Diagnostic Conformance Gate from
+`docs/compatibility/adapter-api.md` before external adapter repos are published
+or treated as compatible. That conformance must prove that adapter factory
+exceptions, capability declaration exceptions, adapter metadata exceptions, and
 adapter-provided diagnostics cannot leak rendered profile keys or values into
-CLI output, artifacts, evidence, or test snapshots. It must include
+CLI output, artifacts, run results, evidence, reports, logs, failure details, or
+test snapshots. It must include literal adapter `type` routing, including
+rejection of templated or `env_var(...)` `type` before adapter resolution,
 diagnostic-code cases where unsafe config keys or rendered values are embedded
 in delimiter-separated or separatorless forms, such as `RC_PASSWORD_LEAK`,
 `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`, before the shared test

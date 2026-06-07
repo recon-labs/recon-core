@@ -308,21 +308,40 @@ cross-connection rendering or execution placement is explicitly designed.
 Changes to profile selection, target precedence, environment rendering, or
 secret redaction affect adapter compatibility.
 
-## Profile and diagnostic conformance
+## Adapter/Profile Diagnostic Conformance Gate
 
 Profile rendering and adapter diagnostic redaction are compatibility surfaces
 for future adapter execution, connection debug or profile validation commands,
 shared adapter test-kit work, and external adapter repositories.
 
 This is a hard gate for those surfaces. Before any future adapter execution
-milestone, profile/debug command, shared adapter test-kit repository, or
-external adapter package claims compatibility, its tests must prove that
-adapter factory exceptions, `capabilities()` exceptions, and adapter-supplied
-diagnostics cannot leak rendered profile keys or values into CLI output,
-compiled artifacts, run results, evidence, or test snapshots.
+milestone, profile/debug command, shared adapter test-kit repository, external
+adapter package, or adapter repository claims compatibility, it must satisfy the
+Milestone 6 Adapter/Profile Conformance Matrix above and map every applicable
+row to tests in the implementing repository, the shared adapter test kit, or an
+explicit out-of-scope rationale.
 
-Before those surfaces are implemented or claimed compatible, shared conformance
-tests must cover:
+The gate applies before:
+
+- Milestone 7 or later check execution loads rendered profiles or resolves
+  adapters for execution,
+- profile inspection, connection debug, or profile validation commands expose
+  rendered profile-backed diagnostics,
+- run results, evidence, reports, failure details, logs, or snapshots include
+  adapter/profile diagnostics,
+- `recon-adapter-testkit` is created, published, or split into its own
+  repository,
+- `recon-duckdb` or any production adapter package is split from `recon-core`,
+- external adapter repositories claim compatibility with a `recon-core` adapter
+  API version or shared test-kit version.
+
+Before any of those surfaces are implemented or claimed compatible, tests must
+prove that adapter factory exceptions, `capabilities()` exceptions, adapter
+metadata exceptions, and adapter-supplied diagnostics cannot leak rendered
+profile keys or values into CLI output, compiled artifacts, run results,
+evidence, reports, logs, failure details, or test snapshots.
+
+Shared conformance tests for this gate must cover:
 
 - selected profile and target loading,
 - referenced-connection rendering without rendering unreferenced connections,

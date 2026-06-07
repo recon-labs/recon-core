@@ -389,8 +389,9 @@ Build:
 
 Required gates:
 
-- resolve the profile-rendering and adapter diagnostic redaction conformance
-  gate before loading rendered profiles or resolving adapters for execution,
+- satisfy the Adapter/Profile Diagnostic Conformance Gate in
+  `docs/compatibility/adapter-api.md` before loading rendered profiles or
+  resolving adapters for execution,
 - preserve literal adapter type routing: `type` must not be rendered from
   environment variables, and environment-specific adapter choices must use
   separate targets or named connections with literal `type` values,
@@ -1385,9 +1386,11 @@ Required gate:
 
 - resolve the adapter test kit and adapter package split gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
-- resolve the profile-rendering and adapter diagnostic redaction conformance
-  gate before publishing shared test-kit expectations or external adapter
-  compatibility claims,
+- satisfy the Adapter/Profile Diagnostic Conformance Gate in
+  `docs/compatibility/adapter-api.md` before creating or splitting the shared
+  test-kit repository, publishing shared test-kit expectations, splitting
+  `recon-duckdb`, publishing production adapter packages, or making external
+  adapter compatibility claims,
 - include literal adapter `type` conformance before creating or splitting the
   test-kit repository: templated or `env_var(...)` `type` values must fail
   before adapter resolution, must not invoke adapter factories/renderers, must
