@@ -110,12 +110,14 @@ password: "{{ env_var('WAREHOUSE_PASSWORD') }}"
 ```
 
 Initial profile rendering supports `env_var('NAME')` and
-`env_var('NAME', 'default')`. For contract-specific adapter rendering or
-execution, missing environment variables in referenced connection payloads
-should produce clear configuration errors. Missing environment variables in
-unselected targets or unreferenced connections should not fail the invocation.
-Unsupported `{{ ... }}` template syntax in referenced connection payloads
-should fail instead of being passed to adapters as raw text.
+`env_var('NAME', 'default')` for non-routing connection config fields.
+Connection `type` values must be literal adapter types because they select the
+adapter boundary. For contract-specific adapter rendering or execution, missing
+environment variables in referenced connection payloads should produce clear
+configuration errors. Missing environment variables in unselected targets or
+unreferenced connections should not fail the invocation. Unsupported `{{ ... }}`
+template syntax in referenced connection payloads should fail instead of being
+passed to adapters as raw text.
 
 Generated artifacts and diagnostics may include profile name, target name,
 adapter type, and non-secret relation identifiers. They must not include

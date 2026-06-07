@@ -257,7 +257,10 @@ Initial rules:
   the selected target's `connections` map,
 - for contract-specific adapter rendering or execution, render only the named
   connection payloads referenced by the selected contracts,
-- support `env_var('NAME')` and `env_var('NAME', 'default')`,
+- support `env_var('NAME')` and `env_var('NAME', 'default')` for non-routing
+  connection config fields,
+- require each connection `type` to be a literal non-empty adapter type; `type`
+  is adapter routing metadata and does not support `env_var(...)` rendering,
 - fail on missing environment variables in referenced connection payloads,
 - fail on unsupported `{{ ... }}` template syntax in referenced connection
   payloads,

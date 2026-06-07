@@ -99,6 +99,33 @@ def test_render_sql_compile_requires_profiles_file(tmp_path: Path) -> None:
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_rejects_templated_adapter_type_without_leaking_value(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    monkeypatch.setenv("SECRET_ADAPTER_TYPE", "super-secret-adapter")
+    write_profiles(tmp_path, connection_type='"{{ env_var(\'SECRET_ADAPTER_TYPE\') }}"')
+
+    result = CompileService(start_path=tmp_path, render_sql=True).execute()
+
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.resource_name} {diagnostic.hint}"
+        for diagnostic in result.diagnostics
+    )
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering profile configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_CONFIG",
+        "RC_CONFIG_INVALID_PROFILE_CONFIG",
+    ]
+    assert "super-secret-adapter" not in diagnostic_text
+    assert not (tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml").exists()
+    assert not (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").exists()
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_resolves_adapter_before_sql_rendering(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)

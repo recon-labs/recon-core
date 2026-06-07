@@ -38,7 +38,8 @@ This project follows semantic versioning once public package releases begin.
 - Connection profile loading from `connections/profiles.yml` for
   adapter-aware compile, including selected profile/target resolution,
   referenced-connection filtering, `env_var('NAME')` /
-  `env_var('NAME', 'default')` rendering, and secret-safe diagnostics.
+  `env_var('NAME', 'default')` rendering for non-routing connection config
+  fields, literal adapter `type` validation, and secret-safe diagnostics.
 - Adapter API foundation with `ADAPTER_API_VERSION = "1"`, adapter registry,
   support-state capability validation, base adapter models, and SQL renderer
   interfaces.
@@ -70,6 +71,9 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile --render-sql` now requires source and target connections for a
   contract to resolve to the same adapter connection config; cross-connection
   rendering remains blocked until explicit execution-placement support exists.
+- Connection profile `type` values must now be literal adapter types; adapter
+  type selection is public routing metadata and no longer supports
+  `env_var(...)` rendering.
 
 ### Fixed
 

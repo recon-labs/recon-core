@@ -77,7 +77,11 @@ Profile resolution follows these rules:
   the selected target's `connections` map.
 - For contract-specific adapter rendering or execution, render only the named
   connection payloads referenced by the selected contracts.
-- Support `env_var('NAME')` and `env_var('NAME', 'default')` initially.
+- Support `env_var('NAME')` and `env_var('NAME', 'default')` initially for
+  non-routing connection config fields.
+- Require connection `type` values to be literal non-empty adapter types. The
+  `type` field selects the adapter boundary and may appear as public adapter
+  metadata, so it does not support `env_var(...)` rendering.
 - Missing environment variables in referenced connection payloads are errors.
 - Missing environment variables in unselected targets and unreferenced
   connections do not fail contract-specific invocations.

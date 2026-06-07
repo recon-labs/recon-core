@@ -58,7 +58,7 @@ profiles:
     assert result.diagnostics == ()
 
 
-def test_load_selected_profile_renders_connection_type_env_var(
+def test_load_selected_profile_rejects_templated_connection_type(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path)
@@ -88,11 +88,13 @@ profiles:
         contracts=(contract(source_connection="legacy", target_connection="warehouse"),),
     )
 
-    assert result.succeeded
-    assert result.profile is not None
-    assert result.profile.connections["legacy"].type == "duckdb"
-    assert result.profile.connections["legacy"].config["type"] == "duckdb"
-    assert result.diagnostics == ()
+    assert result.profile is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_CONFIG"
+    ]
+    assert "Connection `legacy` field `type` must be a literal adapter type." in (
+        result.diagnostics[0].message
+    )
 
 
 def test_load_selected_profile_requires_project_profile_for_adapter_aware_compile(

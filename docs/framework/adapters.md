@@ -248,7 +248,9 @@ committed. Profile resolution selects one profile and one target environment,
 then resolves contract connection names against that target's `connections`
 map. Contract-specific adapter rendering or execution renders only the named
 connection payloads referenced by the selected contracts and supports
-`env_var('NAME')` plus `env_var('NAME', 'default')` initially.
+`env_var('NAME')` plus `env_var('NAME', 'default')` initially for non-routing
+connection config fields. Connection `type` values must be literal adapter
+types.
 
 Missing environment variables in referenced connection payloads are errors.
 Missing environment variables in unselected targets or unreferenced connections

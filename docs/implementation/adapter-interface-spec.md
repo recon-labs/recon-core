@@ -285,7 +285,9 @@ Resolution rules:
   the selected target's `connections` map,
 - render only the named connection payloads referenced by selected contracts
   for contract-specific adapter rendering or execution,
-- support `env_var('NAME')` and `env_var('NAME', 'default')` initially,
+- support `env_var('NAME')` and `env_var('NAME', 'default')` initially for
+  non-routing connection config fields,
+- require connection `type` values to be literal adapter types,
 - fail on missing environment variables in referenced connection payloads,
 - fail on unsupported `{{ ... }}` template syntax in referenced connection
   payloads,

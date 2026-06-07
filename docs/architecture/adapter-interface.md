@@ -174,7 +174,8 @@ Profiles select one target environment. Contract `source.connection` and
 `target.connection` values resolve against named connections inside that target.
 Contract-specific adapter rendering or execution renders only the referenced
 named connection payloads and initially supports `env_var('NAME')` plus
-`env_var('NAME', 'default')`.
+`env_var('NAME', 'default')` for non-routing connection config fields.
+Connection `type` values must be literal adapter types.
 
 Generated artifacts may identify the profile name, target name, adapter type,
 and non-secret relation identifiers. They must not contain secrets or fully

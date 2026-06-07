@@ -267,7 +267,7 @@ def _referenced_connections(
             continue
 
         raw_connection_type = raw_connection.get("type")
-        if not isinstance(raw_connection_type, str):
+        if not isinstance(raw_connection_type, str) or raw_connection_type == "":
             diagnostics.append(
                 _diagnostic(
                     INVALID_PROFILE_CONFIG,
@@ -276,6 +276,21 @@ def _referenced_connections(
                     resource_type="profile_connection",
                     resource_name=connection_name,
                     hint="Set the adapter type for this connection.",
+                )
+            )
+            continue
+        if "{{" in raw_connection_type or "}}" in raw_connection_type:
+            diagnostics.append(
+                _diagnostic(
+                    INVALID_PROFILE_CONFIG,
+                    f"Connection `{connection_name}` field `type` must be a literal adapter type.",
+                    path=profile_path,
+                    resource_type="profile_connection",
+                    resource_name=connection_name,
+                    hint=(
+                        "Set `type` to a literal adapter type such as `duckdb`; use "
+                        "`env_var(...)` only for non-routing connection config values."
+                    ),
                 )
             )
             continue
