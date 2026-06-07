@@ -91,7 +91,9 @@ resolves contract `source.connection` and `target.connection` names against the
 selected target's named connections. Secrets and fully rendered credentials
 must not be written to generated artifacts.
 Connection `type` values must be literal adapter types such as `duckdb`;
-`env_var(...)` is for non-routing connection config values.
+`env_var(...)` is for non-routing connection config values. Unsupported
+template fragments such as `{{ ... }}`, `{% ... %}`, or `{# ... #}` fail for
+referenced connection payloads instead of being passed to adapters.
 
 `recon compile --render-sql` requires `connections/profiles.yml` and loads only
 the selected target's connections referenced by compiled contracts. Plain

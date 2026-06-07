@@ -141,8 +141,9 @@ suite includes those sanitized factory-exception, capability-declaration, and
 diagnostic-redaction cases, plus malformed adapter metadata and empty renderer
 output cases, malformed non-empty renderer output cases, profile cases that
 cover `{{ env_var(...) }}` and bare `env_var(...)` forms, defaults, missing
-variables, unsupported bare env-var expression rejection, and literal adapter
-`type` enforcement before adapter resolution, blocked compiled-check
+variables, unsupported bare env-var expression rejection, unsupported Jinja
+statement/comment fragments such as `{% ... %}` and `{# ... #}`, and literal
+adapter `type` enforcement before adapter resolution, blocked compiled-check
 metadata for adapter setup failures, preserved diagnostics when factories
 return both an adapter and diagnostics, de-duplicated repeated same-connection
 setup diagnostics, distinct source/target connection setup diagnostics,
@@ -171,8 +172,8 @@ scope for the current milestone.
 
 | Dimension | Required cases | Expected behavior | Test coverage | Docs/gate impact | Out-of-scope rationale |
 | --- | --- | --- | --- | --- | --- |
-| Profile selection and rendered connection config | Selected profile, selected target, referenced `legacy` and `warehouse` named connections, referenced `{{ env_var(...) }}` and bare `env_var(...)` fields, env-var defaults, missing referenced env vars, unsupported bare env-var expressions, embedded env-var calls, filters, unselected targets, and unreferenced connections. | Adapter-aware compile renders only selected/referenced connection config, fails missing or unsupported env-var syntax only for referenced config, never passes invalid env-var syntax through as literal config, and does not leak rendered values through diagnostics or generated artifacts. | Existing coverage in `tests/profiles/test_loader.py` and `tests/services/test_compile_service.py`. | Gates runtime profile loading, debug/profile validation commands, adapter execution, and shared adapter test-kit profile fixtures. | Runtime profile loading, profile debug commands, profile schema versioning, and external test-kit fixtures are future work. |
-| Adapter type routing | Literal non-empty `type`, missing or invalid `type`, Jinja templated `type`, bare `env_var(...)` `type`, unsupported template syntax, unknown adapter type. | `type` remains a literal adapter routing key. Templated or env-var-derived `type` fails profile configuration before adapter factories/renderers run, writes no compiled SQL, and does not leak rendered env values. Unknown literal types fail adapter resolution with clear diagnostics. | Existing coverage in `tests/profiles/test_loader.py` and `tests/services/test_compile_service.py`. | Gates external adapter packages and any runtime adapter resolution path; future adapter choices must use targets or named connections, not rendered `type`. | Environment-selected adapter package routing is intentionally out of scope for Milestone 6. |
+| Profile selection and rendered connection config | Selected profile, selected target, referenced `legacy` and `warehouse` named connections, referenced `{{ env_var(...) }}` and bare `env_var(...)` fields, env-var defaults, missing referenced env vars, unsupported bare env-var expressions, embedded env-var calls, filters, Jinja statement/comment fragments such as `{% ... %}` and `{# ... #}`, unselected targets, and unreferenced connections. | Adapter-aware compile renders only selected/referenced connection config, fails missing or unsupported env-var/template syntax only for referenced config, never passes invalid template syntax through as literal config, and does not leak rendered values through diagnostics or generated artifacts. | Existing coverage in `tests/profiles/test_loader.py` and `tests/services/test_compile_service.py`. | Gates runtime profile loading, debug/profile validation commands, adapter execution, and shared adapter test-kit profile fixtures. | Runtime profile loading, profile debug commands, profile schema versioning, and external test-kit fixtures are future work. |
+| Adapter type routing | Literal non-empty `type`, missing or invalid `type`, Jinja expression/statement/comment `type`, bare `env_var(...)` `type`, unsupported template syntax, unknown adapter type. | `type` remains a literal adapter routing key. Templated or env-var-derived `type` fails profile configuration before adapter factories/renderers run, writes no compiled SQL, and does not leak rendered env values. Unknown literal types fail adapter resolution with clear diagnostics. | Existing coverage in `tests/profiles/test_loader.py` and `tests/services/test_compile_service.py`. | Gates external adapter packages and any runtime adapter resolution path; future adapter choices must use targets or named connections, not rendered `type`. | Environment-selected adapter package routing is intentionally out of scope for Milestone 6. |
 | Profile-backed diagnostic redaction by field | Adapter factory diagnostics, adapter API diagnostics, capability diagnostics, render-phase diagnostics, exception-derived diagnostics, unsafe config keys, rendered string values, rendered numeric values, case variants, simple derived forms, DSN fragments, `message`, `hint`, `path`, `resource_type`, `resource_name`, `line`, `column`, `rendering.adapter_type`, and future structured diagnostic fields. | Unsafe text/resource metadata is replaced with safe generic adapter diagnostics or safe rendering metadata while preserving severity and actionable context. Public output must not contain credentials, tokens, DSNs, rendered connection payloads, or simple transformations of those values. | Existing coverage in `tests/services/test_compile_service.py`; future field additions must add field-specific tests before exposing the field. | Gates check execution diagnostics, run results, evidence, logs, debug commands, adapter test-kit snapshots, and external adapter compatibility claims. | Source/target data privacy for runtime rows, query text, database errors, evidence, and failure details is a Milestone 7+ gate. |
 | Diagnostic-code redaction | Unsafe config-key code tokens such as `RC_PASSWORD_LEAK`, separatorless unsafe key embeddings such as `RCPASSWORDLEAK`, rendered-value embeddings such as `RCsuper-secretLEAK`, short numeric embeddings such as `RC12LEAK`, formatted numeric equivalents such as `12.0`, `+12`, and `1.2e1`, and incidental non-secret config-key substrings such as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`. | Codes that expose unsafe keys or rendered profile values are replaced with `RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED`. Safe public adapter codes are preserved even when they contain common non-secret words such as `adapter`. | Existing coverage in `tests/services/test_compile_service.py`. | Gates adapter diagnostic compatibility, external adapter test-kit assertions, and any public diagnostic-code documentation. | Cryptographic detection of arbitrary transformed secrets is out of scope; adapters must not place secrets in codes. |
 | Adapter factory and resolution contract | Registered factory, unknown adapter type, empty factory result, malformed result, malformed diagnostic container, malformed diagnostic entries, invalid `Diagnostic` fields, factory exception, same-connection duplicate setup diagnostics, distinct source/target setup diagnostics, setup diagnostics alongside independent render diagnostics, and factory returns both adapter and diagnostics. | Factory resolution produces an adapter or structured diagnostics. Malformed or exception-raising factories fail with sanitized `RC_ADAPTER_RESOLUTION_FAILED`. Setup diagnostics block rendering, write no compiled SQL, de-duplicate repeated same-connection service diagnostics, preserve distinct connection diagnostics, and do not mask render diagnostics from otherwise resolvable contracts in the same compile invocation. | Existing coverage in `tests/adapters/test_registry.py` and `tests/services/test_compile_service.py`. | Gates external adapter package APIs, adapter test-kit fixtures, and execution-time adapter resolution. | Adapter lifecycle execution, connection pooling, and production adapter package distribution are future work. |
@@ -287,15 +288,16 @@ Initial rules:
 - support both `{{ env_var('NAME') }}` and bare `env_var('NAME')` forms, with
   optional defaults, for non-routing connection config fields,
 - reject unsupported bare `env_var(...)` expressions, embedded env-var calls,
-  filters, and other unsupported template fragments in referenced non-routing
-  fields instead of passing them through as literal config,
+  filters, Jinja statement/comment fragments such as `{% ... %}` and
+  `{# ... #}`, and other unsupported template fragments in referenced
+  non-routing fields instead of passing them through as literal config,
 - require each connection `type` to be a literal non-empty adapter type; `type`
   is adapter routing metadata and does not support `env_var(...)` rendering,
 - model environment-specific adapter choices with separate selected targets or
   separate named connections, each with a literal `type`,
 - fail on missing environment variables in referenced connection payloads,
-- fail on unsupported `{{ ... }}` template syntax in referenced connection
-  payloads,
+- fail on unsupported template syntax, including `{{ ... }}`, `{% ... %}`,
+  and `{# ... #}`, in referenced connection payloads,
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credential payloads in generated
@@ -356,14 +358,16 @@ Shared conformance tests for this gate must cover:
   non-routing connection fields,
 - missing environment variables and environment-variable defaults in referenced
   connection payloads,
-- unsupported `{{ ... }}` template syntax and unsupported bare `env_var(...)`
-  expressions, including embedded env-var calls and filters, failing before
-  adapter resolution instead of surviving as literal config,
+- unsupported template syntax, including `{{ ... }}`, `{% ... %}`, `{# ... #}`,
+  unsupported bare `env_var(...)` expressions, embedded env-var calls, and
+  filters, failing before adapter resolution instead of surviving as literal
+  config,
 - literal adapter `type` handling: `type` must be a non-empty literal adapter
-  type, any `{{ ... }}` or `env_var(...)` use in `type` must fail as profile
-  config before adapter resolution, adapter factories/renderers must not be
-  invoked, no compiled SQL must be written, and the rendered environment
-  value must not appear in diagnostics or artifacts,
+  type, any `{{ ... }}`, `{% ... %}`, `{# ... #}`, or `env_var(...)` use in
+  `type` must fail as profile config before adapter resolution, adapter
+  factories/renderers must not be invoked, no compiled SQL must be written,
+  and the rendered environment value must not appear in diagnostics or
+  artifacts,
 - adapter factory diagnostics returned after profile rendering,
 - optional dependency, API compatibility, capability, metadata, rendering, and
   execution diagnostics once those phases exist,

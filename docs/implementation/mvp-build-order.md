@@ -343,11 +343,13 @@ Tests:
 
 - selected profile and target loading,
 - selected target and referenced named-connection env var rendering,
-- connection `type` values stay literal non-empty adapter types; templated or
-  `env_var(...)` `type` values fail profile config before adapter resolution,
-  do not invoke adapter factories/renderers, do not write compiled SQL, and do
-  not leak the rendered environment value through diagnostics or artifacts,
-- unsupported profile template syntax fails for referenced connections,
+- connection `type` values stay literal non-empty adapter types; templated
+  `{{ ... }}`, `{% ... %}`, `{# ... #}`, or `env_var(...)` `type` values fail
+  profile config before adapter resolution, do not invoke adapter
+  factories/renderers, do not write compiled SQL, and do not leak the rendered
+  environment value through diagnostics or artifacts,
+- unsupported profile template syntax, including `{% ... %}` and `{# ... #}`,
+  fails for referenced connections,
 - secret redaction from diagnostics and artifacts,
 - profile-backed adapter diagnostics, including adapter factory, adapter API
   compatibility, and render-phase diagnostics, do not leak rendered connection
@@ -1394,12 +1396,15 @@ Required gate:
 - include profile env-var rendering conformance before creating or splitting
   the test-kit repository: `{{ env_var(...) }}` and bare `env_var(...)` forms
   in non-routing fields, defaults, missing variables, unsupported bare
-  expressions, embedded env-var calls, and filters must either render safely or
-  fail before adapter resolution instead of surviving as literal config,
+  expressions, embedded env-var calls, filters, and unsupported Jinja
+  statement/comment fragments such as `{% ... %}` and `{# ... #}` must either
+  render safely or fail before adapter resolution instead of surviving as
+  literal config,
 - include literal adapter `type` conformance before creating or splitting the
-  test-kit repository: templated or `env_var(...)` `type` values must fail
-  before adapter resolution, must not invoke adapter factories/renderers, must
-  write no compiled SQL, and must not leak rendered environment values,
+  test-kit repository: templated `{{ ... }}`, `{% ... %}`, `{# ... #}`, or
+  `env_var(...)` `type` values must fail before adapter resolution, must not
+  invoke adapter factories/renderers, must write no compiled SQL, and must not
+  leak rendered environment values,
 - resolve the diagnostic output message conformance gate before publishing
   shared adapter diagnostic assertions or adapter compatibility claims,
 - include case-variant rendered-config redaction cases in shared adapter

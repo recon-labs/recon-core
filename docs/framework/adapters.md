@@ -251,10 +251,11 @@ connection payloads referenced by the selected contracts and supports both
 `{{ env_var('NAME') }}` and bare `env_var('NAME')` forms, with optional
 defaults, for non-routing connection config fields. Bare `env_var(...)` is only
 valid as the whole rendered scalar aside from whitespace; unsupported bare
-env-var expressions, embedded env-var calls, filters, and unsupported template
+env-var expressions, embedded env-var calls, filters, Jinja statement/comment
+fragments such as `{% ... %}` and `{# ... #}`, and unsupported template
 fragments in referenced non-routing fields fail profile loading instead of
 passing through as literal config. Connection `type` values must be literal
-adapter types.
+adapter types and must not contain template fragments.
 
 Missing environment variables in referenced connection payloads are errors.
 Missing environment variables in unselected targets or unreferenced connections
@@ -291,9 +292,11 @@ conformance cases, including safe non-empty diagnostic messages, for adapter
 factories and future dependency, API, capability, metadata, rendering, and
 execution diagnostics. Profile-rendering cases must cover both
 `{{ env_var(...) }}` and bare `env_var(...)` forms, defaults, missing
-environment variables, unsupported bare expressions, and the requirement that
-invalid env-var syntax fails before adapter resolution rather than surviving as
-literal connection config. This is a cross-repo gate: factory exceptions and
+environment variables, unsupported bare expressions, unsupported Jinja
+statement/comment fragments such as `{% ... %}` and `{# ... #}`, and the
+requirement that invalid env-var or template syntax fails before adapter
+resolution rather than surviving as literal connection config. This is a
+cross-repo gate: factory exceptions and
 `capabilities()` exceptions must become sanitized structured diagnostics before
 any external adapter repo or shared test-kit repo claims compatibility.
 Malformed factory diagnostic payloads are adapter-boundary failures, not

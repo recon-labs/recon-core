@@ -313,8 +313,9 @@ typed operation, shared adapter tests should fail until every affected adapter
 implements the operation or marks the capability unsupported.
 
 Profile and diagnostic tests should cover selected target loading, referenced
-connections only, missing env vars, env-var defaults, unsupported `{{ ... }}`
-template syntax, adapter factory diagnostics, malformed factory results,
+connections only, missing env vars, env-var defaults, unsupported template
+syntax including `{{ ... }}`, `{% ... %}`, and `{# ... #}`, adapter factory
+diagnostics, malformed factory results,
 malformed factory diagnostic payloads including invalid `Diagnostic` field
 values, missing or invalid adapter API version declarations, malformed
 capability support states, and future optional dependency, API compatibility,

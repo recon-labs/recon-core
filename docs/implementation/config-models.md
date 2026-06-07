@@ -115,8 +115,9 @@ Profile rendering rules:
 - require connection `type` values to be literal adapter types,
 - fail when a referenced connection payload contains a missing environment
   variable,
-- fail when a referenced connection payload contains unsupported `{{ ... }}`
-  template syntax instead of passing raw template text to adapters,
+- fail when a referenced connection payload contains unsupported template
+  syntax, including `{{ ... }}`, `{% ... %}`, and `{# ... #}`, instead of
+  passing raw template text to adapters,
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never write secrets or fully rendered credential payloads into generated

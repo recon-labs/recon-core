@@ -81,14 +81,16 @@ review. This checklist is a process guide; it is not a CI gate.
       capability, typed operation, SQL rendering, metadata, or execution
       behavior changed.
 - [ ] Checked profile-backed adapter routing behavior: connection `type` must
-      stay a literal non-empty adapter type, templated or `env_var(...)` `type`
-      values must fail before adapter resolution, adapter factories/renderers
-      must not be invoked, and no rendered environment value may appear in
-      diagnostics or artifacts.
+      stay a literal non-empty adapter type, templated `{{ ... }}`,
+      `{% ... %}`, `{# ... #}`, or `env_var(...)` `type` values must fail
+      before adapter resolution, adapter factories/renderers must not be
+      invoked, and no rendered environment value may appear in diagnostics or
+      artifacts.
 - [ ] Checked profile env-var rendering conformance for non-routing connection
       fields: `{{ env_var(...) }}` and bare `env_var(...)` forms, defaults,
       missing variables, unsupported bare expressions, embedded env-var calls,
-      and filters must either render safely or fail before adapter resolution
+      filters, and unsupported template fragments such as `{% ... %}` and
+      `{# ... #}` must either render safely or fail before adapter resolution
       instead of surviving as literal config.
 - [ ] Updated adapter diagnostic expectations when diagnostic messages,
       redaction behavior, or adapter-provided diagnostic fields changed.

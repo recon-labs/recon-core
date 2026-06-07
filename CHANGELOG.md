@@ -236,8 +236,9 @@ This project follows semantic versioning once public package releases begin.
   raw YAML parser message, preventing malformed secret-bearing lines from
   appearing in CLI diagnostics.
 - Referenced `connections/profiles.yml` connection values that contain
-  unsupported `{{ ... }}` template syntax now fail profile validation instead
-  of passing raw template text to adapters.
+  unsupported Jinja template fragments, including `{{ ... }}`, `{% ... %}`,
+  and `{# ... #}`, now fail profile validation instead of passing raw template
+  text to adapters.
 - CLI failures now print each diagnostic message as well as the diagnostic
   code, so `recon compile --render-sql` profile and adapter errors expose the
   actionable failure detail in terminal output.

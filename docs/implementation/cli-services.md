@@ -88,10 +88,11 @@ or attached-database rendering is designed.
 Profile rendering must render only the selected target environment and the
 named connections referenced by selected contracts. Secrets and fully rendered
 credential payloads must not be written into compiled artifacts, compiled SQL
-references, diagnostics, or terminal output. Unsupported `{{ ... }}` template
-syntax in referenced connection payloads must fail instead of passing raw
-template text to adapters. Profile-backed adapter diagnostics that reference
-rendered connection config keys or values, including adapter-resolution,
+references, diagnostics, or terminal output. Unsupported template syntax,
+including `{{ ... }}`, `{% ... %}`, and `{# ... #}`, in referenced connection
+payloads must fail instead of passing raw template text to adapters.
+Profile-backed adapter diagnostics that reference rendered connection config
+keys or values, including adapter-resolution,
 adapter API compatibility, and render-phase adapter diagnostics, must be
 suppressed before they reach service diagnostics, terminal output, or
 compiled-check rendering metadata.

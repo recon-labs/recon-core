@@ -81,7 +81,11 @@ Profile resolution follows these rules:
   non-routing connection config fields.
 - Require connection `type` values to be literal non-empty adapter types. The
   `type` field selects the adapter boundary and may appear as public adapter
-  metadata, so it does not support `env_var(...)` rendering.
+  metadata, so it does not support `env_var(...)` rendering or any template
+  fragments.
+- Reject unsupported template fragments in referenced non-routing connection
+  config fields before adapter resolution, including `{{ ... }}` expressions,
+  `{% ... %}` statements, and `{# ... #}` comments.
 - Missing environment variables in referenced connection payloads are errors.
 - Missing environment variables in unselected targets and unreferenced
   connections do not fail contract-specific invocations.

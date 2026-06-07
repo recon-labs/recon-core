@@ -117,6 +117,9 @@ fields. Initial adapter-aware behavior renders only referenced named
 connections and supports `env_var('NAME')` plus
 `env_var('NAME', 'default')` for non-routing connection config fields.
 Connection `type` values must be literal adapter types such as `duckdb`.
+Unsupported template fragments such as `{{ ... }}`, `{% ... %}`, or
+`{# ... #}` fail for referenced connection payloads instead of being passed to
+adapters.
 
 ## `endpoints/`
 
