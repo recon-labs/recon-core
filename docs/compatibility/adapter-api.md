@@ -137,7 +137,9 @@ publish, or split `recon-adapter-testkit`, `recon-duckdb`, or any production
 adapter repository with a compatibility claim until the shared conformance
 suite includes those sanitized factory-exception, capability-declaration, and
 diagnostic-redaction cases, plus malformed adapter metadata and empty renderer
-output cases, malformed non-empty renderer output cases, blocked compiled-check
+output cases, malformed non-empty renderer output cases, profile cases that
+enforce literal adapter `type` values and reject templated `type` before
+adapter resolution, blocked compiled-check
 metadata for adapter setup failures, preserved diagnostics when factories
 return both an adapter and diagnostics, de-duplicated repeated same-connection
 setup diagnostics, distinct source/target connection setup diagnostics,
@@ -261,6 +263,8 @@ Initial rules:
   connection config fields,
 - require each connection `type` to be a literal non-empty adapter type; `type`
   is adapter routing metadata and does not support `env_var(...)` rendering,
+- model environment-specific adapter choices with separate selected targets or
+  separate named connections, each with a literal `type`,
 - fail on missing environment variables in referenced connection payloads,
 - fail on unsupported `{{ ... }}` template syntax in referenced connection
   payloads,
@@ -304,6 +308,11 @@ tests must cover:
 - missing environment variables in referenced connection payloads,
 - environment-variable defaults,
 - unsupported `{{ ... }}` template syntax,
+- literal adapter `type` handling: `type` must be a non-empty literal adapter
+  type, any `{{ ... }}` or `env_var(...)` use in `type` must fail as profile
+  config before adapter resolution, adapter factories/renderers must not be
+  invoked, no compiled SQL must be written, and the rendered environment
+  value must not appear in diagnostics or artifacts,
 - adapter factory diagnostics returned after profile rendering,
 - optional dependency, API compatibility, capability, metadata, rendering, and
   execution diagnostics once those phases exist,

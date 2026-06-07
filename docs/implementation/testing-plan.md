@@ -197,8 +197,16 @@ adapter diagnostic redaction before adapter execution, connection debug or
 profile validation commands, external adapter repositories, or compatibility
 claims rely on rendered profiles. It should verify selected profile/target
 loading, referenced-connection filtering, missing environment variables,
-environment-variable defaults, unsupported `{{ ... }}` template syntax, and
-adapter diagnostics returned after rendered profile config is available.
+environment-variable defaults, unsupported `{{ ... }}` template syntax, literal
+adapter `type` handling, and adapter diagnostics returned after rendered
+profile config is available. Literal adapter `type` cases should verify that
+connection `type` is a non-empty literal string; `{{ ... }}` or `env_var(...)`
+in `type` fails profile config before adapter resolution; adapter factories and
+renderers are not invoked; compiled SQL is not written; and the rendered
+environment value does not appear in diagnostics or artifacts. Adapter choices
+that vary by environment should be represented by separate selected targets or
+separate named connections, each with a literal `type`, not by rendering the
+adapter type from environment variables.
 Factory, optional dependency, API compatibility, capability, metadata,
 rendering, and execution diagnostics should be tested as public output and must
 not leak rendered connection config keys or values classified as unsafe for

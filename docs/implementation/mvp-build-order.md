@@ -325,6 +325,10 @@ Tests:
 
 - selected profile and target loading,
 - selected target and referenced named-connection env var rendering,
+- connection `type` values stay literal non-empty adapter types; templated or
+  `env_var(...)` `type` values fail profile config before adapter resolution,
+  do not invoke adapter factories/renderers, do not write compiled SQL, and do
+  not leak the rendered environment value through diagnostics or artifacts,
 - unsupported profile template syntax fails for referenced connections,
 - secret redaction from diagnostics and artifacts,
 - profile-backed adapter diagnostics, including adapter factory, adapter API
@@ -368,6 +372,9 @@ Required gates:
 
 - resolve the profile-rendering and adapter diagnostic redaction conformance
   gate before loading rendered profiles or resolving adapters for execution,
+- preserve literal adapter type routing: `type` must not be rendered from
+  environment variables, and environment-specific adapter choices must use
+  separate targets or named connections with literal `type` values,
 - require adapter/profile diagnostic redaction conformance to cover unsafe
   rendered profile keys or values independently in diagnostic code, message,
   hint, path, `resource_type`, `resource_name`, `line`, `column`, and future
@@ -1359,6 +1366,10 @@ Required gate:
 - resolve the profile-rendering and adapter diagnostic redaction conformance
   gate before publishing shared test-kit expectations or external adapter
   compatibility claims,
+- include literal adapter `type` conformance before creating or splitting the
+  test-kit repository: templated or `env_var(...)` `type` values must fail
+  before adapter resolution, must not invoke adapter factories/renderers, must
+  write no compiled SQL, and must not leak rendered environment values,
 - resolve the diagnostic output message conformance gate before publishing
   shared adapter diagnostic assertions or adapter compatibility claims,
 - include case-variant rendered-config redaction cases in shared adapter

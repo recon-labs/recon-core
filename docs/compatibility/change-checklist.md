@@ -66,6 +66,11 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated adapter test-kit docs or expectations when adapter API,
       capability, typed operation, SQL rendering, metadata, or execution
       behavior changed.
+- [ ] Checked profile-backed adapter routing behavior: connection `type` must
+      stay a literal non-empty adapter type, templated or `env_var(...)` `type`
+      values must fail before adapter resolution, adapter factories/renderers
+      must not be invoked, and no rendered environment value may appear in
+      diagnostics or artifacts.
 - [ ] Updated adapter diagnostic expectations when diagnostic messages,
       redaction behavior, or adapter-provided diagnostic fields changed.
 - [ ] Checked diagnostic-code redaction for rendered profile values embedded
