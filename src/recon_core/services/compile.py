@@ -586,7 +586,7 @@ class _RenderSqlCompilationResult:
 @dataclass(frozen=True, slots=True)
 class _DiagnosticCodeConfigTokens:
     boundary_tokens: frozenset[str]
-    embedded_value_tokens: frozenset[str]
+    embedded_tokens: frozenset[str]
 
 
 def _resolve_render_sql_adapters(
@@ -787,7 +787,7 @@ def _sanitize_profile_backed_adapter_diagnostic(
         message=(
             f"Adapter `{connection.type}` reported a diagnostic for "
             f"connection `{connection.name}`; adapter diagnostic text was suppressed "
-            "because profile diagnostics must not expose rendered connection values."
+            "because profile diagnostics must not expose rendered connection config."
         ),
         resource_type="adapter",
         resource_name=connection.type,
@@ -807,7 +807,7 @@ def _diagnostic_code_mentions_config_token(
         code_config_tokens.boundary_tokens,
     ) or _text_mentions_config_token(
         diagnostic.code,
-        code_config_tokens.embedded_value_tokens,
+        code_config_tokens.embedded_tokens,
     ) or _code_mentions_numeric_config_token(diagnostic.code, numeric_field_tokens)
 
 
@@ -852,15 +852,15 @@ def _connection_config_code_tokens(
     adapter_type: str,
 ) -> _DiagnosticCodeConfigTokens:
     boundary_tokens = set(_connection_config_tokens(value, adapter_type=adapter_type))
-    embedded_value_tokens: set[str] = set()
+    embedded_tokens: set[str] = set()
     _collect_connection_config_code_tokens(
         value,
         adapter_type=adapter_type,
-        embedded_value_tokens=embedded_value_tokens,
+        embedded_tokens=embedded_tokens,
     )
     return _DiagnosticCodeConfigTokens(
         boundary_tokens=frozenset(boundary_tokens),
-        embedded_value_tokens=frozenset(embedded_value_tokens),
+        embedded_tokens=frozenset(embedded_tokens),
     )
 
 
@@ -913,23 +913,29 @@ def _collect_connection_config_code_tokens(
     value: object,
     *,
     adapter_type: str,
-    embedded_value_tokens: set[str],
+    embedded_tokens: set[str],
     current_key: str | None = None,
 ) -> None:
     if isinstance(value, Mapping):
         for key, nested_value in value.items():
             key_text = key if isinstance(key, str) else None
+            if (
+                key_text is not None
+                and key_text.casefold() != "type"
+                and _is_secret_like_config_key(key_text)
+            ):
+                embedded_tokens.add(key_text)
             _collect_connection_config_code_tokens(
                 nested_value,
                 adapter_type=adapter_type,
-                embedded_value_tokens=embedded_value_tokens,
+                embedded_tokens=embedded_tokens,
                 current_key=key_text,
             )
         return
 
     if isinstance(value, str):
         if value != "" and value.casefold() != adapter_type.casefold():
-            embedded_value_tokens.add(value)
+            embedded_tokens.add(value)
         return
 
     if isinstance(value, list | tuple):
@@ -937,7 +943,7 @@ def _collect_connection_config_code_tokens(
             _collect_connection_config_code_tokens(
                 item,
                 adapter_type=adapter_type,
-                embedded_value_tokens=embedded_value_tokens,
+                embedded_tokens=embedded_tokens,
                 current_key=current_key,
             )
         return
@@ -949,7 +955,7 @@ def _collect_connection_config_code_tokens(
     if token != "" and (
         len(token) >= 3 or (current_key is not None and _is_secret_like_config_key(current_key))
     ):
-        embedded_value_tokens.add(token)
+        embedded_tokens.add(token)
 
 
 def _collect_connection_config_numeric_field_tokens(

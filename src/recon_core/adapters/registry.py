@@ -97,7 +97,7 @@ class AdapterRegistry:
 def _factory_exception_hint(exc: Exception) -> str:
     return (
         f"Adapter factory raised {type(exc).__name__}. Raw adapter error text was "
-        "suppressed because profile diagnostics must not expose rendered connection values."
+        "suppressed because profile diagnostics must not expose rendered connection config."
     )
 
 
@@ -228,7 +228,7 @@ def _invalid_adapter_type_diagnostic(
     if exc is not None:
         hint = (
             f"Adapter metadata raised {type(exc).__name__}. Raw adapter error text was "
-            "suppressed because profile diagnostics must not expose rendered connection values. "
+            "suppressed because profile diagnostics must not expose rendered connection config. "
             "Declare `adapter_type` as a non-empty string on the adapter class."
         )
 
