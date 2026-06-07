@@ -62,7 +62,11 @@ grain:
     - month
 ```
 
-`grain.keys` are not trusted blindly. They are a claim that the selected keys uniquely identify comparable rows. Row-level checks must validate that claim before running.
+`grain.keys` are not trusted blindly. They are a claim that the selected keys
+uniquely identify comparable rows. Row-level value and row-matching checks must
+validate that claim before running. Key coverage checks such as `missing_keys`
+and `extra_keys` may still run as distinct non-null key coverage while null-key
+and duplicate-key checks report safety failures separately.
 
 The current contract model has one default comparison grain. Future advanced
 contracts may add optional named grains for cases such as order-level and

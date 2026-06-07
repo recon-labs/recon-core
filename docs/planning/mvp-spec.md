@@ -276,8 +276,9 @@ The MVP must enforce these rules:
 - no silent all-column comparison,
 - row-level checks require `grain.keys`,
 - CDC propagation checks require `cdc.keys`,
-- row-level checks require non-null and unique source and target keys,
-- row-level checks are blocked by null or duplicate grain keys,
+- row-level value and row-matching checks require non-null and unique source and
+  target grain keys,
+- row-level value checks are blocked by null or duplicate grain keys,
 - `recon_core.basic_equivalence` requires `grain.keys`,
 - metrics cause aggregate checks,
 - columns do not cause checks by themselves,

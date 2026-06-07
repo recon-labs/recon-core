@@ -396,8 +396,8 @@ Required gates:
 Tests:
 
 - pass/fail cases,
-- duplicate keys block row-level checks,
-- null keys block row-level checks,
+- duplicate keys block dependent row-level value checks,
+- null keys block dependent row-level value checks,
 - aggregate metric result,
 - check result serialization,
 - check-engine diagnostics preserve code, severity, message, path, resource
@@ -998,7 +998,12 @@ Build:
 
 - `exact_value_match`,
 - `numeric_tolerance_match`,
-- prerequisite blocking for null/duplicate keys,
+- `requires_non_null_grain` and `requires_unique_grain` metadata for row-level
+  value checks,
+- prerequisites on `null_source_keys`, `null_target_keys`,
+  `duplicate_source_keys`, and `duplicate_target_keys`,
+- prerequisite blocking with `blocked_by` and `skip_reason` for null/duplicate
+  keys,
 - resolved column and policy payloads in typed plans,
 - result, failure-detail, and evidence output for value mismatches.
 

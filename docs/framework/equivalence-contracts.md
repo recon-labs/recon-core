@@ -720,7 +720,8 @@ Recon should validate contracts before execution:
 - source and target are required,
 - exactly one of `relation` or `query` per endpoint,
 - row-level checks require `grain.keys`,
-- row-level checks require non-null and unique keys after filtering/sampling/windowing,
+- row-level value and row-matching checks require non-null and unique keys after
+  filtering/sampling/windowing,
 - CDC propagation checks require `cdc.keys`,
 - CDC delete behavior is explicit when CDC checks are used,
 - checks must be compatible with column types,

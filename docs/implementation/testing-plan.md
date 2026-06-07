@@ -106,8 +106,8 @@ Rules include:
 
 - no silent all-column comparison,
 - row-level checks require keys,
-- duplicate keys block row-level checks,
-- null keys block row-level checks,
+- duplicate keys block dependent row-level value checks,
+- null keys block dependent row-level value checks,
 - CDC propagation checks require CDC keys,
 - `basic_equivalence` without grain fails validation,
 - invalid check/column types error,

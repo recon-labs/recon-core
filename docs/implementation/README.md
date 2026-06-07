@@ -71,7 +71,8 @@ The implementation must preserve these rules:
 - no silent no-op check packs,
 - row-level checks require `grain.keys`,
 - CDC propagation checks require `cdc.keys`,
-- row-level checks require non-null and unique source and target keys,
+- row-level value and row-matching checks require non-null and unique source and
+  target grain keys,
 - row-level value checks are blocked by null or duplicate grain keys,
 - sampling does not remove non-null or uniqueness requirements,
 - aggregate checks can run without row-level keys,

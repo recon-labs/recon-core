@@ -39,8 +39,9 @@ Future column/value implementation must preserve these rules:
 - source-target column mapping must be explicit and visible if it is ever
   supported,
 - invalid check/column type combinations fail validation,
-- row-level value checks require key-safety checks and adapter support before
-  execution.
+- row-level value checks require `requires_non_null_grain` and
+  `requires_unique_grain` metadata, null-key and duplicate-key prerequisites,
+  key-safety blocking, and adapter support before execution.
 
 ## Artifact Impact
 

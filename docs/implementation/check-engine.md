@@ -135,7 +135,8 @@ A check may support:
 
 ## Row-level checks
 
-Row-level checks require non-null and unique matching keys.
+Row-level value and row-matching checks require non-null and unique matching
+keys.
 
 If null or duplicate keys are present, value comparisons should not guess.
 

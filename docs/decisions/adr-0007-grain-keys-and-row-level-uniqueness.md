@@ -21,24 +21,24 @@ multiple named grains, per-check grain overrides, or per-check-pack grain
 binding. Those are future advanced-contract features that require a separate
 decision before implementation.
 
-Row-level checks require:
+Row-level value and row-matching checks require:
 
 - `grain.keys`,
 - source uniqueness at that grain,
 - target uniqueness at that grain.
 
-If uniqueness fails, row-level checks must be blocked.
+If uniqueness fails, dependent row-level value checks must be blocked.
 
 Aggregate checks may continue when they do not require row-level identity.
 
-Missing key coverage checks such as `missing_keys` and `extra_keys` may still run as distinct non-null key coverage when nulls or duplicates exist, but they must not imply that row-level value matching is safe.
+Missing key coverage checks such as `missing_keys` and `extra_keys` may still
+run as distinct non-null key coverage when nulls or duplicates exist, but they
+must not imply that row-level value matching is safe.
 
 ## Row-level checks affected
 
-This applies to checks such as:
+This applies to row-level value and row-matching checks such as:
 
-- `missing_keys`,
-- `extra_keys`,
 - `row_diff`,
 - `sampled_row_diff`,
 - `sampled_value_match`,
@@ -49,9 +49,11 @@ This applies to checks such as:
 
 ## Sampling does not remove the requirement
 
-Sampled row-level checks still require uniqueness inside the sampled comparable output.
+Sampled row-level value checks still require uniqueness inside the sampled
+comparable output.
 
-CDC latest-window row-level checks require non-null keys and uniqueness inside the incremental window.
+CDC latest-window row-level value checks require non-null keys and uniqueness
+inside the incremental window.
 
 ## Segmenting columns
 
