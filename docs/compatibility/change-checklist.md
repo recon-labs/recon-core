@@ -85,6 +85,11 @@ review. This checklist is a process guide; it is not a CI gate.
       values must fail before adapter resolution, adapter factories/renderers
       must not be invoked, and no rendered environment value may appear in
       diagnostics or artifacts.
+- [ ] Checked profile env-var rendering conformance for non-routing connection
+      fields: `{{ env_var(...) }}` and bare `env_var(...)` forms, defaults,
+      missing variables, unsupported bare expressions, embedded env-var calls,
+      and filters must either render safely or fail before adapter resolution
+      instead of surviving as literal config.
 - [ ] Updated adapter diagnostic expectations when diagnostic messages,
       redaction behavior, or adapter-provided diagnostic fields changed.
 - [ ] Checked diagnostic-code redaction for unsafe config keys and rendered
@@ -110,6 +115,9 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked whether any shared adapter test-kit compile-flow harness must
       assert `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and no
       adapter invocation when compile validation already failed.
+- [ ] Checked whether adapter setup diagnostics can coexist with independent
+      render diagnostics in the same compile invocation, and whether service or
+      CLI diagnostics preserve both instead of reporting only setup failures.
 - [ ] Checked source/target privacy cases for raw adapter, database, and
       runtime exception text before any adapter test-kit or external adapter
       repository claims execution, diagnostics, run-result, evidence, report,

@@ -217,9 +217,13 @@ adapter execution, connection debug or profile validation commands, external
 adapter repositories, or compatibility claims rely on rendered profiles. It
 should verify selected profile/target loading, referenced-connection filtering,
 missing environment variables,
-environment-variable defaults, unsupported `{{ ... }}` template syntax, literal
-adapter `type` handling, and adapter diagnostics returned after rendered
-profile config is available. Literal adapter `type` cases should verify that
+environment-variable defaults, `{{ env_var(...) }}` and bare `env_var(...)`
+forms in non-routing connection fields, unsupported `{{ ... }}` template
+syntax, unsupported bare env-var expressions, embedded env-var calls, filters,
+literal adapter `type` handling, and adapter diagnostics returned after rendered
+profile config is available. Unsupported env-var cases should verify that
+invalid syntax fails before adapter resolution and does not survive as literal
+connection config. Literal adapter `type` cases should verify that
 connection `type` is a non-empty literal string; `{{ ... }}` or `env_var(...)`
 in `type` fails profile config before adapter resolution; adapter factories and
 renderers are not invoked; compiled SQL is not written; and the rendered

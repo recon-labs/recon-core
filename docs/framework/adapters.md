@@ -247,10 +247,14 @@ Connection profiles live in `connections/profiles.yml` and should not be
 committed. Profile resolution selects one profile and one target environment,
 then resolves contract connection names against that target's `connections`
 map. Contract-specific adapter rendering or execution renders only the named
-connection payloads referenced by the selected contracts and supports
-`env_var('NAME')` plus `env_var('NAME', 'default')` initially for non-routing
-connection config fields. Connection `type` values must be literal adapter
-types.
+connection payloads referenced by the selected contracts and supports both
+`{{ env_var('NAME') }}` and bare `env_var('NAME')` forms, with optional
+defaults, for non-routing connection config fields. Bare `env_var(...)` is only
+valid as the whole rendered scalar aside from whitespace; unsupported bare
+env-var expressions, embedded env-var calls, filters, and unsupported template
+fragments in referenced non-routing fields fail profile loading instead of
+passing through as literal config. Connection `type` values must be literal
+adapter types.
 
 Missing environment variables in referenced connection payloads are errors.
 Missing environment variables in unselected targets or unreferenced connections
@@ -285,7 +289,11 @@ Before external adapter packages or a shared adapter test kit are published,
 the test kit must include profile-rendering and diagnostic-redaction
 conformance cases, including safe non-empty diagnostic messages, for adapter
 factories and future dependency, API, capability, metadata, rendering, and
-execution diagnostics. This is a cross-repo gate: factory exceptions and
+execution diagnostics. Profile-rendering cases must cover both
+`{{ env_var(...) }}` and bare `env_var(...)` forms, defaults, missing
+environment variables, unsupported bare expressions, and the requirement that
+invalid env-var syntax fails before adapter resolution rather than surviving as
+literal connection config. This is a cross-repo gate: factory exceptions and
 `capabilities()` exceptions must become sanitized structured diagnostics before
 any external adapter repo or shared test-kit repo claims compatibility.
 Malformed factory diagnostic payloads are adapter-boundary failures, not

@@ -318,10 +318,14 @@ requested.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include
-connection secrets or fully rendered credential payloads. If a profile-backed
-adapter diagnostic, including factory diagnostics, adapter API compatibility
-diagnostics, and render-phase adapter diagnostics, references rendered
-connection config keys or values, Recon should suppress unsafe adapter
+connection secrets or fully rendered credential payloads. If an adapter setup
+failure and an independent render failure occur in the same
+adapter-aware compile invocation, service and CLI diagnostics must preserve both
+distinct failures; setup diagnostics must not mask render diagnostics from
+otherwise resolvable contracts.
+If a profile-backed adapter diagnostic, including factory diagnostics, adapter
+API compatibility diagnostics, and render-phase adapter diagnostics, references
+rendered connection config keys or values, Recon should suppress unsafe adapter
 diagnostic text and unsafe resource metadata, then return a generic adapter
 diagnostic with the original severity and the original diagnostic code only when
 the code is safe. If an adapter-provided diagnostic code references rendered

@@ -1391,6 +1391,11 @@ Required gate:
   test-kit repository, publishing shared test-kit expectations, splitting
   `recon-duckdb`, publishing production adapter packages, or making external
   adapter compatibility claims,
+- include profile env-var rendering conformance before creating or splitting
+  the test-kit repository: `{{ env_var(...) }}` and bare `env_var(...)` forms
+  in non-routing fields, defaults, missing variables, unsupported bare
+  expressions, embedded env-var calls, and filters must either render safely or
+  fail before adapter resolution instead of surviving as literal config,
 - include literal adapter `type` conformance before creating or splitting the
   test-kit repository: templated or `env_var(...)` `type` values must fail
   before adapter resolution, must not invoke adapter factories/renderers, must
@@ -1427,9 +1432,10 @@ Required gate:
 - include adapter setup failure cases that assert no compiled SQL output,
   blocked compiled-check metadata, preserved diagnostics when factories return
   both adapters and diagnostics, de-duplicated repeated same-connection service
-  diagnostics, and preserved distinct source/target connection diagnostics
-  before creating or splitting the test-kit repository or publishing external
-  adapter compatibility claims,
+  diagnostics, preserved distinct source/target connection diagnostics, and
+  preserved independent render diagnostics from otherwise resolvable contracts
+  when setup diagnostics also exist before creating or splitting the test-kit
+  repository or publishing external adapter compatibility claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the
