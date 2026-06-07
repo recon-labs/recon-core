@@ -198,7 +198,9 @@ Adapter setup failure cases must also verify that adapter-aware compile writes
 no compiled SQL, marks affected compiled checks blocked with structured
 diagnostics, de-duplicates repeated same-connection setup diagnostics in service
 and CLI output, and preserves distinct source/target connection setup
-diagnostics.
+diagnostics. They should also prove that adapter setup diagnostics do not hide
+render diagnostics from otherwise resolvable contracts in the same
+adapter-aware compile invocation.
 
 Adapter-aware compile tests should also cover the core-owned case where compile
 validation fails before adapter rendering starts. When `--render-sql` was

@@ -27,6 +27,11 @@ _ENV_VAR_PATTERN = re.compile(
     r"""\{\{\s*env_var\(\s*(['"])(?P<name>[A-Za-z_][A-Za-z0-9_]*)\1\s*"""
     r"""(?:,\s*(['"])(?P<default>.*?)\3\s*)?\)\s*\}\}"""
 )
+_BARE_ENV_VAR_PATTERN = re.compile(
+    r"""env_var\(\s*(['"])(?P<name>[A-Za-z_][A-Za-z0-9_]*)\1\s*"""
+    r"""(?:,\s*(['"])(?P<default>.*?)\3\s*)?\)"""
+)
+_ENV_VAR_CALL_PATTERN = re.compile(r"\benv_var\s*\(")
 
 
 class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
@@ -378,7 +383,9 @@ def _render_string(
     environ: Mapping[str, str],
     diagnostics: list[Diagnostic],
 ) -> str:
-    if _contains_unsupported_template_expression(value):
+    if _contains_unsupported_template_expression(value) or _contains_unsupported_env_var_expression(
+        value
+    ):
         diagnostics.append(
             _diagnostic(
                 INVALID_PROFILE_CONFIG,
@@ -417,7 +424,11 @@ def _render_string(
         )
         return ""
 
-    return _ENV_VAR_PATTERN.sub(replace, value)
+    rendered_value = _ENV_VAR_PATTERN.sub(replace, value)
+    bare_match = _BARE_ENV_VAR_PATTERN.fullmatch(value.strip())
+    if bare_match is not None:
+        return replace(bare_match)
+    return rendered_value
 
 
 def _contains_unsupported_template_expression(value: str) -> bool:
@@ -429,6 +440,20 @@ def _contains_unsupported_template_expression(value: str) -> bool:
         _template_marker_positions(value, "}}")
     )
     return any(not _position_in_spans(position, valid_spans) for position in marker_positions)
+
+
+def _contains_unsupported_env_var_expression(value: str) -> bool:
+    call_positions = tuple(match.start() for match in _ENV_VAR_CALL_PATTERN.finditer(value))
+    if not call_positions:
+        return False
+
+    valid_template_spans = tuple(match.span() for match in _ENV_VAR_PATTERN.finditer(value))
+    if any(_position_in_spans(position, valid_template_spans) for position in call_positions):
+        return any(
+            not _position_in_spans(position, valid_template_spans) for position in call_positions
+        )
+
+    return _BARE_ENV_VAR_PATTERN.fullmatch(value.strip()) is None
 
 
 def _template_marker_positions(value: str, marker: str) -> tuple[int, ...]:

@@ -58,10 +58,49 @@ profiles:
     assert result.diagnostics == ()
 
 
+def test_load_selected_profile_renders_bare_env_var_references(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "env_var('LEGACY_DB')"
+          warehouse:
+            type: duckdb
+            database: "env_var('WAREHOUSE_DB', 'default.duckdb')"
+""",
+    )
+    monkeypatch.setenv("LEGACY_DB", "legacy.duckdb")
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile(
+        context_result.context,
+        contracts=(contract(source_connection="legacy", target_connection="warehouse"),),
+    )
+
+    assert result.succeeded
+    assert result.profile is not None
+    assert result.profile.connections["legacy"].config["database"] == "legacy.duckdb"
+    assert result.profile.connections["warehouse"].config["database"] == "default.duckdb"
+    assert result.diagnostics == ()
+
+
 @pytest.mark.parametrize(
     "connection_type",
     [
-        pytest.param('"{{ env_var(\'RECON_ADAPTER\', \'duckdb\') }}"', id="jinja-env-var"),
+        pytest.param("\"{{ env_var('RECON_ADAPTER', 'duckdb') }}\"", id="jinja-env-var"),
         pytest.param("env_var('RECON_ADAPTER', 'duckdb')", id="bare-env-var"),
     ],
 )
@@ -308,6 +347,46 @@ profiles:
     assert "env_var('MISSING_DB') | lower" not in diagnostic_text
     assert "{{" not in diagnostic_text
     assert "}}" not in diagnostic_text
+
+
+def test_load_selected_profile_rejects_unsupported_bare_env_var_expression(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "env_var('MISSING_DB') | lower"
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile(
+        context_result.context,
+        contracts=(contract(source_connection="legacy", target_connection="warehouse"),),
+    )
+
+    assert not result.succeeded
+    assert result.profile is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_CONFIG"
+    ]
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+    assert "MISSING_DB" not in diagnostic_text
+    assert "lower" not in diagnostic_text
 
 
 def test_load_selected_profile_sanitizes_invalid_yaml_diagnostics(

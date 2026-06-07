@@ -100,6 +100,12 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile --render-sql` now also discards any partial compiled YAML
   artifacts written earlier in the same invocation when a later compiled YAML
   artifact write fails after in-memory SQL rendering.
+- Connection profile loading now renders documented bare `env_var('NAME')` and
+  `env_var('NAME', 'default')` expressions in non-routing connection config
+  fields instead of passing them to adapters as literal strings.
+- `recon compile --render-sql` now reports render diagnostics from unaffected
+  contracts even when another referenced adapter connection has setup
+  diagnostics.
 - `recon compile` now rejects symlinked `target-path` ancestry, contracts that
   compile into no checks, non-string nested `checks` mapping keys, and missing,
   null, or empty `sampling.default_policy` values when `sampling` is declared.

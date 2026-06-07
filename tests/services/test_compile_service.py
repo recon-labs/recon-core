@@ -102,7 +102,7 @@ def test_render_sql_compile_requires_profiles_file(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "connection_type",
     [
-        pytest.param('"{{ env_var(\'SECRET_ADAPTER_TYPE\') }}"', id="jinja-env-var"),
+        pytest.param("\"{{ env_var('SECRET_ADAPTER_TYPE') }}\"", id="jinja-env-var"),
         pytest.param("env_var('SECRET_ADAPTER_TYPE')", id="bare-env-var"),
     ],
 )
@@ -255,6 +255,80 @@ def test_render_sql_compile_keeps_distinct_connection_setup_diagnostics(
         "Connection `warehouse` setup failed.",
     }
     _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_CONNECTION_SETUP_FAILED")
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_render_sql_compile_reports_adapter_setup_and_render_diagnostics(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(
+        tmp_path,
+        name="setup_contract",
+        file_name="setup_contract.yml",
+        source_connection="broken",
+        target_connection="broken",
+    )
+    write_contract(
+        tmp_path,
+        name="query_contract",
+        file_name="query_contract.yml",
+        source_connection="valid",
+        target_connection="valid",
+        source_query="select * from qa.customer_source",
+    )
+    profiles_path = tmp_path / "connections" / "profiles.yml"
+    profiles_path.parent.mkdir()
+    profiles_path.write_text(
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          broken:
+            type: setup_failed
+            database: broken.duckdb
+          valid:
+            type: duckdb
+            database: local.duckdb
+""".lstrip(),
+        encoding="utf-8",
+    )
+    registry = AdapterRegistry()
+    registry.register("setup_failed", ConnectionDiagnosticAdapterFactory())
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    setup_checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "setup_contract.yml").read_text(encoding="utf-8")
+    )
+    query_checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "query_contract.yml").read_text(encoding="utf-8")
+    )
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_TEST_CONNECTION_SETUP_FAILED",
+        "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED",
+    }
+    assert {
+        diagnostic["code"]
+        for check in setup_checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {"RC_TEST_CONNECTION_SETUP_FAILED"}
+    assert {
+        diagnostic["code"]
+        for check in query_checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {"RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"}
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -1144,7 +1218,7 @@ def test_render_sql_compile_sanitizes_env_var_rendered_numeric_string_variants(
     write_profiles(
         tmp_path,
         connection_type="formatted_numeric_text_leaky",
-        port='"{{ env_var(\'RECON_TEST_PORT\') }}"',
+        port="\"{{ env_var('RECON_TEST_PORT') }}\"",
     )
     registry = AdapterRegistry()
     registry.register(
@@ -3213,6 +3287,8 @@ def write_contract(
     *,
     name: str = "customer_revenue",
     file_name: str = "customer_revenue.yml",
+    source_connection: str = "legacy",
+    target_connection: str = "warehouse",
     include_grain: bool = True,
     tolerance_policy: str | None = None,
     nulls: dict[str, object] | None = None,
@@ -3244,9 +3320,9 @@ grain:
 version: 1
 name: {name}
 source:
-  connection: legacy
+  connection: {source_connection}
 {source_endpoint_yaml}target:
-  connection: warehouse
+  connection: {target_connection}
   relation: qa.customer_target
 {grain_yaml}metrics:
   - name: total_revenue

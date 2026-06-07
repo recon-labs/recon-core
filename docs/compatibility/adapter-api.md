@@ -111,7 +111,9 @@ must de-duplicate the repeated setup diagnostic while compiled artifacts still
 explain why each affected check is blocked. Setup diagnostics for distinct
 referenced connections must remain visible in service, CLI, and blocked
 compiled-check artifact output even when they share the same diagnostic code,
-adapter type, or hint.
+adapter type, or hint. Adapter setup diagnostics must also be reported alongside
+render diagnostics from otherwise resolvable contracts in the same
+adapter-aware compile invocation.
 
 Compile validation failures that prevent adapter rendering from starting are a
 core artifact conformance case. When `recon compile --render-sql` is requested
@@ -362,6 +364,8 @@ Shared conformance tests for this gate must cover:
   de-duplicated in service and CLI diagnostics,
 - distinct referenced-connection setup failures that remain visible in service
   and CLI diagnostics and blocked compiled-check artifacts,
+- adapter setup diagnostics that remain visible alongside render diagnostics
+  from otherwise resolvable contracts in the same compile invocation,
 - diagnostics that reference rendered connection config keys or values,
 - diagnostics that reference rendered connection config keys or values with
   changed casing or other simple transformations,

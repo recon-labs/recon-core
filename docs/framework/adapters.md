@@ -301,7 +301,9 @@ compiled checks blocked with structured diagnostics, treat factory results that
 include both adapters and diagnostics as setup failures, de-duplicate repeated
 same-connection setup diagnostics in service or CLI output, and preserve
 distinct source/target connection setup diagnostics in service, CLI, and
-blocked compiled-check artifact output before those claims are made.
+blocked compiled-check artifact output before those claims are made. Setup
+diagnostics must not hide unrelated render diagnostics from other affected
+contracts in the same adapter-aware compile invocation.
 If a shared adapter test-kit harness drives `recon compile --render-sql`, it
 must also include the core compile-validation case where adapter rendering is
 requested but not started: otherwise renderable checks are marked `blocked` with

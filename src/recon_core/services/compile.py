@@ -175,7 +175,9 @@ class CompileService:
                 return ServiceResult(
                     exit_category=ExitCategory.CONFIGURATION_ERROR,
                     message="SQL rendering adapter configuration failed.",
-                    diagnostics=adapter_resolution.diagnostics,
+                    diagnostics=_dedupe_diagnostics(
+                        adapter_resolution.diagnostics + render_result.diagnostics
+                    ),
                 )
 
             render_result = _render_compiled_sql_in_memory(
@@ -779,9 +781,7 @@ def _sanitize_profile_backed_adapter_diagnostic(
 
     return Diagnostic(
         code=(
-            ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED
-            if code_mentions_config_token
-            else diagnostic.code
+            ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED if code_mentions_config_token else diagnostic.code
         ),
         severity=diagnostic.severity,
         message=(
@@ -802,13 +802,17 @@ def _diagnostic_code_mentions_config_token(
     code_config_tokens: _DiagnosticCodeConfigTokens,
     numeric_field_tokens: frozenset[int],
 ) -> bool:
-    return _code_mentions_config_token(
-        diagnostic.code,
-        code_config_tokens.boundary_tokens,
-    ) or _text_mentions_config_token(
-        diagnostic.code,
-        code_config_tokens.embedded_tokens,
-    ) or _code_mentions_numeric_config_token(diagnostic.code, numeric_field_tokens)
+    return (
+        _code_mentions_config_token(
+            diagnostic.code,
+            code_config_tokens.boundary_tokens,
+        )
+        or _text_mentions_config_token(
+            diagnostic.code,
+            code_config_tokens.embedded_tokens,
+        )
+        or _code_mentions_numeric_config_token(diagnostic.code, numeric_field_tokens)
+    )
 
 
 def _discard_compiled_sql_artifacts(output_dir: Path) -> None:
@@ -1062,8 +1066,7 @@ def _text_mentions_numeric_config_token(
     numeric_field_tokens: frozenset[int],
 ) -> bool:
     return any(
-        _text_mentions_numeric_token(text, numeric_token)
-        for numeric_token in numeric_field_tokens
+        _text_mentions_numeric_token(text, numeric_token) for numeric_token in numeric_field_tokens
     )
 
 
@@ -1091,8 +1094,7 @@ def _code_mentions_numeric_config_token(
     numeric_field_tokens: frozenset[int],
 ) -> bool:
     return any(
-        _code_mentions_numeric_token(text, numeric_token)
-        for numeric_token in numeric_field_tokens
+        _code_mentions_numeric_token(text, numeric_token) for numeric_token in numeric_field_tokens
     )
 
 
