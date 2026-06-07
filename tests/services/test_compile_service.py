@@ -99,14 +99,22 @@ def test_render_sql_compile_requires_profiles_file(tmp_path: Path) -> None:
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+@pytest.mark.parametrize(
+    "connection_type",
+    [
+        pytest.param('"{{ env_var(\'SECRET_ADAPTER_TYPE\') }}"', id="jinja-env-var"),
+        pytest.param("env_var('SECRET_ADAPTER_TYPE')", id="bare-env-var"),
+    ],
+)
 def test_render_sql_compile_rejects_templated_adapter_type_without_leaking_value(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    connection_type: str,
 ) -> None:
     write_project(tmp_path, profile="local")
     write_contract(tmp_path)
     monkeypatch.setenv("SECRET_ADAPTER_TYPE", "super-secret-adapter")
-    write_profiles(tmp_path, connection_type='"{{ env_var(\'SECRET_ADAPTER_TYPE\') }}"')
+    write_profiles(tmp_path, connection_type=connection_type)
 
     result = CompileService(start_path=tmp_path, render_sql=True).execute()
 

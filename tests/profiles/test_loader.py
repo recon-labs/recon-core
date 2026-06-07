@@ -58,13 +58,21 @@ profiles:
     assert result.diagnostics == ()
 
 
+@pytest.mark.parametrize(
+    "connection_type",
+    [
+        pytest.param('"{{ env_var(\'RECON_ADAPTER\', \'duckdb\') }}"', id="jinja-env-var"),
+        pytest.param("env_var('RECON_ADAPTER', 'duckdb')", id="bare-env-var"),
+    ],
+)
 def test_load_selected_profile_rejects_templated_connection_type(
     tmp_path: Path,
+    connection_type: str,
 ) -> None:
     write_project(tmp_path)
     write_profiles(
         tmp_path,
-        """
+        f"""
 profiles:
   local:
     target: dev
@@ -72,7 +80,7 @@ profiles:
       dev:
         connections:
           legacy:
-            type: "{{ env_var('RECON_ADAPTER', 'duckdb') }}"
+            type: {connection_type}
             database: legacy.duckdb
           warehouse:
             type: duckdb

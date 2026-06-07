@@ -279,7 +279,7 @@ def _referenced_connections(
                 )
             )
             continue
-        if "{{" in raw_connection_type or "}}" in raw_connection_type:
+        if _connection_type_uses_template(raw_connection_type):
             diagnostics.append(
                 _diagnostic(
                     INVALID_PROFILE_CONFIG,
@@ -323,6 +323,10 @@ def _referenced_connections(
             )
 
     return rendered_connections, diagnostics
+
+
+def _connection_type_uses_template(value: str) -> bool:
+    return "{{" in value or "}}" in value or re.search(r"\benv_var\s*\(", value) is not None
 
 
 def _render_value(
