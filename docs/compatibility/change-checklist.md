@@ -68,6 +68,9 @@ review. This checklist is a process guide; it is not a CI gate.
       behavior changed.
 - [ ] Updated adapter diagnostic expectations when diagnostic messages,
       redaction behavior, or adapter-provided diagnostic fields changed.
+- [ ] Checked diagnostic-code redaction for rendered profile values embedded
+      without separators, including secret-shaped and short numeric cases such
+      as `RCsuper-secretLEAK` and `RC12LEAK`.
 - [ ] Checked adapter factory diagnostic field-shape conformance when adapter
       resolution is involved: invalid `Diagnostic` field values, including
       string severities, empty or non-string `code` or `message`, non-string
@@ -75,9 +78,9 @@ review. This checklist is a process guide; it is not a CI gate.
       `RC_ADAPTER_RESOLUTION_FAILED` before redaction, rendering, artifact
       writing, or execution consumes them.
 - [ ] Checked case-variant and simple-transformation redaction cases when
-      adapter diagnostics can reference rendered profile config in message,
-      hint, path, `resource_type`, `resource_name`, `line`, `column`, or future
-      structured diagnostic fields.
+      adapter diagnostics can reference rendered profile config in diagnostic
+      code, message, hint, path, `resource_type`, `resource_name`, `line`,
+      `column`, or future structured diagnostic fields.
 - [ ] Checked numeric diagnostic-field redaction for short rendered scalar
       profile values and equivalent formatted variants, such as `port: 12`,
       `12.0`, `+12`, and `1.2e1`, not only long secret-like tokens.

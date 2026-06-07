@@ -79,7 +79,10 @@ profile-rendering and diagnostic-redaction conformance before external adapter
 repos are published or treated as compatible. That conformance must prove that
 adapter factory exceptions, capability declaration exceptions, and
 adapter-provided diagnostics cannot leak rendered profile keys or values into
-CLI output, artifacts, evidence, or test snapshots.
+CLI output, artifacts, evidence, or test snapshots. It must include
+diagnostic-code cases where rendered values are embedded without separators,
+such as `RCsuper-secretLEAK` and `RC12LEAK`, before the shared test kit or
+external adapter repos claim compatibility.
 
 ## Check and policy packages
 

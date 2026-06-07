@@ -313,6 +313,8 @@ tests must cover:
 - diagnostics that reference rendered connection config keys or values,
 - diagnostics that reference rendered connection config keys or values with
   changed casing or other simple transformations,
+- diagnostic codes that embed rendered connection config values without
+  separators, such as `RCsuper-secretLEAK` and `RC12LEAK`,
 - numeric diagnostic fields such as `line` and `column` when they match rendered
   scalar profile values, including integer-valued fields, numeric strings, and
   short numeric scalars such as port values,
@@ -341,10 +343,12 @@ transformation-variant redaction cases, such as `PASSWORD`, `database`,
 case-changed rendered values, DSN substrings, tokens, and passwords appearing
 independently in diagnostic `code`, message, hint, path, `resource_type`,
 `resource_name`, `line`, `column`, and `rendering.adapter_type`. Short numeric
-rendered scalar cases must include code, text fields, resource metadata,
-`rendering.adapter_type`, and numeric fields such as `line` and `column`; they
-must also include equivalent formatted variants such as `12.0`, `+12`, and
-`1.2e1`, including the reverse case where the rendered profile value is a
+rendered scalar cases must include diagnostic `code`, text fields, resource
+metadata, `rendering.adapter_type`, and numeric fields such as `line` and
+`column`; they must include separatorless diagnostic-code embeddings such as
+`RC12LEAK`, not only delimiter-separated code tokens. They must also include
+equivalent formatted variants such as `12.0`, `+12`, and `1.2e1`, including the
+reverse case where the rendered profile value is a
 numeric string such as `"12.0"` and the adapter emits an integer-equivalent
 variant such as `12`. Long password-shaped numeric values alone are not
 sufficient. It must

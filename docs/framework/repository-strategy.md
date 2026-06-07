@@ -77,6 +77,9 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
 
 1. Start with `recon-core`.
 2. Split `recon-postgres`, `recon-snowflake`, and `recon-adapter-testkit` after typed check plans, adapter API versioning, and shared adapter tests stabilize. Shared adapter tests must include profile-rendering, diagnostic-redaction, adapter metadata, capability declaration, and empty or malformed renderer output conformance, including sanitized adapter factory exceptions, sanitized adapter metadata exceptions, sanitized capability declaration exceptions, and short numeric rendered-scalar redaction cases such as `port: 12`, `12.0`, `+12`, and `1.2e1` across text fields, resource metadata, `rendering.adapter_type`, and numeric `line`/`column`, before any split repo claims compatibility.
+   They must also include diagnostic-code redaction cases where rendered values
+   are embedded without separators, such as `RCsuper-secretLEAK` and
+   `RC12LEAK`, before the test-kit or adapter repos claim compatibility.
    They must also cover malformed factory diagnostic payloads at field level:
    invalid `Diagnostic` severity, code, message, optional context fields, and
    `line`/`column` values must fail as `RC_ADAPTER_RESOLUTION_FAILED` before

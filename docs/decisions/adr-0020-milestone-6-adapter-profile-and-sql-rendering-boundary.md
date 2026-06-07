@@ -395,6 +395,9 @@ Milestone 6 implementation should add tests before code for:
 - ignored environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - secret redaction from diagnostics and generated artifacts,
+- adapter diagnostic-code redaction for rendered profile values embedded
+  without separators, including examples such as `RCsuper-secretLEAK` and
+  `RC12LEAK`,
 - adapter API version compatibility,
 - adapter registry resolution by connection type, including malformed factory
   results and malformed factory diagnostic payloads as

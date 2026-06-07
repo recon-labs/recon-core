@@ -327,8 +327,12 @@ diagnostic with the original severity and the original diagnostic code only when
 the code is safe. If an adapter-provided diagnostic code references rendered
 connection config keys or values, Recon should replace it with
 `RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED`. The replacement diagnostic must still
-include a safe, actionable message and safe resource context. Rendered profile
-values include scalar YAML values after rendering,
+include a safe, actionable message and safe resource context. Diagnostic-code
+redaction must include separatorless embedded rendered values, not only
+delimiter-separated tokens. Examples such as `RCsuper-secretLEAK` and
+`RC12LEAK` must be treated as unsafe when `super-secret` or `12` came from
+rendered profile config. Rendered profile values include scalar YAML values
+after rendering,
 including non-string values such as numeric credentials and rendered numeric
 strings such as quoted YAML or env-var-derived `"12.0"`.
 If an adapter factory returns a malformed result, or if an adapter factory,
@@ -351,9 +355,11 @@ payloads, or other secret-classified values in any public diagnostic field,
 including diagnostic `code`.
 Shared adapter test-kit redaction cases must include numeric `line` and
 `column` fields when those values match rendered scalar profile values, not only
-string diagnostic text. These cases must also include short numeric rendered
-scalars such as port values when they appear in diagnostic `message`, `hint`,
-`path`, `resource_type`, `resource_name`, numeric `line`/`column`, and
+string diagnostic text. These cases must also include rendered values embedded
+inside diagnostic `code` without separators, such as `RCsuper-secretLEAK` and
+`RC12LEAK`. Short numeric rendered scalars such as port values must be covered
+when they appear in diagnostic `code`, `message`, `hint`, `path`,
+`resource_type`, `resource_name`, numeric `line`/`column`, and
 `rendering.adapter_type`. Short numeric cases must include equivalent formatted
 variants such as `12`, `12.0`, `+12`, and integer-equivalent scientific
 notation, because adapters may stringify the same rendered scalar differently.

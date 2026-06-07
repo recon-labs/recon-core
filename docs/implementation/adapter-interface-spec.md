@@ -303,7 +303,9 @@ dependency, API compatibility, capability, metadata, rendering, and execution
 diagnostics. Redaction conformance must cover unsafe rendered profile keys or
 values independently in diagnostic `code`, `message`, `hint`, `path`,
 `resource_type`, `resource_name`, `line`, `column`, and future structured
-diagnostic fields. It
+diagnostic fields. Diagnostic `code` cases must include rendered values embedded
+without separators, such as `RCsuper-secretLEAK` and `RC12LEAK`, so conformance
+does not only prove delimiter-separated matching. It
 must also cover raw adapter exceptions from factories, adapter metadata
 declarations, and capability declarations, plus empty and malformed renderer
 output diagnostics. If a shared adapter test-kit harness drives core
