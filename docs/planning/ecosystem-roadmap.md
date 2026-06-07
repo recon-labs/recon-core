@@ -83,7 +83,9 @@ CLI output, artifacts, evidence, or test snapshots. It must include
 diagnostic-code cases where unsafe config keys or rendered values are embedded
 in delimiter-separated or separatorless forms, such as `RC_PASSWORD_LEAK`,
 `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`, before the shared test
-kit or external adapter repos claim compatibility.
+kit or external adapter repos claim compatibility. It must also prove safe
+adapter diagnostic codes with incidental non-secret config-key substrings, such
+as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`, are preserved.
 
 ## Check and policy packages
 

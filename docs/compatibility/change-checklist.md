@@ -91,6 +91,9 @@ review. This checklist is a process guide; it is not a CI gate.
       profile values in delimiter-separated and separatorless forms, including
       key-shaped and value-shaped cases such as `RC_PASSWORD_LEAK`,
       `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`.
+- [ ] Checked safe diagnostic-code preservation: adapter codes with incidental
+      non-secret config-key substrings, such as
+      `RC_ADAPTER_CAPABILITY_UNSUPPORTED`, must not be suppressed.
 - [ ] Checked adapter factory diagnostic field-shape conformance when adapter
       resolution is involved: invalid `Diagnostic` field values, including
       string severities, empty or non-string `code` or `message`, non-string

@@ -156,8 +156,11 @@ This project follows semantic versioning once public package releases begin.
   diagnostic `line` and `column` values when they match rendered scalar profile
   values, including short numeric rendered scalars such as port values.
 - Adapter-aware SQL rendering now replaces unsafe adapter-provided diagnostic
-  codes when they reference rendered profile keys or values, preventing CLI and
-  artifact output from leaking sensitive profile data through `Code:` fields.
+  codes when they reference rendered profile keys or values, including
+  separatorless secret-like config-key codes such as `RCPASSWORDLEAK`, while
+  preserving safe adapter codes such as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`,
+  preventing CLI and artifact output from leaking sensitive profile data through
+  `Code:` fields.
 - Adapter-aware SQL rendering now converts adapter factory and capability
   declaration exceptions into structured diagnostics with raw adapter error
   text suppressed.

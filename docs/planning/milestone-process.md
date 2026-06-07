@@ -54,7 +54,9 @@ For example, profile-backed adapter diagnostic redaction should not only test
 value-shaped diagnostic codes such as `RCsuper-secretLEAK` and `RC12LEAK`. The
 matrix must also enumerate the sibling dimensions that can leak unsafe config
 keys, including delimiter-separated key tokens such as `RC_PASSWORD_LEAK` and
-separatorless key tokens such as `RCPASSWORDLEAK`.
+separatorless key tokens such as `RCPASSWORDLEAK`, and must preserve safe adapter
+codes that only incidentally contain non-secret config-key substrings, such as
+`RC_ADAPTER_CAPABILITY_UNSUPPORTED`.
 
 High-risk surfaces include public YAML behavior, CLI behavior, generated
 artifacts, typed plans, adapter APIs, adapter capabilities, SQL rendering,

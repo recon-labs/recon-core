@@ -395,7 +395,8 @@ Required gates:
   variants such as `RC_PASSWORD_LEAK` and `RCPASSWORDLEAK`, short numeric
   rendered scalars such as port values, separatorless value embeddings such as
   `RC12LEAK`, and equivalent formatted variants such as `12.0`, `+12`, and
-  `1.2e1`,
+  `1.2e1`, while preserving safe adapter diagnostic codes such as
+  `RC_ADAPTER_CAPABILITY_UNSUPPORTED`,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
 - resolve the source/target data privacy, evidence, and failure-detail policy
@@ -1401,6 +1402,9 @@ Required gate:
   such as `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and
   `RC12LEAK`, before creating or splitting the test-kit repository or claiming
   external adapter compatibility,
+- preserve safe adapter diagnostic codes with incidental non-secret config-key
+  substrings, such as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`, before creating or
+  splitting the test-kit repository or claiming external adapter compatibility,
 - include core render-sql compile-validation blocked-metadata integration cases
   before creating or splitting any test-kit harness that drives core compile
   flows,

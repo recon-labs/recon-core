@@ -328,6 +328,9 @@ tests must cover:
 - diagnostic codes that embed unsafe config keys or rendered connection config
   values in delimiter-separated or separatorless forms, such as
   `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`,
+- safe adapter diagnostic codes that only incidentally contain non-secret
+  config-key substrings, such as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`, remain
+  valid and are not suppressed,
 - numeric diagnostic fields such as `line` and `column` when they match rendered
   scalar profile values, including integer-valued fields, numeric strings, and
   short numeric scalars such as port values,
@@ -365,7 +368,9 @@ as `12.0`, `+12`, and `1.2e1`, including the
 reverse case where the rendered profile value is a
 numeric string such as `"12.0"` and the adapter emits an integer-equivalent
 variant such as `12`. Long password-shaped numeric values alone are not
-sufficient. It must
+sufficient. The test kit must also prove that safe adapter diagnostic codes with
+incidental non-secret config-key substrings, such as
+`RC_ADAPTER_CAPABILITY_UNSUPPORTED`, are preserved. It must
 also include adapter factory and capability declaration exceptions and
 exception-raising adapter metadata whose raw exception messages contain rendered
 profile keys or values.

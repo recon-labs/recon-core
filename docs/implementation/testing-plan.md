@@ -241,7 +241,9 @@ substrings, tokens, and passwords appearing independently in diagnostic
 `rendering.adapter_type`, and any future structured diagnostic fields.
 Diagnostic `code` cases must include unsafe config keys and rendered values in
 both delimiter-separated and separatorless forms, such as `RC_PASSWORD_LEAK`,
-`RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`. Numeric field cases
+`RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`. They must also verify
+safe adapter diagnostic-code preservation for incidental non-secret config-key
+substrings, such as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`. Numeric field cases
 must cover integer-valued `line` and `column` diagnostics as well as numeric
 strings that match rendered scalar profile values. They must include short
 numeric rendered scalars, for example `port: 12`, in diagnostic `code`,
