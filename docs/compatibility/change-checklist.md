@@ -13,8 +13,7 @@ review. This checklist is a process guide; it is not a CI gate.
 ### Milestone and planning impact
 
 - [ ] Confirmed any milestone implementation has current lightweight prework
-      covering scope, non-goals, expected behavior, affected docs, required
-      tests, compatibility/security/privacy impact, and Definition of Done.
+      matching `docs/planning/milestone-process.md`.
 - [ ] For high-risk milestones or public-surface changes, added or updated a
       dimension-expanded acceptance/conformance matrix before implementation.
 - [ ] Mapped every required conformance matrix row to a new test, existing test,

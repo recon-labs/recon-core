@@ -8,33 +8,15 @@ The goal is to avoid building too many advanced features before the core loop wo
 
 ## Milestone planning requirements
 
-Before implementation starts for any milestone, a lightweight milestone prework
-artifact must be present and current. It must define:
+All MVP and post-MVP entries in this build-order document follow the general
+milestone process in `docs/planning/milestone-process.md`. That process applies
+to milestones, sub-milestones, roadmap items, and epics, and it is the source of
+truth for lightweight prework, high-risk conformance matrices, and decimal
+milestone splits.
 
-- scope,
-- explicit non-goals or out-of-scope items,
-- expected behavior,
-- affected docs,
-- required tests,
-- compatibility, security, and privacy impact,
-- Definition of Done.
-
-If that prework is missing, stale, or inconsistent with the roadmap, build-order
-docs, ADRs, compatibility docs, gates, or current implementation, do the
-pre-milestone alignment work before coding.
-
-For high-risk milestones and public-surface changes, the lightweight prework is
-not enough. Add a dimension-expanded acceptance/conformance matrix before
-implementation. The matrix must list dimensions, cases, expected behavior, test
-coverage, docs or gate impact, and out-of-scope rationale. Example-only coverage
-is not sufficient.
-
-If a milestone is too broad, spans multiple high-risk surfaces, or cannot be
-made safe as one implementation unit, dissolve it into decimal sub-milestones
-such as `Milestone 7.1`, `Milestone 7.2`, and `Milestone 7.3`. The original
-milestone becomes an umbrella or superseded entry, not a direct implementation
-target. Update roadmap, build-order, gate, ADR, and compatibility references so
-no orphan implementation plan remains.
+This document defines sequence and capability homes. When a milestone is split
+or superseded, update this build-order document alongside the roadmap, gates,
+ADRs, compatibility docs, and tests so no orphan implementation plan remains.
 
 ## Milestone 1: package skeleton and CLI
 

@@ -8,9 +8,10 @@ Tests should protect public behavior and prevent misleading evidence.
 
 ## Milestone test planning
 
-Every milestone test plan should be derived from the milestone prework artifact.
-For normal or low-risk milestones, the test plan must cover the documented scope,
-expected behavior, non-goals, and Definition of Done.
+Every milestone test plan should follow
+`docs/planning/milestone-process.md` and be derived from the milestone prework
+artifact. For normal or low-risk milestones, the test plan must cover the
+documented scope, expected behavior, non-goals, and Definition of Done.
 
 High-risk milestones and public-surface changes must map tests to a
 dimension-expanded acceptance/conformance matrix before implementation. Each

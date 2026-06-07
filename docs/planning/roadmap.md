@@ -12,6 +12,11 @@ The roadmap should prioritize:
 - adapter interface stability before many adapters,
 - package standards after core primitives exist.
 
+Milestones, sub-milestones, roadmap items, and epics follow
+`docs/planning/milestone-process.md` before implementation. That process defines
+the required lightweight prework, high-risk conformance matrix upgrade, and
+decimal milestone split rules.
+
 ## Version 0.1
 
 Primary goal:
