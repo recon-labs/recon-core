@@ -6,6 +6,36 @@ This document defines a practical implementation order for the first working Rec
 
 The goal is to avoid building too many advanced features before the core loop works.
 
+## Milestone planning requirements
+
+Before implementation starts for any milestone, a lightweight milestone prework
+artifact must be present and current. It must define:
+
+- scope,
+- explicit non-goals or out-of-scope items,
+- expected behavior,
+- affected docs,
+- required tests,
+- compatibility, security, and privacy impact,
+- Definition of Done.
+
+If that prework is missing, stale, or inconsistent with the roadmap, build-order
+docs, ADRs, compatibility docs, gates, or current implementation, do the
+pre-milestone alignment work before coding.
+
+For high-risk milestones and public-surface changes, the lightweight prework is
+not enough. Add a dimension-expanded acceptance/conformance matrix before
+implementation. The matrix must list dimensions, cases, expected behavior, test
+coverage, docs or gate impact, and out-of-scope rationale. Example-only coverage
+is not sufficient.
+
+If a milestone is too broad, spans multiple high-risk surfaces, or cannot be
+made safe as one implementation unit, dissolve it into decimal sub-milestones
+such as `Milestone 7.1`, `Milestone 7.2`, and `Milestone 7.3`. The original
+milestone becomes an umbrella or superseded entry, not a direct implementation
+target. Update roadmap, build-order, gate, ADR, and compatibility references so
+no orphan implementation plan remains.
+
 ## Milestone 1: package skeleton and CLI
 
 Build:

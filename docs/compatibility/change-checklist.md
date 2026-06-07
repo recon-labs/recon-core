@@ -10,6 +10,21 @@ review. This checklist is a process guide; it is not a CI gate.
 
 ## Checklist
 
+### Milestone and planning impact
+
+- [ ] Confirmed any milestone implementation has current lightweight prework
+      covering scope, non-goals, expected behavior, affected docs, required
+      tests, compatibility/security/privacy impact, and Definition of Done.
+- [ ] For high-risk milestones or public-surface changes, added or updated a
+      dimension-expanded acceptance/conformance matrix before implementation.
+- [ ] Mapped every required conformance matrix row to a new test, existing test,
+      or explicit out-of-scope rationale.
+- [ ] Checked whether the requested milestone is too broad, spans multiple
+      high-risk surfaces, or should be dissolved into decimal sub-milestones such
+      as `Milestone 7.1`, `Milestone 7.2`, and `Milestone 7.3`.
+- [ ] Updated roadmap, build-order, gate, ADR, and compatibility references when
+      a milestone was split so no orphan implementation plan remains.
+
 ### ADR impact
 
 - [ ] Checked whether the change affects a durable decision.
@@ -118,3 +133,6 @@ review. This checklist is a process guide; it is not a CI gate.
 
 If a checklist item is not applicable, say why in the pull request notes. The
 expected outcome is explicit reasoning, not unnecessary documentation churn.
+Reviewers should treat missing milestone prework, example-only high-risk matrix
+coverage, uncovered required matrix rows, or missing split justification as
+material process risks for public-surface changes.

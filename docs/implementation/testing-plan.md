@@ -6,6 +6,22 @@ This document defines the implementation testing plan for Recon Core.
 
 Tests should protect public behavior and prevent misleading evidence.
 
+## Milestone test planning
+
+Every milestone test plan should be derived from the milestone prework artifact.
+For normal or low-risk milestones, the test plan must cover the documented scope,
+expected behavior, non-goals, and Definition of Done.
+
+High-risk milestones and public-surface changes must map tests to a
+dimension-expanded acceptance/conformance matrix before implementation. Each
+required matrix row must map to a new test, an existing test, or an explicit
+out-of-scope rationale. Matrix examples are not complete coverage unless the
+relevant dimensions and sibling variants are enumerated.
+
+When a milestone is split into decimal sub-milestones, each sub-milestone needs
+its own test plan and, when high-risk, its own conformance matrix. Do not use the
+umbrella milestone as the implementation test boundary.
+
 ## Test layers
 
 ### Unit tests
