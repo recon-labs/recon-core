@@ -851,11 +851,12 @@ def _connection_config_code_tokens(
     *,
     adapter_type: str,
 ) -> _DiagnosticCodeConfigTokens:
-    boundary_tokens = set(_connection_config_tokens(value, adapter_type=adapter_type))
+    boundary_tokens: set[str] = set()
     embedded_tokens: set[str] = set()
     _collect_connection_config_code_tokens(
         value,
         adapter_type=adapter_type,
+        boundary_tokens=boundary_tokens,
         embedded_tokens=embedded_tokens,
     )
     return _DiagnosticCodeConfigTokens(
@@ -913,6 +914,7 @@ def _collect_connection_config_code_tokens(
     value: object,
     *,
     adapter_type: str,
+    boundary_tokens: set[str],
     embedded_tokens: set[str],
     current_key: str | None = None,
 ) -> None:
@@ -924,10 +926,12 @@ def _collect_connection_config_code_tokens(
                 and key_text.casefold() != "type"
                 and _is_secret_like_config_key(key_text)
             ):
+                boundary_tokens.add(key_text)
                 embedded_tokens.add(key_text)
             _collect_connection_config_code_tokens(
                 nested_value,
                 adapter_type=adapter_type,
+                boundary_tokens=boundary_tokens,
                 embedded_tokens=embedded_tokens,
                 current_key=key_text,
             )
@@ -935,6 +939,7 @@ def _collect_connection_config_code_tokens(
 
     if isinstance(value, str):
         if value != "" and value.casefold() != adapter_type.casefold():
+            boundary_tokens.add(value)
             embedded_tokens.add(value)
         return
 
@@ -943,6 +948,7 @@ def _collect_connection_config_code_tokens(
             _collect_connection_config_code_tokens(
                 item,
                 adapter_type=adapter_type,
+                boundary_tokens=boundary_tokens,
                 embedded_tokens=embedded_tokens,
                 current_key=current_key,
             )
@@ -955,6 +961,7 @@ def _collect_connection_config_code_tokens(
     if token != "" and (
         len(token) >= 3 or (current_key is not None and _is_secret_like_config_key(current_key))
     ):
+        boundary_tokens.add(token)
         embedded_tokens.add(token)
 
 

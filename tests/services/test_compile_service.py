@@ -1219,6 +1219,62 @@ def test_render_sql_compile_sanitizes_short_numeric_rendering_adapter_type(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_preserves_capability_code_with_non_secret_config_key(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    profiles_path = tmp_path / "connections" / "profiles.yml"
+    profiles_path.parent.mkdir()
+    profiles_path.write_text(
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: fake
+            adapter: generic
+            database: local.duckdb
+          warehouse:
+            type: fake
+            adapter: generic
+            database: local.duckdb
+""".lstrip(),
+        encoding="utf-8",
+    )
+    registry = AdapterRegistry()
+    registry.register("fake", FakeAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED" not in public_output
+    assert {
+        diagnostic["code"]
+        for check in checks_artifact["checks"]
+        for diagnostic in check["diagnostics"]
+    } == {"RC_ADAPTER_CAPABILITY_UNSUPPORTED"}
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_case_variant_adapter_resolution_diagnostics(
     tmp_path: Path,
 ) -> None:
