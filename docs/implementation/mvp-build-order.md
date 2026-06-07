@@ -321,6 +321,9 @@ Required gates:
   gate before adapter execution,
 - resolve the adapter API, capability validation, and compiled SQL gate before
   implementing the adapter API or SQL rendering,
+- keep the dimension-expanded adapter/profile conformance matrix in
+  `docs/compatibility/adapter-api.md` current before future profile, adapter,
+  diagnostic-redaction, or SQL-rendering changes,
 - resolve the typed operation catalog expansion gate before rendering or
   emitting additional typed operations,
 - keep Milestone 6 relation-only; resolve the query endpoint support boundary
@@ -332,6 +335,9 @@ Current pre-implementation alignment:
 - `recon init` already writes the ADR 0020 selected profile/target shape with
   named `legacy` and `warehouse` connections in
   `connections/profiles.yml.example`.
+- Milestone 6 adapter/profile conformance rows are captured in
+  `docs/compatibility/adapter-api.md#milestone-6-adapterprofile-conformance-matrix`
+  and map required cases to existing tests or explicit future gates.
 
 Tests:
 
