@@ -87,9 +87,10 @@ review. This checklist is a process guide; it is not a CI gate.
       diagnostics or artifacts.
 - [ ] Updated adapter diagnostic expectations when diagnostic messages,
       redaction behavior, or adapter-provided diagnostic fields changed.
-- [ ] Checked diagnostic-code redaction for rendered profile values embedded
-      without separators, including secret-shaped and short numeric cases such
-      as `RCsuper-secretLEAK` and `RC12LEAK`.
+- [ ] Checked diagnostic-code redaction for unsafe config keys and rendered
+      profile values in delimiter-separated and separatorless forms, including
+      key-shaped and value-shaped cases such as `RC_PASSWORD_LEAK`,
+      `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`.
 - [ ] Checked adapter factory diagnostic field-shape conformance when adapter
       resolution is involved: invalid `Diagnostic` field values, including
       string severities, empty or non-string `code` or `message`, non-string

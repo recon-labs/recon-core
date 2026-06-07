@@ -239,8 +239,9 @@ config keys, non-string rendered values, case-changed rendered values, DSN
 substrings, tokens, and passwords appearing independently in diagnostic
 `code`, message, hint, path, `resource_type`, `resource_name`, `line`, `column`,
 `rendering.adapter_type`, and any future structured diagnostic fields.
-Diagnostic `code` cases must include rendered values embedded without
-separators, such as `RCsuper-secretLEAK` and `RC12LEAK`. Numeric field cases
+Diagnostic `code` cases must include unsafe config keys and rendered values in
+both delimiter-separated and separatorless forms, such as `RC_PASSWORD_LEAK`,
+`RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`. Numeric field cases
 must cover integer-valued `line` and `column` diagnostics as well as numeric
 strings that match rendered scalar profile values. They must include short
 numeric rendered scalars, for example `port: 12`, in diagnostic `code`,

@@ -278,8 +278,9 @@ passwords, numeric `line`/`column` values, or other simple transformations of
 rendered profile config. Short numeric profile values must remain safe when an
 adapter exposes an equivalent formatted representation, such as a profile
 `port: 12` appearing publicly as `12.0`, `+12`, or `1.2e1`.
-Diagnostic codes must also remain safe when rendered values are embedded without
-separators, such as `RCsuper-secretLEAK` or `RC12LEAK`.
+Diagnostic codes must also remain safe when unsafe config keys or rendered
+values are embedded in delimiter-separated or separatorless forms, such as
+`RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, or `RC12LEAK`.
 Before external adapter packages or a shared adapter test kit are published,
 the test kit must include profile-rendering and diagnostic-redaction
 conformance cases, including safe non-empty diagnostic messages, for adapter
@@ -398,9 +399,11 @@ blocked compiled-check artifact output. Field-by-field diagnostic redaction
 includes diagnostic code, `line` and `column`, short numeric rendered scalars,
 equivalent formatted variants such as `12.0`, `+12`, and `1.2e1`, unsafe
 resource metadata, `rendering.adapter_type`, and separatorless diagnostic-code
-embeddings such as `RCsuper-secretLEAK` and `RC12LEAK`. Compile-flow harnesses
-must cover `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` when compile
-validation prevents a requested adapter rendering phase from starting.
+embeddings for unsafe config keys and rendered values, such as
+`RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`.
+Compile-flow harnesses must cover
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` when compile validation
+prevents a requested adapter rendering phase from starting.
 
 ## Design principle
 

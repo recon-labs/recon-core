@@ -346,9 +346,10 @@ Tests:
 - profile-backed adapter diagnostics, including adapter factory, adapter API
   compatibility, and render-phase diagnostics, do not leak rendered connection
   config keys or values,
-- profile-backed adapter diagnostic codes suppress rendered profile values
-  embedded without separators, including examples such as `RCsuper-secretLEAK`
-  and `RC12LEAK`,
+- profile-backed adapter diagnostic codes suppress unsafe config keys and
+  rendered profile values in delimiter-separated and separatorless forms,
+  including examples such as `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`,
+  `RCsuper-secretLEAK`, and `RC12LEAK`,
 - profile-backed adapter diagnostics suppress case-changed rendered config keys
   or values, non-string rendered values, unsafe `rendering.adapter_type`
   metadata, numeric `line`/`column` fields, short numeric rendered scalars such
@@ -390,9 +391,11 @@ Required gates:
 - require adapter/profile diagnostic redaction conformance to cover unsafe
   rendered profile keys or values independently in diagnostic code, message,
   hint, path, `resource_type`, `resource_name`, `line`, `column`, and future
-  structured diagnostic fields, including short numeric rendered scalars such as
-  port values, separatorless diagnostic-code embeddings such as `RC12LEAK`, and
-  equivalent formatted variants such as `12.0`, `+12`, and `1.2e1`,
+  structured diagnostic fields, including unsafe config key diagnostic-code
+  variants such as `RC_PASSWORD_LEAK` and `RCPASSWORDLEAK`, short numeric
+  rendered scalars such as port values, separatorless value embeddings such as
+  `RC12LEAK`, and equivalent formatted variants such as `12.0`, `+12`, and
+  `1.2e1`,
 - resolve the diagnostic output message conformance gate before runtime
   adapter/profile diagnostics can become check-engine output,
 - resolve the source/target data privacy, evidence, and failure-detail policy
@@ -1394,9 +1397,10 @@ Required gate:
   `+12`, and `1.2e1`, across diagnostic codes, diagnostic text, resource metadata,
   `rendering.adapter_type`, and numeric `line`/`column` before creating or
   splitting the test-kit repository,
-- include separatorless diagnostic-code embeddings, such as
-  `RCsuper-secretLEAK` and `RC12LEAK`, before creating or splitting the test-kit
-  repository or claiming external adapter compatibility,
+- include diagnostic-code embeddings for unsafe config keys and rendered values,
+  such as `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and
+  `RC12LEAK`, before creating or splitting the test-kit repository or claiming
+  external adapter compatibility,
 - include core render-sql compile-validation blocked-metadata integration cases
   before creating or splitting any test-kit harness that drives core compile
   flows,

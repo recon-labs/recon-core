@@ -50,6 +50,12 @@ out-of-scope decision with rationale. Example-only coverage is not sufficient,
 and examples do not prove coverage unless relevant dimensions and sibling
 variants are enumerated.
 
+For example, profile-backed adapter diagnostic redaction should not only test
+value-shaped diagnostic codes such as `RCsuper-secretLEAK` and `RC12LEAK`. The
+matrix must also enumerate the sibling dimensions that can leak unsafe config
+keys, including delimiter-separated key tokens such as `RC_PASSWORD_LEAK` and
+separatorless key tokens such as `RCPASSWORDLEAK`.
+
 High-risk surfaces include public YAML behavior, CLI behavior, generated
 artifacts, typed plans, adapter APIs, adapter capabilities, SQL rendering,
 profiles and secrets, diagnostics and redaction, execution, runner/results,
