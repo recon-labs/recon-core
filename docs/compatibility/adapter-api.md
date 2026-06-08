@@ -145,13 +145,58 @@ renderer-declared extra capabilities that were not present on the compiled
 check plan. Unsupported step-level requirements must fail clearly before SQL,
 execution results, or evidence are published.
 
+## Renderer Output And Artifact Publication Conformance Gate
+
+Renderer output and generated artifact publication are compatibility surfaces.
+This gate is broader than any individual compiled SQL writer bug: it protects
+the invariant that a renderer cannot make an empty or malformed SQL step set
+look successful, and Core cannot publish partial generated artifacts that
+downstream automation may read as trustworthy.
+
+The gate applies before:
+
+- a shared adapter test-kit repository is created, published, or split out,
+- `recon-duckdb` or any production adapter package is split from `recon-core`,
+- an external adapter repository claims compatibility with a `recon-core`
+  adapter API or test-kit version,
+- a shared renderer helper, renderer registry, or adapter execution path treats
+  rendered SQL as compatible,
+- run results, evidence, reports, failure details, logs, snapshots, or state
+  reference adapter-rendered SQL or generated artifacts.
+
+Conformance for this gate must prove:
+
+- every successfully rendered check produces at least one `RenderedSql` step,
+- exported Core writers reject empty rendered SQL write requests before creating
+  output directories,
+- batch publication validates every request before creating directories or
+  files, including an earlier valid rendered check followed by a later empty
+  rendered SQL request,
+- malformed non-empty renderer output fails before artifact writing, including
+  non-`RenderedSql` steps, empty or non-string SQL metadata, unsafe path-like
+  step names, invalid later rendered steps, and exact or case-insensitive
+  duplicate output paths,
+- `RenderedSql.required_capabilities` are enforced as executable requirements
+  before SQL, run results, evidence, or adapter test snapshots are published,
+- artifact publication is all-or-nothing for each invocation: validation,
+  preflight, render, setup, or write failures must not leave stale, partial, or
+  orphaned compiled SQL, compiled YAML, results, evidence, reports, failure
+  details, logs, snapshots, or state that imply a successful check.
+
+Core owns generated artifact lifecycle and filesystem safety. External adapter
+repositories do not need to duplicate Core's compiled SQL writer, but they must
+prove their renderers return valid, capability-coherent `RenderedSql` and that
+their test-kit integration does not bypass Core publication preflight.
+
 These requirements are a release gate for the adapter ecosystem. Do not create,
 publish, or split `recon-adapter-testkit`, `recon-duckdb`, or any production
 adapter repository with a compatibility claim until the shared conformance
-suite includes those sanitized factory-exception, capability-declaration, and
-diagnostic-redaction cases, plus malformed adapter metadata and empty renderer
-output cases, malformed non-empty renderer output cases, renderer-declared
-`required_capabilities` enforcement cases, profile cases that cover
+suite includes the Adapter/Profile Diagnostic Conformance Gate and the Renderer
+Output And Artifact Publication Conformance Gate: sanitized factory-exception,
+capability-declaration, and diagnostic-redaction cases, plus malformed adapter
+metadata and empty renderer output cases, malformed non-empty renderer output
+cases, renderer-declared `required_capabilities` enforcement cases, profile
+cases that cover
 `{{ env_var(...) }}` and bare `env_var(...)` forms, defaults, missing
 variables, unsupported bare env-var expression rejection, unsupported Jinja
 statement/comment fragments such as `{% ... %}` and `{# ... #}`, literal
@@ -168,7 +213,8 @@ scalar redaction cases in diagnostic codes, text fields, resource metadata, and
 scalar such as `12`, `12.0`, `+12`, and integer-equivalent scientific notation,
 and core render-sql compile-validation
 blocked-metadata integration cases where the test kit drives core compile
-flows, plus full-batch generated-artifact preflight cases proving invalid later
+flows, plus full-batch generated-artifact preflight cases proving empty
+rendered SQL write requests, later empty rendered SQL requests, invalid later
 rendered steps, unsafe path segments, and case-insensitive duplicate output
 collisions leave no partial compiled SQL. Required adapter capability semantic
 jobs must install the relevant adapter package or optional extra and fail when
@@ -199,7 +245,7 @@ scope for the current milestone.
 | Adapter metadata, API version, and capabilities | Missing, empty, non-string, or exception-raising `adapter_type`; missing or incompatible `supported_adapter_api_version`; capability declaration exceptions; malformed support states; required-capability unsupported, not implemented, unknown, and versioned states. | Core fails before rendering/execution with sanitized structured diagnostics and never treats ambiguous adapter declarations as success. | Existing coverage in `tests/adapters/test_capabilities.py`, `tests/adapters/test_registry.py`, and `tests/services/test_compile_service.py`. | Gates adapter API version stability, capability catalog updates, and production adapter compatibility claims. | Stable external adapter API versioning and adapter package release policy are future gates. |
 | Public/shared renderer orchestration | Public or shared rendering helpers, test-kit harnesses, execution paths, or adapter repositories that accept both a resolved adapter and an explicit renderer; matching renderer `adapter_type`; missing, empty, non-string, exception-raising, or mismatched renderer `adapter_type`. | Core helper orchestration must fail before `render_plan()` when adapter API compatibility fails, the renderer type cannot be validated, or the renderer type does not match the resolved adapter type. The current Milestone 6 CLI path also selects the renderer by resolved adapter type before calling the lower helper. | Existing coverage in `tests/adapters/test_rendering.py` and service coverage proving renderer selection by resolved adapter type for the in-core DuckDB path. | Gates Milestone 7 if it introduces renderer registries or shared rendering helpers, and gates `recon-adapter-testkit`, `recon-duckdb` extraction, third-party adapter repositories, and stable adapter API claims. | Third-party helper calls remain out of scope until the adapter API is stabilized, but exported Core helpers still enforce the invariant. |
 | Relation-only rendering boundary | Relation endpoints, query endpoints, same source/target adapter type, same source/target connection context, compile validation failures before rendering, and unsupported renderer for otherwise valid adapters. | Milestone 6 renders relation-backed typed plans only. Query endpoints and cross-context rendering fail clearly. Compile validation failures mark otherwise renderable checks `blocked` with `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and do not invoke adapter factories/renderers. Unsupported renderers fail with `RC_ADAPTER_CAPABILITY_UNSUPPORTED`. | Existing coverage in `tests/services/test_compile_service.py` and `tests/adapters/test_rendering.py`. | Gates Milestone 7 execution and any future query-endpoint rendering support. | Executable query endpoints, cross-adapter rendering, and Python fallback execution are out of scope. |
-| SQL renderer output and generated artifacts | Current typed operations only, DuckDB renderer output, empty renderer output, malformed non-empty renderer output, rendered-step `required_capabilities` declarations, invalid later rendered steps, unsafe step names, duplicate step names including case-insensitive output collisions, compiled SQL path safety, target-relative traceability, and failed-output cleanup. | Rendered checks write path-safe SQL artifacts and compiled-check traceability. Empty or malformed output fails with structured diagnostics before compiled SQL is published. Batched writers validate and preflight the full output set before the first file is written, so failed invocations do not leave misleading compiled SQL or partial compiled YAML from the same invocation. Future shared renderer orchestration and adapter test-kit compatibility must also enforce `RenderedSql.required_capabilities` before SQL, run results, or evidence are published. | Existing coverage in `tests/adapters/test_duckdb_sql_renderer.py`, `tests/adapters/test_rendering.py`, `tests/artifacts/test_compiled_sql_writer.py`, and `tests/services/test_compile_service.py`; step-level capability enforcement coverage is a future gate before shared test-kit or external adapter compatibility. | Gates generated artifact compatibility, future adapter test-kit renderer assertions, renderer registries, execution, evidence, and external adapter compatibility claims. | Expanding the typed operation catalog requires the typed operation catalog expansion gate. Step-level capability enforcement is not required for the current in-core-only renderer subset but must be resolved before adapter ecosystem compatibility claims. |
+| SQL renderer output and generated artifacts | Current typed operations only, DuckDB renderer output, empty renderer output, exported empty compiled SQL writer requests, later empty rendered SQL batch requests, malformed non-empty renderer output, rendered-step `required_capabilities` declarations, invalid later rendered steps, unsafe step names, duplicate step names including case-insensitive output collisions, compiled SQL path safety, target-relative traceability, and failed-output cleanup. | Rendered checks write path-safe SQL artifacts and compiled-check traceability. Empty renderer output, empty writer requests, or malformed output fail before compiled SQL is published. Batched writers validate and preflight the full output set before the first directory or file is created, so failed invocations do not leave misleading compiled SQL or partial compiled YAML from the same invocation. Future shared renderer orchestration and adapter test-kit compatibility must also enforce `RenderedSql.required_capabilities` before SQL, run results, or evidence are published. | Existing coverage in `tests/adapters/test_duckdb_sql_renderer.py`, `tests/adapters/test_rendering.py`, `tests/artifacts/test_compiled_sql_writer.py`, and `tests/services/test_compile_service.py`; step-level capability enforcement coverage is a future gate before shared test-kit or external adapter compatibility. | Gates the Renderer Output And Artifact Publication Conformance Gate, generated artifact compatibility, future adapter test-kit renderer assertions, renderer registries, execution, evidence, and external adapter compatibility claims. | Expanding the typed operation catalog requires the typed operation catalog expansion gate. Step-level capability enforcement is not required for the current in-core-only renderer subset but must be resolved before adapter ecosystem compatibility claims. |
 | SQL comparison semantics for future adapter test kit | Null-safe equality, key-diff semantics, nullable grouped aggregate keys, no implicit type coercion, representative cross-type values, empty relation type mismatches, aggregate input and result type mismatches, boolean aggregate inputs, unsigned large integers, exact numeric aggregate preservation, empty aggregate result semantics, unsupported-capability behavior, and required adapter dependency installation in semantic CI. | A future shared test kit must make comparison semantics executable across adapters before external adapter compatibility is claimed. Unsupported or unsafe behavior must fail clearly rather than silently relying on dialect casts, fallback behavior, or optional-import skips in required conformance jobs. | Planned shared adapter test-kit coverage; current in-core DuckDB renderer tests cover the rendering subset and CI-gated executable DuckDB semantic cases through the optional DuckDB extra. | Gates `recon-adapter-testkit`, `recon-duckdb` package split, and production adapter compatibility claims. | Full comparison execution belongs to Milestone 7+; Milestone 6 renders SQL and does not execute checks. |
 | External adapter/test-kit release boundary | Shared test-kit repository, `recon-duckdb` split, production adapter packages, adapter compatibility claims, runtime diagnostics, execution snapshots, and evidence/report compatibility. | No external adapter package or test-kit compatibility claim may ship until the relevant rows above are executable in shared conformance tests and source/target data privacy gates are satisfied for execution surfaces. | Planned; current coverage remains in `recon-core` tests until repositories split. | Gates adapter ecosystem release readiness and cross-repo compatibility docs. | External repositories, package version matrices, and release automation are post-Milestone 6 work. |
 
@@ -510,6 +556,16 @@ compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_d
 
 Changing compiled SQL paths, rendering status meanings, or SQL reference shape
 is compatibility-impacting.
+
+Successful compiled SQL publication requires at least one SQL path per rendered
+check. Empty renderer output and exported compiled SQL writer calls with no
+rendered steps are failures, not successful rendered checks with empty
+directories or empty `rendering.sql_paths`. Core must validate the full rendered
+SQL batch and preflight output directories and file paths before creating the
+first compiled SQL directory or file. Future adapter test kits and external
+adapter repositories must include empty direct-writer requests, later empty
+batch requests, invalid later rendered steps, unsafe step names, and duplicate
+or case-insensitive output collisions as no-partial-artifact conformance cases.
 
 ## Compatibility change rules
 

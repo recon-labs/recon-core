@@ -1399,6 +1399,11 @@ Required gate:
   test-kit repository, publishing shared test-kit expectations, splitting
   `recon-duckdb`, publishing production adapter packages, or making external
   adapter compatibility claims,
+- satisfy the Renderer Output And Artifact Publication Conformance Gate in
+  `docs/compatibility/adapter-api.md` before creating or splitting the shared
+  test-kit repository, publishing shared renderer expectations, splitting
+  `recon-duckdb`, introducing renderer registries, publishing production
+  adapter packages, or making external adapter compatibility claims,
 - include profile env-var rendering conformance before creating or splitting
   the test-kit repository: `{{ env_var(...) }}` and bare `env_var(...)` forms
   in non-routing fields, defaults, missing variables, unsupported bare
@@ -1449,6 +1454,12 @@ Required gate:
   and an explicit renderer, adapter API incompatibility and missing, malformed,
   exception-raising, or mismatched renderer `adapter_type` metadata must fail
   before `render_plan()` is invoked,
+- include renderer-output and generated-artifact publication cases before
+  creating or splitting the test-kit repository: empty renderer output, empty
+  direct compiled SQL writer requests, later empty rendered SQL batch requests,
+  invalid later rendered steps, unsafe path segments, duplicate step names, and
+  case-insensitive output collisions must fail before any compiled SQL
+  directory or file is published,
 - include rendered SQL step `required_capabilities` enforcement cases before
   creating or splitting the test-kit repository, introducing a renderer registry,
   publishing `recon-duckdb`, or claiming external adapter compatibility:

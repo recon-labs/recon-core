@@ -113,7 +113,9 @@ package responsibility. Future writers for run results, evidence, failure
 details, reports, state, docs output, and selector-scoped artifacts must define
 their cleanup and publish ordering before they write generated files. A failed
 write must not leave stale, partial, or orphaned artifacts that make an unsafe
-comparison look current or trustworthy.
+comparison look current or trustworthy. When a successful artifact item must
+produce files, such as compiled SQL for a rendered check, an empty per-item
+output set is a failure and must not create empty artifact directories.
 
 ## Artifact header
 
@@ -683,6 +685,14 @@ dialect-specific execution artifact.
 
 Compiled artifacts should preserve enough operation metadata to trace generated
 SQL back to its typed plan.
+
+Every check marked `rendered` must have at least one SQL path. Empty renderer
+output, or an exported compiled SQL writer request with no rendered SQL steps,
+is a rendering/artifact-publication failure rather than a successful check with
+empty `rendering.sql_paths` or empty `target/compiled_sql/` directories. Core
+validates the full rendered SQL batch and preflights output paths before
+publishing the first SQL artifact, so later empty or invalid rendered SQL
+requests must not leave partial compiled SQL from earlier requests.
 
 Example after SQL rendering:
 

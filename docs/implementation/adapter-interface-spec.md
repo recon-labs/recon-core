@@ -207,6 +207,13 @@ Malformed non-empty renderer output is also a rendering failure. Core expects
 values. Invalid output is reported as `RC_ADAPTER_OPERATION_RENDER_FAILED`
 before compiled SQL artifact writing.
 
+The exported compiled SQL writer applies the same non-empty invariant at the
+artifact boundary. Direct or batched writer requests with no rendered steps for
+a check fail before Core creates compiled SQL directories or files. Batched
+publication validates every request and preflights every output path before the
+first artifact is published, so an earlier valid check followed by a later empty
+or invalid rendered SQL request must leave no partial compiled SQL output.
+
 Examples of core-owned typed operations:
 
 ```text

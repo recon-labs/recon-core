@@ -178,6 +178,13 @@ contract, check ID, typed operation or rendering step, source/target side when
 applicable, and adapter type. When an adapter is known, compiled checks record
 that adapter in `rendering.adapter_type`.
 
+Successful rendered checks must produce at least one SQL step and at least one
+compiled SQL path. Empty renderer output and exported compiled SQL writer
+requests with no rendered steps fail before Core creates compiled SQL
+directories or files. Batched publication validates the full rendered SQL output
+set before publishing anything, so a later empty or malformed rendered SQL
+request cannot leave partial SQL artifacts from an earlier request.
+
 Adapters must preserve Core comparison semantics when rendering SQL. The
 current DuckDB renderer emits key-diff SQL over distinct non-null key sets and
 uses `typeof(...)` guards with null-safe equality for key and grouped aggregate
@@ -410,11 +417,13 @@ Purpose:
 The test kit should include shared tests for typed operation rendering and
 capability declarations. Every production adapter should run the shared test kit
 in CI after the adapter API stabilizes. The first version of that shared suite
-must include profile-rendering and diagnostic-redaction conformance, including
-sanitized adapter factory exceptions, sanitized capability declaration
-exceptions, sanitized adapter metadata exceptions, empty and malformed
-renderer output failures, field-by-field diagnostic redaction, and safe
-non-empty diagnostic messages. It must also include profile `type`/adapter
+must include profile-rendering, renderer-output/artifact-publication, and
+diagnostic-redaction conformance, including sanitized adapter factory
+exceptions, sanitized capability declaration exceptions, sanitized adapter
+metadata exceptions, empty and malformed renderer output failures, empty direct
+and later-batch compiled SQL writer requests that leave no partial SQL
+artifacts, field-by-field diagnostic redaction, and safe non-empty diagnostic
+messages. It must also include profile `type`/adapter
 metadata mismatch rejection before renderer selection, plus malformed factory
 diagnostic payload cases for invalid `Diagnostic` field values, including
 string severities, empty or non-string `code` or `message`, non-string

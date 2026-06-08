@@ -114,8 +114,9 @@ lifecycle before the artifact becomes a compatibility surface.
 
 Batched artifact writers should validate all batch path components and preflight
 all output paths before writing the first file. For compiled SQL, unsafe
-contract, check, or renderer step path segments and case-insensitive duplicate
-step names must fail before `target/compiled_sql/` is published.
+contract, check, or renderer step path segments, empty rendered SQL requests,
+and case-insensitive duplicate step names must fail before
+`target/compiled_sql/` directories or files are published.
 
 ## Artifact versioning
 

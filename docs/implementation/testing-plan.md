@@ -210,9 +210,11 @@ exceptions, and capability declaration exceptions become sanitized structured
 diagnostics instead of raw exceptions that can leak rendered profile keys or
 values.
 Malformed renderer-output coverage must include invalid later rendered steps
-and case-insensitive output collisions, and batched artifact writer tests must
-prove the full batch is validated and preflighted before the first compiled SQL
-file is written.
+and case-insensitive output collisions, and artifact writer tests must prove
+direct empty rendered SQL writer requests and later empty rendered SQL batch
+requests fail before any compiled SQL directory or file is created. Batched
+artifact writer tests must prove the full batch is validated and preflighted
+before the first compiled SQL file is written.
 Shared renderer and adapter-repository tests must also cover
 `RenderedSql.required_capabilities` as executable requirements: supported
 step-level capabilities pass, while unsupported, not-implemented, unknown,
