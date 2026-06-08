@@ -185,6 +185,89 @@ def test_compiled_sql_writer_rejects_case_insensitive_check_collisions_without_p
     assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
 
 
+def test_compiled_sql_writer_preflights_existing_output_before_creating_batch_dirs(
+    tmp_path: Path,
+) -> None:
+    target_path = tmp_path / "target"
+    existing_output = (
+        target_path / COMPILED_SQL_DIR_NAME / "existing_contract" / "existing_check" / "step.sql"
+    )
+    existing_output.parent.mkdir(parents=True)
+    existing_output.write_text("old\n", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="Artifact already exists"):
+        CompiledSqlWriter().write_batch(
+            requests=(
+                CompiledSqlWriteRequest(
+                    contract_name="new_contract",
+                    check_id="new_check",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="select 1",
+                            operation_type="row_count",
+                            step_name="step",
+                        ),
+                    ),
+                ),
+                CompiledSqlWriteRequest(
+                    contract_name="existing_contract",
+                    check_id="existing_check",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="select 2",
+                            operation_type="row_count",
+                            step_name="step",
+                        ),
+                    ),
+                ),
+            ),
+            target_path=target_path,
+        )
+
+    assert not (target_path / COMPILED_SQL_DIR_NAME / "new_contract").exists()
+    assert existing_output.read_text(encoding="utf-8") == "old\n"
+
+
+def test_compiled_sql_writer_preflights_existing_directory_collision_before_creating_batch_dirs(
+    tmp_path: Path,
+) -> None:
+    target_path = tmp_path / "target"
+    existing_contract_dir = target_path / COMPILED_SQL_DIR_NAME / "Existing_Contract"
+    existing_contract_dir.mkdir(parents=True)
+
+    with pytest.raises(FileExistsError, match="case-insensitive collision"):
+        CompiledSqlWriter().write_batch(
+            requests=(
+                CompiledSqlWriteRequest(
+                    contract_name="new_contract",
+                    check_id="new_check",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="select 1",
+                            operation_type="row_count",
+                            step_name="step",
+                        ),
+                    ),
+                ),
+                CompiledSqlWriteRequest(
+                    contract_name="existing_contract",
+                    check_id="existing_check",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="select 2",
+                            operation_type="row_count",
+                            step_name="step",
+                        ),
+                    ),
+                ),
+            ),
+            target_path=target_path,
+        )
+
+    assert not (target_path / COMPILED_SQL_DIR_NAME / "new_contract").exists()
+    assert existing_contract_dir.is_dir()
+
+
 def test_compiled_sql_writer_rejects_symlinked_compiled_sql_directory(
     tmp_path: Path,
 ) -> None:

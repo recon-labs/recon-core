@@ -7,6 +7,7 @@ from recon_core.adapters.models import RenderedSql
 from recon_core.artifacts._paths import (
     ensure_real_artifact_directory,
     ensure_safe_artifact_write,
+    reject_symlinked_path_components,
 )
 
 COMPILED_SQL_DIR_NAME = "compiled_sql"
@@ -77,14 +78,15 @@ class CompiledSqlWriter:
             return ()
 
         output_root = target_path / COMPILED_SQL_DIR_NAME
+        _preflight_compiled_sql_directories(plans, output_root)
+        for plan in plans:
+            _preflight_compiled_sql_output_paths(plan.output_paths, overwrite=overwrite)
+
         ensure_real_artifact_directory(output_root)
 
         for plan in plans:
             contract_dir = _ensure_safe_nested_directory(output_root, plan.request.contract_name)
             _ensure_safe_nested_directory(contract_dir, plan.request.check_id)
-
-        for plan in plans:
-            _preflight_compiled_sql_output_paths(plan.output_paths, overwrite=overwrite)
 
         results: list[CompiledSqlWriteResult] = []
         for plan in plans:
@@ -172,6 +174,19 @@ def _validate_compiled_sql_write_plans(plans: tuple[_CompiledSqlWritePlan, ...])
             seen_output_paths[output_path_key] = output_path_display
 
 
+def _preflight_compiled_sql_directories(
+    plans: tuple[_CompiledSqlWritePlan, ...],
+    output_root: Path,
+) -> None:
+    _preflight_real_artifact_directory(output_root)
+    for plan in plans:
+        contract_dir = _preflight_safe_nested_directory(
+            output_root,
+            plan.request.contract_name,
+        )
+        _preflight_safe_nested_directory(contract_dir, plan.request.check_id)
+
+
 def _preflight_compiled_sql_output_paths(
     output_paths: tuple[Path, ...],
     *,
@@ -202,9 +217,20 @@ def _validate_compiled_sql_batch(
         seen_step_names.add(normalized_step_name)
 
 
-def _ensure_safe_nested_directory(parent: Path, directory_name: str) -> Path:
+def _preflight_real_artifact_directory(output_dir: Path) -> None:
+    reject_symlinked_path_components(output_dir)
+    if output_dir.exists() and not output_dir.is_dir():
+        raise FileExistsError(f"Compiled SQL output path is not a directory: {output_dir}")
+
+
+def _preflight_safe_nested_directory(parent: Path, directory_name: str) -> Path:
     _validate_compiled_sql_path_segment(directory_name)
-    ensure_real_artifact_directory(parent)
+    _preflight_real_artifact_directory(parent)
+
+    output_dir = parent / directory_name
+    reject_symlinked_path_components(output_dir)
+    if not parent.exists():
+        return output_dir
 
     matching_paths = tuple(
         existing_path
@@ -219,10 +245,13 @@ def _ensure_safe_nested_directory(parent: Path, directory_name: str) -> Path:
             f"with existing artifact {colliding_names} under {parent}."
         )
 
-    output_dir = parent / directory_name
     if output_dir.exists() and not output_dir.is_dir():
         raise FileExistsError(f"Compiled SQL output path is not a directory: {output_dir}")
+    return output_dir
 
+
+def _ensure_safe_nested_directory(parent: Path, directory_name: str) -> Path:
+    output_dir = _preflight_safe_nested_directory(parent, directory_name)
     ensure_real_artifact_directory(output_dir)
     return output_dir
 

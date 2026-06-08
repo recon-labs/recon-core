@@ -86,7 +86,8 @@ This project follows semantic versioning once public package releases begin.
 - `CompiledSqlWriter` and `recon compile --render-sql` now validate and
   preflight the full rendered SQL output set before writing any SQL files,
   preventing partial `target/compiled_sql/` output when a later rendered step
-  is invalid or a later check path has a case-insensitive collision.
+  is invalid, a later output path already exists, or a later check path has a
+  case-insensitive collision.
 - `recon compile` now reports structured validation diagnostics for invalid
   stable ID parts, duplicate contract names, and case-insensitive compiled
   artifact filename collisions instead of crashing or silently overwriting
