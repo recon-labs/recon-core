@@ -52,8 +52,8 @@ class RenderingStatus(StrEnum):
 
     NOT_RENDERED = "not_rendered"
     RENDERED = "rendered"
-    DEFERRED = "deferred"
-    UNSUPPORTED = "unsupported"
+    BLOCKED = "blocked"
+    FAILED = "failed"
 
 
 class BlockingPolicyValue(StrEnum):
@@ -179,6 +179,7 @@ class BlockingPolicyDict(TypedDict):
 class RenderingDict(TypedDict):
     status: str
     sql_paths: list[str]
+    adapter_type: NotRequired[str]
 
 
 class ResolvedSamplingDict(TypedDict, total=False):
@@ -451,12 +452,16 @@ class Rendering:
 
     status: RenderingStatus = RenderingStatus.NOT_RENDERED
     sql_paths: tuple[str, ...] = ()
+    adapter_type: str | None = None
 
     def to_dict(self) -> RenderingDict:
-        return {
+        rendering: RenderingDict = {
             "status": self.status.value,
             "sql_paths": list(self.sql_paths),
         }
+        if self.adapter_type is not None:
+            rendering["adapter_type"] = self.adapter_type
+        return rendering
 
 
 @dataclass(frozen=True, slots=True)

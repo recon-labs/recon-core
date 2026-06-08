@@ -7,7 +7,14 @@ from click.testing import CliRunner
 
 from recon_core import __version__
 from recon_core.cli.main import main
-from recon_core.services import CompileService, InitService, ParseService, RunService
+from recon_core.services import (
+    CompileService,
+    ExitCategory,
+    InitService,
+    ParseService,
+    RunService,
+    ServiceResult,
+)
 
 
 def test_cli_version_outputs_package_version() -> None:
@@ -49,12 +56,11 @@ def test_cli_commands_delegate_to_services(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = 0
-    original_execute = service_cls.execute
 
-    def execute(self: InitService | ParseService | CompileService | RunService):
+    def execute(self: InitService | ParseService | CompileService | RunService) -> ServiceResult:
         nonlocal calls
         calls += 1
-        return original_execute(self)
+        return ServiceResult(exit_category=ExitCategory.RUNTIME_ERROR)
 
     monkeypatch.setattr(service_cls, "execute", execute)
 
@@ -62,6 +68,32 @@ def test_cli_commands_delegate_to_services(
 
     assert result.exit_code != 0
     assert calls == 1
+
+
+@pytest.mark.parametrize(
+    ("args", "expected_render_sql"),
+    [
+        (["compile"], False),
+        (["compile", "--render-sql"], True),
+    ],
+)
+def test_compile_command_passes_render_sql_flag(
+    args: list[str],
+    expected_render_sql: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[bool] = []
+
+    def execute(self: CompileService) -> ServiceResult:
+        calls.append(self.render_sql)
+        return ServiceResult.success("ok")
+
+    monkeypatch.setattr(CompileService, "execute", execute)
+
+    result = CliRunner().invoke(main, args)
+
+    assert result.exit_code == 0
+    assert calls == [expected_render_sql]
 
 
 def test_parse_command_writes_manifest_for_project() -> None:
@@ -106,6 +138,57 @@ def test_compile_command_writes_compiled_artifacts_for_project() -> None:
             "duplicate_target_keys",
             "total_revenue",
         ]
+
+
+def test_compile_render_sql_prints_diagnostic_message_for_profile_errors() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        _write_project(profile="local")
+        _write_contract()
+        _write_profiles_with_missing_env_var()
+
+        result = runner.invoke(main, ["compile", "--render-sql"])
+
+        assert result.exit_code == 4
+        assert "Error: SQL rendering profile configuration failed." in result.output
+        assert "Code: RC_CONFIG_PROFILE_ENV_VAR_MISSING" in result.output
+        assert (
+            "Message: Connection `legacy` references missing environment variable `MISSING_DB`."
+            in result.output
+        )
+        assert "Hint: Set the environment variable or provide an env_var default." in result.output
+
+
+def test_parse_command_does_not_print_raw_yaml_snippets_for_invalid_contract() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        _write_project()
+        _contract_path().write_text(
+            """
+version: 1
+name: customer_revenue
+source:
+  connection: legacy
+  query: select * from customers where ssn: secret-ssn
+target:
+  connection: warehouse
+  relation: qa.customer_target
+checks:
+  use:
+    - recon_core.basic_equivalence
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(main, ["parse"])
+
+        assert result.exit_code == 2
+        assert "Code: RC_PARSE_INVALID_YAML" in result.output
+        assert "Message: Invalid YAML in resource file." in result.output
+        assert "secret-ssn" not in result.output
+        assert "select * from customers" not in result.output
 
 
 def test_parse_command_returns_validation_error_and_writes_manifest() -> None:
@@ -207,14 +290,16 @@ def test_init_command_rejects_project_name_that_cannot_be_stable_id() -> None:
         assert "Names must start with a letter or underscore." in result.output
 
 
-def _write_project() -> None:
+def _write_project(*, profile: str | None = None) -> None:
     _contract_path().parent.mkdir()
     _manifest_path().parent.mkdir()
+    profile_yaml = f"profile: {profile}\n" if profile is not None else ""
     _project_path().write_text(
-        """
+        f"""
 name: ecommerce_recon
 version: 0.1.0
 config-version: 1
+{profile_yaml}\
 contract-paths:
   - contracts
 target-path: target
@@ -245,6 +330,28 @@ metrics:
 checks:
   use:
     - recon_core.basic_equivalence
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+
+def _write_profiles_with_missing_env_var() -> None:
+    profiles_path = Path("connections/profiles.yml")
+    profiles_path.parent.mkdir()
+    profiles_path.write_text(
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('MISSING_DB') }}"
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
 """.lstrip(),
         encoding="utf-8",
     )

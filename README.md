@@ -37,6 +37,12 @@ Implemented today:
 - built-in `recon_core.basic_equivalence` expansion,
 - explicit `sum` metric compilation,
 - limited contract-level `sampling.default_policy` metadata on compiled checks,
+- adapter-aware `recon compile --render-sql`,
+- selected profile/target loading for adapter-aware compile,
+- adapter API, registry, and support-state capability validation foundation,
+- in-core DuckDB local development adapter behind `recon-core[duckdb]`,
+- DuckDB SQL rendering for currently emitted typed check plans,
+- compiled SQL artifacts under `target/compiled_sql/`,
 - structured service results and diagnostics,
 - CLI command registration for `run`.
 
@@ -45,8 +51,8 @@ Not implemented yet:
 - `recon run`,
 - explicit authored checks beyond supported check-pack and metric compilation,
 - full sampling, tolerance, schema, and CDC policy engines,
-- adapter SQL rendering,
 - adapter execution,
+- adapter metadata access,
 - check engine,
 - evidence writers.
 
@@ -95,7 +101,7 @@ For local development from this repository:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,duckdb]"
 recon --version
 recon init ecommerce_recon
 cd ecommerce_recon
@@ -129,6 +135,12 @@ check-pack, policy, and macro semantics remain future work.
 `recon parse` performs structural project parsing and writes
 `target/manifest.json`. `recon compile` expands the currently supported check
 packs and explicit metrics into compiled YAML artifacts under `target/`.
+`recon compile --render-sql` also loads `connections/profiles.yml`, resolves
+the selected profile target, and writes DuckDB-rendered SQL under
+`target/compiled_sql/` when referenced connections use the in-core `duckdb`
+adapter and resolve to the same adapter connection config. If you use the
+generated profile example, set `RECON_DUCKDB_PATH` or edit
+`connections/profiles.yml` before running `recon compile --render-sql`.
 `recon run` is registered, but it currently returns a clear not-implemented
 diagnostic.
 
@@ -233,12 +245,12 @@ Current generated artifacts:
 target/manifest.json
 target/compiled_contracts/
 target/compiled_checks/
+target/compiled_sql/       # only when recon compile --render-sql succeeds
 ```
 
 Planned future run and evidence artifacts:
 
 ```text
-target/compiled_sql/       # when adapter SQL rendering is available
 target/run_results.json
 target/failures/
 reports/

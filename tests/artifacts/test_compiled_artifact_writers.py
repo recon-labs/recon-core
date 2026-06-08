@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -148,7 +149,7 @@ def test_compiled_contract_writer_rejects_ambiguous_overwrite_regardless_of_dire
     exact_path.write_text("exact\n", encoding="utf-8")
     original_iterdir = Path.iterdir
 
-    def fake_iterdir(path: Path):
+    def fake_iterdir(path: Path) -> Iterator[Path]:
         if path == output_dir:
             return iter((exact_path, variant_path))
         return original_iterdir(path)

@@ -115,7 +115,13 @@ ADR 0020. The selected target is the active environment and contains named
 connections used by contract `source.connection` and `target.connection`
 fields. Initial adapter-aware behavior renders only referenced named
 connections and supports `env_var('NAME')` plus
-`env_var('NAME', 'default')`.
+`env_var('NAME', 'default')` for non-routing connection config fields.
+Connection `type` values must be literal adapter types such as `duckdb`.
+Resolved adapter `adapter_type` metadata must match that literal profile
+`type`.
+Unsupported template fragments such as `{{ ... }}`, `{% ... %}`, or
+`{# ... #}` fail for referenced connection payloads instead of being passed to
+adapters.
 
 ## `endpoints/`
 
@@ -194,7 +200,7 @@ Possible contents:
 target/manifest.json
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/
+target/compiled_sql/   # when recon compile --render-sql succeeds
 target/run_results.json
 target/failures/
 target/sample_keys/

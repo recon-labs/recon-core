@@ -129,6 +129,17 @@ Check-pack resource schema diagnostics locked by ADR 0018:
 | --- | --- | --- |
 | `RC_PARSE_INVALID_CHECK_PACK_CONFIG_SCHEMA` | parse | error |
 
+Invalid authored YAML diagnostics are public output. Low-level YAML parser
+errors often quote the offending line or nearby snippet, and contract files can
+contain source/target query text or private literals. `RC_PARSE_INVALID_YAML`
+messages should therefore use safe summaries such as `Invalid YAML in resource
+file.` instead of raw parser exception text. Known structural cases may use
+safe category-specific messages, such as duplicate-key or unsupported-mapping
+summaries, but they must not echo authored key values or source/target
+snippets. Tests should assert that terminal output and manifest diagnostics do
+not expose offending query text, row-like values, credentials, or other private
+literals from malformed contract or resource files.
+
 ## Configuration diagnostics
 
 Examples:
@@ -148,6 +159,13 @@ Future package/resource namespace diagnostics locked by ADR 0017:
 | `RC_CONFIG_RESERVED_RESOURCE_NAMESPACE` | config | error |
 | `RC_CONFIG_DUPLICATE_PACKAGE_NAMESPACE` | config | error |
 | `RC_CONFIG_PACKAGE_NOT_INSTALLED` | config | error |
+
+Configuration YAML diagnostics follow the same sanitization rule as parse
+diagnostics. `RC_CONFIG_INVALID_PROJECT_YAML` and future profile/package config
+YAML diagnostics must not directly use raw YAML parser exception text when the
+exception can quote authored snippets, rendered profile values, credentials, or
+private project details. Use safe summary messages and preserve the diagnostic
+code, severity, path, and safe hint instead.
 
 ## Compile diagnostics
 
@@ -267,10 +285,108 @@ Examples:
 
 ```text
 RC_ADAPTER_UNKNOWN_TYPE
+RC_ADAPTER_RESOLUTION_FAILED
+RC_ADAPTER_API_VERSION_UNSUPPORTED
 RC_ADAPTER_CAPABILITY_UNSUPPORTED
-RC_ADAPTER_METADATA_UNAVAILABLE
+RC_ADAPTER_CAPABILITY_DECLARATION_FAILED
+RC_ADAPTER_DEPENDENCY_MISSING
+RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED
+RC_ADAPTER_TYPE_MISMATCH
+RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED
+RC_ADAPTER_INVALID_RELATION
+RC_ADAPTER_OPERATION_RENDER_FAILED
+RC_ADAPTER_RENDERED_SQL_EMPTY
+RC_ADAPTER_RENDERER_METADATA_INVALID
+RC_ADAPTER_RENDERER_TYPE_MISMATCH
+RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED
+RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS
+RC_ADAPTER_METADATA_INVALID
 RC_ADAPTER_QUERY_FAILED
 ```
+
+Milestone 6 adapter-aware compile uses `RC_ADAPTER_*` diagnostics for adapter
+type resolution, empty or malformed adapter factory results, malformed factory
+diagnostic payloads, adapter factory exceptions, adapter API compatibility,
+missing or invalid adapter API version declarations, capability declaration
+failures, malformed capability support states, required-capability validation,
+optional dependency checks,
+relation-only rendering boundaries, same-context rendering requirements,
+profile `type`/adapter metadata mismatches, invalid relation names, invalid
+adapter metadata, renderer metadata mismatches, renderer failures, empty
+renderer output, malformed non-empty renderer output, and invocation-wide SQL
+output suppression. Exported rendering helpers that accept an explicit renderer
+must validate renderer `adapter_type` before invoking `render_plan()`, surfacing
+`RC_ADAPTER_RENDERER_METADATA_INVALID` for missing, empty, non-string, or
+exception-raising renderer metadata and
+`RC_ADAPTER_RENDERER_TYPE_MISMATCH` for a renderer that does not match the
+resolved adapter type. When
+`recon compile --render-sql` cannot start adapter rendering because compile
+validation already failed, otherwise renderable checks should use
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` in compiled checks
+artifacts so generated metadata does not imply that rendering was not requested.
+Service-level diagnostics should de-duplicate identical contract or endpoint
+rendering blockers that affect multiple checks, while compiled-check diagnostics
+should still explain each blocked check. These diagnostics must not include
+connection secrets or fully rendered credential payloads. If an adapter setup
+failure and an independent render failure occur in the same
+adapter-aware compile invocation, service and CLI diagnostics must preserve both
+distinct failures; setup diagnostics must not mask render diagnostics from
+otherwise resolvable contracts.
+If a profile-backed adapter diagnostic, including factory diagnostics, adapter
+API compatibility diagnostics, and render-phase adapter diagnostics, references
+rendered connection config keys or values, Recon should suppress unsafe adapter
+diagnostic text and unsafe resource metadata, then return a generic adapter
+diagnostic with the original severity and the original diagnostic code only when
+the code is safe. If an adapter-provided diagnostic code references rendered
+connection config keys or values, Recon should replace it with
+`RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED`. The replacement diagnostic must still
+include a safe, actionable message and safe resource context. Diagnostic-code
+redaction must include unsafe config keys and rendered values in both
+delimiter-separated and separatorless forms. Examples such as
+`RC_PASSWORD_LEAK` and `RCPASSWORDLEAK` must be treated as unsafe when
+`password` is an unsafe rendered connection config key, and examples such as
+`RCsuper-secretLEAK` and `RC12LEAK` must be treated as unsafe when
+`super-secret` or `12` came from rendered profile config. Rendered profile
+values include scalar YAML values after rendering, including non-string values
+such as numeric credentials and rendered numeric strings such as quoted YAML or
+env-var-derived `"12.0"`.
+If an adapter factory returns a malformed result, or if an adapter factory,
+adapter metadata declaration, or capability declaration raises an exception,
+Recon should suppress raw adapter payloads and return a generic structured
+adapter diagnostic that preserves only the exception type when useful.
+Suppression should treat case-changed keys or rendered values, DSN fragments,
+tokens, passwords, numeric formatting changes, and other simple transformations
+as unsafe when they can be derived from rendered profile config. Redaction tests
+should cover every public diagnostic field independently: `code`, `message`,
+`hint`, `path`, `resource_type`, `resource_name`, `line`, `column`,
+`rendering.adapter_type`, and any future structured diagnostic fields.
+
+Adapter diagnostics are part of the adapter compatibility surface. Future
+adapter execution, debug/profile validation commands, external adapter
+packages, and shared adapter test-kit conformance must require adapter-provided
+diagnostics to include safe non-empty messages. Those messages must explain the
+failure without exposing credentials, tokens, DSNs, rendered connection
+payloads, or other secret-classified values in any public diagnostic field,
+including diagnostic `code`.
+Shared adapter test-kit redaction cases must include numeric `line` and
+`column` fields when those values match rendered scalar profile values, not only
+string diagnostic text. These cases must also include unsafe config keys and
+rendered values embedded inside diagnostic `code` without separators, such as
+`RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`, plus delimiter-separated
+key-token cases such as `RC_PASSWORD_LEAK`. Short numeric rendered scalars such
+as port values must be covered when they appear in diagnostic `code`, `message`,
+`hint`, `path`,
+`resource_type`, `resource_name`, numeric `line`/`column`, and
+`rendering.adapter_type`. Short numeric cases must include equivalent formatted
+variants such as `12`, `12.0`, `+12`, and integer-equivalent scientific
+notation, because adapters may stringify the same rendered scalar differently.
+They must cover rendered numeric strings such as `"12.0"` as profile values, not
+only adapter diagnostics that emit decimal text from integer profile values.
+Long password-shaped numeric values alone do not prove exact short-token
+redaction. Core compile-flow conformance must also verify
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` appears in compiled-check
+metadata when compile validation prevents a requested adapter rendering phase
+from starting.
 
 ## Runtime diagnostics
 
@@ -304,6 +420,45 @@ Bad:
 ```text
 invalid contract
 ```
+
+## Output conformance
+
+Diagnostic output should preserve both the machine code and the human message.
+The minimum diagnostic fields for public output are:
+
+```text
+code
+severity
+message
+```
+
+This applies to terminal output, manifest diagnostics, compiled-check
+diagnostics, future run results, evidence/report output, debug/profile
+validation commands, and adapter test-kit assertions. Path, resource context,
+line, column, and hint should be preserved when available.
+
+Tests should treat missing diagnostic messages as a public-output regression,
+even when the diagnostic code is present. Redaction may replace unsafe message
+text with a generic safe message, but it must not leave users with only a code
+or hint.
+
+Runtime diagnostics and adapter/database error diagnostics must also follow the
+source/target data privacy policy before check execution, runner/results,
+evidence/reporting, debug commands, or adapter test-kit surfaces expose source
+or target data. Raw rows, comparison keys, normalized values, aggregate values,
+row counts, relation names, query text, and database error text must not leak
+through diagnostic `message`, `hint`, `path`, resource metadata, line/column
+fields, terminal output, run results, evidence, reports, logs, or test snapshots
+unless the policy explicitly allows that output.
+
+Do not pass raw low-level exception strings directly into public diagnostics
+when those exceptions can contain authored YAML snippets, rendered connection
+values, source/target query text, relation names, row values, or database error
+payloads. This includes YAML parser errors, adapter factory errors, adapter
+metadata/capability errors, database client errors, runtime execution errors,
+and future evidence writer errors. Public diagnostics should summarize the
+failure with safe text and keep useful machine context through the diagnostic
+code, severity, path, resource fields, and safe hints.
 
 ## Hints
 

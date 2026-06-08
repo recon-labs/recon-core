@@ -124,6 +124,25 @@ became null because of `nulls.treat_as_null`, linked failure details should be
 able to identify the sentinel value or regex rule when evidence policy allows
 that detail.
 
+## Source and target data privacy
+
+Run results are public artifacts. Before `target/run_results.json` is
+implemented, Recon must define source/target data privacy defaults for every
+field that can contain data values or data-derived values.
+
+Raw source/target rows, comparison keys, normalized values, aggregate values,
+row counts, relation names, query text, runtime adapter errors, and database
+error text should be classified as public, sensitive, or policy-controlled
+before they are emitted. By default, run results should prefer summaries,
+counts, statuses, diagnostics, and artifact references over embedded raw rows
+or raw source/target values. If a policy allows value capture, the result model
+must show whether values are raw, normalized, masked, hashed, truncated, or
+sampled.
+
+Terminal output, logs, diagnostics, run results, linked failure details,
+reports, and adapter test-kit snapshots must share the same privacy rules so a
+value suppressed in one public surface is not leaked through another.
+
 ## JSON artifact
 
 `target/run_results.json` should include:
@@ -140,7 +159,8 @@ that detail.
 
 ## Avoid large embedded data
 
-Failure rows should not be embedded directly into `run_results.json` except for small summaries.
+Failure rows should not be embedded directly into `run_results.json` except for
+small summaries allowed by the source/target data privacy policy.
 
 Large details belong in separate files.
 

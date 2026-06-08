@@ -189,9 +189,44 @@ Milestone 5 validation timing and diagnostic code ownership are locked in
 
 ## CLI rendering
 
-The CLI should print concise diagnostics.
+The CLI should print concise diagnostics. Failed commands should include each
+diagnostic code and message, plus path and hint when available.
 
 Detailed diagnostics should be written to artifacts.
+
+## Diagnostic output conformance
+
+Diagnostic messages are part of Recon's public diagnostic contract, not
+optional terminal decoration. Any user-facing or automation-facing diagnostic
+surface should preserve at least:
+
+```text
+code
+message
+severity
+```
+
+When available, diagnostic output should also preserve path, resource context,
+and hint. CLI, manifest, compiled artifact, run result, evidence, report, debug
+command, and future adapter test-kit views may format diagnostics differently,
+but they must not rely on code or hint alone when an actionable message exists.
+
+Redaction must happen before diagnostics are rendered or written. Secret-safe
+rendering should remove credentials, tokens, DSNs, rendered connection payloads,
+source/target query text, relation names, row values, database error payloads,
+raw parser snippets, and other secret-classified or source/target-sensitive
+values from diagnostic `code`, message, hint, path, `resource_type`,
+`resource_name`, `line`, `column`, and future structured diagnostic fields
+without dropping the diagnostic message entirely. If a message or resource field
+cannot be made safe, Recon should replace it with generic safe text while
+preserving severity and non-secret context. If an adapter-provided diagnostic
+code is unsafe, Recon should replace it with a safe generic code.
+
+Low-level exception text is not automatically safe diagnostic text. Parser and
+configuration diagnostics from authored YAML should summarize YAML parser
+failures rather than echoing offending lines. Adapter, database, runtime, and
+evidence diagnostics should summarize raw exceptions before they reach CLI
+output, artifacts, reports, logs, or adapter test-kit snapshots.
 
 ## Artifact rendering
 

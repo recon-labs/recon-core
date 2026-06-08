@@ -74,12 +74,23 @@ FAIL customer_revenue.revenue_by_month
 
 ## Sensitive data handling
 
-Evidence may contain sensitive values.
+Evidence, failure details, reports, run results, terminal output, logs, adapter
+runtime errors, and test snapshots may contain source/target values or private
+source/target context.
+
+Before execution, runner/results, or evidence/reporting surfaces are
+implemented, Recon should define a source/target data privacy policy that
+classifies raw rows, comparison keys, normalized values, aggregate values, row
+counts, relation names, query text, runtime adapter errors, and database error
+text as public, sensitive, or policy-controlled.
 
 Initial protections:
 
+- do not emit raw source/target rows by default,
 - limit failure rows,
 - allow failure detail export to be disabled,
+- prefer summaries and artifact references over embedded values,
+- sanitize runtime adapter and database errors before public output,
 - clearly document generated evidence paths.
 
 Future protections:

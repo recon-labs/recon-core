@@ -6,6 +6,18 @@ This document defines a practical implementation order for the first working Rec
 
 The goal is to avoid building too many advanced features before the core loop works.
 
+## Milestone planning requirements
+
+All MVP and post-MVP entries in this build-order document follow the general
+milestone process in `docs/planning/milestone-process.md`. That process applies
+to milestones, sub-milestones, roadmap items, and epics, and it is the source of
+truth for lightweight prework, high-risk conformance matrices, and decimal
+milestone splits.
+
+This document defines sequence and capability homes. When a milestone is split
+or superseded, update this build-order document alongside the roadmap, gates,
+ADRs, compatibility docs, and tests so no orphan implementation plan remains.
+
 ## Milestone 1: package skeleton and CLI
 
 Build:
@@ -295,11 +307,23 @@ Build:
 - compiled SQL artifacts under `target/compiled_sql/`,
 - first internal adapter test-kit shape.
 
+Current status:
+
+- implemented through adapter-aware compile and SQL rendering,
+- DuckDB remains in-core behind `recon-core[duckdb]`,
+- current DuckDB support renders SQL for existing typed plans only,
+- connection lifecycle, metadata fetches, row-count query execution, check
+  execution, run results, and evidence remain future milestones.
+
 Required gates:
 
-- resolve the profiles, connections, and secrets gate before adapter execution,
+- resolve the profiles, connections, secrets, and adapter diagnostic redaction
+  gate before adapter execution,
 - resolve the adapter API, capability validation, and compiled SQL gate before
   implementing the adapter API or SQL rendering,
+- keep the dimension-expanded adapter/profile conformance matrix in
+  `docs/compatibility/adapter-api.md` current before future profile, adapter,
+  diagnostic-redaction, or SQL-rendering changes,
 - resolve the typed operation catalog expansion gate before rendering or
   emitting additional typed operations,
 - keep Milestone 6 relation-only; resolve the query endpoint support boundary
@@ -311,19 +335,47 @@ Current pre-implementation alignment:
 - `recon init` already writes the ADR 0020 selected profile/target shape with
   named `legacy` and `warehouse` connections in
   `connections/profiles.yml.example`.
+- Milestone 6 adapter/profile conformance rows are captured in
+  `docs/compatibility/adapter-api.md#milestone-6-adapterprofile-conformance-matrix`
+  and map required cases to existing tests or explicit future gates.
 
 Tests:
 
 - selected profile and target loading,
 - selected target and referenced named-connection env var rendering,
+- connection `type` values stay literal non-empty adapter types; templated
+  `{{ ... }}`, `{% ... %}`, `{# ... #}`, or `env_var(...)` `type` values fail
+  profile config before adapter resolution, do not invoke adapter
+  factories/renderers, do not write compiled SQL, and do not leak the rendered
+  environment value through diagnostics or artifacts,
+- unsupported profile template syntax, including `{% ... %}` and `{# ... #}`,
+  fails for referenced connections,
 - secret redaction from diagnostics and artifacts,
-- metadata fetch,
-- row count query,
+- profile-backed adapter diagnostics, including adapter factory, adapter API
+  compatibility, and render-phase diagnostics, do not leak rendered connection
+  config keys or values,
+- profile-backed adapter diagnostic codes suppress unsafe config keys and
+  rendered profile values in delimiter-separated and separatorless forms,
+  including examples such as `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`,
+  `RCsuper-secretLEAK`, and `RC12LEAK`,
+- profile-backed adapter diagnostics suppress case-changed rendered config keys
+  or values, non-string rendered values, unsafe `rendering.adapter_type`
+  metadata, numeric `line`/`column` fields, short numeric rendered scalars such
+  as port values, integer-equivalent formatted variants such as `12.0`, `+12`,
+  and `1.2e1`, and other simple secret transformations,
 - typed operation rendering,
 - adapter API version compatibility,
 - adapter capability support-state validation,
 - compiled SQL artifact path and traceability tests,
 - unsupported query endpoint diagnostics for adapter-aware rendering.
+- adapter setup failures produce blocked compiled-check metadata, write no
+  compiled SQL, preserve diagnostics when factories return both adapters and
+  diagnostics, de-duplicate repeated same-connection setup diagnostics, and keep
+  distinct source/target connection setup diagnostics visible in service output.
+- compile validation failures that prevent a requested adapter rendering phase
+  from starting still mark otherwise renderable checks `blocked` with
+  `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and do not invoke
+  adapter factories or renderers.
 
 ## Milestone 7: check engine
 
@@ -339,6 +391,38 @@ Build:
 
 Required gates:
 
+- satisfy the Adapter/Profile Diagnostic Conformance Gate in
+  `docs/compatibility/adapter-api.md` before loading rendered profiles or
+  resolving adapters for execution,
+- preserve literal adapter type routing: `type` must not be rendered from
+  environment variables, and environment-specific adapter choices must use
+  separate targets or named connections with literal `type` values; resolved
+  adapter `adapter_type` metadata must match the literal profile `type` before
+  renderer selection or execution,
+- if Milestone 7 introduces a renderer registry, execution-time renderer
+  selection, or any public/shared rendering helper that accepts an explicit
+  renderer, validate the renderer's declared `adapter_type` against the
+  resolved adapter type before rendering,
+- require adapter/profile diagnostic redaction conformance to cover unsafe
+  rendered profile keys or values independently in diagnostic code, message,
+  hint, path, `resource_type`, `resource_name`, `line`, `column`, and future
+  structured diagnostic fields, including unsafe config key diagnostic-code
+  variants such as `RC_PASSWORD_LEAK` and `RCPASSWORDLEAK`, short numeric
+  rendered scalars such as port values, separatorless value embeddings such as
+  `RC12LEAK`, and equivalent formatted variants such as `12.0`, `+12`, and
+  `1.2e1`, while preserving safe adapter diagnostic codes such as
+  `RC_ADAPTER_CAPABILITY_UNSUPPORTED`,
+- resolve the diagnostic output message conformance gate before runtime
+  adapter/profile diagnostics can become check-engine output,
+- resolve the source/target data privacy, evidence, and failure-detail policy
+  gate before check execution can emit source/target values, runtime adapter
+  errors, database errors, or data-derived values through terminal output,
+  diagnostics, logs, run results, evidence, or adapter test-kit snapshots,
+- preserve the adapter-aware compile contract that setup failures write no SQL,
+  mark affected compiled checks blocked, preserve factory diagnostics even when
+  an adapter is also returned, de-duplicate repeated same-connection setup
+  diagnostics, and keep distinct source/target connection setup diagnostics
+  visible before adapter execution surfaces these diagnostics at run time,
 - resolve the explicit authored checks and check registry gate before
   implementing explicit `checks: [...]` support or registry behavior that must
   serve explicit checks later,
@@ -350,10 +434,14 @@ Required gates:
 Tests:
 
 - pass/fail cases,
-- duplicate keys block row-level checks,
-- null keys block row-level checks,
+- duplicate keys block dependent row-level value checks,
+- null keys block dependent row-level value checks,
 - aggregate metric result,
-- check result serialization.
+- check result serialization,
+- check-engine diagnostics preserve code, severity, message, path, resource
+  context, and hint where available,
+- check-engine public output does not leak raw source/target values unless the
+  source/target data privacy policy explicitly allows that output.
 
 ## Milestone 8: runner and results
 
@@ -365,12 +453,28 @@ Build:
 - exit code mapping,
 - terminal summary.
 
+Required gate:
+
+- resolve the diagnostic output message conformance gate before locking run
+  result diagnostics, exit-code diagnostics, or terminal summary behavior.
+- resolve the source/target data privacy, evidence, and failure-detail policy
+  gate before writing `target/run_results.json`, terminal summaries, runtime
+  diagnostics, or logs that can include source/target values, relation names,
+  query text, adapter runtime errors, or database error text.
+- resolve the generated artifact lifecycle and cleanup gate before writing
+  `target/run_results.json`.
+
 Tests:
 
 - successful run,
 - failing check run,
 - runtime error,
-- exit code mapping.
+- exit code mapping,
+- run results and terminal output preserve diagnostic code and message for
+  runtime, adapter, prerequisite, and result-write failures,
+- run results and terminal output follow source/target data privacy defaults for
+  raw rows, keys, values, aggregates, relation names, query text, and runtime
+  error text.
 
 ## Milestone 9: evidence
 
@@ -381,12 +485,28 @@ Build:
 - artifact references,
 - sampling scope in evidence.
 
+Required gate:
+
+- resolve the diagnostic output message conformance gate before evidence,
+  report, or failure-detail diagnostics become user-facing output.
+- resolve the source/target data privacy, evidence, and failure-detail policy
+  gate before writing failure details, reports, evidence, or failure links that
+  can expose raw rows, comparison keys, normalized values, aggregate values,
+  row counts, relation names, query text, adapter errors, or database errors.
+- resolve the generated artifact lifecycle and cleanup gate before writing
+  failure details, reports, or evidence artifacts.
+
 Tests:
 
 - failure CSV written,
 - report generated,
 - row limit respected,
-- artifact paths in run results.
+- artifact paths in run results,
+- evidence and report diagnostics preserve safe actionable messages instead of
+  emitting only diagnostic codes or hints,
+- failure details, reports, and evidence follow source/target data privacy
+  defaults for raw-value export, masking/redaction, truncation, and generated
+  artifact references.
 
 ## Milestone 10: examples and docs alignment
 
@@ -432,6 +552,8 @@ Build:
 
 - artifact freshness model for manifest, compiled artifacts, compiled SQL, run
   results, and evidence,
+- generated artifact cleanup and publish-ordering rules for stale, partial, and
+  orphaned outputs across generated artifact families,
 - cache/invalidation keys based on authored files, project config, relevant
   resource checksums, command options, and adapter-capability inputs,
 - stale-artifact diagnostics and safe fallback behavior,
@@ -441,6 +563,8 @@ Build:
 
 Required gate:
 
+- resolve the generated artifact lifecycle and cleanup gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
 - resolve the artifact freshness and cache optimization gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
 
@@ -829,6 +953,9 @@ Required gate:
 
 - resolve the query endpoint support boundary gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+- resolve the generated artifact lifecycle and cleanup gate if query endpoint
+  execution writes query-specific compiled SQL, results, evidence, or debug
+  artifacts.
 
 Recommended commit message:
 
@@ -858,6 +985,8 @@ Required gate:
 
 - resolve the selectors and contract selection semantics gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+- resolve the generated artifact lifecycle and cleanup gate before selector
+  compile/run writes partial or scoped generated artifacts.
 
 Recommended commit message:
 
@@ -907,7 +1036,12 @@ Build:
 
 - `exact_value_match`,
 - `numeric_tolerance_match`,
-- prerequisite blocking for null/duplicate keys,
+- `requires_non_null_grain` and `requires_unique_grain` metadata for row-level
+  value checks,
+- prerequisites on `null_source_keys`, `null_target_keys`,
+  `duplicate_source_keys`, and `duplicate_target_keys`,
+- prerequisite blocking with `blocked_by` and `skip_reason` for null/duplicate
+  keys,
 - resolved column and policy payloads in typed plans,
 - result, failure-detail, and evidence output for value mismatches.
 
@@ -1260,6 +1394,91 @@ Required gate:
 
 - resolve the adapter test kit and adapter package split gate in
   `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+- satisfy the Adapter/Profile Diagnostic Conformance Gate in
+  `docs/compatibility/adapter-api.md` before creating or splitting the shared
+  test-kit repository, publishing shared test-kit expectations, splitting
+  `recon-duckdb`, publishing production adapter packages, or making external
+  adapter compatibility claims,
+- satisfy the Renderer Output And Artifact Publication Conformance Gate in
+  `docs/compatibility/adapter-api.md` before creating or splitting the shared
+  test-kit repository, publishing shared renderer expectations, splitting
+  `recon-duckdb`, introducing renderer registries, publishing production
+  adapter packages, or making external adapter compatibility claims,
+- include profile env-var rendering conformance before creating or splitting
+  the test-kit repository: `{{ env_var(...) }}` and bare `env_var(...)` forms
+  in non-routing fields, defaults, missing variables, unsupported bare
+  expressions, embedded env-var calls, filters, and unsupported Jinja
+  statement/comment fragments such as `{% ... %}` and `{# ... #}` must either
+  render safely or fail before adapter resolution instead of surviving as
+  literal config,
+- include literal adapter `type` conformance before creating or splitting the
+  test-kit repository: templated `{{ ... }}`, `{% ... %}`, `{# ... #}`, or
+  `env_var(...)` `type` values must fail before adapter resolution, must not
+  invoke adapter factories/renderers, must write no compiled SQL, and must not
+  leak rendered environment values; factory-returned adapter metadata that
+  differs from the literal profile `type` must fail before renderer selection,
+- resolve the diagnostic output message conformance gate before publishing
+  shared adapter diagnostic assertions or adapter compatibility claims,
+- include case-variant rendered-config redaction cases in shared adapter
+  diagnostic assertions before creating or splitting the test-kit repository,
+- include field-by-field adapter diagnostic redaction cases for diagnostic code,
+  message, hint, path, `resource_type`, `resource_name`, `line`, `column`,
+  `rendering.adapter_type`, and future structured diagnostic fields before
+  creating or splitting the test-kit repository,
+- include short numeric rendered-scalar cases, such as `port: 12`, `12.0`,
+  `+12`, and `1.2e1`, across diagnostic codes, diagnostic text, resource metadata,
+  `rendering.adapter_type`, and numeric `line`/`column` before creating or
+  splitting the test-kit repository,
+- include parsed DSN component and derived-fragment redaction cases before
+  creating or splitting the test-kit repository or claiming external adapter
+  compatibility: username, password, host, path, query values, percent-decoded
+  values, and substrings of rendered connection strings must not leak through
+  diagnostic text, diagnostic codes, resource metadata, `rendering.adapter_type`,
+  logs, run results, evidence, or adapter test snapshots,
+- include diagnostic-code embeddings for unsafe config keys and rendered values,
+  such as `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and
+  `RC12LEAK`, before creating or splitting the test-kit repository or claiming
+  external adapter compatibility,
+- preserve safe adapter diagnostic codes with incidental non-secret config-key
+  substrings, such as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`, before creating or
+  splitting the test-kit repository or claiming external adapter compatibility,
+- include core render-sql compile-validation blocked-metadata integration cases
+  before creating or splitting any test-kit harness that drives core compile
+  flows,
+- include malformed adapter factory result, malformed factory diagnostic
+  payload, missing or invalid adapter API version declaration, and malformed
+  capability support-state cases before creating or splitting the test-kit
+  repository,
+- include public/shared rendering helper cases before creating or splitting the
+  test-kit repository: when a helper or harness accepts both a resolved adapter
+  and an explicit renderer, adapter API incompatibility and missing, malformed,
+  exception-raising, or mismatched renderer `adapter_type` metadata must fail
+  before `render_plan()` is invoked,
+- include renderer-output and generated-artifact publication cases before
+  creating or splitting the test-kit repository: empty renderer output, empty
+  or malformed direct compiled SQL writer requests, later empty or malformed
+  rendered SQL batch requests, invalid later rendered steps, unsafe path
+  segments, exact output paths that already exist as directories or other
+  non-files, duplicate step names, and case-insensitive output collisions must
+  fail before any compiled SQL directory or file is published,
+- include rendered SQL step `required_capabilities` enforcement cases before
+  creating or splitting the test-kit repository, introducing a renderer registry,
+  publishing `recon-duckdb`, or claiming external adapter compatibility:
+  current Core render-sql orchestration enforces these before SQL publication,
+  and future shared conformance must preserve unsupported, not-implemented,
+  unknown, versioned, malformed, or extra step-level capability declarations
+  failing clearly before SQL artifacts, run results, evidence, or adapter test
+  snapshots are published,
+- include sanitized adapter factory exception and sanitized capability
+  declaration exception cases before creating or splitting the test-kit
+  repository or publishing external adapter compatibility claims,
+- include adapter setup failure cases that assert no compiled SQL output,
+  blocked compiled-check metadata, preserved diagnostics when factories return
+  both adapters and diagnostics, de-duplicated repeated same-connection service
+  diagnostics, preserved distinct source/target connection diagnostics, and
+  preserved independent render diagnostics from otherwise resolvable contracts
+  when setup diagnostics also exist before creating or splitting the test-kit
+  repository or publishing external adapter compatibility claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the

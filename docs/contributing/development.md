@@ -18,6 +18,14 @@ Expected test command:
 pytest
 ```
 
+Adapter-aware DuckDB SQL renderer semantics require the optional DuckDB extra.
+Run the CI-equivalent renderer gate with:
+
+```bash
+pip install -e ".[dev,duckdb]"
+RECON_REQUIRE_DUCKDB_TESTS=1 pytest tests/adapters/test_duckdb_sql_renderer.py
+```
+
 ## Code quality
 
 Expected checks may include:

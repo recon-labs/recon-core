@@ -6,6 +6,23 @@ This document defines the implementation testing plan for Recon Core.
 
 Tests should protect public behavior and prevent misleading evidence.
 
+## Milestone test planning
+
+Every milestone test plan should follow
+`docs/planning/milestone-process.md` and be derived from the milestone prework
+artifact. For normal or low-risk milestones, the test plan must cover the
+documented scope, expected behavior, non-goals, and Definition of Done.
+
+High-risk milestones and public-surface changes must map tests to a
+dimension-expanded acceptance/conformance matrix before implementation. Each
+required matrix row must map to a new test, an existing test, or an explicit
+out-of-scope rationale. Matrix examples are not complete coverage unless the
+relevant dimensions and sibling variants are enumerated.
+
+When a milestone is split into decimal sub-milestones, each sub-milestone needs
+its own test plan and, when high-risk, its own conformance matrix. Do not use the
+umbrella milestone as the implementation test boundary.
+
 ## Test layers
 
 ### Unit tests
@@ -32,6 +49,8 @@ Examples:
 - duplicate contract names,
 - missing source/target,
 - invalid YAML,
+- invalid YAML diagnostics do not expose raw parser snippets, source/target
+  query text, credentials, or other private literals from the offending file,
 - unknown fields.
 
 Milestone 4.6 resource-indexing tests should cover:
@@ -104,8 +123,8 @@ Rules include:
 
 - no silent all-column comparison,
 - row-level checks require keys,
-- duplicate keys block row-level checks,
-- null keys block row-level checks,
+- duplicate keys block dependent row-level value checks,
+- null keys block dependent row-level value checks,
 - CDC propagation checks require CDC keys,
 - `basic_equivalence` without grain fails validation,
 - invalid check/column types error,
@@ -146,9 +165,202 @@ Adapter tests for key-dependent operations should cover null-key detection,
 duplicate-key detection, key-diff rendering, and CDC-key operation rendering
 where supported.
 
+The in-core DuckDB SQL renderer semantic tests must be gated in CI with the
+optional DuckDB extra installed. The required CI path should install
+`.[dev,duckdb]`, set `RECON_REQUIRE_DUCKDB_TESTS=1`, and run
+`tests/adapters/test_duckdb_sql_renderer.py` so optional dependency coverage
+cannot silently skip the SQL comparison cases that protect no-coercion and exact
+numeric behavior.
+
+Future shared adapter test-kit and adapter-repository semantic jobs must follow
+the same rule: required capability conformance jobs install the adapter package
+or optional extra under test and fail when the dependency is missing or
+unimportable. Local developer convenience skips are acceptable only outside
+required conformance gates.
+
 Production adapters should eventually use a shared adapter test kit. The same
 test kit should run in every adapter repo and should include operation-rendering
 golden tests.
+
+The shared adapter test kit should include adapter API conformance tests
+separate from SQL comparison conformance. These tests should verify adapter
+registry and factory behavior, including that a factory returning neither an
+adapter nor diagnostics, or returning a malformed resolution result, fails with
+`RC_ADAPTER_RESOLUTION_FAILED` instead of allowing adapter-aware rendering or
+execution to succeed. Malformed diagnostic containers or entries inside a
+factory resolution result are malformed resolution results and must also fail
+with `RC_ADAPTER_RESOLUTION_FAILED` before diagnostic redaction, rendering, or
+artifact-writing, or execution consumes them. Malformed field values are part
+of this boundary: representative conformance cases should include a string
+severity such as `"error"` instead of `DiagnosticSeverity`, empty or non-string
+`code` or `message`, non-string optional context fields, and non-integer
+`line` or `column` values. The same conformance suite should verify that missing
+or invalid adapter API version declarations fail with
+`RC_ADAPTER_API_VERSION_UNSUPPORTED`, malformed capability support states become
+structured diagnostics, invalid or exception-raising `adapter_type` metadata
+fails with `RC_ADAPTER_METADATA_INVALID`, profile `type`/adapter metadata
+mismatches fail with `RC_ADAPTER_TYPE_MISMATCH`, empty renderer output fails
+with `RC_ADAPTER_RENDERED_SQL_EMPTY`, malformed non-empty renderer output fails
+with `RC_ADAPTER_OPERATION_RENDER_FAILED`, including unsafe or duplicate
+renderer step names, public/shared rendering helpers that accept explicit
+renderers fail before rendering when adapter API compatibility fails or the
+renderer `adapter_type` is missing, malformed, exception-raising, or different
+from the resolved adapter type, and adapter factory exceptions, adapter metadata
+exceptions, and capability declaration exceptions become sanitized structured
+diagnostics instead of raw exceptions that can leak rendered profile keys or
+values.
+Malformed renderer-output coverage must include invalid later rendered steps
+and case-insensitive output collisions, and artifact writer tests must prove
+direct empty or malformed rendered SQL writer requests and later empty or
+malformed rendered SQL batch requests fail before any compiled SQL directory or
+file is created. Artifact preflight tests must include exact output paths that
+already exist as directories or other non-files, including overwrite-enabled
+calls. Batched artifact writer tests must prove the full batch is validated and
+preflighted before the first compiled SQL file is written. Current Core tests
+cover `RenderedSql.required_capabilities` as executable requirements before SQL
+publication. Shared renderer and adapter-repository tests must preserve and
+expand that coverage: supported step-level capabilities pass, while unsupported,
+not-implemented, unknown, versioned, malformed, or extra renderer-declared
+capabilities fail clearly before SQL artifacts, run results, evidence, or
+adapter test snapshots are published.
+Factories that return both an adapter and diagnostics, or both an adapter and
+malformed diagnostics, should be treated as setup failures; the returned adapter
+must not be used for rendering or execution.
+Adapter setup failure cases must also verify that adapter-aware compile writes
+no compiled SQL, marks affected compiled checks blocked with structured
+diagnostics, de-duplicates repeated same-connection setup diagnostics in service
+and CLI output, and preserves distinct source/target connection setup
+diagnostics. They should also prove that adapter setup diagnostics do not hide
+render diagnostics from otherwise resolvable contracts in the same
+adapter-aware compile invocation.
+
+Profile-backed diagnostic redaction tests must include DSN component and
+derived-fragment cases, not only whole rendered connection strings. Required
+cases include username, password, host, path, query values, percent-decoded
+values, and substrings appearing independently in diagnostic code, message,
+hint, path, `resource_type`, `resource_name`, `line`, `column`,
+`rendering.adapter_type`, logs, run results, evidence, and adapter test
+snapshots for every surface that claims compatibility.
+
+Adapter-aware compile tests should also cover the core-owned case where compile
+validation fails before adapter rendering starts. When `--render-sql` was
+requested, otherwise renderable checks must be marked `blocked` with
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, compiled SQL must not be
+written, and adapter factories/renderers must not be invoked. A future shared
+adapter test kit only needs this case when it drives core compile flows; pure
+adapter API conformance should reference the core artifact requirement instead
+of duplicating compiler validation tests.
+
+The same adapter API conformance suite must satisfy the Adapter/Profile
+Diagnostic Conformance Gate in `docs/compatibility/adapter-api.md` before
+adapter execution, connection debug or profile validation commands, external
+adapter repositories, or compatibility claims rely on rendered profiles. It
+should verify selected profile/target loading, referenced-connection filtering,
+missing environment variables,
+environment-variable defaults, `{{ env_var(...) }}` and bare `env_var(...)`
+forms in non-routing connection fields, unsupported template syntax including
+`{{ ... }}`, `{% ... %}`, and `{# ... #}`, unsupported bare env-var
+expressions, embedded env-var calls, filters, literal adapter `type` handling,
+and adapter diagnostics returned after rendered profile config is available.
+Unsupported env-var/template cases should verify that invalid syntax fails
+before adapter resolution and does not survive as literal connection config.
+Literal adapter `type` cases should verify that connection `type` is a
+non-empty literal string; `{{ ... }}`, `{% ... %}`, `{# ... #}`, or
+`env_var(...)` in `type` fails profile config before adapter resolution;
+adapter factories and renderers are not invoked; compiled SQL is not written;
+and the rendered environment value does not appear in diagnostics or artifacts.
+Adapter choices
+that vary by environment should be represented by separate selected targets or
+separate named connections, each with a literal `type`, not by rendering the
+adapter type from environment variables.
+Factory, optional dependency, API compatibility, capability, metadata,
+rendering, and execution diagnostics should be tested as public output and must
+not leak rendered connection config keys or values classified as unsafe for
+diagnostics. Adapter API compatibility diagnostics are part of this
+conformance surface because they can be derived from profile-backed adapter
+instances; render-phase diagnostics and `rendering.adapter_type` metadata are
+part of the same surface. Adapter diagnostic conformance tests should also
+assert that adapter-provided diagnostics include safe non-empty messages and
+that core redaction replaces unsafe message text with a generic safe message
+instead of dropping the message field. Redaction tests should include
+case-variant and simple transformation cases, including uppercase or lowercase
+config keys, non-string rendered values, case-changed rendered values, DSN
+substrings, tokens, and passwords appearing independently in diagnostic
+`code`, message, hint, path, `resource_type`, `resource_name`, `line`, `column`,
+`rendering.adapter_type`, and any future structured diagnostic fields.
+Diagnostic `code` cases must include unsafe config keys and rendered values in
+both delimiter-separated and separatorless forms, such as `RC_PASSWORD_LEAK`,
+`RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`. They must also verify
+safe adapter diagnostic-code preservation for incidental non-secret config-key
+substrings, such as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`. Numeric field cases
+must cover integer-valued `line` and `column` diagnostics as well as numeric
+strings that match rendered scalar profile values. They must include short
+numeric rendered scalars, for example `port: 12`, in diagnostic `code`,
+diagnostic text, unsafe resource metadata, numeric `line`/`column`, and
+`rendering.adapter_type`, so the suite proves exact short-token redaction and
+not only long secret-like tokens. Short numeric scalar cases should include
+alternate integer-equivalent representations such as `12.0`, `+12`, and
+`1.2e1`. They must cover both directions: an integer-like profile scalar emitted
+by an adapter as a decimal or scientific string, and a rendered numeric-string
+profile scalar such as `"12.0"` or an env-var-rendered string emitted by an
+adapter as `12`, `+12`, or `1.2e1`. Assertions should inspect the specific
+public diagnostic or rendering fields under test rather than scanning whole
+generated artifacts where checksums or stable IDs can contain unrelated short
+numerals.
+
+Before check execution, runner/results, evidence/reporting, debug commands, or
+adapter test-kit execution surfaces are implemented or claimed compatible, add
+source/target data privacy conformance tests. These tests should assert that
+terminal output, logs, diagnostics, `run_results.json`, failure details,
+reports, evidence, adapter runtime errors, database error text, and test
+snapshots do not expose raw rows, comparison keys, normalized values, aggregate
+values, row counts, relation names, query text, or other source/target context
+unless the source/target data privacy policy explicitly classifies the output
+as public or allows controlled export. Cases should cover pass, fail, error,
+skipped, truncation, disabled failure export, masked/hash-only output, adapter
+runtime errors, database errors, and raw adapter/database/runtime exception text
+so a value suppressed in one public surface cannot leak through another.
+
+Before creating, publishing, or splitting a shared adapter test-kit repository,
+define a SQL comparison conformance matrix. The matrix should make comparison
+semantics executable across adapters and should cover:
+
+- null-safe equality,
+- distinct non-null key-diff semantics,
+- nullable grouped aggregate keys,
+- no implicit type coercion or combination-casting matches,
+- representative cross-type value cases such as numeric/string,
+  boolean/numeric/string, decimal/float, and date/timestamp where supported,
+- key-diff type mismatches fail instead of returning misleading missing/extra
+  key rows,
+- grouped aggregate key type mismatches fail with clear Recon or adapter-level
+  errors instead of raw dialect binder errors,
+- aggregate input column and value type mismatches fail instead of being
+  compared through dialect implicit casts,
+- same-type unsupported or non-numeric aggregate metric inputs fail with clear
+  Recon or adapter-level errors instead of raw dialect binder errors,
+- boolean aggregate inputs fail for `sum` semantics when an engine treats them
+  as true-value counts instead of numeric aggregates,
+- valid exact numeric aggregate inputs, including large integers and decimals,
+  are not rounded or widened through lossy casts before comparison,
+- unsigned large-integer aggregate inputs, such as DuckDB `UHUGEINT`, either
+  prove exact aggregate comparison behavior or fail with clear adapter-level
+  errors,
+- empty aggregate result semantics are explicit before execution conformance is
+  claimed, including cases where an engine returns `NULL` for `sum` on empty
+  groups rather than zero, how two empty aggregate results compare, how empty
+  aggregate `NULL` is distinguished from numeric zero, and how run
+  results/evidence surface that distinction,
+- empty source/target relations with mismatched key or group-key types still
+  fail instead of producing empty trustworthy-looking comparison output,
+- grouped aggregate renderers do not use cross-type coalescing for source and
+  target group keys,
+- same-context rendering requirements fail clearly when a renderer cannot safely
+  bridge multiple connection configs,
+- capability-specific behavior for unsupported casts, normalization, hashing,
+  timestamp, semi-structured, or metadata-dependent comparisons,
+- clear diagnostics or unsupported capability results when an adapter cannot
+  safely perform a comparison.
 
 ### Artifact tests
 
@@ -166,7 +378,12 @@ Examples:
 - check requirements included,
 - identity metadata included,
 - blocked checks include `blocked_by` and `skip_reason`,
+- render-sql requests blocked by compile validation use `rendering.status:
+  blocked` with `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, not
+  `not_rendered`,
 - artifact versions included.
+- diagnostics preserve code, severity, message, path, resource context, and
+  hint where available.
 
 Manifest tests for resource indexing should assert that non-contract files are
 included in `files` with path, `resource_type`, and checksum only, and that no
@@ -183,7 +400,12 @@ Examples:
 - `recon compile`,
 - `recon run`,
 - exit codes,
-- terminal summaries.
+- terminal summaries,
+- failed commands print each diagnostic code and message, including profile,
+  adapter, runtime, and evidence diagnostics as those phases are implemented.
+- failed parse/config commands do not print raw YAML parser snippets,
+  source/target query text, rendered profile values, credentials, or private
+  literals from malformed authored files.
 
 ## Golden tests
 

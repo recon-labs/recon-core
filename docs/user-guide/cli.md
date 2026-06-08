@@ -19,6 +19,8 @@ Current implementation status:
 - `recon parse` is implemented for structural contract parsing, local resource
   file indexing, and manifest generation.
 - `recon compile` is implemented for the current compiler scope.
+- `recon compile --render-sql` is implemented for DuckDB relation endpoints
+  and current typed check-plan operations.
 - `recon run` is registered but not implemented yet.
 
 ## `recon init`
@@ -94,6 +96,11 @@ If project config loads but contract parsing fails, `recon parse` still writes
 If one entry in a multi-contract file is invalid, valid entries from that file
 are still included in the manifest while diagnostics report the invalid entry.
 
+Malformed YAML diagnostics are concise and do not print raw YAML parser
+snippets. Contract endpoints may include source/target query text or private
+literals, so terminal output and manifest diagnostics summarize invalid YAML
+without echoing the offending line.
+
 If project root discovery or project config loading fails, `recon parse` exits
 with code `4` and does not write a manifest.
 
@@ -123,10 +130,18 @@ target/compiled_contracts/
 target/compiled_checks/
 ```
 
+For optional adapter-aware SQL rendering with the in-core DuckDB local
+development adapter, install `recon-core[duckdb]`, create
+`connections/profiles.yml`, and set any referenced environment variables such as
+`RECON_DUCKDB_PATH` before running:
+
+```bash
+recon compile --render-sql
+```
+
 `compile` should resolve defaults, refs, check packs, metrics, sampling,
 tolerances, schema policies, CDC behavior, and adapter capabilities. SQL files
-under `target/compiled_sql/` are produced when adapter SQL rendering is
-available.
+under `target/compiled_sql/` are produced only by optional adapter-aware compile.
 
 Current `compile` behavior:
 
@@ -138,11 +153,29 @@ Current `compile` behavior:
 - removes old top-level compiled contract and compiled checks YAML files once
   `target-path` is known,
 - rejects symlinked compiled artifact directories and symlinked `target-path`
-  ancestry, and rejects exact compiled artifact output-file symlinks,
+  ancestry, and rejects exact compiled artifact output paths that are symlinks,
+  directories, or other non-files,
 - writes `target/compiled_contracts/<contract_name>.yml`,
 - writes `target/compiled_checks/<contract_name>.yml`,
-- sets `rendering.status: not_rendered` because SQL rendering is not available
-  yet,
+- sets `rendering.status: not_rendered` for plain compile,
+- supports optional `--render-sql` for adapter-aware rendering,
+- loads `connections/profiles.yml` only when `--render-sql` is requested,
+- resolves the selected profile target and only the named connections
+  referenced by compiled contracts,
+- requires source and target DuckDB connections for a contract to resolve to the
+  same adapter connection config; cross-connection rendering is not implemented,
+- validates literal profile adapter type, resolved adapter metadata, adapter API
+  compatibility, and required capabilities before writing SQL,
+- writes `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`
+  plus target-relative `rendering.sql_paths` and `rendering.adapter_type` when
+  SQL rendering succeeds,
+- sets rendering status to `rendered`, `blocked`, or `failed` for
+  adapter-aware compile results,
+- writes no compiled SQL files and marks checks `blocked` or `failed` when any
+  rendering diagnostic prevents adapter-aware SQL artifact output; checks blocked
+  only because SQL output was suppressed include a suppression diagnostic in
+  their compiled checks artifact,
+- removes stale `target/compiled_sql/` output on plain compile,
 - validates duplicate contract names and stable ID-safe project, contract, and
   metric names before writing compiled artifacts,
 - validates case-insensitive contract filename collisions before writing
@@ -157,9 +190,13 @@ Current limitations:
 
 - explicit authored checks outside supported check-pack and metric compilation
   fail with a clear diagnostic,
-- adapter capability validation is not connected to real adapters yet,
-- SQL rendering, execution, run results, and evidence reports are not
-  implemented yet.
+- adapter-aware rendering is relation-only; `source.query` and `target.query`
+  endpoints return clear unsupported diagnostics for `--render-sql`,
+- DuckDB `--render-sql` currently targets one adapter connection context and
+  does not attach or bridge multiple DuckDB database files,
+- the in-core DuckDB adapter renders SQL but does not execute checks or fetch
+  metadata yet,
+- execution, run results, and evidence reports are not implemented yet.
 
 ## `recon run`
 
@@ -202,6 +239,8 @@ When a command fails, Recon should print concise diagnostic output:
 ```text
 Error: <message>
 Code: <diagnostic code>
+Message: <diagnostic message>
+Path: <path when available>
 Hint: <fix when available>
 ```
 

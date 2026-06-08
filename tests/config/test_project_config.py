@@ -171,7 +171,7 @@ state-path: build/state
 
 def test_load_project_config_reports_invalid_yaml(tmp_path: Path) -> None:
     project_file = write_project_config(
-        tmp_path, "name: ecommerce_recon\ncontract-paths: [contracts\n"
+        tmp_path, "name: ecommerce_recon\nprofile: local: secret-profile\n"
     )
 
     result = load_project_config(project_file)
@@ -183,10 +183,12 @@ def test_load_project_config_reports_invalid_yaml(tmp_path: Path) -> None:
     diagnostic = result.diagnostics[0]
     assert diagnostic.code == "RC_CONFIG_INVALID_PROJECT_YAML"
     assert diagnostic.severity is DiagnosticSeverity.ERROR
+    assert diagnostic.message == "Invalid YAML in project config."
     assert diagnostic.path == str(project_file)
     assert diagnostic.line is not None
     assert diagnostic.column is not None
     assert diagnostic.hint is not None
+    assert "secret-profile" not in diagnostic.message
 
 
 def test_load_project_config_reports_duplicate_yaml_keys(tmp_path: Path) -> None:
@@ -210,7 +212,7 @@ name: finance_recon
     assert diagnostic.path == str(project_file)
     assert diagnostic.line is not None
     assert diagnostic.column is not None
-    assert "Duplicate YAML key" in diagnostic.message
+    assert diagnostic.message == "Invalid YAML in project config: duplicate YAML key."
 
 
 def test_load_project_config_reports_unhashable_yaml_mapping_key(tmp_path: Path) -> None:
@@ -234,7 +236,7 @@ def test_load_project_config_reports_unhashable_yaml_mapping_key(tmp_path: Path)
     assert diagnostic.path == str(project_file)
     assert diagnostic.line is not None
     assert diagnostic.column is not None
-    assert "Unsupported YAML mapping key" in diagnostic.message
+    assert diagnostic.message == "Invalid YAML in project config: unsupported YAML mapping key."
 
 
 def test_load_project_config_reports_non_mapping_yaml(tmp_path: Path) -> None:

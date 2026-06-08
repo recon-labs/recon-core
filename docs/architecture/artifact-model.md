@@ -101,9 +101,24 @@ HtmlReportWriter
 StateWriter
 ```
 
-`ManifestWriter`, `CompiledContractWriter`, and `CompiledCheckWriter` are
-implemented. SQL, run-result, failure-detail, report, and state writers are
-future work.
+`ManifestWriter`, `CompiledContractWriter`, `CompiledCheckWriter`, and
+`CompiledSqlWriter` are implemented. Run-result, failure-detail, report, and
+state writers are future work.
+
+Generated artifact writers own cleanup and publish ordering for their output
+paths. A writer or service must not leave stale, partial, or orphaned generated
+artifacts after a failed write in a way that downstream automation could read
+as current evidence. Writers that publish per-item files must validate both the
+payload shape and the full output path set before creating directories or files.
+Future writers for run results, evidence, failure details, reports, state, docs
+output, and selector-scoped artifacts must define that
+lifecycle before the artifact becomes a compatibility surface.
+
+Batched artifact writers should validate all batch path components and preflight
+all output paths before writing the first file. For compiled SQL, unsafe
+contract, check, or renderer step path segments, empty rendered SQL requests,
+and case-insensitive duplicate step names must fail before
+`target/compiled_sql/` directories or files are published.
 
 ## Artifact versioning
 

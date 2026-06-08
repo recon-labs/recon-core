@@ -31,6 +31,7 @@ def _render_error(result: ServiceResult) -> None:
     click.echo(f"Error: {message}", err=True)
     for diagnostic in result.diagnostics:
         click.echo(f"Code: {diagnostic.code}", err=True)
+        click.echo(f"Message: {diagnostic.message}", err=True)
         if diagnostic.path:
             click.echo(f"Path: {diagnostic.path}", err=True)
         if diagnostic.hint:
@@ -57,9 +58,14 @@ def parse() -> None:
 
 
 @main.command(name="compile")
-def compile_command() -> None:
+@click.option(
+    "--render-sql",
+    is_flag=True,
+    help="Render adapter SQL for compiled checks.",
+)
+def compile_command(render_sql: bool) -> None:
     """Compile contracts into explicit execution artifacts."""
-    _handle_result(CompileService().execute())
+    _handle_result(CompileService(render_sql=render_sql).execute())
 
 
 @main.command()

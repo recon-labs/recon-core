@@ -90,6 +90,15 @@ adapter-aware behavior selects one profile and target environment, then
 resolves contract `source.connection` and `target.connection` names against the
 selected target's named connections. Secrets and fully rendered credentials
 must not be written to generated artifacts.
+Connection `type` values must be literal adapter types such as `duckdb`;
+`env_var(...)` is for non-routing connection config values. Resolved adapter
+`adapter_type` metadata must match the literal profile `type`. Unsupported
+template fragments such as `{{ ... }}`, `{% ... %}`, or `{# ... #}` fail for
+referenced connection payloads instead of being passed to adapters.
+
+`recon compile --render-sql` requires `connections/profiles.yml` and loads only
+the selected target's connections referenced by compiled contracts. Plain
+`recon compile` does not require a profile file.
 
 ## `contracts/`
 
@@ -120,6 +129,15 @@ Useful for CDC technical columns.
 Generated parse/compile/run artifacts.
 
 Do not commit.
+
+Current generated contents can include:
+
+```text
+target/manifest.json
+target/compiled_contracts/
+target/compiled_checks/
+target/compiled_sql/   # only when recon compile --render-sql succeeds
+```
 
 ## `reports/`
 

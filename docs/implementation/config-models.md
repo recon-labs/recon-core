@@ -46,6 +46,12 @@ authored or defaulted. ADR 0017 requires this so missing default optional
 resource directories can be skipped while explicitly configured missing paths
 can fail clearly.
 
+Project config diagnostics are public output. Invalid `recon_project.yml`
+messages should summarize YAML parser failures rather than echoing raw parser
+snippets, because future config and package fields may contain private project
+details. Preserve safe context such as diagnostic code, severity, path, and
+hint instead of copying low-level exception text into the message.
+
 Recommended implementation shape:
 
 ```python
@@ -66,10 +72,10 @@ Profiles should describe connection definitions.
 
 Real profiles should not be committed.
 
-Profile loading, environment-variable resolution, connection validation, and
-secret-safe adapter configuration are future work locked by ADR 0020. They
-should be implemented before adapter execution, not folded into plain project
-config loading implicitly.
+Profile loading, environment-variable resolution, referenced-connection
+selection, and secret-safe adapter configuration are implemented for
+adapter-aware compile. Plain project config loading still does not implicitly
+load `connections/profiles.yml`.
 
 Suggested model:
 
@@ -93,7 +99,7 @@ class ProfileTargetConfig:
 class ConnectionConfig:
     name: str
     type: str
-    raw_config: dict[str, Any]
+    config: dict[str, Any]
 ```
 
 Profile targets are environment entries. Contract `source.connection` and
@@ -104,13 +110,25 @@ Profile rendering rules:
 
 - render only the selected profile target and the named connections referenced
   by selected contracts,
-- support `env_var('NAME')` and `env_var('NAME', 'default')` initially,
+- support `env_var('NAME')` and `env_var('NAME', 'default')` initially for
+  non-routing connection config fields,
+- require connection `type` values to be literal adapter types,
+- reject resolved adapters whose `adapter_type` metadata differs from the
+  literal profile connection `type`,
 - fail when a referenced connection payload contains a missing environment
   variable,
+- fail when a referenced connection payload contains unsupported template
+  syntax, including `{{ ... }}`, `{% ... %}`, and `{# ... #}`, instead of
+  passing raw template text to adapters,
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never write secrets or fully rendered credential payloads into generated
   artifacts, diagnostics, or terminal output.
+
+Profile YAML and rendered-profile diagnostics must follow the same rule. Raw
+parser errors, template errors, adapter exceptions, and database errors should
+not be surfaced when they can quote rendered profile values, credentials, DSN
+fragments, or source/target context.
 
 ## Resource config
 

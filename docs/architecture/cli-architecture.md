@@ -121,14 +121,16 @@ Reads authored files and/or the manifest, resolves behavior, and writes:
 ```text
 target/compiled_contracts/
 target/compiled_checks/
-target/compiled_sql/  # when adapter SQL rendering is available
+target/compiled_sql/  # when --render-sql succeeds
 ```
 
 It should return non-zero on compile-time validation errors.
 
 Current implementation reads authored files through the parser pipeline,
 expands supported check packs and explicit metrics, and writes compiled
-contract and compiled checks artifacts. It does not render SQL yet.
+contract and compiled checks artifacts. With `--render-sql`, it loads the
+selected profile target, validates adapter API/capabilities, and writes
+compiled SQL artifacts for current DuckDB relation-backed typed plans.
 
 ## `recon run`
 
@@ -167,11 +169,19 @@ Successful service results should print a concise success message to standard ou
 ```text
 Error: <message>
 Code: <diagnostic code>
+Message: <diagnostic message>
 Path: <path when available>
 Hint: <hint when available>
 ```
 
 CLI rendering should use structured service results and diagnostics. Command handlers should not assemble ad hoc framework errors.
+
+Because failed commands print diagnostic messages to standard error, CLI output
+is a public diagnostic surface. Command handlers and services must not pass raw
+YAML parser errors, adapter exceptions, database errors, source/target query
+text, row values, rendered profile values, or credentials into terminal
+messages. Unsafe details should be summarized before the diagnostic reaches the
+CLI renderer.
 
 Example:
 

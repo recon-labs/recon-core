@@ -110,14 +110,27 @@ password: "{{ env_var('WAREHOUSE_PASSWORD') }}"
 ```
 
 Initial profile rendering supports `env_var('NAME')` and
-`env_var('NAME', 'default')`. For contract-specific adapter rendering or
-execution, missing environment variables in referenced connection payloads
-should produce clear configuration errors. Missing environment variables in
-unselected targets or unreferenced connections should not fail the invocation.
+`env_var('NAME', 'default')` for non-routing connection config fields.
+Connection `type` values must be literal adapter types because they select the
+adapter boundary, and resolved adapter `adapter_type` metadata must match that
+literal profile `type` before renderer selection or execution. For
+contract-specific adapter rendering or execution, missing environment variables
+in referenced connection payloads should produce clear configuration errors.
+Missing environment variables in unselected targets or unreferenced connections
+should not fail the invocation. Unsupported template syntax, including
+`{{ ... }}` expressions, Jinja statements such as `{% ... %}`, and Jinja
+comments such as `{# ... #}`, in referenced connection payloads should fail
+instead of being passed to adapters as raw text.
 
 Generated artifacts and diagnostics may include profile name, target name,
 adapter type, and non-secret relation identifiers. They must not include
 secrets or fully rendered credential payloads.
+
+Current implementation loads profiles for `recon compile --render-sql` only.
+Plain parse and compile do not require `connections/profiles.yml`. Milestone 6
+adapter-aware rendering requires referenced source and target connections to
+resolve to the same adapter type and rendered connection config. Distinct
+connection configs are blocked rather than implicitly bridged.
 
 ## Packages
 

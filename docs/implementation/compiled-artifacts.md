@@ -20,8 +20,8 @@ target/compiled_contracts/<contract_name>.yml
 target/compiled_checks/<contract_name>.yml
 ```
 
-Adapter-rendered SQL belongs under `target/compiled_sql/` when SQL rendering is
-available:
+Adapter-rendered SQL belongs under `target/compiled_sql/` when
+`recon compile --render-sql` succeeds:
 
 ```text
 target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
@@ -32,8 +32,11 @@ the render and writes the generated artifact. Rendered SQL must be traceable to
 the contract name, check ID, typed operation or rendering step, side when
 applicable, and adapter type.
 
-When SQL rendering is not available or not requested, compiled checks still
-include typed plans and should set `rendering.status: not_rendered`.
+When SQL rendering is not requested, compiled checks still include typed plans
+and should set `rendering.status: not_rendered`. Adapter-aware compile uses
+`blocked` or `failed` when rendering cannot safely produce SQL.
+When an adapter is known, compiled checks also include
+`rendering.adapter_type`, including blocked or failed render-sql results.
 
 Rendering status values:
 
@@ -48,24 +51,75 @@ failed
 intentionally skipped because validation failed. `failed` means rendering was
 attempted and failed due to adapter or renderer error.
 
-The current compiler writes compiled contract and compiled checks YAML artifacts
-for supported check-pack and metric behavior. It does not write
-`target/compiled_sql/` yet.
+When `recon compile --render-sql` cannot start adapter rendering because compile
+validation already failed, otherwise renderable checks are marked `blocked` with
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` so artifacts do not imply
+that adapter-aware rendering was not requested.
+This is a core artifact conformance requirement for future compile-flow and
+adapter test-kit integration harnesses: adapter factories and renderers should
+not be invoked after compile validation has already failed, and generated
+metadata must still show that rendering was requested and blocked.
+
+If any check produces a rendering diagnostic during `recon compile
+--render-sql`, Recon writes no compiled SQL files for that invocation. Checks
+that could not pass validation or capability checks are marked `blocked`, checks
+with renderer errors are marked `failed`, and otherwise renderable checks are
+also marked `blocked` because their SQL files were intentionally not written.
+Otherwise renderable checks that are blocked only by invocation-wide SQL output
+suppression include `RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED` diagnostics in the
+compiled checks artifact so automation can distinguish suppression from a
+check-local rendering blocker.
+
+The current compiler writes compiled contract and compiled checks YAML
+artifacts for supported check-pack and metric behavior. With
+`recon compile --render-sql`, it also writes adapter-rendered DuckDB SQL for
+relation-backed contracts under `target/compiled_sql/`.
+
+Compiled-check `rendering.sql_paths` stores paths relative to the configured
+`target-path`, not absolute paths:
+
+```text
+compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
+```
+
+For Milestone 6 DuckDB rendering, source and target connection names may differ
+only if their selected profile entries resolve to the same adapter type and
+connection config. Resolved adapter `adapter_type` metadata must match each
+literal profile connection `type` before renderer selection. Distinct adapter
+connection contexts are blocked because the compiled SQL is rendered for one
+execution context and does not attach or bridge multiple databases.
 
 `recon compile` treats `target/compiled_contracts/` and
-`target/compiled_checks/` as generated snapshots. After project configuration
-loads and `target-path` is known, Recon removes existing top-level `*.yml` files
-from those two directories before parsing and compilation continue. If parsing
-or fatal compile validation fails, old compiled artifacts are therefore absent
-instead of stale.
+`target/compiled_checks/` as generated snapshots. It also treats
+`target/compiled_sql/` as generated SQL output. After project configuration
+loads and `target-path` is known, Recon removes existing top-level `*.yml`
+files from the compiled YAML directories and removes stale compiled SQL output
+before parsing and compilation continue. If parsing or fatal compile validation
+fails, old compiled artifacts are therefore absent instead of stale.
 
-Compiled artifact directories must be real directories, not symlinks. Recon
-rejects symlinked compiled artifact directories and symlinked `target-path`
-ancestry rather than following those paths during cleanup or writes. Exact
-compiled artifact output files must also not be symlinks, even when overwrite
-behavior is explicitly enabled. Compiled artifact filenames are built from safe
-single-segment artifact names; path-like names are invalid for standalone
-artifact writers.
+Compiled artifact directories must be real directories, not files or symlinks.
+Recon rejects invalid compiled artifact paths and symlinked `target-path`
+ancestry rather than following those paths during cleanup or writes. For
+adapter-aware compile, Recon must not leave orphaned SQL output or partial
+compiled YAML output when a runtime YAML artifact write failure happens before
+or after in-memory SQL rendering. Empty compiled YAML directories created by a
+failed invocation are removed during failure cleanup; pre-existing blocking
+directories are preserved.
+Exact compiled artifact output paths must be regular files when they already
+exist. Symlinks, directories, and other non-file outputs are rejected even when
+overwrite behavior is explicitly enabled. Compiled artifact filenames are built
+from safe single-segment artifact names; path-like names are invalid for
+standalone artifact writers.
+
+This cleanup rule is a core generated-artifact lifecycle gate, not an adapter
+package responsibility. Future writers for run results, evidence, failure
+details, reports, state, docs output, and selector-scoped artifacts must define
+their cleanup and publish ordering before they write generated files. A failed
+write must not leave stale, partial, or orphaned artifacts that make an unsafe
+comparison look current or trustworthy. When a successful artifact item must
+produce files, such as compiled SQL for a rendered check, an empty per-item
+output set or malformed file payload is a failure and must not create empty or
+misleading artifact directories.
 
 ## Artifact header
 
@@ -636,7 +690,17 @@ dialect-specific execution artifact.
 Compiled artifacts should preserve enough operation metadata to trace generated
 SQL back to its typed plan.
 
-Example after SQL rendering exists:
+Every check marked `rendered` must have at least one SQL path. Empty renderer
+output, or an exported compiled SQL writer request with no rendered SQL steps,
+is a rendering/artifact-publication failure rather than a successful check with
+empty `rendering.sql_paths` or empty `target/compiled_sql/` directories. Core
+validates non-empty rendered SQL shape, the full rendered SQL batch, and
+preflights output paths before publishing the first SQL artifact, so blank SQL,
+blank operation metadata, malformed required capability declarations, later
+empty requests, or later invalid rendered SQL requests must not leave partial
+compiled SQL from earlier requests.
+
+Example after SQL rendering:
 
 ```yaml
 checks:
@@ -651,9 +715,11 @@ checks:
           side: target
     rendering:
       status: rendered
+      adapter_type: duckdb
       sql_paths:
-        - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/source.sql
-        - target/compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/target.sql
+        - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/00-row_count-source.sql
+        - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/01-row_count-target.sql
+        - compiled_sql/orders_cdc/check.cdc_validation.orders_cdc.row_count_diff/02-compare_counts.sql
 ```
 
 ## Diagnostics in artifacts

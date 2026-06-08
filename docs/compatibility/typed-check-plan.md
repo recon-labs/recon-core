@@ -27,8 +27,10 @@ Current state:
   plans.
 - ADR 0020 locks Milestone 6 as SQL rendering for currently emitted operations
   only.
+- `recon compile --render-sql` renders currently emitted typed operations to
+  DuckDB SQL for relation-backed contracts.
 - No stable typed check-plan schema has been released.
-- No adapter currently consumes typed plans.
+- No adapter executes typed plans yet.
 
 ## Planned plan shape
 
@@ -148,6 +150,17 @@ Rendered SQL belongs under:
 ```text
 target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
+
+Compiled-check `rendering.sql_paths` references those files relative to the
+configured `target-path`, for example:
+
+```text
+compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql
+```
+
+When an adapter has been resolved, compiled-check rendering metadata also
+records `rendering.adapter_type` so rendered, blocked, or failed SQL rendering
+state remains traceable to the adapter dialect.
 
 Before typed plans execute, Recon must define comparison placement for each
 operation: source system, target system, adapter-managed intermediate system,

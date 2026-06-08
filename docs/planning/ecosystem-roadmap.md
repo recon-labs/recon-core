@@ -24,6 +24,7 @@ The ecosystem should not be created too early, but the core should be designed s
 Long-term adapter packages:
 
 ```text
+recon-duckdb
 recon-postgres
 recon-mysql
 recon-snowflake
@@ -34,6 +35,10 @@ recon-databricks
 recon-redshift
 recon-oracle
 ```
+
+DuckDB currently starts as an in-core local development adapter installed with
+`recon-core[duckdb]`. A separate `recon-duckdb` package should wait until the
+adapter API and shared adapter test kit stabilize.
 
 Adapter packages should own:
 
@@ -69,7 +74,26 @@ Purpose:
 - help community adapter maintainers.
 
 Adapter test kit should appear after the typed check-plan and base adapter
-interfaces stabilize.
+interfaces stabilize. Its first compatibility suite must include
+the Adapter/Profile Diagnostic Conformance Gate from
+`docs/compatibility/adapter-api.md` before external adapter repos are published
+or treated as compatible. That conformance must prove that adapter factory
+exceptions, capability declaration exceptions, adapter metadata exceptions, and
+adapter-provided diagnostics cannot leak rendered profile keys or values into
+CLI output, artifacts, run results, evidence, reports, logs, failure details, or
+test snapshots. It must include literal adapter `type` routing, including
+rejection of templated `{{ ... }}`, `{% ... %}`, `{# ... #}`, or
+`env_var(...)` `type` before adapter resolution, plus rejection of
+factory-returned adapter metadata that differs from the literal profile `type`,
+public/shared rendering helper cases where a supplied renderer's
+`adapter_type` is missing, malformed, exception-raising, or different from the
+resolved adapter type and therefore fails before rendering,
+diagnostic-code cases where unsafe config keys or rendered values are embedded
+in delimiter-separated or separatorless forms, such as `RC_PASSWORD_LEAK`,
+`RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`, before the shared test
+kit or external adapter repos claim compatibility. It must also prove safe
+adapter diagnostic codes with incidental non-secret config-key substrings, such
+as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`, are preserved.
 
 ## Check and policy packages
 

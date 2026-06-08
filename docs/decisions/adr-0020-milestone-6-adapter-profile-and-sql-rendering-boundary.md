@@ -77,7 +77,15 @@ Profile resolution follows these rules:
   the selected target's `connections` map.
 - For contract-specific adapter rendering or execution, render only the named
   connection payloads referenced by the selected contracts.
-- Support `env_var('NAME')` and `env_var('NAME', 'default')` initially.
+- Support `env_var('NAME')` and `env_var('NAME', 'default')` initially for
+  non-routing connection config fields.
+- Require connection `type` values to be literal non-empty adapter types. The
+  `type` field selects the adapter boundary and may appear as public adapter
+  metadata, so it does not support `env_var(...)` rendering or any template
+  fragments.
+- Reject unsupported template fragments in referenced non-routing connection
+  config fields before adapter resolution, including `{{ ... }}` expressions,
+  `{% ... %}` statements, and `{# ... #}` comments.
 - Missing environment variables in referenced connection payloads are errors.
 - Missing environment variables in unselected targets and unreferenced
   connections do not fail contract-specific invocations.
@@ -206,6 +214,13 @@ target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 Compiled checks should reference rendered SQL artifacts without embedding
 connection secrets.
 
+Implementation note, 2026-06-01: compiled-check `rendering.sql_paths` stores
+paths relative to the configured `target-path`, for example
+`compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql`.
+Implementation note, 2026-06-02: compiled-check rendering metadata includes
+`rendering.adapter_type` when an adapter is known. This is additive traceability
+metadata for compiled artifact version 1.
+
 Milestone 6 adapter-aware rendering should migrate rendering status values to:
 
 ```text
@@ -217,17 +232,37 @@ failed
 
 Meanings:
 
-- `not_rendered`: adapter-aware rendering was not requested or no renderer was
-  available.
+- `not_rendered`: adapter-aware rendering was not requested.
 - `rendered`: all SQL needed for the check was rendered.
 - `blocked`: rendering was intentionally skipped because validation failed.
 - `failed`: rendering was attempted but failed because of an adapter or
   rendering error.
 
-The current pre-Milestone-6 compiler model may still expose earlier draft
-statuses until the implementation migration is made. The migration from
-`deferred` and `unsupported` to `blocked` and `failed` must update code, tests,
-compiled-artifact examples, and compatibility docs together.
+Implementation note, 2026-06-05: when `--render-sql` is requested but compile
+validation prevents adapter rendering from starting, otherwise renderable checks
+use `blocked` with `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, not
+`not_rendered`.
+
+If any check in a `recon compile --render-sql` invocation produces a rendering
+diagnostic, the invocation writes no compiled SQL files. Checks with validation
+or capability blockers are marked `blocked`, renderer errors are marked
+`failed`, and otherwise renderable checks are also marked `blocked` because no
+SQL artifact path is available for them. Otherwise renderable checks blocked
+only by this invocation-wide SQL output suppression include
+`RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED` diagnostics in compiled checks
+artifacts.
+
+Implementation note, 2026-06-01: the migration from `deferred` and
+`unsupported` to `blocked` and `failed` is complete in code, tests,
+compiled-artifact examples, and compatibility docs.
+
+Implementation note, 2026-06-08: renderer orchestration and compiled SQL
+artifact publication both validate rendered-step shape. `render_check_sql()`
+rejects empty or malformed renderer output before artifact writing, and
+`CompiledSqlWriter` revalidates direct and batched `RenderedSql` requests before
+creating compiled SQL directories or files. This keeps artifact publication a
+Core-owned safety boundary for future shared helpers, adapter test kits, and
+adapter repository splits.
 
 Rendered SQL artifacts must remain traceable to:
 
@@ -244,11 +279,25 @@ requires compatibility review and may require an artifact version bump.
 
 ### Local development adapter
 
-The first local development adapter will be DuckDB and may live inside
-`recon-core` while the adapter API stabilizes.
+The first local development adapter is DuckDB and may live inside `recon-core`
+while the adapter API stabilizes. It is installed through the optional
+`recon-core[duckdb]` extra while it remains in-core.
 
 DuckDB is selected because it is local, fast, SQL-capable, relation-oriented,
 and suitable for golden SQL rendering and early execution tests.
+
+Implementation note, 2026-06-02: Milestone 6 DuckDB SQL rendering blocks source
+and target endpoints whose selected profile entries resolve to different
+connection configs. The rendered SQL targets one execution context and does not
+attach or bridge multiple DuckDB database files. DuckDB aggregate rendering also
+rejects `UHUGEINT` metric inputs until exact aggregate behavior for that type is
+proven, because current DuckDB returns approximate `DOUBLE` values for
+`sum(UHUGEINT)`.
+
+Implementation note, 2026-06-08: Profile-backed adapter resolution now also
+requires factory-returned `adapter_type` metadata to match the literal profile
+connection `type` before renderer selection. Mismatches fail with
+`RC_ADAPTER_TYPE_MISMATCH` and write no compiled SQL.
 
 Milestone 6 must not split production adapter packages. Official external
 adapter packages, including a future `recon-duckdb`, require a stable adapter
@@ -367,8 +416,17 @@ Milestone 6 implementation should add tests before code for:
 - ignored environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - secret redaction from diagnostics and generated artifacts,
+- adapter diagnostic-code redaction for unsafe config keys and rendered profile
+  values in delimiter-separated and separatorless forms, including examples such
+  as `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and
+  `RC12LEAK`,
 - adapter API version compatibility,
-- adapter registry resolution by connection type,
+- adapter registry resolution by connection type, including malformed factory
+  results and malformed factory diagnostic payloads as
+  `RC_ADAPTER_RESOLUTION_FAILED`; malformed diagnostic payloads include
+  invalid `Diagnostic` field values such as string severities, empty or
+  non-string `code` or `message`, non-string optional context fields, and
+  non-integer `line` or `column` values,
 - relation-endpoint support validation for selected contracts,
 - capability support-state validation for operation-specific requirements,
 - DuckDB renderer capability declarations,

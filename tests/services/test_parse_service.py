@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -60,9 +61,9 @@ tags:
     return contract_path
 
 
-def read_manifest(project_root: Path, target_path: str = "target") -> dict[str, object]:
+def read_manifest(project_root: Path, target_path: str = "target") -> dict[str, Any]:
     manifest_path = project_root / target_path / "manifest.json"
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(manifest_path.read_text(encoding="utf-8")))
 
 
 def test_parse_service_writes_manifest_for_valid_project(tmp_path: Path) -> None:

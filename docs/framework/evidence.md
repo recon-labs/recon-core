@@ -114,9 +114,18 @@ CDC evidence must also state when delete propagation is not validated, when CDC 
 
 ## Sensitive data
 
-Failure details can contain sensitive values.
+Failure details, run results, reports, terminal output, logs, adapter runtime
+errors, and test snapshots can contain sensitive source/target values or private
+source/target context.
 
-Recon should eventually support redaction, masking, hash-only keys, row limits, disabling failure export, and sensitive column policies.
+Before check execution, runner/results, or evidence/reporting surfaces expose
+source/target data, Recon must define privacy defaults for raw rows, comparison
+keys, normalized values, aggregate values, row counts, relation names, query
+text, and runtime error text. Those values should be emitted only when the
+policy classifies them as public or explicitly allows controlled export.
+
+Recon should support redaction, masking, hash-only keys, row limits, disabling
+failure export, and sensitive column policies.
 
 ## Failure row limits
 

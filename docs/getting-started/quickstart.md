@@ -10,7 +10,15 @@ Current pre-alpha status:
 
 - `recon init`, `recon parse`, and `recon compile` are implemented for the
   current compiler scope.
+- `recon compile --render-sql` is implemented for DuckDB relation endpoints
+  and the current typed check-plan operations.
 - `recon run` is not implemented yet.
+
+Install the DuckDB extra when you want to render SQL in this local workflow:
+
+```bash
+pip install -e ".[dev,duckdb]"
+```
 
 ## Create a project
 
@@ -66,10 +74,23 @@ profiles:
 
 Do not commit real profiles.
 
-When adapter-aware rendering and execution are implemented, Recon renders only
-the selected profile target and the named connections referenced by selected
-contracts. Missing environment variables in unselected targets or unreferenced
-connections do not fail contract-specific invocations.
+The generated example profile uses `RECON_DUCKDB_PATH` for both named DuckDB
+connections. Before running adapter-aware SQL rendering with that example, set
+it to the same local DuckDB file path:
+
+```bash
+export RECON_DUCKDB_PATH=local.duckdb
+```
+
+You can also edit `connections/profiles.yml` to use a literal local path or an
+`env_var` default instead.
+
+For adapter-aware rendering, Recon renders only the selected profile target
+and the named connections referenced by selected contracts. Missing
+environment variables in unselected targets or unreferenced connections do not
+fail contract-specific invocations.
+For the current DuckDB renderer, source and target connection names may differ,
+but they must resolve to the same DuckDB adapter connection config.
 
 ## Create a contract
 
@@ -151,11 +172,18 @@ target/compiled_checks/customer_revenue.yml
 ```
 
 Use compiled artifacts to inspect exactly what Recon will run. SQL files under
-`target/compiled_sql/` are produced when adapter SQL rendering is available.
+`target/compiled_sql/` are produced only by optional adapter-aware compile:
+
+```bash
+recon compile --render-sql
+```
 
 Current compile behavior expands `recon_core.basic_equivalence` and explicit
-`sum` metrics into typed check plans. Explicit authored checks, SQL rendering,
-adapter validation, and execution are still future work.
+`sum` metrics into typed check plans. With `--render-sql`, Recon loads
+`connections/profiles.yml`, validates the adapter boundary, and writes
+DuckDB-rendered SQL for relation-backed source and target endpoints. Explicit
+authored checks, adapter execution, run results, and evidence are still future
+work.
 
 ## Run
 

@@ -10,6 +10,20 @@ review. This checklist is a process guide; it is not a CI gate.
 
 ## Checklist
 
+### Milestone and planning impact
+
+- [ ] Confirmed any milestone implementation has current lightweight prework
+      matching `docs/planning/milestone-process.md`.
+- [ ] For high-risk milestones or public-surface changes, added or updated a
+      dimension-expanded acceptance/conformance matrix before implementation.
+- [ ] Mapped every required conformance matrix row to a new test, existing test,
+      or explicit out-of-scope rationale.
+- [ ] Checked whether the requested milestone is too broad, spans multiple
+      high-risk surfaces, or should be dissolved into decimal sub-milestones such
+      as `Milestone 7.1`, `Milestone 7.2`, and `Milestone 7.3`.
+- [ ] Updated roadmap, build-order, gate, ADR, and compatibility references when
+      a milestone was split so no orphan implementation plan remains.
+
 ### ADR impact
 
 - [ ] Checked whether the change affects a durable decision.
@@ -27,6 +41,20 @@ review. This checklist is a process guide; it is not a CI gate.
       changed.
 - [ ] Updated `docs/compatibility/public-contract-inventory.md` when a public
       surface was added, removed, renamed, stabilized, or changed.
+- [ ] Checked whether diagnostic code, message, redaction, path,
+      `resource_type`, `resource_name`, `line`, `column`, hint rendering, or
+      future structured diagnostic fields changed for any public output surface.
+- [ ] Checked whether raw parser, adapter, database, runtime, or evidence
+      writer exception text can quote authored YAML snippets, source/target
+      query text, relation names, row values, rendered profile values,
+      credentials, or other private literals in CLI output, logs, artifacts,
+      reports, or test snapshots.
+- [ ] Checked whether generated artifact cleanup, publish ordering, stale
+      output removal, or partial-write behavior changed for any generated
+      artifact surface.
+- [ ] Checked whether render-sql requests that fail before adapter rendering
+      still write accurate `rendering.status` metadata instead of implying
+      rendering was not requested.
 
 ### Changelog impact
 
@@ -52,6 +80,64 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated adapter test-kit docs or expectations when adapter API,
       capability, typed operation, SQL rendering, metadata, or execution
       behavior changed.
+- [ ] Checked profile-backed adapter routing behavior: connection `type` must
+      stay a literal non-empty adapter type, templated `{{ ... }}`,
+      `{% ... %}`, `{# ... #}`, or `env_var(...)` `type` values must fail
+      before adapter resolution, adapter factories/renderers must not be
+      invoked, resolved adapter `adapter_type` metadata must match the literal
+      profile `type` before renderer selection or execution, and no rendered
+      environment value may appear in diagnostics or artifacts.
+- [ ] Checked profile env-var rendering conformance for non-routing connection
+      fields: `{{ env_var(...) }}` and bare `env_var(...)` forms, defaults,
+      missing variables, unsupported bare expressions, embedded env-var calls,
+      filters, and unsupported template fragments such as `{% ... %}` and
+      `{# ... #}` must either render safely or fail before adapter resolution
+      instead of surviving as literal config.
+- [ ] Updated adapter diagnostic expectations when diagnostic messages,
+      redaction behavior, or adapter-provided diagnostic fields changed.
+- [ ] Checked diagnostic-code redaction for unsafe config keys and rendered
+      profile values in delimiter-separated and separatorless forms, including
+      key-shaped and value-shaped cases such as `RC_PASSWORD_LEAK`,
+      `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`.
+- [ ] Checked safe diagnostic-code preservation: adapter codes with incidental
+      non-secret config-key substrings, such as
+      `RC_ADAPTER_CAPABILITY_UNSUPPORTED`, must not be suppressed.
+- [ ] Checked adapter factory diagnostic field-shape conformance when adapter
+      resolution is involved: invalid `Diagnostic` field values, including
+      string severities, empty or non-string `code` or `message`, non-string
+      optional context fields, and non-integer `line` or `column`, must become
+      `RC_ADAPTER_RESOLUTION_FAILED` before redaction, rendering, artifact
+      writing, or execution consumes them.
+- [ ] Checked case-variant and simple-transformation redaction cases when
+      adapter diagnostics can reference rendered profile config in diagnostic
+      code, message, hint, path, `resource_type`, `resource_name`, `line`,
+      `column`, or future structured diagnostic fields.
+- [ ] Checked numeric diagnostic-field redaction for short rendered scalar
+      profile values and equivalent formatted variants, such as `port: 12`,
+      `12.0`, `+12`, and `1.2e1`, not only long secret-like tokens.
+- [ ] Checked parsed DSN component and derived-fragment redaction when
+      rendered connection strings are in scope: username, password, host, path,
+      query values, percent-decoded values, and substrings must not leak through
+      diagnostics, generated artifacts, logs, run results, evidence, or adapter
+      test snapshots.
+- [ ] Checked whether any shared adapter test-kit compile-flow harness must
+      assert `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and no
+      adapter invocation when compile validation already failed.
+- [ ] Checked whether any public/shared helper or test-kit harness accepts both
+      a resolved adapter and explicit renderer, and if so whether adapter API
+      compatibility and renderer `adapter_type` binding are validated before
+      `render_plan()` is invoked.
+- [ ] Checked whether rendered SQL step `required_capabilities` are enforced
+      before SQL artifacts, run results, evidence, or adapter test snapshots are
+      published when shared renderer/test-kit or adapter compatibility is
+      claimed.
+- [ ] Checked whether adapter setup diagnostics can coexist with independent
+      render diagnostics in the same compile invocation, and whether service or
+      CLI diagnostics preserve both instead of reporting only setup failures.
+- [ ] Checked source/target privacy cases for raw adapter, database, and
+      runtime exception text before any adapter test-kit or external adapter
+      repository claims execution, diagnostics, run-result, evidence, report,
+      log, or snapshot compatibility.
 - [ ] Documented unsupported capability behavior when adapters are not required
       to implement a new operation.
 
@@ -74,3 +160,6 @@ review. This checklist is a process guide; it is not a CI gate.
 
 If a checklist item is not applicable, say why in the pull request notes. The
 expected outcome is explicit reasoning, not unnecessary documentation churn.
+Reviewers should treat missing milestone prework, example-only high-risk matrix
+coverage, uncovered required matrix rows, or missing split justification as
+material process risks for public-surface changes.

@@ -14,8 +14,10 @@ The capability catalog is provisional.
 Current state:
 
 - capability names are documented in framework, architecture, and ADR docs,
-- draft capability constants exist in code,
-- no production adapter declares capabilities yet,
+- capability constants and support-state validation exist in code,
+- the in-core DuckDB local development adapter declares the current
+  relation-backed SQL rendering capability subset,
+- no external production adapter declares capabilities yet,
 - no adapter test kit validates capabilities yet.
 
 ## Capability rules
@@ -32,6 +34,28 @@ Capabilities must be:
 An adapter must not claim a capability unless it implements and tests the
 behavior. This is especially important for hash behavior, timestamp behavior,
 null-safe equality, and semi-structured projections.
+
+The future shared adapter test kit must include a SQL comparison conformance
+matrix before external adapter repositories or adapter packages are split. That
+matrix should prove declared comparison capabilities against null-safe equality,
+distinct non-null key diff, nullable grouped aggregate keys, no implicit type
+coercion, representative cross-type values, and unsupported-capability
+diagnostics. It must explicitly test that key-diff type mismatches fail instead
+of becoming misleading missing/extra rows, grouped aggregate key type
+mismatches fail with adapter-level errors instead of raw dialect binder errors,
+empty source/target relations with mismatched key types still fail, and grouped
+aggregate renderers do not coalesce source and target group keys across
+incompatible physical types. It must also test that aggregate input column and
+value type mismatches fail instead of being compared through dialect implicit
+casts, including boolean aggregate inputs on engines where `sum(boolean)` has
+counting semantics and same-type unsupported or non-numeric aggregate metric
+inputs that could otherwise surface raw dialect binder errors. It must also
+cover valid exact numeric aggregate values, including large integers and
+decimals, so adapter renderers cannot round or widen them through lossy casts.
+Unsigned large-integer types such as DuckDB `UHUGEINT` must either be proven
+exact for aggregate comparison or rejected with clear adapter-level errors.
+The same matrix must also cover same-context rendering requirements when a
+renderer cannot safely bridge multiple connection configs.
 
 Unsupported required capabilities should produce clear diagnostics during
 compile or validation when possible. Runtime-only capability failures should be
@@ -53,6 +77,8 @@ version condition is validated.
 Compile without an adapter may produce typed plans with
 `rendering.status: not_rendered`. Adapter-aware rendering and runtime execution
 must validate support states before rendering or executing required operations.
+Malformed support-state values must become structured diagnostics instead of
+uncaught adapter errors.
 
 Milestone 6 uses only the capability subset required by currently emitted typed
 operations. It does not expand the typed operation catalog.

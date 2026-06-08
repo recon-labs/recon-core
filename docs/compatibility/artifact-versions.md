@@ -15,7 +15,7 @@ artifact formats.
 | Manifest | `target/manifest.json` | JSON | Implemented with `artifact_version: 1`. |
 | Compiled contract | `target/compiled_contracts/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
 | Compiled checks | `target/compiled_checks/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
-| Compiled SQL | `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql` | SQL | Planned by ADR 0020, not implemented yet. |
+| Compiled SQL | `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql` | SQL | Implemented for `recon compile --render-sql`; referenced from compiled checks artifacts. |
 | Run results | `target/run_results.json` | JSON | Planned, not implemented yet. |
 | Failure details | `target/failures/` | TBD | Planned, not implemented yet. |
 | Evidence reports | `reports/` | HTML or other report formats | Planned, not implemented yet. |
@@ -30,15 +30,30 @@ removes existing top-level `*.yml` files under `target/compiled_contracts/` and
 prevents removed, renamed, or invalid current contracts from leaving stale
 compiled artifacts for downstream automation to read.
 
-Compiled artifact cleanup and writes reject symlinked compiled artifact
-directories and symlinked `target-path` ancestry. Standalone compiled artifact
-writers also reject exact output-file symlinks and path-like artifact names so
-generated filenames cannot escape `target/compiled_contracts/` or
+Compiled artifact cleanup and writes reject compiled artifact paths that are not
+directories, symlinked compiled artifact directories, and symlinked
+`target-path` ancestry. Adapter-aware compile must reject invalid compiled YAML
+artifact paths before publishing compiled SQL, and failed compiled YAML writes
+must not leave orphaned SQL artifacts or partial compiled YAML files from the
+same invocation. Standalone compiled artifact writers also reject exact
+output-file symlinks and path-like artifact names so generated filenames cannot
+escape `target/compiled_contracts/` or
 `target/compiled_checks/`.
 
 Manifest writes also reject symlinked `target-path` ancestry and exact
 `manifest.json` output-file symlinks. Normal manifest regeneration still
 overwrites the current manifest file.
+
+Generated-artifact lifecycle cleanup is a compatibility gate for future core
+writers. Before adding run results, evidence, failure details, reports, state,
+docs output, or selector-scoped generated artifacts, the milestone must define
+cleanup and publish ordering so failed writes do not leave stale, partial, or
+orphaned outputs that downstream automation could mistake for trustworthy
+evidence. Batched writers must also define whether each successful item is
+required to produce one or more files; for compiled SQL, empty per-check output
+sets are failures and must not create empty artifact directories. This is a
+core artifact-writer responsibility; adapters should avoid side effects during
+rendering and execution, but core owns generated file lifecycle behavior.
 
 These lifecycle behaviors do not require an artifact version bump by themselves
 because artifact paths, schemas, header fields, and field meanings are
@@ -141,9 +156,43 @@ status meanings, stable check IDs, SQL reference fields, or traceability
 requirements is compatibility-impacting and may require a compiled artifact
 version bump.
 
+Compiled-check `rendering.sql_paths` stores paths relative to the configured
+`target-path`, and `rendering.adapter_type` stores the adapter type when known.
+Checks with `rendering.status: rendered` must have one or more SQL paths. Empty
+renderer output and exported compiled SQL writer calls with no rendered steps
+are failures and must not be represented as successful rendering with empty
+`sql_paths` or empty compiled SQL directories. Malformed non-empty renderer
+output is also a rendering failure and must not reach compiled SQL artifact
+writing, including blank SQL, blank operation metadata, malformed step capability
+metadata, unsafe path-like renderer step names, invalid later renderer steps, or
+duplicate step names including case-insensitive output collisions. The compiled
+SQL writer revalidates that rendered-step shape, validates the whole SQL batch,
+and preflights output paths before writing any SQL file or creating compiled SQL
+directories, so empty or malformed direct writer requests, later empty or
+malformed rendered SQL batch requests, invalid later renderer steps, unsafe path
+segments, and duplicate output paths must not leave partial
+`target/compiled_sql/` artifacts behind.
+For example:
+
+```text
+compiled_sql/customer_revenue/check.ecommerce_recon.customer_revenue.row_count_diff/00-row_count-source.sql
+```
+
 Compiled SQL artifacts must not contain connection secrets or fully rendered
 credential payloads. SQL artifact references may include contract name, check
 ID, rendering step or typed operation, side when applicable, and adapter type.
+Adding `rendering.adapter_type` is additive for compiled artifact version 1
+because existing field meanings and SQL path shapes do not change.
+When adapter-aware rendering was requested but compile validation prevents the
+adapter phase from starting, otherwise renderable checks may keep empty
+`rendering.sql_paths`, use `rendering.status: blocked`, and carry
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` without changing the
+compiled artifact version. Future compile-flow conformance tests and any shared
+adapter test-kit harness that invokes core `render-sql` flows must assert this
+status/diagnostic combination instead of accepting `not_rendered` metadata.
+When invocation-wide rendering diagnostics suppress all SQL output, otherwise
+renderable checks may keep empty `rendering.sql_paths` and carry a structured
+suppression diagnostic without changing the compiled artifact version.
 
 ## Package version relationship
 

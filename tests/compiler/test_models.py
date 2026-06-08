@@ -62,7 +62,6 @@ def test_typed_operation_rejects_unexpected_payload_fields() -> None:
 def test_compare_aggregate_operations_are_distinct_public_types() -> None:
     assert OperationType.COMPARE_AGGREGATES.value == "compare_aggregates"
     assert OperationType.COMPARE_GROUPED_AGGREGATES.value == "compare_grouped_aggregates"
-    assert OperationType.COMPARE_AGGREGATES is not OperationType.COMPARE_GROUPED_AGGREGATES
 
 
 def test_check_plan_serializes_operations_and_capabilities_deterministically() -> None:
@@ -91,6 +90,11 @@ def test_rendering_model_is_exported_from_compiler_package() -> None:
     assert Rendering().to_dict() == {
         "status": "not_rendered",
         "sql_paths": [],
+    }
+    assert Rendering(adapter_type="duckdb").to_dict() == {
+        "status": "not_rendered",
+        "sql_paths": [],
+        "adapter_type": "duckdb",
     }
 
 

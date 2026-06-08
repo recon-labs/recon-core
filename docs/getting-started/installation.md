@@ -16,6 +16,13 @@ During local development, install from the repository:
 pip install -e ".[dev]"
 ```
 
+Adapter-aware SQL rendering with the in-core DuckDB local development adapter
+requires the DuckDB extra:
+
+```bash
+pip install -e ".[dev,duckdb]"
+```
+
 ## Python version
 
 The supported Python versions should be defined in `pyproject.toml`.
@@ -24,7 +31,7 @@ A modern Python version should be preferred for type hints, packaging, and maint
 
 ## Adapter packages
 
-Long-term, adapters should be installed separately.
+Long-term, production adapters should be installed separately.
 
 Examples:
 
@@ -35,11 +42,13 @@ pip install recon-snowflake
 pip install recon-bigquery
 ```
 
-Possible future extras:
+Current local development extra:
 
 ```bash
-pip install "recon-core[postgres]"
+pip install "recon-core[duckdb]"
 ```
+
+Other adapter extras or external adapter packages are future work.
 
 ## Verify installation
 

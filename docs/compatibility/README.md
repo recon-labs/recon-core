@@ -24,11 +24,14 @@ Current implementation status:
 | `recon compile` | Implemented for the current compiler scope. |
 | Compiled artifacts | Implemented with `artifact_version: 1` for compiled contract and compiled checks YAML. |
 | Typed check plans | Draft typed plans are produced in compiled checks artifacts. |
+| Compiled SQL artifacts | Implemented for `recon compile --render-sql` with current DuckDB relation-backed typed plans. |
 | Check-pack invocation config | Strings and `{name}` mappings implemented; future `config` and `on_empty` shape locked, not implemented. |
 | Column and value comparison | Raw authored columns preserved; current typed column declaration/reference validation implemented; all-column expansion, row-level value checks, resolved column metadata, eligibility enforcement, and adapter metadata validation are not implemented. |
 | Tolerance, null, and normalization | High-level authored fields exist; MVP policy surface locked by ADR 0009; full resolver and execution not implemented. |
-| Adapter API | Documented as an intended boundary, not stable or implemented yet. |
-| Adapter capabilities | Documented as a draft catalog and represented in compiler enums; no production adapter declarations yet. |
+| Adapter API | Implemented as a pre-alpha boundary with `ADAPTER_API_VERSION = "1"`; not stable for external adapter packages yet. |
+| Adapter capabilities | Support-state validation exists; the in-core DuckDB local adapter declares the current rendering subset. |
+| Renderer output and artifact publication | Implemented for current compiled SQL writer behavior; future shared renderer, adapter test-kit, adapter repo, execution, and generated-artifact surfaces are gated. |
+| Diagnostic output and exception sanitization | Current CLI failures print code and safe message; current project/resource YAML diagnostics suppress raw parser snippets. Future run, evidence, debug, adapter, and test-kit surfaces are gated. |
 | External adapter repos | Planned, not split yet. |
 | Adapter test kit | Planned, not created yet. |
 | Run results and evidence | Planned, not implemented yet. |
@@ -65,6 +68,7 @@ Compatibility surfaces include, but are not limited to:
 - adapter capabilities,
 - typed check-plan operations or payloads,
 - generated artifact formats, paths, or version fields,
+- diagnostic output, redaction, and low-level exception sanitization,
 - manifest, run result, evidence, failure detail, state, or watermark formats,
 - package loading or package resource compatibility,
 - supported Python or `recon-core` version ranges,
