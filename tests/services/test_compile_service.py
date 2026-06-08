@@ -3012,6 +3012,67 @@ def test_render_sql_compile_removes_sql_when_yaml_artifact_write_fails_after_ren
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_preflights_all_sql_paths_before_first_sql_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(tmp_path)
+    tmp_path.joinpath("contracts", "customer_revenue.yml").write_text(
+        """
+version: 1
+name: customer_revenue
+source:
+  connection: legacy
+  relation: qa.customer_source
+target:
+  connection: warehouse
+  relation: qa.customer_target
+metrics:
+  - name: Total
+    type: sum
+    column: revenue
+  - name: total
+    type: sum
+    column: revenue
+checks:
+  use: []
+""".lstrip(),
+        encoding="utf-8",
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: True))
+    original_write_text = Path.write_text
+
+    def write_text_without_sql_publish(
+        path: Path,
+        data: str,
+        *args: Any,
+        **kwargs: Any,
+    ) -> int:
+        if "compiled_sql" in path.parts:
+            raise AssertionError("compiled SQL was written before full-batch preflight finished")
+        return original_write_text(path, data, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", write_text_without_sql_publish)
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Compile completed but artifacts could not be written."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
+    ]
+    assert "case-insensitive collision" in result.diagnostics[0].message
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+    assert not (tmp_path / "target" / "compiled_contracts").exists()
+    assert not (tmp_path / "target" / "compiled_checks").exists()
+
+
 def test_render_sql_compile_removes_partial_yaml_when_artifact_write_fails_after_rendering(
     tmp_path: Path,
 ) -> None:

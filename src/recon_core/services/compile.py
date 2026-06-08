@@ -29,6 +29,7 @@ from recon_core.artifacts import (
     CompiledCheckWriter,
     CompiledContractWriter,
     CompiledSqlWriter,
+    CompiledSqlWriteRequest,
 )
 from recon_core.artifacts._paths import (
     ensure_real_artifact_directory,
@@ -294,6 +295,29 @@ def _write_compiled_sql_artifacts(
     target_path: Path,
 ) -> tuple[ContractCompilationArtifacts, ...]:
     sql_writer = CompiledSqlWriter()
+    write_requests: list[CompiledSqlWriteRequest] = []
+
+    for compiled_contract in compiled_contracts:
+        for check in compiled_contract.checks_artifact.checks:
+            render_result = render_results_by_check_id.get(check.id)
+            if render_result is None:
+                continue
+            write_requests.append(
+                CompiledSqlWriteRequest(
+                    contract_name=compiled_contract.contract_artifact.contract.name,
+                    check_id=check.id,
+                    rendered_sql=render_result.sql,
+                )
+            )
+
+    write_results = sql_writer.write_batch(
+        requests=tuple(write_requests),
+        target_path=target_path,
+        overwrite=True,
+    )
+    sql_paths_by_check_id = {
+        write_result.check_id: write_result.sql_paths for write_result in write_results
+    }
     rendered_contracts: list[ContractCompilationArtifacts] = []
 
     for compiled_contract in compiled_contracts:
@@ -303,19 +327,12 @@ def _write_compiled_sql_artifacts(
             if render_result is None:
                 rendered_checks.append(check)
                 continue
-            sql_paths = sql_writer.write(
-                contract_name=compiled_contract.contract_artifact.contract.name,
-                check_id=check.id,
-                rendered_sql=render_result.sql,
-                target_path=target_path,
-                overwrite=True,
-            )
             rendered_checks.append(
                 replace(
                     check,
                     rendering=Rendering(
                         status=RenderingStatus.RENDERED,
-                        sql_paths=sql_paths,
+                        sql_paths=sql_paths_by_check_id[check.id],
                         adapter_type=render_result.adapter_type,
                     ),
                 )

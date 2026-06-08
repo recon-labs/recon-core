@@ -3,7 +3,11 @@ from pathlib import Path
 import pytest
 
 from recon_core.adapters import RenderedSql
-from recon_core.artifacts import COMPILED_SQL_DIR_NAME, CompiledSqlWriter
+from recon_core.artifacts import (
+    COMPILED_SQL_DIR_NAME,
+    CompiledSqlWriter,
+    CompiledSqlWriteRequest,
+)
 
 
 def test_compiled_sql_writer_creates_nested_sql_artifacts(tmp_path: Path) -> None:
@@ -138,6 +142,41 @@ def test_compiled_sql_writer_rejects_case_insensitive_duplicate_steps_without_pa
                     sql="select 2",
                     operation_type="row_count",
                     step_name="same",
+                ),
+            ),
+            target_path=tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
+
+
+def test_compiled_sql_writer_rejects_case_insensitive_check_collisions_without_partial_sql(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(FileExistsError, match="case-insensitive collision"):
+        CompiledSqlWriter().write_batch(
+            requests=(
+                CompiledSqlWriteRequest(
+                    contract_name="customer_revenue",
+                    check_id="check.ecommerce_recon.customer_revenue.Total",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="select 1",
+                            operation_type="aggregate",
+                            step_name="00-aggregate-source",
+                        ),
+                    ),
+                ),
+                CompiledSqlWriteRequest(
+                    contract_name="customer_revenue",
+                    check_id="check.ecommerce_recon.customer_revenue.total",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="select 2",
+                            operation_type="aggregate",
+                            step_name="00-aggregate-source",
+                        ),
+                    ),
                 ),
             ),
             target_path=tmp_path / "target",
