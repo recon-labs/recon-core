@@ -161,8 +161,8 @@ Current `compile` behavior:
   referenced by compiled contracts,
 - requires source and target DuckDB connections for a contract to resolve to the
   same adapter connection config; cross-connection rendering is not implemented,
-- validates adapter type, adapter API compatibility, and required
-  capabilities before writing SQL,
+- validates literal profile adapter type, resolved adapter metadata, adapter API
+  compatibility, and required capabilities before writing SQL,
 - writes `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`
   plus target-relative `rendering.sql_paths` and `rendering.adapter_type` when
   SQL rendering succeeds,

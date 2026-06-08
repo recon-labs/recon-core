@@ -185,12 +185,14 @@ severity such as `"error"` instead of `DiagnosticSeverity`, empty or non-string
 or invalid adapter API version declarations fail with
 `RC_ADAPTER_API_VERSION_UNSUPPORTED`, malformed capability support states become
 structured diagnostics, invalid or exception-raising `adapter_type` metadata
-fails with `RC_ADAPTER_METADATA_INVALID`, empty renderer output fails with
-`RC_ADAPTER_RENDERED_SQL_EMPTY`, malformed non-empty renderer output fails with
-`RC_ADAPTER_OPERATION_RENDER_FAILED`, including unsafe or duplicate renderer
-step names, and adapter factory exceptions, adapter metadata exceptions, and
-capability declaration exceptions become sanitized structured diagnostics
-instead of raw exceptions that can leak rendered profile keys or values.
+fails with `RC_ADAPTER_METADATA_INVALID`, profile `type`/adapter metadata
+mismatches fail with `RC_ADAPTER_TYPE_MISMATCH`, empty renderer output fails
+with `RC_ADAPTER_RENDERED_SQL_EMPTY`, malformed non-empty renderer output fails
+with `RC_ADAPTER_OPERATION_RENDER_FAILED`, including unsafe or duplicate
+renderer step names, and adapter factory exceptions, adapter metadata
+exceptions, and capability declaration exceptions become sanitized structured
+diagnostics instead of raw exceptions that can leak rendered profile keys or
+values.
 Factories that return both an adapter and diagnostics, or both an adapter and
 malformed diagnostics, should be treated as setup failures; the returned adapter
 must not be used for rendering or execution.

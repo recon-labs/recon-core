@@ -286,6 +286,11 @@ rejects `UHUGEINT` metric inputs until exact aggregate behavior for that type is
 proven, because current DuckDB returns approximate `DOUBLE` values for
 `sum(UHUGEINT)`.
 
+Implementation note, 2026-06-08: Profile-backed adapter resolution now also
+requires factory-returned `adapter_type` metadata to match the literal profile
+connection `type` before renderer selection. Mismatches fail with
+`RC_ADAPTER_TYPE_MISMATCH` and write no compiled SQL.
+
 Milestone 6 must not split production adapter packages. Official external
 adapter packages, including a future `recon-duckdb`, require a stable adapter
 API and shared adapter test kit.

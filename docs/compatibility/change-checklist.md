@@ -84,8 +84,9 @@ review. This checklist is a process guide; it is not a CI gate.
       stay a literal non-empty adapter type, templated `{{ ... }}`,
       `{% ... %}`, `{# ... #}`, or `env_var(...)` `type` values must fail
       before adapter resolution, adapter factories/renderers must not be
-      invoked, and no rendered environment value may appear in diagnostics or
-      artifacts.
+      invoked, resolved adapter `adapter_type` metadata must match the literal
+      profile `type` before renderer selection or execution, and no rendered
+      environment value may appear in diagnostics or artifacts.
 - [ ] Checked profile env-var rendering conformance for non-routing connection
       fields: `{{ env_var(...) }}` and bare `env_var(...)` forms, defaults,
       missing variables, unsupported bare expressions, embedded env-var calls,

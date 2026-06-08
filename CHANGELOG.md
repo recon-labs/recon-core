@@ -106,6 +106,10 @@ This project follows semantic versioning once public package releases begin.
 - `recon compile --render-sql` now reports render diagnostics from unaffected
   contracts even when another referenced adapter connection has setup
   diagnostics.
+- `recon compile --render-sql` now rejects adapter factories whose returned
+  `adapter_type` metadata does not match the literal profile connection
+  `type`, preventing profile type aliases from selecting the wrong SQL
+  renderer.
 - `recon compile` now rejects symlinked `target-path` ancestry, contracts that
   compile into no checks, non-string nested `checks` mapping keys, and missing,
   null, or empty `sampling.default_policy` values when `sampling` is declared.

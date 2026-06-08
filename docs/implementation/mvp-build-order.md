@@ -396,7 +396,9 @@ Required gates:
   resolving adapters for execution,
 - preserve literal adapter type routing: `type` must not be rendered from
   environment variables, and environment-specific adapter choices must use
-  separate targets or named connections with literal `type` values,
+  separate targets or named connections with literal `type` values; resolved
+  adapter `adapter_type` metadata must match the literal profile `type` before
+  renderer selection or execution,
 - require adapter/profile diagnostic redaction conformance to cover unsafe
   rendered profile keys or values independently in diagnostic code, message,
   hint, path, `resource_type`, `resource_name`, `line`, `column`, and future
@@ -1404,7 +1406,8 @@ Required gate:
   test-kit repository: templated `{{ ... }}`, `{% ... %}`, `{# ... #}`, or
   `env_var(...)` `type` values must fail before adapter resolution, must not
   invoke adapter factories/renderers, must write no compiled SQL, and must not
-  leak rendered environment values,
+  leak rendered environment values; factory-returned adapter metadata that
+  differs from the literal profile `type` must fail before renderer selection,
 - resolve the diagnostic output message conformance gate before publishing
   shared adapter diagnostic assertions or adapter compatibility claims,
 - include case-variant rendered-config redaction cases in shared adapter

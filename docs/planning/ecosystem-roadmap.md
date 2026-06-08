@@ -83,7 +83,8 @@ adapter-provided diagnostics cannot leak rendered profile keys or values into
 CLI output, artifacts, run results, evidence, reports, logs, failure details, or
 test snapshots. It must include literal adapter `type` routing, including
 rejection of templated `{{ ... }}`, `{% ... %}`, `{# ... #}`, or
-`env_var(...)` `type` before adapter resolution,
+`env_var(...)` `type` before adapter resolution, plus rejection of
+factory-returned adapter metadata that differs from the literal profile `type`,
 diagnostic-code cases where unsafe config keys or rendered values are embedded
 in delimiter-separated or separatorless forms, such as `RC_PASSWORD_LEAK`,
 `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`, before the shared test

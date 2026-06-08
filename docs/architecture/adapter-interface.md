@@ -175,7 +175,9 @@ Profiles select one target environment. Contract `source.connection` and
 Contract-specific adapter rendering or execution renders only the referenced
 named connection payloads and initially supports `env_var('NAME')` plus
 `env_var('NAME', 'default')` for non-routing connection config fields.
-Connection `type` values must be literal adapter types.
+Connection `type` values must be literal adapter types. Resolved adapter
+`adapter_type` metadata must match the literal profile `type` before Core
+selects a renderer or executes adapter-backed behavior.
 
 Generated artifacts may identify the profile name, target name, adapter type,
 and non-secret relation identifiers. They must not contain secrets or fully
@@ -300,6 +302,7 @@ A future adapter test kit should validate:
 - malformed adapter factory results,
 - malformed adapter factory diagnostic payloads, including invalid
   `Diagnostic` field values,
+- profile `type`/adapter metadata mismatch rejection,
 - check compatibility,
 - empty and malformed renderer output failures,
 - render-sql compile-validation blocked metadata when the test kit drives core
@@ -320,6 +323,9 @@ malformed factory diagnostic payloads including invalid `Diagnostic` field
 values, missing or invalid adapter API version declarations, malformed
 capability support states, and future optional dependency, API compatibility,
 capability, metadata, rendering, and execution diagnostics.
+They must also cover factory-returned adapters whose `adapter_type` metadata
+differs from the literal profile `type`, which must fail before renderer
+selection or execution.
 Adapter diagnostics are public output, so the test kit must verify that
 credentials, tokens, DSNs, passwords, rendered connection payloads, and other
 secret-classified values do not appear in diagnostic codes, messages, hints,

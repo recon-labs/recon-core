@@ -255,7 +255,9 @@ env-var expressions, embedded env-var calls, filters, Jinja statement/comment
 fragments such as `{% ... %}` and `{# ... #}`, and unsupported template
 fragments in referenced non-routing fields or env-var defaults fail profile
 loading instead of passing through as literal config. Connection `type` values
-must be literal adapter types and must not contain template fragments.
+must be literal adapter types and must not contain template fragments. Resolved
+adapter `adapter_type` metadata must match the literal profile `type` before
+Core selects a renderer or executes adapter-backed behavior.
 
 Missing environment variables in referenced connection payloads are errors.
 Missing environment variables in unselected targets or unreferenced connections
@@ -401,11 +403,12 @@ must include profile-rendering and diagnostic-redaction conformance, including
 sanitized adapter factory exceptions, sanitized capability declaration
 exceptions, sanitized adapter metadata exceptions, empty and malformed
 renderer output failures, field-by-field diagnostic redaction, and safe
-non-empty diagnostic messages. It must also include malformed factory
+non-empty diagnostic messages. It must also include profile `type`/adapter
+metadata mismatch rejection before renderer selection, plus malformed factory
 diagnostic payload cases for invalid `Diagnostic` field values, including
-string severities, empty or non-string `code` or `message`, non-string optional
-context fields, and non-integer `line` or `column` values. Adapter setup
-failure cases must assert no compiled SQL output, blocked compiled-check
+string severities, empty or non-string `code` or `message`, non-string
+optional context fields, and non-integer `line` or `column` values. Adapter
+setup failure cases must assert no compiled SQL output, blocked compiled-check
 metadata, and de-duplicated repeated same-connection service diagnostics while
 preserving distinct source/target connection diagnostics in service and
 blocked compiled-check artifact output. Field-by-field diagnostic redaction

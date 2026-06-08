@@ -113,6 +113,8 @@ Profile rendering rules:
 - support `env_var('NAME')` and `env_var('NAME', 'default')` initially for
   non-routing connection config fields,
 - require connection `type` values to be literal adapter types,
+- reject resolved adapters whose `adapter_type` metadata differs from the
+  literal profile connection `type`,
 - fail when a referenced connection payload contains a missing environment
   variable,
 - fail when a referenced connection payload contains unsupported template

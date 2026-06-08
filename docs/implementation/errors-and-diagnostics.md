@@ -291,6 +291,7 @@ RC_ADAPTER_CAPABILITY_UNSUPPORTED
 RC_ADAPTER_CAPABILITY_DECLARATION_FAILED
 RC_ADAPTER_DEPENDENCY_MISSING
 RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED
+RC_ADAPTER_TYPE_MISMATCH
 RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED
 RC_ADAPTER_INVALID_RELATION
 RC_ADAPTER_OPERATION_RENDER_FAILED
@@ -308,13 +309,13 @@ missing or invalid adapter API version declarations, capability declaration
 failures, malformed capability support states, required-capability validation,
 optional dependency checks,
 relation-only rendering boundaries, same-context rendering requirements,
-invalid relation names, invalid adapter metadata, renderer failures, empty
-renderer output, malformed non-empty renderer output, and invocation-wide SQL
-output suppression. When `recon compile --render-sql` cannot start adapter
-rendering because compile validation already failed, otherwise renderable checks
-should use `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` in compiled
-checks artifacts so generated metadata does not imply that rendering was not
-requested.
+profile `type`/adapter metadata mismatches, invalid relation names, invalid
+adapter metadata, renderer failures, empty renderer output, malformed non-empty
+renderer output, and invocation-wide SQL output suppression. When
+`recon compile --render-sql` cannot start adapter rendering because compile
+validation already failed, otherwise renderable checks should use
+`RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` in compiled checks
+artifacts so generated metadata does not imply that rendering was not requested.
 Service-level diagnostics should de-duplicate identical contract or endpoint
 rendering blockers that affect multiple checks, while compiled-check diagnostics
 should still explain each blocked check. These diagnostics must not include

@@ -71,10 +71,12 @@ artifacts with `rendering.status: not_rendered` for plain compile. With
 relation-backed typed plans and updates rendering metadata to `rendered`,
 `blocked`, or `failed`. When an adapter is known, that metadata includes
 `rendering.adapter_type`. Milestone 6 rendering requires source and target
-connections to resolve to the same adapter connection config; distinct configs
-are blocked rather than implicitly bridged. If any check produces a rendering
-diagnostic, compile writes no SQL files for that adapter-aware invocation and
-marks checks `blocked` or `failed` rather than leaving them `not_rendered`.
+connections to resolve to the same adapter connection config, and resolved
+adapter `adapter_type` metadata must match the literal profile `type` before
+renderer selection; distinct configs are blocked rather than implicitly
+bridged. If any check produces a rendering diagnostic, compile writes no SQL
+files for that adapter-aware invocation and marks checks `blocked` or `failed`
+rather than leaving them `not_rendered`.
 
 Before the validation rulebook milestone expands parse and compile validation,
 parse and compile should share one internal parsed-project loading pipeline.

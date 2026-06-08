@@ -534,6 +534,38 @@ def test_render_sql_compile_sanitizes_adapter_api_compatibility_diagnostics(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_rejects_adapter_type_metadata_that_differs_from_profile_type(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path, connection_type="fake_duck")
+    registry = AdapterRegistry()
+    registry.register("fake_duck", MismatchedAdapterTypeAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_TYPE_MISMATCH",
+        "RC_ADAPTER_TYPE_MISMATCH",
+    ]
+    _assert_distinct_connection_diagnostic_messages(
+        result.diagnostics,
+        unscoped_message=(
+            "Adapter factory for profile type `fake_duck` returned adapter metadata "
+            "that does not match the profile connection type."
+        ),
+    )
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_TYPE_MISMATCH")
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_reports_non_string_adapter_type_metadata(
     tmp_path: Path,
 ) -> None:
@@ -880,7 +912,7 @@ def test_render_sql_compile_reports_missing_adapter_api_version(tmp_path: Path) 
     _assert_distinct_connection_diagnostic_messages(
         result.diagnostics,
         unscoped_message=(
-            "Adapter `fake` does not declare a valid supported "
+            "Adapter `missing_api` does not declare a valid supported "
             "adapter API version; Recon Core requires `1`."
         ),
     )
@@ -1256,7 +1288,7 @@ def test_render_sql_compile_sanitizes_env_var_rendered_numeric_string_variants(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
-def test_render_sql_compile_sanitizes_short_numeric_rendering_adapter_type(
+def test_render_sql_compile_sanitizes_short_numeric_adapter_type_mismatch(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path, profile="local")
@@ -1283,15 +1315,14 @@ def test_render_sql_compile_sanitizes_short_numeric_rendering_adapter_type(
     public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
-    assert result.message == "SQL rendering failed."
+    assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+        "RC_ADAPTER_TYPE_MISMATCH",
+        "RC_ADAPTER_TYPE_MISMATCH",
     ]
-    assert "adapter diagnostic text was suppressed" in public_output
     assert "12" not in public_output
-    assert {check["rendering"].get("adapter_type") for check in checks_artifact["checks"]} == {
-        "short_numeric_adapter_type"
-    }
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_TYPE_MISMATCH")
+    assert all("adapter_type" not in check["rendering"] for check in checks_artifact["checks"])
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -2113,7 +2144,7 @@ def test_render_sql_compile_marks_malformed_renderer_output_failed_without_crash
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
-def test_render_sql_compile_sanitizes_render_phase_adapter_metadata(
+def test_render_sql_compile_rejects_secret_bearing_adapter_metadata_mismatch(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path, profile="local")
@@ -2152,18 +2183,13 @@ def test_render_sql_compile_sanitizes_render_phase_adapter_metadata(
     )
 
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
-    assert result.message == "SQL rendering failed."
-    assert {diagnostic.code for diagnostic in result.diagnostics} == {
-        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
-    }
-    assert "adapter diagnostic text was suppressed" in diagnostic_text
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {"RC_ADAPTER_TYPE_MISMATCH"}
     assert "super-secret" not in diagnostic_text
     assert "super-secret" not in checks_artifact_text
     assert "password" not in diagnostic_text
     assert "password" not in checks_artifact_text
-    assert all(
-        check["rendering"]["adapter_type"] == "duckdb" for check in checks_artifact["checks"]
-    )
+    assert all("adapter_type" not in check["rendering"] for check in checks_artifact["checks"])
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
@@ -2230,8 +2256,8 @@ class ConnectionDiagnosticAdapterFactory:
 
 
 class LeakyApiAdapter(FakeAdapter):
-    adapter_type = "password=super-secret"
-    supported_adapter_api_version = "0"
+    adapter_type = "leaky_api"
+    supported_adapter_api_version = "password=super-secret"
 
 
 class LeakyApiAdapterFactory:
@@ -2245,6 +2271,7 @@ class RaisingApiVersion:
 
 
 class MissingApiVersionAdapter(FakeAdapter):
+    adapter_type = "missing_api"
     supported_adapter_api_version = cast(str, RaisingApiVersion())
 
 
@@ -2274,6 +2301,28 @@ class RaisingAdapterTypeAdapter(FakeAdapter):
 class RaisingAdapterTypeAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult(adapter=RaisingAdapterTypeAdapter(connection=connection))
+
+
+class MismatchedAdapterTypeAdapter(FakeAdapter):
+    adapter_type = "duckdb"
+
+    def capabilities(self) -> AdapterCapabilities:
+        return AdapterCapabilities(
+            {
+                "relations": CapabilitySupport.FULL,
+                "row_count": CapabilitySupport.FULL,
+                "aggregate": CapabilitySupport.FULL,
+                "grouped_aggregate": CapabilitySupport.FULL,
+                "key_diff": CapabilitySupport.FULL,
+                "null_key": CapabilitySupport.FULL,
+                "duplicate_key": CapabilitySupport.FULL,
+            }
+        )
+
+
+class MismatchedAdapterTypeAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(adapter=MismatchedAdapterTypeAdapter(connection=connection))
 
 
 class CapabilityRaisingDuckDbAdapter(FakeAdapter):

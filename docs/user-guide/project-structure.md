@@ -91,7 +91,8 @@ resolves contract `source.connection` and `target.connection` names against the
 selected target's named connections. Secrets and fully rendered credentials
 must not be written to generated artifacts.
 Connection `type` values must be literal adapter types such as `duckdb`;
-`env_var(...)` is for non-routing connection config values. Unsupported
+`env_var(...)` is for non-routing connection config values. Resolved adapter
+`adapter_type` metadata must match the literal profile `type`. Unsupported
 template fragments such as `{{ ... }}`, `{% ... %}`, or `{# ... #}` fail for
 referenced connection payloads instead of being passed to adapters.
 

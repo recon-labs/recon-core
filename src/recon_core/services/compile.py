@@ -51,6 +51,7 @@ from recon_core.services.results import ExitCategory, ServiceResult
 COMPILED_ARTIFACT_WRITE_FAILED = "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
 MIXED_ADAPTER_TYPES_UNSUPPORTED = "RC_ADAPTER_MIXED_ADAPTER_TYPES_UNSUPPORTED"
 ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED = "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
+ADAPTER_TYPE_MISMATCH = "RC_ADAPTER_TYPE_MISMATCH"
 ADAPTER_RENDERING_OUTPUT_SUPPRESSED = "RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED"
 ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED = "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED"
 ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS = (
@@ -631,9 +632,10 @@ def _resolve_render_sql_adapters(
                     tuple(connection_diagnostics)
                 )
             continue
+        metadata_resolution = resolve_adapter_type(resolution.adapter)
         metadata_diagnostics = _connection_scoped_adapter_setup_diagnostics(
             _sanitize_profile_backed_adapter_diagnostics(
-                resolve_adapter_type(resolution.adapter).diagnostics,
+                metadata_resolution.diagnostics,
                 connection=connection,
                 config_tokens=config_tokens,
                 code_config_tokens=code_config_tokens,
@@ -643,6 +645,24 @@ def _resolve_render_sql_adapters(
         )
         connection_diagnostics.extend(metadata_diagnostics)
         if metadata_diagnostics:
+            diagnostics.extend(connection_diagnostics)
+            diagnostics_by_connection[connection.name] = _dedupe_diagnostics(
+                tuple(connection_diagnostics)
+            )
+            continue
+        assert metadata_resolution.adapter_type is not None
+        if metadata_resolution.adapter_type != connection.type:
+            type_mismatch_diagnostics = _connection_scoped_adapter_setup_diagnostics(
+                _sanitize_profile_backed_adapter_diagnostics(
+                    (_adapter_type_mismatch_diagnostic(connection),),
+                    connection=connection,
+                    config_tokens=config_tokens,
+                    code_config_tokens=code_config_tokens,
+                    numeric_field_tokens=numeric_field_tokens,
+                ),
+                connection=connection,
+            )
+            connection_diagnostics.extend(type_mismatch_diagnostics)
             diagnostics.extend(connection_diagnostics)
             diagnostics_by_connection[connection.name] = _dedupe_diagnostics(
                 tuple(connection_diagnostics)
@@ -714,6 +734,23 @@ def _connection_scoped_adapter_setup_diagnostic(
     if connection_marker in diagnostic.message.casefold():
         return diagnostic
     return replace(diagnostic, message=f"Connection `{connection.name}`: {diagnostic.message}")
+
+
+def _adapter_type_mismatch_diagnostic(connection: ConnectionConfig) -> Diagnostic:
+    return Diagnostic(
+        code=ADAPTER_TYPE_MISMATCH,
+        severity=DiagnosticSeverity.ERROR,
+        message=(
+            f"Adapter factory for profile type `{connection.type}` returned adapter "
+            "metadata that does not match the profile connection type."
+        ),
+        resource_type="adapter",
+        resource_name=connection.type,
+        hint=(
+            "Register the adapter under its declared adapter type or update the "
+            "adapter's `adapter_type` metadata to match the profile `type`."
+        ),
+    )
 
 
 def _sanitize_profile_backed_render_result(
