@@ -125,6 +125,49 @@ def test_compiled_sql_writer_rejects_invalid_later_step_without_partial_sql(
     assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
 
 
+def test_compiled_sql_writer_rejects_empty_rendered_sql_without_partial_sql(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="at least one SQL step"):
+        CompiledSqlWriter().write(
+            contract_name="customer_revenue",
+            check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+            rendered_sql=(),
+            target_path=tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
+
+
+def test_compiled_sql_writer_rejects_empty_later_rendered_sql_without_partial_sql(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="at least one SQL step"):
+        CompiledSqlWriter().write_batch(
+            requests=(
+                CompiledSqlWriteRequest(
+                    contract_name="customer_revenue",
+                    check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="select 1",
+                            operation_type="row_count",
+                            step_name="00-row_count-source",
+                        ),
+                    ),
+                ),
+                CompiledSqlWriteRequest(
+                    contract_name="customer_revenue",
+                    check_id="check.ecommerce_recon.customer_revenue.key_diff",
+                    rendered_sql=(),
+                ),
+            ),
+            target_path=tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
+
+
 def test_compiled_sql_writer_rejects_case_insensitive_duplicate_steps_without_partial_sql(
     tmp_path: Path,
 ) -> None:

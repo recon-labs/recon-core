@@ -204,6 +204,8 @@ def _validate_compiled_sql_batch(
 ) -> None:
     _validate_compiled_sql_path_segment(contract_name)
     _validate_compiled_sql_path_segment(check_id)
+    if not rendered_sql:
+        raise ValueError(f"Compiled SQL for check {check_id!r} must contain at least one SQL step.")
 
     seen_step_names: set[str] = set()
     for rendered in rendered_sql:
