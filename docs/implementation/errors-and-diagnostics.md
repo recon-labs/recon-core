@@ -451,6 +451,13 @@ through diagnostic `message`, `hint`, `path`, resource metadata, line/column
 fields, terminal output, run results, evidence, reports, logs, or test snapshots
 unless the policy explicitly allows that output.
 
+For the Milestone 7 split, Milestone 7.1 owns check-engine diagnostics that do
+not require adapter execution, Milestone 7.2 owns runtime adapter diagnostics
+for row-count execution, Milestone 7.3 owns key-safety execution diagnostics,
+and Milestone 7.4 owns aggregate execution diagnostics. Run-result diagnostics
+remain Milestone 8, and evidence/report/failure-detail diagnostics remain
+Milestone 9 unless a later split explicitly changes those boundaries.
+
 Do not pass raw low-level exception strings directly into public diagnostics
 when those exceptions can contain authored YAML snippets, rendered connection
 values, source/target query text, relation names, row values, or database error

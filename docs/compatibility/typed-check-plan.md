@@ -145,6 +145,13 @@ Adapters must not hide new reconciliation behavior in dialect-specific rendering
 Milestone 6 renders typed operations to SQL through adapters but does not
 execute checks.
 
+Execution is split after Milestone 6. Milestone 7.2 owns row-count typed-plan
+execution, Milestone 7.3 owns grain-key safety typed-plan execution, and
+Milestone 7.4 owns current aggregate metric typed-plan execution. Each execution
+sub-milestone must resolve comparison placement for its assigned operations
+before implementation and must not silently fall back to Python, adapter dialect
+casts, inferred mappings, or unsupported comparison behavior.
+
 Rendered SQL belongs under:
 
 ```text

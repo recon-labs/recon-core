@@ -755,7 +755,8 @@ feat: add artifact freshness checks
 ## Post-MVP Milestone 11: aggregate metrics expansion
 
 Build this after Milestones 1-10 are complete and after the 0.1
-release-readiness decision.
+release-readiness decision. It also depends on Milestone 7.4's current
+aggregate metric execution boundary.
 
 Goal:
 
@@ -771,7 +772,8 @@ Build:
 - grouped aggregate behavior where adapter capabilities support it,
 - validation for metric type and referenced column compatibility,
 - typed check-plan operations and adapter capability expectations,
-- check-engine execution for the new aggregate metric checks,
+- check-engine execution for the new aggregate metric checks, extending the
+  Milestone 7.4 aggregate execution boundary,
 - result and evidence fields for aggregate metric comparisons.
 
 Tests:
