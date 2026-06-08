@@ -1458,14 +1458,17 @@ Required gate:
   creating or splitting the test-kit repository: empty renderer output, empty
   or malformed direct compiled SQL writer requests, later empty or malformed
   rendered SQL batch requests, invalid later rendered steps, unsafe path
-  segments, duplicate step names, and case-insensitive output collisions must
+  segments, exact output paths that already exist as directories or other
+  non-files, duplicate step names, and case-insensitive output collisions must
   fail before any compiled SQL directory or file is published,
 - include rendered SQL step `required_capabilities` enforcement cases before
   creating or splitting the test-kit repository, introducing a renderer registry,
   publishing `recon-duckdb`, or claiming external adapter compatibility:
-  unsupported, not-implemented, unknown, versioned, malformed, or extra
-  step-level capability declarations must fail clearly before SQL artifacts,
-  run results, evidence, or adapter test snapshots are published,
+  current Core render-sql orchestration enforces these before SQL publication,
+  and future shared conformance must preserve unsupported, not-implemented,
+  unknown, versioned, malformed, or extra step-level capability declarations
+  failing clearly before SQL artifacts, run results, evidence, or adapter test
+  snapshots are published,
 - include sanitized adapter factory exception and sanitized capability
   declaration exception cases before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,

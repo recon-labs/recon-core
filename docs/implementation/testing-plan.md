@@ -213,14 +213,16 @@ Malformed renderer-output coverage must include invalid later rendered steps
 and case-insensitive output collisions, and artifact writer tests must prove
 direct empty or malformed rendered SQL writer requests and later empty or
 malformed rendered SQL batch requests fail before any compiled SQL directory or
-file is created. Batched artifact writer tests must prove the full batch is
-validated and preflighted before the first compiled SQL file is written.
-Shared renderer and adapter-repository tests must also cover
-`RenderedSql.required_capabilities` as executable requirements: supported
-step-level capabilities pass, while unsupported, not-implemented, unknown,
-versioned, malformed, or extra renderer-declared capabilities fail clearly
-before SQL artifacts, run results, evidence, or adapter test snapshots are
-published.
+file is created. Artifact preflight tests must include exact output paths that
+already exist as directories or other non-files, including overwrite-enabled
+calls. Batched artifact writer tests must prove the full batch is validated and
+preflighted before the first compiled SQL file is written. Current Core tests
+cover `RenderedSql.required_capabilities` as executable requirements before SQL
+publication. Shared renderer and adapter-repository tests must preserve and
+expand that coverage: supported step-level capabilities pass, while unsupported,
+not-implemented, unknown, versioned, malformed, or extra renderer-declared
+capabilities fail clearly before SQL artifacts, run results, evidence, or
+adapter test snapshots are published.
 Factories that return both an adapter and diagnostics, or both an adapter and
 malformed diagnostics, should be treated as setup failures; the returned adapter
 must not be used for rendering or execution.

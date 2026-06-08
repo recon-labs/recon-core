@@ -1930,6 +1930,34 @@ def test_render_sql_compile_reports_invalid_capability_support_state(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_enforces_rendered_step_required_capabilities(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", StepCapabilityUnsupportedDuckDbAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact_text = (
+        tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
+    ).read_text(encoding="utf-8")
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering failed."
+    assert {diagnostic.code for diagnostic in result.diagnostics} == {
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    }
+    assert "cte_support" in checks_artifact_text
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_marks_renderer_failures_without_sql_artifacts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2392,6 +2420,31 @@ class InvalidCapabilityDuckDbAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult(
             adapter=InvalidCapabilityDuckDbAdapter(connection=connection)
+        )
+
+
+class StepCapabilityUnsupportedDuckDbAdapter(FakeAdapter):
+    adapter_type = "duckdb"
+
+    def capabilities(self) -> AdapterCapabilities:
+        return AdapterCapabilities(
+            {
+                "relations": CapabilitySupport.FULL,
+                "cte_support": CapabilitySupport.UNSUPPORTED,
+                "row_count": CapabilitySupport.FULL,
+                "aggregate": CapabilitySupport.FULL,
+                "grouped_aggregate": CapabilitySupport.FULL,
+                "key_diff": CapabilitySupport.FULL,
+                "null_key": CapabilitySupport.FULL,
+                "duplicate_key": CapabilitySupport.FULL,
+            }
+        )
+
+
+class StepCapabilityUnsupportedDuckDbAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            adapter=StepCapabilityUnsupportedDuckDbAdapter(connection=connection)
         )
 
 
@@ -3064,6 +3117,7 @@ def test_render_sql_compile_removes_sql_when_yaml_artifact_write_fails_after_ren
         "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
     ]
     assert not (tmp_path / "target" / "compiled_sql").exists()
+    assert not (tmp_path / "target" / "compiled_checks").exists()
 
 
 def test_render_sql_compile_preflights_all_sql_paths_before_first_sql_write(
@@ -3153,6 +3207,25 @@ def test_render_sql_compile_removes_partial_yaml_when_artifact_write_fails_after
     assert not (tmp_path / "target" / "compiled_contracts" / "aaa.yml").exists()
     assert not (tmp_path / "target" / "compiled_checks" / "aaa.yml").exists()
     assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
+def test_compile_service_removes_partial_yaml_directories_when_artifact_path_is_directory(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_contract(tmp_path)
+    blocking_contract_path = tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml"
+    blocking_contract_path.mkdir(parents=True)
+
+    result = CompileService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Compile completed but artifacts could not be written."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED"
+    ]
+    assert blocking_contract_path.is_dir()
+    assert not (tmp_path / "target" / "compiled_checks").exists()
 
 
 def test_compile_service_writes_no_artifacts_for_invalid_stable_id_parts(

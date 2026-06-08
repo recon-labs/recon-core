@@ -38,6 +38,32 @@ def test_render_check_sql_validates_required_capabilities_before_rendering() -> 
     assert "row_count" in result.diagnostics[0].message
 
 
+def test_render_check_sql_validates_rendered_step_required_capabilities() -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=DuckDbSqlRenderer(),
+        capabilities=AdapterCapabilities(
+            {
+                "relations": CapabilitySupport.FULL,
+                "row_count": CapabilitySupport.FULL,
+                "cte_support": CapabilitySupport.UNSUPPORTED,
+            }
+        ),
+    )
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert "cte_support" in result.diagnostics[0].message
+
+
 def test_render_check_sql_sanitizes_capability_declaration_exceptions() -> None:
     compiled_contract, check = compiled_row_count_check()
 

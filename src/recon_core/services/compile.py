@@ -549,6 +549,8 @@ def _clear_compiled_artifact_directory(output_dir: Path) -> None:
     for output_path in output_dir.glob("*.yml"):
         if output_path.is_file() or output_path.is_symlink():
             output_path.unlink()
+    with suppress(OSError):
+        output_dir.rmdir()
 
 
 def _clear_compiled_sql_artifact_directory(output_dir: Path) -> None:

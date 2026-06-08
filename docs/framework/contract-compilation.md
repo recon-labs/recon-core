@@ -99,7 +99,9 @@ stale.
 
 Generated compiled artifact directories and their `target-path` ancestry must be
 real directories, not symlinks, and compiled artifact filenames must be safe
-single-segment names. Exact compiled artifact output files must not be symlinks.
+single-segment names. Exact compiled artifact output paths must be regular files
+when they already exist; symlinks, directories, and other non-file outputs are
+rejected even when overwrite behavior is explicitly enabled.
 
 ## `recon run`
 

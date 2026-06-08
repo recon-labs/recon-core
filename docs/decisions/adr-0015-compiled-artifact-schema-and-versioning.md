@@ -62,7 +62,8 @@ intent behind.
 Compiled artifact directories and their `target-path` ancestry must be real
 directories. Recon should reject symlinked compiled artifact directories or
 symlinked ancestry rather than following them during cleanup or artifact writes.
-Exact compiled artifact output files must also not be symlinks, even when
+Exact compiled artifact output paths must be regular files when they already
+exist; symlinks, directories, and other non-file outputs are rejected even when
 overwrite behavior is explicitly enabled. Compiled artifact filenames should be
 built from safe single-segment names so standalone artifact writers cannot write
 outside their generated artifact directories.

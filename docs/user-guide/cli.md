@@ -151,7 +151,8 @@ Current `compile` behavior:
 - removes old top-level compiled contract and compiled checks YAML files once
   `target-path` is known,
 - rejects symlinked compiled artifact directories and symlinked `target-path`
-  ancestry, and rejects exact compiled artifact output-file symlinks,
+  ancestry, and rejects exact compiled artifact output paths that are symlinks,
+  directories, or other non-files,
 - writes `target/compiled_contracts/<contract_name>.yml`,
 - writes `target/compiled_checks/<contract_name>.yml`,
 - sets `rendering.status: not_rendered` for plain compile,

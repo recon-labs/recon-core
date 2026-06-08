@@ -238,8 +238,10 @@ steps, empty/non-string SQL metadata fields, unsafe path-like step names, or
 duplicate step names, Recon treats that as `RC_ADAPTER_OPERATION_RENDER_FAILED`
 and marks the check `failed` before compiled SQL artifacts are written.
 `CompiledSqlWriter` revalidates the same rendered-step shape before filesystem
-publication, so direct writer calls and future test-kit harnesses cannot bypass
-the renderer guard and publish misleading SQL artifacts.
+publication and preflights exact output paths before creating files, so direct
+writer calls and future test-kit harnesses cannot bypass the renderer guard or
+publish misleading SQL artifacts through symlinks, directories, non-file output
+targets, or partial batches.
 
 If any check in an adapter-aware compile invocation produces a rendering
 diagnostic, Recon writes no compiled SQL files for that invocation. Checks with
@@ -339,13 +341,14 @@ must also include the core compile-validation case where adapter rendering is
 requested but not started: otherwise renderable checks are marked `blocked` with
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, no compiled SQL is
 written, and adapter factories/renderers are not invoked.
-Public or shared renderer helpers must validate adapter API compatibility and
-renderer `adapter_type` binding before invoking renderer code. Renderer output
-`required_capabilities` are enforceable requirements, not comments; before
-adapter repositories or the shared test kit claim compatibility, unsupported,
-not-implemented, unknown, versioned, malformed, or extra step-level capability
-requirements must fail clearly before SQL, run results, evidence, or adapter
-test snapshots are published.
+Current Core `render_check_sql()` and `recon compile --render-sql` validate
+adapter API compatibility, renderer `adapter_type` binding, and renderer output
+`required_capabilities` before compiled SQL publication. Renderer output
+`required_capabilities` are enforceable requirements, not comments; future
+adapter repositories, shared renderer helpers, and shared test kits must
+preserve this behavior and cover unsupported, not-implemented, unknown,
+versioned, malformed, or extra step-level capability requirements before SQL,
+run results, evidence, or adapter test snapshots are published.
 
 ## Query endpoint boundary
 

@@ -329,17 +329,20 @@ substrings of rendered connection strings, because adapters and database
 clients often surface only one component of a rendered DSN in diagnostics.
 It must also cover raw adapter exceptions from factories, adapter metadata
 declarations, and capability declarations, plus empty and malformed renderer
-output diagnostics. Any shared helper, adapter repository, or test-kit harness
-that accepts both a resolved adapter and an explicit renderer must validate
-adapter API compatibility and the renderer's `adapter_type` against the
-resolved adapter type before calling `render_plan()`, including clear failure
-cases for incompatible adapter APIs and missing, malformed, exception-raising,
-or mismatched renderer metadata. Renderer output `required_capabilities` are
-also part of the adapter boundary: before shared renderer orchestration,
-external adapter repositories, or the test kit claim compatibility, unsupported,
+output diagnostics. Current Core `render_check_sql()` orchestration validates
+adapter API compatibility, renderer `adapter_type` binding, and renderer-step
+`required_capabilities` before compiled SQL is published. Any shared helper,
+adapter repository, or test-kit harness that accepts both a resolved adapter and
+an explicit renderer must validate adapter API compatibility and the renderer's
+`adapter_type` against the resolved adapter type before calling
+`render_plan()`, including clear failure cases for incompatible adapter APIs and
+missing, malformed, exception-raising, or mismatched renderer metadata.
+Renderer output `required_capabilities` are also part of the adapter boundary:
+future shared renderer orchestration, external adapter repositories, and test
+kits must preserve Core's current enforcement and cover unsupported,
 not-implemented, unknown, versioned, malformed, or extra step-level capability
-declarations must fail clearly before SQL artifacts, run results, evidence, or
-adapter test snapshots are published. If a shared adapter
+declarations before SQL artifacts, run results, evidence, or adapter test
+snapshots are published. If a shared adapter
 test-kit harness drives core
 `render-sql` flows, it must also cover compile-validation blocked metadata:
 otherwise renderable checks are marked `blocked` with

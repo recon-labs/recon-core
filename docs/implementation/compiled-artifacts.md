@@ -102,8 +102,11 @@ Recon rejects invalid compiled artifact paths and symlinked `target-path`
 ancestry rather than following those paths during cleanup or writes. For
 adapter-aware compile, Recon must not leave orphaned SQL output or partial
 compiled YAML output when a runtime YAML artifact write failure happens before
-or after in-memory SQL rendering.
-Exact compiled artifact output files must also not be symlinks, even when
+or after in-memory SQL rendering. Empty compiled YAML directories created by a
+failed invocation are removed during failure cleanup; pre-existing blocking
+directories are preserved.
+Exact compiled artifact output paths must be regular files when they already
+exist. Symlinks, directories, and other non-file outputs are rejected even when
 overwrite behavior is explicitly enabled. Compiled artifact filenames are built
 from safe single-segment artifact names; path-like names are invalid for
 standalone artifact writers.

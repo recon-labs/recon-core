@@ -227,6 +227,42 @@ def render_check_sql(
             ),
         )
 
+    rendered_required_capabilities = tuple(
+        capability
+        for rendered_step in rendered_sql
+        for capability in rendered_step.required_capabilities
+    )
+    try:
+        rendered_capability_diagnostics = validate_required_capabilities(
+            adapter_type=adapter_type,
+            capabilities=resolved_capabilities,
+            required_capabilities=rendered_required_capabilities,
+        )
+    except Exception as exc:
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=(
+                Diagnostic(
+                    code=ADAPTER_CAPABILITY_DECLARATION_FAILED,
+                    severity=DiagnosticSeverity.ERROR,
+                    message=(
+                        f"Adapter `{adapter_type}` declared invalid capabilities "
+                        f"for check `{check.id}`."
+                    ),
+                    resource_type="compiled_check",
+                    resource_name=check.id,
+                    hint=_capability_exception_hint(exc),
+                ),
+            ),
+            adapter_type=adapter_type,
+        )
+    if rendered_capability_diagnostics:
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=rendered_capability_diagnostics,
+            adapter_type=adapter_type,
+        )
+
     return RenderedCheckSql(check_id=check.id, sql=rendered_sql, adapter_type=adapter_type)
 
 

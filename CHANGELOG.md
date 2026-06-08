@@ -88,6 +88,13 @@ This project follows semantic versioning once public package releases begin.
   preventing partial or misleading `target/compiled_sql/` output when rendered
   SQL is empty or malformed, a later rendered step is invalid, a later output
   path already exists, or a later check path has a case-insensitive collision.
+- `recon compile`, compiled artifact writers, and compiled SQL publication now
+  reject exact artifact output paths that already exist as directories or other
+  non-files, even when overwrite behavior is explicitly enabled.
+- `render_check_sql` and `recon compile --render-sql` now enforce renderer-step
+  `RenderedSql.required_capabilities` before compiled SQL publication, so a
+  renderer cannot emit SQL that depends on undeclared or unsupported adapter
+  capabilities such as CTE support.
 - `recon compile` now reports structured validation diagnostics for invalid
   stable ID parts, duplicate contract names, and case-insensitive compiled
   artifact filename collisions instead of crashing or silently overwriting

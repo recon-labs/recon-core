@@ -201,7 +201,7 @@ class DuckDbSqlRenderer(SqlRenderer):
         return RenderedSql(
             sql=sql,
             operation_type="compare_counts",
-            required_capabilities=("row_count",),
+            required_capabilities=("row_count", "cte_support"),
         )
 
     def _render_key_diff(
@@ -268,7 +268,7 @@ class DuckDbSqlRenderer(SqlRenderer):
         return RenderedSql(
             sql=sql,
             operation_type="key_diff",
-            required_capabilities=("key_diff",),
+            required_capabilities=("key_diff", "cte_support"),
         )
 
     def _render_null_key(
@@ -418,7 +418,7 @@ class DuckDbSqlRenderer(SqlRenderer):
         return RenderedSql(
             sql=sql,
             operation_type="compare_aggregates",
-            required_capabilities=("aggregate",),
+            required_capabilities=("aggregate", "cte_support"),
         )
 
     def _render_compare_grouped_aggregates(
@@ -521,7 +521,7 @@ class DuckDbSqlRenderer(SqlRenderer):
         return RenderedSql(
             sql=sql,
             operation_type="compare_grouped_aggregates",
-            required_capabilities=("grouped_aggregate",),
+            required_capabilities=("grouped_aggregate", "cte_support"),
         )
 
     def _strict_null_safe_equality(
