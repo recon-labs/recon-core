@@ -172,6 +172,12 @@ optional DuckDB extra installed. The required CI path should install
 cannot silently skip the SQL comparison cases that protect no-coercion and exact
 numeric behavior.
 
+Future shared adapter test-kit and adapter-repository semantic jobs must follow
+the same rule: required capability conformance jobs install the adapter package
+or optional extra under test and fail when the dependency is missing or
+unimportable. Local developer convenience skips are acceptable only outside
+required conformance gates.
+
 Production adapters should eventually use a shared adapter test kit. The same
 test kit should run in every adapter repo and should include operation-rendering
 golden tests.
@@ -200,6 +206,10 @@ renderer step names, and adapter factory exceptions, adapter metadata
 exceptions, and capability declaration exceptions become sanitized structured
 diagnostics instead of raw exceptions that can leak rendered profile keys or
 values.
+Malformed renderer-output coverage must include invalid later rendered steps
+and case-insensitive output collisions, and batched artifact writer tests must
+prove the full batch is validated and preflighted before the first compiled SQL
+file is written.
 Factories that return both an adapter and diagnostics, or both an adapter and
 malformed diagnostics, should be treated as setup failures; the returned adapter
 must not be used for rendering or execution.
