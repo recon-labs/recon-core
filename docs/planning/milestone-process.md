@@ -91,7 +91,7 @@ already blocks implementation.
 
 If a milestone is too broad, spans multiple high-risk surfaces, or cannot be
 made safe as one implementation unit, dissolve it into decimal sub-milestones
-such as `Milestone 7.1`, `Milestone 7.2`, and `Milestone 7.3`.
+such as `Milestone N.1`, `Milestone N.2`, and `Milestone N.3`.
 
 The original milestone becomes an umbrella or superseded entry, not a direct
 implementation target. Each sub-milestone must have its own scope, non-goals,
@@ -101,3 +101,50 @@ dimension-expanded conformance matrix.
 
 When a milestone is split, update roadmap, build-order, gate, ADR,
 compatibility, and testing references so no orphan implementation plan remains.
+
+Decimal sub-milestones must be implementation-bearing. Do not create a
+sub-milestone whose build scope is only design, research, ADRs, matrices,
+documentation, gates, or alignment work. Those items are prerequisite prework
+assigned to the implementation sub-milestone they unblock. If only prework is
+currently safe, record implementation as blocked and name the required prework.
+
+## Split assignment matrix
+
+When a high-risk milestone is split, the split is incomplete without a Split
+Assignment Matrix. The matrix must include one row per implementation
+sub-milestone and these columns:
+
+- sub-milestone,
+- concrete implementation scope,
+- non-goals,
+- high-risk surfaces touched,
+- required gates,
+- required ADRs or decisions,
+- required docs updates,
+- required acceptance/conformance matrix rows,
+- required BDD or workflow scenarios,
+- required tests,
+- public contract impact,
+- phase-exit review requirements,
+- blockers before coding.
+
+No gate, ADR, docs update, matrix row, BDD scenario, public contract concern,
+test requirement, or phase-exit requirement may remain assigned only to the
+umbrella milestone. If an item applies to multiple sub-milestones, list it in
+each affected row. If ownership is unclear, block implementation instead of
+guessing.
+
+## Split workflow
+
+Use a stepwise split workflow for high-risk milestones:
+
+1. Audit milestone scope, high-risk surfaces, gates, docs, ADRs, tests, and
+   current implementation.
+2. Propose implementation-bearing sub-milestones.
+3. Build the Split Assignment Matrix.
+4. Run the orphan check.
+5. Update planning/docs after the split and assignments are internally
+   consistent.
+6. Validate references and report the future implementation plan.
+7. Do not code until the assigned prework for the relevant sub-milestone is
+   complete.
