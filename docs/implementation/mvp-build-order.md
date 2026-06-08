@@ -377,19 +377,106 @@ Tests:
   `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and do not invoke
   adapter factories or renderers.
 
-## Milestone 7: check engine
+## Milestone 7: check engine umbrella
+
+Milestone 7 is split into implementation-bearing decimal sub-milestones. Do not
+implement the umbrella milestone directly. Keep Milestone 8 as the owner of
+runner/run-result artifact behavior and Milestone 9 as the owner of
+evidence/report/failure-detail output unless a future split explicitly changes
+those boundaries.
+
+Split assignment:
+
+- Milestone 7.1: check-engine boundary and result model,
+- Milestone 7.2: adapter execution lifecycle and row count,
+- Milestone 7.3: grain-key safety checks,
+- Milestone 7.4: aggregate metric execution.
+
+Each sub-milestone still needs its own current lightweight prework, Definition
+of Done, dimension-expanded acceptance/conformance matrix rows, BDD workflow
+scenarios, test plan, prompt/docs drift check, and phase exit review before
+coding. Gates, tests, and blockers below are assigned to sub-milestones so no
+implementation plan remains assigned only to this umbrella.
+
+Out of scope for Milestone 7:
+
+- `target/run_results.json`, terminal summary finalization, and exit-code/result
+  artifact locking, which remain Milestone 8,
+- failure details, reports, evidence artifacts, and evidence links, which remain
+  Milestone 9,
+- query endpoint execution, which remains gated by a separate future query
+  execution decision,
+- CDC propagation check execution and `cdc.keys` runtime behavior, which remain
+  a later CDC milestone,
+- row-level value comparison, timestamp/string tolerance execution,
+  normalization execution, and schema policy execution, which remain later
+  milestones unless explicitly re-split.
+
+### Milestone 7.1: check-engine boundary and result model
 
 Build:
 
-- check registry,
-- row count check,
-- duplicate key checks,
-- null key checks,
-- missing/extra key checks,
-- metric sum diff,
-- check result model.
+- check-engine service boundary behind the existing `recon run` placeholder,
+- check result model and status taxonomy,
+- internal dispatch boundary for already compiled check types,
+- prerequisite/blocking result representation,
+- diagnostic/result serialization shape for in-memory results.
 
-Required gates:
+Non-goals:
+
+- no adapter SQL execution,
+- no profile-backed adapter lifecycle,
+- no `target/run_results.json`,
+- no failure detail or evidence artifact output,
+- no explicit authored `checks: [...]` support.
+
+Assigned gates and blockers:
+
+- resolve the diagnostic output message conformance gate before check-engine
+  diagnostics become user-facing output,
+- resolve the explicit authored checks and check registry gate before adding
+  public explicit authored check support or registry behavior that must serve it;
+  this sub-milestone may define internal dispatch only if it does not expose
+  unsupported authored checks,
+- verify the result model does not pull Milestone 8 generated run-result
+  artifacts into Milestone 7.1.
+
+Required tests:
+
+- check result status serialization,
+- prerequisite/blocking result representation,
+- check-engine diagnostics preserve code, severity, message, path, resource
+  context, and hint where available,
+- unsupported/not-yet-executable checks fail clearly instead of producing
+  misleading evidence.
+
+Phase exit review:
+
+- no adapter execution is introduced,
+- no source/target values, relation data, database errors, or rendered profile
+  values are emitted,
+- no generated run-result, evidence, report, or failure-detail artifacts are
+  written.
+
+### Milestone 7.2: adapter execution lifecycle and row count
+
+Build:
+
+- profile loading for execution using the existing selected profile/target and
+  referenced-connection rules,
+- adapter factory resolution and lifecycle for run-time execution,
+- same-context DuckDB relation-backed execution only,
+- row count check execution,
+- sanitized adapter/runtime diagnostics for row count execution.
+
+Non-goals:
+
+- no query endpoints,
+- no cross-adapter or cross-connection execution,
+- no key-diff, null-key, duplicate-key, or aggregate execution,
+- no failure-detail or evidence output.
+
+Assigned gates and blockers:
 
 - satisfy the Adapter/Profile Diagnostic Conformance Gate in
   `docs/compatibility/adapter-api.md` before loading rendered profiles or
@@ -398,8 +485,8 @@ Required gates:
   environment variables, and environment-specific adapter choices must use
   separate targets or named connections with literal `type` values; resolved
   adapter `adapter_type` metadata must match the literal profile `type` before
-  renderer selection or execution,
-- if Milestone 7 introduces a renderer registry, execution-time renderer
+  execution,
+- if this sub-milestone introduces a renderer registry, execution-time renderer
   selection, or any public/shared rendering helper that accepts an explicit
   renderer, validate the renderer's declared `adapter_type` against the
   resolved adapter type before rendering,
@@ -412,36 +499,127 @@ Required gates:
   `RC12LEAK`, and equivalent formatted variants such as `12.0`, `+12`, and
   `1.2e1`, while preserving safe adapter diagnostic codes such as
   `RC_ADAPTER_CAPABILITY_UNSUPPORTED`,
-- resolve the diagnostic output message conformance gate before runtime
-  adapter/profile diagnostics can become check-engine output,
+- preserve the existing adapter-aware compile contract while adding run-time
+  adapter setup behavior: compile setup failures continue to write no SQL and
+  mark affected compiled checks blocked, while run-time setup failures preserve
+  factory diagnostics even when an adapter is also returned, de-duplicate
+  repeated same-connection setup diagnostics, and keep distinct source/target
+  connection setup diagnostics visible,
 - resolve the source/target data privacy, evidence, and failure-detail policy
-  gate before check execution can emit source/target values, runtime adapter
+  gate before row count execution can emit relation names, runtime adapter
+  errors, database errors, row counts, or data-derived values through terminal
+  output, diagnostics, logs, run results, evidence, or adapter test-kit
+  snapshots,
+- resolve the comparison execution placement strategy gate for row count
+  execution before executing typed plans.
+
+Required tests:
+
+- row count pass/fail/error cases,
+- adapter lifecycle and setup failure cases,
+- adapter/profile diagnostics preserve safe actionable messages and suppress
+  rendered profile values,
+- row count public output follows source/target privacy defaults.
+
+Phase exit review:
+
+- row count execution emits no raw source/target rows,
+- relation names, row counts, adapter errors, and database errors follow the
+  resolved source/target privacy policy,
+- no `target/run_results.json`, evidence, report, or failure-detail artifacts are
+  written.
+
+### Milestone 7.3: grain-key safety checks
+
+Build:
+
+- null source/target key checks,
+- duplicate source/target key checks,
+- missing key checks,
+- extra key checks,
+- prerequisite/blocking semantics for dependent future row-level value checks.
+
+Non-goals:
+
+- no row-level value comparison,
+- no automatic source-target mapping guesses,
+- no inferred grain keys,
+- no CDC key execution,
+- no sampling bypass of non-null or uniqueness requirements.
+
+Assigned gates and blockers:
+
+- resolve the comparison execution placement strategy gate for key checks before
+  executing typed plans,
+- preserve locked key semantics: `grain.keys` means comparison identity,
+  `cdc.keys` means CDC/change propagation identity, row-level checks require
+  `grain.keys`, and row-level value and row-matching checks require non-null and
+  unique source and target grain keys,
+- preserve the source/target data privacy, evidence, and failure-detail policy
+  gate before key checks emit comparison keys, failure examples, runtime adapter
   errors, database errors, or data-derived values through terminal output,
   diagnostics, logs, run results, evidence, or adapter test-kit snapshots,
-- preserve the adapter-aware compile contract that setup failures write no SQL,
-  mark affected compiled checks blocked, preserve factory diagnostics even when
-  an adapter is also returned, de-duplicate repeated same-connection setup
-  diagnostics, and keep distinct source/target connection setup diagnostics
-  visible before adapter execution surfaces these diagnostics at run time,
-- resolve the explicit authored checks and check registry gate before
-  implementing explicit `checks: [...]` support or registry behavior that must
-  serve explicit checks later,
-- resolve the comparison execution placement strategy gate before executing
-  typed plans,
+- verify sampling does not remove non-null or uniqueness requirements.
+
+Required tests:
+
+- null source/target key cases,
+- duplicate source/target key cases,
+- missing key and extra key cases,
+- null or duplicate keys block dependent row-level value checks,
+- no inferred grain or source-target mapping behavior.
+
+Phase exit review:
+
+- no raw key examples or row-level values are exported unless a later privacy and
+  evidence policy explicitly allows that surface,
+- dependent row-level value checks remain future scope,
+- no evidence/report/failure-detail artifacts are written.
+
+### Milestone 7.4: aggregate metric execution
+
+Build:
+
+- current ungrouped `sum_diff` execution,
+- current grouped aggregate diff execution,
+- numeric tolerance application for supported numeric aggregate comparisons,
+- empty aggregate semantics,
+- aggregate type mismatch behavior.
+
+Non-goals:
+
+- no timestamp or string tolerance execution,
+- no null-equivalence or normalization execution for row-level values,
+- no schema policy execution,
+- no new metric catalog expansion beyond current compiled `sum` plans.
+
+Assigned gates and blockers:
+
+- resolve the comparison execution placement strategy gate for aggregate checks
+  before executing typed plans,
 - re-check the typed operation catalog expansion gate before executing any
-  operation beyond the current compiled subset.
+  operation beyond the current compiled subset,
+- preserve the source/target data privacy, evidence, and failure-detail policy
+  gate before aggregate checks emit aggregate values, grouped keys, relation
+  names, runtime adapter errors, database errors, or data-derived values through
+  terminal output, diagnostics, logs, run results, evidence, or adapter test-kit
+  snapshots.
 
-Tests:
+Required tests:
 
-- pass/fail cases,
-- duplicate keys block dependent row-level value checks,
-- null keys block dependent row-level value checks,
-- aggregate metric result,
-- check result serialization,
-- check-engine diagnostics preserve code, severity, message, path, resource
-  context, and hint where available,
-- check-engine public output does not leak raw source/target values unless the
-  source/target data privacy policy explicitly allows that output.
+- ungrouped sum diff pass/fail/error cases,
+- grouped aggregate diff pass/fail/error cases,
+- numeric tolerance behavior for current `sum` metrics,
+- empty aggregate result semantics,
+- aggregate input/result type mismatch behavior.
+
+Phase exit review:
+
+- aggregate results follow the source/target privacy policy,
+- no timestamp/string tolerance, normalization, schema policy, or new metric
+  operation behavior is introduced,
+- run-result artifacts and evidence/report output remain Milestone 8 and
+  Milestone 9 scope.
 
 ## Milestone 8: runner and results
 
