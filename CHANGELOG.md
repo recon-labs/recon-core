@@ -56,6 +56,9 @@ This project follows semantic versioning once public package releases begin.
 
 ### Changed
 
+- Clarified future adapter ecosystem gates for DSN-component redaction,
+  explicit adapter/renderer binding, and rendered SQL step capability
+  enforcement before shared test-kit or adapter repository compatibility claims.
 - `recon init` now scaffolds `check_packs/` and `macros/` directories and
   writes matching `check-pack-paths` and `macro-paths` project config entries.
 - `recon init` now writes the ADR 0020 selected profile/target shape with

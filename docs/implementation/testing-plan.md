@@ -203,9 +203,9 @@ mismatches fail with `RC_ADAPTER_TYPE_MISMATCH`, empty renderer output fails
 with `RC_ADAPTER_RENDERED_SQL_EMPTY`, malformed non-empty renderer output fails
 with `RC_ADAPTER_OPERATION_RENDER_FAILED`, including unsafe or duplicate
 renderer step names, public/shared rendering helpers that accept explicit
-renderers fail before rendering when the renderer `adapter_type` is missing,
-malformed, exception-raising, or different from the resolved adapter type, and
-adapter factory exceptions, adapter metadata
+renderers fail before rendering when adapter API compatibility fails or the
+renderer `adapter_type` is missing, malformed, exception-raising, or different
+from the resolved adapter type, and adapter factory exceptions, adapter metadata
 exceptions, and capability declaration exceptions become sanitized structured
 diagnostics instead of raw exceptions that can leak rendered profile keys or
 values.
@@ -213,6 +213,12 @@ Malformed renderer-output coverage must include invalid later rendered steps
 and case-insensitive output collisions, and batched artifact writer tests must
 prove the full batch is validated and preflighted before the first compiled SQL
 file is written.
+Shared renderer and adapter-repository tests must also cover
+`RenderedSql.required_capabilities` as executable requirements: supported
+step-level capabilities pass, while unsupported, not-implemented, unknown,
+versioned, malformed, or extra renderer-declared capabilities fail clearly
+before SQL artifacts, run results, evidence, or adapter test snapshots are
+published.
 Factories that return both an adapter and diagnostics, or both an adapter and
 malformed diagnostics, should be treated as setup failures; the returned adapter
 must not be used for rendering or execution.
@@ -223,6 +229,14 @@ and CLI output, and preserves distinct source/target connection setup
 diagnostics. They should also prove that adapter setup diagnostics do not hide
 render diagnostics from otherwise resolvable contracts in the same
 adapter-aware compile invocation.
+
+Profile-backed diagnostic redaction tests must include DSN component and
+derived-fragment cases, not only whole rendered connection strings. Required
+cases include username, password, host, path, query values, percent-decoded
+values, and substrings appearing independently in diagnostic code, message,
+hint, path, `resource_type`, `resource_name`, `line`, `column`,
+`rendering.adapter_type`, logs, run results, evidence, and adapter test
+snapshots for every surface that claims compatibility.
 
 Adapter-aware compile tests should also cover the core-owned case where compile
 validation fails before adapter rendering starts. When `--render-sql` was

@@ -115,9 +115,22 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked numeric diagnostic-field redaction for short rendered scalar
       profile values and equivalent formatted variants, such as `port: 12`,
       `12.0`, `+12`, and `1.2e1`, not only long secret-like tokens.
+- [ ] Checked parsed DSN component and derived-fragment redaction when
+      rendered connection strings are in scope: username, password, host, path,
+      query values, percent-decoded values, and substrings must not leak through
+      diagnostics, generated artifacts, logs, run results, evidence, or adapter
+      test snapshots.
 - [ ] Checked whether any shared adapter test-kit compile-flow harness must
       assert `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and no
       adapter invocation when compile validation already failed.
+- [ ] Checked whether any public/shared helper or test-kit harness accepts both
+      a resolved adapter and explicit renderer, and if so whether adapter API
+      compatibility and renderer `adapter_type` binding are validated before
+      `render_plan()` is invoked.
+- [ ] Checked whether rendered SQL step `required_capabilities` are enforced
+      before SQL artifacts, run results, evidence, or adapter test snapshots are
+      published when shared renderer/test-kit or adapter compatibility is
+      claimed.
 - [ ] Checked whether adapter setup diagnostics can coexist with independent
       render diagnostics in the same compile invocation, and whether service or
       CLI diagnostics preserve both instead of reporting only setup failures.

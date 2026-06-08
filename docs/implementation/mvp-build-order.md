@@ -1424,6 +1424,12 @@ Required gate:
   `+12`, and `1.2e1`, across diagnostic codes, diagnostic text, resource metadata,
   `rendering.adapter_type`, and numeric `line`/`column` before creating or
   splitting the test-kit repository,
+- include parsed DSN component and derived-fragment redaction cases before
+  creating or splitting the test-kit repository or claiming external adapter
+  compatibility: username, password, host, path, query values, percent-decoded
+  values, and substrings of rendered connection strings must not leak through
+  diagnostic text, diagnostic codes, resource metadata, `rendering.adapter_type`,
+  logs, run results, evidence, or adapter test snapshots,
 - include diagnostic-code embeddings for unsafe config keys and rendered values,
   such as `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and
   `RC12LEAK`, before creating or splitting the test-kit repository or claiming
@@ -1440,9 +1446,15 @@ Required gate:
   repository,
 - include public/shared rendering helper cases before creating or splitting the
   test-kit repository: when a helper or harness accepts both a resolved adapter
-  and an explicit renderer, missing, malformed, exception-raising, or
-  mismatched renderer `adapter_type` metadata must fail before `render_plan()`
-  is invoked,
+  and an explicit renderer, adapter API incompatibility and missing, malformed,
+  exception-raising, or mismatched renderer `adapter_type` metadata must fail
+  before `render_plan()` is invoked,
+- include rendered SQL step `required_capabilities` enforcement cases before
+  creating or splitting the test-kit repository, introducing a renderer registry,
+  publishing `recon-duckdb`, or claiming external adapter compatibility:
+  unsupported, not-implemented, unknown, versioned, malformed, or extra
+  step-level capability declarations must fail clearly before SQL artifacts,
+  run results, evidence, or adapter test snapshots are published,
 - include sanitized adapter factory exception and sanitized capability
   declaration exception cases before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,

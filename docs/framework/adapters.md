@@ -285,6 +285,10 @@ passwords, numeric `line`/`column` values, or other simple transformations of
 rendered profile config. Short numeric profile values must remain safe when an
 adapter exposes an equivalent formatted representation, such as a profile
 `port: 12` appearing publicly as `12.0`, `+12`, or `1.2e1`.
+DSN redaction conformance must include parsed components and derived fragments,
+not only the whole rendered DSN string: username, password, host, path, query
+values, percent-decoded values, and substrings must not leak through public
+diagnostics, artifacts, logs, run results, evidence, or adapter test snapshots.
 Diagnostic codes must also remain safe when unsafe config keys or rendered
 values are embedded in delimiter-separated or separatorless forms, such as
 `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, or `RC12LEAK`.
@@ -322,6 +326,13 @@ must also include the core compile-validation case where adapter rendering is
 requested but not started: otherwise renderable checks are marked `blocked` with
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, no compiled SQL is
 written, and adapter factories/renderers are not invoked.
+Public or shared renderer helpers must validate adapter API compatibility and
+renderer `adapter_type` binding before invoking renderer code. Renderer output
+`required_capabilities` are enforceable requirements, not comments; before
+adapter repositories or the shared test kit claim compatibility, unsupported,
+not-implemented, unknown, versioned, malformed, or extra step-level capability
+requirements must fail clearly before SQL, run results, evidence, or adapter
+test snapshots are published.
 
 ## Query endpoint boundary
 

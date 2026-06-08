@@ -85,6 +85,10 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
    invalid `Diagnostic` severity, code, message, optional context fields, and
    `line`/`column` values must fail as `RC_ADAPTER_RESOLUTION_FAILED` before
    redaction, rendering, artifact writing, or execution consumes them.
+   They must also cover parsed DSN component redaction, explicit adapter
+   API/renderer `adapter_type` binding before renderer invocation, and rendered
+   SQL step `required_capabilities` enforcement before any test-kit or adapter
+   repo claims compatibility.
 3. Add official check/policy packages.
 4. Add `recon-hub-index`.
 5. Add integrations such as `recon-airflow`.
