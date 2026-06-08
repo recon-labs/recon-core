@@ -74,6 +74,17 @@ profiles:
 
 Do not commit real profiles.
 
+The generated example profile uses `RECON_DUCKDB_PATH` for both named DuckDB
+connections. Before running adapter-aware SQL rendering with that example, set
+it to the same local DuckDB file path:
+
+```bash
+export RECON_DUCKDB_PATH=local.duckdb
+```
+
+You can also edit `connections/profiles.yml` to use a literal local path or an
+`env_var` default instead.
+
 For adapter-aware rendering, Recon renders only the selected profile target
 and the named connections referenced by selected contracts. Missing
 environment variables in unselected targets or unreferenced connections do not
@@ -161,7 +172,7 @@ target/compiled_checks/customer_revenue.yml
 ```
 
 Use compiled artifacts to inspect exactly what Recon will run. SQL files under
-`target/compiled_sql/` are produced by adapter-aware compile:
+`target/compiled_sql/` are produced only by optional adapter-aware compile:
 
 ```bash
 recon compile --render-sql

@@ -138,8 +138,11 @@ packs and explicit metrics into compiled YAML artifacts under `target/`.
 `recon compile --render-sql` also loads `connections/profiles.yml`, resolves
 the selected profile target, and writes DuckDB-rendered SQL under
 `target/compiled_sql/` when referenced connections use the in-core `duckdb`
-adapter and resolve to the same adapter connection config. `recon run` is
-registered, but it currently returns a clear not-implemented diagnostic.
+adapter and resolve to the same adapter connection config. If you use the
+generated profile example, set `RECON_DUCKDB_PATH` or edit
+`connections/profiles.yml` before running `recon compile --render-sql`.
+`recon run` is registered, but it currently returns a clear not-implemented
+diagnostic.
 
 ## Core Idea
 

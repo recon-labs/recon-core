@@ -130,8 +130,10 @@ target/compiled_contracts/
 target/compiled_checks/
 ```
 
-For adapter-aware SQL rendering with the in-core DuckDB local development
-adapter, install `recon-core[duckdb]` and run:
+For optional adapter-aware SQL rendering with the in-core DuckDB local
+development adapter, install `recon-core[duckdb]`, create
+`connections/profiles.yml`, and set any referenced environment variables such as
+`RECON_DUCKDB_PATH` before running:
 
 ```bash
 recon compile --render-sql
@@ -139,7 +141,7 @@ recon compile --render-sql
 
 `compile` should resolve defaults, refs, check packs, metrics, sampling,
 tolerances, schema policies, CDC behavior, and adapter capabilities. SQL files
-under `target/compiled_sql/` are produced by adapter-aware compile.
+under `target/compiled_sql/` are produced only by optional adapter-aware compile.
 
 Current `compile` behavior:
 
@@ -156,7 +158,7 @@ Current `compile` behavior:
 - writes `target/compiled_contracts/<contract_name>.yml`,
 - writes `target/compiled_checks/<contract_name>.yml`,
 - sets `rendering.status: not_rendered` for plain compile,
-- supports `--render-sql` for adapter-aware rendering,
+- supports optional `--render-sql` for adapter-aware rendering,
 - loads `connections/profiles.yml` only when `--render-sql` is requested,
 - resolves the selected profile target and only the named connections
   referenced by compiled contracts,
