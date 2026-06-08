@@ -163,13 +163,15 @@ renderer output and exported compiled SQL writer calls with no rendered steps
 are failures and must not be represented as successful rendering with empty
 `sql_paths` or empty compiled SQL directories. Malformed non-empty renderer
 output is also a rendering failure and must not reach compiled SQL artifact
-writing, including unsafe path-like renderer step names, invalid later renderer
-steps, or duplicate step names including case-insensitive output collisions.
-The compiled SQL writer validates the whole SQL batch and preflights output
-paths before writing any SQL file or creating compiled SQL directories, so empty
-direct writer requests, later empty rendered SQL batch requests, invalid later
-renderer steps, unsafe path segments, and duplicate output paths must not leave
-partial `target/compiled_sql/` artifacts behind.
+writing, including blank SQL, blank operation metadata, malformed step capability
+metadata, unsafe path-like renderer step names, invalid later renderer steps, or
+duplicate step names including case-insensitive output collisions. The compiled
+SQL writer revalidates that rendered-step shape, validates the whole SQL batch,
+and preflights output paths before writing any SQL file or creating compiled SQL
+directories, so empty or malformed direct writer requests, later empty or
+malformed rendered SQL batch requests, invalid later renderer steps, unsafe path
+segments, and duplicate output paths must not leave partial
+`target/compiled_sql/` artifacts behind.
 For example:
 
 ```text

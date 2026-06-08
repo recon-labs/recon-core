@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from recon_core.adapters.models import RenderedSql
+from recon_core.adapters.rendered_sql_validation import invalid_rendered_sql_output_reason
 from recon_core.artifacts._paths import (
     ensure_real_artifact_directory,
     ensure_safe_artifact_write,
@@ -72,6 +73,7 @@ class CompiledSqlWriter:
         overwrite: bool = False,
     ) -> tuple[CompiledSqlWriteResult, ...]:
         """Write a batch of compiled SQL artifacts after preflighting all outputs."""
+        _validate_compiled_sql_requests(requests)
         plans = _compiled_sql_write_plans(requests, target_path=target_path)
         _validate_compiled_sql_write_plans(plans)
         if not plans:
@@ -134,17 +136,20 @@ def _compiled_sql_write_plans(
     return tuple(plans)
 
 
+def _validate_compiled_sql_requests(requests: tuple[CompiledSqlWriteRequest, ...]) -> None:
+    for request in requests:
+        _validate_compiled_sql_batch(
+            contract_name=request.contract_name,
+            check_id=request.check_id,
+            rendered_sql=request.rendered_sql,
+        )
+
+
 def _validate_compiled_sql_write_plans(plans: tuple[_CompiledSqlWritePlan, ...]) -> None:
     seen_output_paths: dict[str, str] = {}
     seen_check_dirs: dict[str, str] = {}
 
     for plan in plans:
-        _validate_compiled_sql_batch(
-            contract_name=plan.request.contract_name,
-            check_id=plan.request.check_id,
-            rendered_sql=plan.request.rendered_sql,
-        )
-
         check_dir_key = plan.check_dir.as_posix().casefold()
         check_dir_display = plan.check_dir.as_posix()
         existing_check_dir = seen_check_dirs.get(check_dir_key)
@@ -206,9 +211,15 @@ def _validate_compiled_sql_batch(
     _validate_compiled_sql_path_segment(check_id)
     if not rendered_sql:
         raise ValueError(f"Compiled SQL for check {check_id!r} must contain at least one SQL step.")
+    if not isinstance(rendered_sql, tuple):
+        _raise_invalid_rendered_sql(check_id, rendered_sql)
 
     seen_step_names: set[str] = set()
     for rendered in rendered_sql:
+        if not isinstance(rendered, RenderedSql):
+            _raise_invalid_rendered_sql(check_id, rendered_sql)
+        if not isinstance(rendered.step_name, str):
+            _raise_invalid_rendered_sql(check_id, rendered_sql)
         _validate_compiled_sql_path_segment(rendered.step_name)
         normalized_step_name = rendered.step_name.casefold()
         if normalized_step_name in seen_step_names:
@@ -217,6 +228,17 @@ def _validate_compiled_sql_batch(
                 f"for check {check_id!r}."
             )
         seen_step_names.add(normalized_step_name)
+
+    invalid_reason = invalid_rendered_sql_output_reason(rendered_sql)
+    if invalid_reason is not None:
+        _raise_invalid_rendered_sql(check_id, rendered_sql)
+
+
+def _raise_invalid_rendered_sql(check_id: str, rendered_sql: object) -> None:
+    invalid_reason = invalid_rendered_sql_output_reason(rendered_sql)
+    if invalid_reason is None:
+        invalid_reason = "Rendered SQL output is malformed."
+    raise ValueError(f"Compiled SQL for check {check_id!r} is invalid. {invalid_reason}")
 
 
 def _preflight_real_artifact_directory(output_dir: Path) -> None:

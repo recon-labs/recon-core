@@ -1456,10 +1456,10 @@ Required gate:
   before `render_plan()` is invoked,
 - include renderer-output and generated-artifact publication cases before
   creating or splitting the test-kit repository: empty renderer output, empty
-  direct compiled SQL writer requests, later empty rendered SQL batch requests,
-  invalid later rendered steps, unsafe path segments, duplicate step names, and
-  case-insensitive output collisions must fail before any compiled SQL
-  directory or file is published,
+  or malformed direct compiled SQL writer requests, later empty or malformed
+  rendered SQL batch requests, invalid later rendered steps, unsafe path
+  segments, duplicate step names, and case-insensitive output collisions must
+  fail before any compiled SQL directory or file is published,
 - include rendered SQL step `required_capabilities` enforcement cases before
   creating or splitting the test-kit repository, introducing a renderer registry,
   publishing `recon-duckdb`, or claiming external adapter compatibility:

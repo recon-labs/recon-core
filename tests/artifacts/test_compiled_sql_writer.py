@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -139,6 +140,51 @@ def test_compiled_sql_writer_rejects_empty_rendered_sql_without_partial_sql(
     assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
 
 
+@pytest.mark.parametrize(
+    ("rendered_sql", "match"),
+    [
+        (
+            (RenderedSql(sql="", operation_type="row_count", step_name="step"),),
+            "non-empty string SQL",
+        ),
+        (
+            (RenderedSql(sql="   ", operation_type="row_count", step_name="step"),),
+            "non-empty string SQL",
+        ),
+        (
+            (RenderedSql(sql="select 1", operation_type="", step_name="step"),),
+            "non-empty operation type",
+        ),
+        (
+            (
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="step",
+                    required_capabilities=cast(Any, ["row_count"]),
+                ),
+            ),
+            "required capabilities",
+        ),
+        (cast(Any, ("not-rendered-sql",)), "not a RenderedSql instance"),
+    ],
+)
+def test_compiled_sql_writer_rejects_malformed_rendered_sql_without_partial_sql(
+    tmp_path: Path,
+    rendered_sql: tuple[RenderedSql, ...],
+    match: str,
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        CompiledSqlWriter().write(
+            contract_name="customer_revenue",
+            check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+            rendered_sql=rendered_sql,
+            target_path=tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
+
+
 def test_compiled_sql_writer_rejects_empty_later_rendered_sql_without_partial_sql(
     tmp_path: Path,
 ) -> None:
@@ -160,6 +206,41 @@ def test_compiled_sql_writer_rejects_empty_later_rendered_sql_without_partial_sq
                     contract_name="customer_revenue",
                     check_id="check.ecommerce_recon.customer_revenue.key_diff",
                     rendered_sql=(),
+                ),
+            ),
+            target_path=tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
+
+
+def test_compiled_sql_writer_rejects_malformed_later_rendered_sql_without_partial_sql(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="non-empty string SQL"):
+        CompiledSqlWriter().write_batch(
+            requests=(
+                CompiledSqlWriteRequest(
+                    contract_name="customer_revenue",
+                    check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="select 1",
+                            operation_type="row_count",
+                            step_name="00-row_count-source",
+                        ),
+                    ),
+                ),
+                CompiledSqlWriteRequest(
+                    contract_name="customer_revenue",
+                    check_id="check.ecommerce_recon.customer_revenue.key_diff",
+                    rendered_sql=(
+                        RenderedSql(
+                            sql="   ",
+                            operation_type="key_diff",
+                            step_name="00-key_diff-source_minus_target",
+                        ),
+                    ),
                 ),
             ),
             target_path=tmp_path / "target",

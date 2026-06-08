@@ -108,8 +108,10 @@ state writers are future work.
 Generated artifact writers own cleanup and publish ordering for their output
 paths. A writer or service must not leave stale, partial, or orphaned generated
 artifacts after a failed write in a way that downstream automation could read
-as current evidence. Future writers for run results, evidence, failure details,
-reports, state, docs output, and selector-scoped artifacts must define that
+as current evidence. Writers that publish per-item files must validate both the
+payload shape and the full output path set before creating directories or files.
+Future writers for run results, evidence, failure details, reports, state, docs
+output, and selector-scoped artifacts must define that
 lifecycle before the artifact becomes a compatibility surface.
 
 Batched artifact writers should validate all batch path components and preflight

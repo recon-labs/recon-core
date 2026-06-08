@@ -181,9 +181,12 @@ that adapter in `rendering.adapter_type`.
 Successful rendered checks must produce at least one SQL step and at least one
 compiled SQL path. Empty renderer output and exported compiled SQL writer
 requests with no rendered steps fail before Core creates compiled SQL
-directories or files. Batched publication validates the full rendered SQL output
-set before publishing anything, so a later empty or malformed rendered SQL
-request cannot leave partial SQL artifacts from an earlier request.
+directories or files. Malformed non-empty rendered SQL steps, such as blank SQL,
+blank operation types, malformed required capability declarations, or unsafe
+step names, are also publication failures. Batched publication validates the
+full rendered SQL output set before publishing anything, so a later empty or
+malformed rendered SQL request cannot leave partial SQL artifacts from an
+earlier request.
 
 Adapters must preserve Core comparison semantics when rendering SQL. The
 current DuckDB renderer emits key-diff SQL over distinct non-null key sets and
@@ -234,6 +237,9 @@ If a renderer returns malformed non-empty output, such as non-`RenderedSql`
 steps, empty/non-string SQL metadata fields, unsafe path-like step names, or
 duplicate step names, Recon treats that as `RC_ADAPTER_OPERATION_RENDER_FAILED`
 and marks the check `failed` before compiled SQL artifacts are written.
+`CompiledSqlWriter` revalidates the same rendered-step shape before filesystem
+publication, so direct writer calls and future test-kit harnesses cannot bypass
+the renderer guard and publish misleading SQL artifacts.
 
 If any check in an adapter-aware compile invocation produces a rendering
 diagnostic, Recon writes no compiled SQL files for that invocation. Checks with
@@ -420,10 +426,10 @@ in CI after the adapter API stabilizes. The first version of that shared suite
 must include profile-rendering, renderer-output/artifact-publication, and
 diagnostic-redaction conformance, including sanitized adapter factory
 exceptions, sanitized capability declaration exceptions, sanitized adapter
-metadata exceptions, empty and malformed renderer output failures, empty direct
-and later-batch compiled SQL writer requests that leave no partial SQL
-artifacts, field-by-field diagnostic redaction, and safe non-empty diagnostic
-messages. It must also include profile `type`/adapter
+metadata exceptions, empty and malformed renderer output failures, empty or
+malformed direct and later-batch compiled SQL writer requests that leave no
+partial SQL artifacts, field-by-field diagnostic redaction, and safe non-empty
+diagnostic messages. It must also include profile `type`/adapter
 metadata mismatch rejection before renderer selection, plus malformed factory
 diagnostic payload cases for invalid `Diagnostic` field values, including
 string severities, empty or non-string `code` or `message`, non-string

@@ -256,6 +256,14 @@ Implementation note, 2026-06-01: the migration from `deferred` and
 `unsupported` to `blocked` and `failed` is complete in code, tests,
 compiled-artifact examples, and compatibility docs.
 
+Implementation note, 2026-06-08: renderer orchestration and compiled SQL
+artifact publication both validate rendered-step shape. `render_check_sql()`
+rejects empty or malformed renderer output before artifact writing, and
+`CompiledSqlWriter` revalidates direct and batched `RenderedSql` requests before
+creating compiled SQL directories or files. This keeps artifact publication a
+Core-owned safety boundary for future shared helpers, adapter test kits, and
+adapter repository splits.
+
 Rendered SQL artifacts must remain traceable to:
 
 - contract name,
