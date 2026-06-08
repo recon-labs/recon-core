@@ -682,6 +682,44 @@ def test_render_sql_compile_sanitizes_adapter_resolution_diagnostics(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+def test_render_sql_compile_sanitizes_adapter_resolution_dsn_fragment_diagnostics(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_contract(tmp_path)
+    write_profiles(
+        tmp_path,
+        connection_type="dsn_fragment_leaky",
+        database="duckdb://user:super-secret@host/db",
+    )
+    registry = AdapterRegistry()
+    registry.register("dsn_fragment_leaky", DsnFragmentLeakyAdapterFactory())
+
+    result = CompileService(
+        start_path=tmp_path,
+        render_sql=True,
+        adapter_registry=registry,
+    ).execute()
+
+    checks_artifact = yaml.safe_load(
+        (tmp_path / "target" / "compiled_checks" / "customer_revenue.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    public_output = _public_diagnostic_and_rendering_output(result, checks_artifact)
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "SQL rendering adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_TEST_ADAPTER_DSN_FRAGMENT_LEAK",
+        "RC_TEST_ADAPTER_DSN_FRAGMENT_LEAK",
+    ]
+    assert "adapter diagnostic text was suppressed" in public_output
+    assert "super-secret" not in public_output
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_DSN_FRAGMENT_LEAK")
+    assert not (tmp_path / "target" / "compiled_sql").exists()
+
+
 def test_render_sql_compile_sanitizes_adapter_resolution_diagnostic_codes(
     tmp_path: Path,
 ) -> None:
@@ -2411,6 +2449,22 @@ class LeakyAdapterFactory:
         )
 
 
+class DsnFragmentLeakyAdapterFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_DSN_FRAGMENT_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter connection failed for password super-secret.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint="Inspect the profile DSN.",
+                ),
+            )
+        )
+
+
 class CodeLeakyAdapterFactory:
     def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
         return AdapterResolutionResult(
@@ -3287,12 +3341,15 @@ def write_profiles(
     *,
     connection_type: str = "duckdb",
     use_distinct_databases: bool = False,
+    database: str | None = None,
     include_password: bool = False,
     password: str = "super-secret",
     port: int | str | None = None,
 ) -> None:
-    legacy_database = "legacy.duckdb" if use_distinct_databases else "local.duckdb"
-    warehouse_database = "warehouse.duckdb" if use_distinct_databases else "local.duckdb"
+    legacy_database = database or ("legacy.duckdb" if use_distinct_databases else "local.duckdb")
+    warehouse_database = database or (
+        "warehouse.duckdb" if use_distinct_databases else "local.duckdb"
+    )
     password_yaml = f"            password: {password}\n" if include_password else ""
     port_yaml = f"            port: {port}\n" if port is not None else ""
     profiles_path = project_root / "connections" / "profiles.yml"

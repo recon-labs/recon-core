@@ -169,6 +169,137 @@ def test_render_check_sql_sanitizes_renderer_exception_diagnostics() -> None:
     assert "password" not in diagnostic_text
 
 
+def test_render_check_sql_rejects_incompatible_adapter_api_before_rendering() -> None:
+    compiled_contract, check = compiled_row_count_check()
+
+    class IncompatibleApiAdapter(DuckDbAdapter):
+        supported_adapter_api_version = "999"
+
+    class RendererShouldNotRun(DuckDbSqlRenderer):
+        def render_plan(
+            self,
+            operations: tuple[Mapping[str, Any], ...],
+            *,
+            source_relation: Relation,
+            target_relation: Relation,
+        ) -> tuple[RenderedSql, ...]:
+            raise AssertionError("render_plan should not run for incompatible adapter APIs")
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=IncompatibleApiAdapter(
+            connection=ConnectionConfig(name="warehouse", type="duckdb")
+        ),
+        renderer=RendererShouldNotRun(),
+    )
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_API_VERSION_UNSUPPORTED"
+    ]
+
+
+def test_render_check_sql_rejects_mismatched_renderer_type_before_rendering() -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+
+    class MismatchedRenderer(DuckDbSqlRenderer):
+        adapter_type = "postgres"
+
+        def render_plan(
+            self,
+            operations: tuple[Mapping[str, Any], ...],
+            *,
+            source_relation: Relation,
+            target_relation: Relation,
+        ) -> tuple[RenderedSql, ...]:
+            raise AssertionError("render_plan should not run for mismatched renderers")
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=MismatchedRenderer(),
+    )
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RENDERER_TYPE_MISMATCH"
+    ]
+
+
+def test_render_check_sql_rejects_malformed_renderer_type_before_rendering() -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+
+    class EmptyRendererType(DuckDbSqlRenderer):
+        adapter_type = ""
+
+        def render_plan(
+            self,
+            operations: tuple[Mapping[str, Any], ...],
+            *,
+            source_relation: Relation,
+            target_relation: Relation,
+        ) -> tuple[RenderedSql, ...]:
+            raise AssertionError("render_plan should not run for malformed renderers")
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=EmptyRendererType(),
+    )
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RENDERER_METADATA_INVALID"
+    ]
+
+
+def test_render_check_sql_sanitizes_raising_renderer_type_before_rendering() -> None:
+    compiled_contract, check = compiled_row_count_check()
+    adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+
+    class RaisingRendererType:
+        def __get__(self, instance: object, owner: object | None = None) -> str:
+            raise RuntimeError("password=super-secret")
+
+    class RaisingRenderer(DuckDbSqlRenderer):
+        adapter_type = cast(str, RaisingRendererType())
+
+        def render_plan(
+            self,
+            operations: tuple[Mapping[str, Any], ...],
+            *,
+            source_relation: Relation,
+            target_relation: Relation,
+        ) -> tuple[RenderedSql, ...]:
+            raise AssertionError("render_plan should not run for malformed renderers")
+
+    result = render_check_sql(
+        contract=compiled_contract,
+        check=check,
+        adapter=adapter,
+        renderer=RaisingRenderer(),
+    )
+
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+
+    assert not result.succeeded
+    assert result.sql == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RENDERER_METADATA_INVALID"
+    ]
+    assert "RuntimeError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
+
+
 def test_render_check_sql_rejects_empty_renderer_output() -> None:
     compiled_contract, check = compiled_row_count_check()
     adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))

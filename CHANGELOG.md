@@ -139,6 +139,10 @@ This project follows semantic versioning once public package releases begin.
   DuckDB optional dependencies, unsupported adapter API versions, unsupported
   required capabilities, query endpoints, invalid relation names, and renderer
   failures without writing misleading SQL artifacts.
+- Exported in-memory SQL rendering now validates adapter API compatibility and
+  explicit renderer `adapter_type` metadata before calling renderer code.
+- Profile-backed adapter diagnostic redaction now treats DSN component
+  fragments as rendered connection payloads.
 - Adapter-aware SQL rendering now suppresses integer-equivalent formatted
   variants of short numeric profile values in profile-backed adapter
   diagnostics, including quoted or env-var-rendered numeric strings such as

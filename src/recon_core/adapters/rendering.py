@@ -6,7 +6,7 @@ from pathlib import Path
 from recon_core.adapters.base import BaseAdapter, SqlRenderer
 from recon_core.adapters.capabilities import AdapterCapabilities, validate_required_capabilities
 from recon_core.adapters.models import Relation, RenderedSql
-from recon_core.adapters.registry import resolve_adapter_type
+from recon_core.adapters.registry import resolve_adapter_type, validate_adapter_api_compatibility
 from recon_core.compiler.models import CompiledCheck, CompiledContractArtifact
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -15,6 +15,14 @@ ADAPTER_INVALID_RELATION = "RC_ADAPTER_INVALID_RELATION"
 ADAPTER_CAPABILITY_DECLARATION_FAILED = "RC_ADAPTER_CAPABILITY_DECLARATION_FAILED"
 ADAPTER_OPERATION_RENDER_FAILED = "RC_ADAPTER_OPERATION_RENDER_FAILED"
 ADAPTER_RENDERED_SQL_EMPTY = "RC_ADAPTER_RENDERED_SQL_EMPTY"
+ADAPTER_RENDERER_METADATA_INVALID = "RC_ADAPTER_RENDERER_METADATA_INVALID"
+ADAPTER_RENDERER_TYPE_MISMATCH = "RC_ADAPTER_RENDERER_TYPE_MISMATCH"
+
+
+@dataclass(frozen=True, slots=True)
+class _RendererTypeResolution:
+    adapter_type: str | None
+    diagnostics: tuple[Diagnostic, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +56,36 @@ def render_check_sql(
         )
     adapter_type = adapter_type_resolution.adapter_type
     assert adapter_type is not None
+
+    api_diagnostics = validate_adapter_api_compatibility(adapter)
+    if api_diagnostics:
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=api_diagnostics,
+            adapter_type=adapter_type,
+        )
+
+    renderer_type_resolution = _resolve_renderer_type(renderer)
+    if renderer_type_resolution.diagnostics:
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=renderer_type_resolution.diagnostics,
+            adapter_type=adapter_type,
+        )
+    renderer_adapter_type = renderer_type_resolution.adapter_type
+    assert renderer_adapter_type is not None
+    if renderer_adapter_type != adapter_type:
+        return RenderedCheckSql(
+            check_id=check.id,
+            diagnostics=(
+                _renderer_type_mismatch_diagnostic(
+                    renderer=renderer,
+                    adapter_type=adapter_type,
+                    check_id=check.id,
+                ),
+            ),
+            adapter_type=adapter_type,
+        )
 
     endpoint_diagnostics = _endpoint_diagnostics(contract)
     if endpoint_diagnostics:
@@ -190,6 +228,68 @@ def render_check_sql(
         )
 
     return RenderedCheckSql(check_id=check.id, sql=rendered_sql, adapter_type=adapter_type)
+
+
+def _resolve_renderer_type(renderer: SqlRenderer) -> _RendererTypeResolution:
+    try:
+        renderer_adapter_type = renderer.adapter_type
+    except Exception as exc:
+        return _RendererTypeResolution(
+            adapter_type=None,
+            diagnostics=(_invalid_renderer_type_diagnostic(renderer, exc=exc),),
+        )
+
+    if not isinstance(renderer_adapter_type, str) or renderer_adapter_type == "":
+        return _RendererTypeResolution(
+            adapter_type=None,
+            diagnostics=(_invalid_renderer_type_diagnostic(renderer),),
+        )
+
+    return _RendererTypeResolution(adapter_type=renderer_adapter_type)
+
+
+def _invalid_renderer_type_diagnostic(
+    renderer: SqlRenderer,
+    *,
+    exc: Exception | None = None,
+) -> Diagnostic:
+    renderer_name = type(renderer).__name__
+    hint = "Declare `adapter_type` as a non-empty string on the SQL renderer class."
+    if exc is not None:
+        hint = (
+            f"Renderer metadata raised {type(exc).__name__}. Raw adapter error text was "
+            "suppressed because rendering diagnostics are written to generated artifacts. "
+            "Declare `adapter_type` as a non-empty string on the SQL renderer class."
+        )
+
+    return Diagnostic(
+        code=ADAPTER_RENDERER_METADATA_INVALID,
+        severity=DiagnosticSeverity.ERROR,
+        message=f"SQL renderer `{renderer_name}` does not declare a valid `adapter_type`.",
+        resource_type="adapter_renderer",
+        resource_name=renderer_name,
+        hint=hint,
+    )
+
+
+def _renderer_type_mismatch_diagnostic(
+    *,
+    renderer: SqlRenderer,
+    adapter_type: str,
+    check_id: str,
+) -> Diagnostic:
+    renderer_name = type(renderer).__name__
+    return Diagnostic(
+        code=ADAPTER_RENDERER_TYPE_MISMATCH,
+        severity=DiagnosticSeverity.ERROR,
+        message=(
+            f"SQL renderer `{renderer_name}` does not match resolved adapter "
+            f"type `{adapter_type}` for check `{check_id}`."
+        ),
+        resource_type="compiled_check",
+        resource_name=check_id,
+        hint="Use a SQL renderer declared for the resolved adapter type.",
+    )
 
 
 def _invalid_rendered_sql_output_diagnostic(

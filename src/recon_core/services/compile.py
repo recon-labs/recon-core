@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 from recon_core.adapters import (
     ADAPTER_CAPABILITY_UNSUPPORTED,
@@ -59,6 +60,7 @@ ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS = (
     "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS"
 )
 _NUMERIC_LITERAL_PATTERN = re.compile(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+_CONNECTION_STRING_COMPONENT_SPLIT_PATTERN = re.compile(r"[^A-Za-z0-9_.+-]+")
 
 
 @dataclass(frozen=True, slots=True)
@@ -923,6 +925,65 @@ def _connection_config_code_tokens(
     )
 
 
+def _connection_string_component_tokens(value: str) -> frozenset[str]:
+    tokens: set[str] = set()
+    stripped = value.strip()
+    if stripped == "":
+        return frozenset()
+
+    with suppress(ValueError):
+        parsed = urlsplit(stripped)
+        if parsed.scheme and (parsed.netloc or parsed.path):
+            _add_connection_string_component_token(parsed.username, tokens=tokens)
+            _add_connection_string_component_token(
+                parsed.password,
+                tokens=tokens,
+                allow_short=True,
+            )
+            _add_connection_string_component_token(parsed.hostname, tokens=tokens)
+            with suppress(ValueError):
+                port = parsed.port
+                if port is not None:
+                    tokens.add(str(port))
+            for segment in parsed.path.split("/"):
+                _add_connection_string_component_token(segment, tokens=tokens)
+            for key, query_value in parse_qsl(parsed.query, keep_blank_values=False):
+                secret_query_key = _is_secret_like_config_key(key)
+                if secret_query_key:
+                    _add_connection_string_component_token(key, tokens=tokens)
+                _add_connection_string_component_token(
+                    query_value,
+                    tokens=tokens,
+                    allow_short=secret_query_key,
+                )
+
+    if "://" in stripped or "@" in stripped or ";" in stripped:
+        for component in _CONNECTION_STRING_COMPONENT_SPLIT_PATTERN.split(stripped):
+            _add_connection_string_component_token(component, tokens=tokens)
+
+    return frozenset(tokens)
+
+
+def _add_connection_string_component_token(
+    component: str | None,
+    *,
+    tokens: set[str],
+    allow_short: bool = False,
+) -> None:
+    if component is None:
+        return
+
+    raw_component = component.strip()
+    decoded_component = unquote(raw_component).strip()
+    seen_components: set[str] = set()
+    for candidate in (raw_component, decoded_component):
+        if candidate in seen_components:
+            continue
+        seen_components.add(candidate)
+        if candidate != "" and (allow_short or len(candidate) >= 3):
+            tokens.add(candidate)
+
+
 def _collect_connection_config_tokens(
     value: object,
     *,
@@ -946,6 +1007,9 @@ def _collect_connection_config_tokens(
     if isinstance(value, str):
         if value != "" and value.casefold() != adapter_type.casefold():
             tokens.add(value)
+        for token in _connection_string_component_tokens(value):
+            if token.casefold() != adapter_type.casefold():
+                tokens.add(token)
         return
 
     if isinstance(value, list | tuple):
@@ -999,6 +1063,11 @@ def _collect_connection_config_code_tokens(
         if value != "" and value.casefold() != adapter_type.casefold():
             boundary_tokens.add(value)
             embedded_tokens.add(value)
+        for token in _connection_string_component_tokens(value):
+            if token.casefold() == adapter_type.casefold():
+                continue
+            boundary_tokens.add(token)
+            embedded_tokens.add(token)
         return
 
     if isinstance(value, list | tuple):
@@ -1047,8 +1116,13 @@ def _collect_connection_config_numeric_field_tokens(
             )
         return
 
-    if isinstance(value, str) and value.casefold() == adapter_type.casefold():
-        return
+    if isinstance(value, str):
+        if value.casefold() == adapter_type.casefold():
+            return
+        for token in _connection_string_component_tokens(value):
+            numeric_value = _integer_like_value(token)
+            if numeric_value is not None:
+                tokens.add(numeric_value)
 
     numeric_value = _integer_like_value(value)
     if numeric_value is not None:

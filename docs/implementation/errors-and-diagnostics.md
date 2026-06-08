@@ -296,6 +296,8 @@ RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED
 RC_ADAPTER_INVALID_RELATION
 RC_ADAPTER_OPERATION_RENDER_FAILED
 RC_ADAPTER_RENDERED_SQL_EMPTY
+RC_ADAPTER_RENDERER_METADATA_INVALID
+RC_ADAPTER_RENDERER_TYPE_MISMATCH
 RC_ADAPTER_RENDERING_OUTPUT_SUPPRESSED
 RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS
 RC_ADAPTER_METADATA_INVALID
@@ -310,8 +312,14 @@ failures, malformed capability support states, required-capability validation,
 optional dependency checks,
 relation-only rendering boundaries, same-context rendering requirements,
 profile `type`/adapter metadata mismatches, invalid relation names, invalid
-adapter metadata, renderer failures, empty renderer output, malformed non-empty
-renderer output, and invocation-wide SQL output suppression. When
+adapter metadata, renderer metadata mismatches, renderer failures, empty
+renderer output, malformed non-empty renderer output, and invocation-wide SQL
+output suppression. Exported rendering helpers that accept an explicit renderer
+must validate renderer `adapter_type` before invoking `render_plan()`, surfacing
+`RC_ADAPTER_RENDERER_METADATA_INVALID` for missing, empty, non-string, or
+exception-raising renderer metadata and
+`RC_ADAPTER_RENDERER_TYPE_MISMATCH` for a renderer that does not match the
+resolved adapter type. When
 `recon compile --render-sql` cannot start adapter rendering because compile
 validation already failed, otherwise renderable checks should use
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` in compiled checks
