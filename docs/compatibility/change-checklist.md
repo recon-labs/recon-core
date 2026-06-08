@@ -20,7 +20,18 @@ review. This checklist is a process guide; it is not a CI gate.
       or explicit out-of-scope rationale.
 - [ ] Checked whether the requested milestone is too broad, spans multiple
       high-risk surfaces, or should be dissolved into decimal sub-milestones such
-      as `Milestone 7.1`, `Milestone 7.2`, and `Milestone 7.3`.
+      as `Milestone N.1`, `Milestone N.2`, and `Milestone N.3`.
+- [ ] Confirmed every proposed decimal sub-milestone is implementation-bearing
+      and no sub-milestone has a build scope that is only design, research, ADRs,
+      matrices, documentation, gates, or alignment work.
+- [ ] For required high-risk splits, produced a Split Assignment Matrix with one
+      row per implementation sub-milestone and assigned gates, ADRs/decisions,
+      docs updates, acceptance/conformance matrix rows, BDD/workflow scenarios,
+      tests, public contract surfaces, phase-exit requirements, and blockers to
+      the exact sub-milestone they govern.
+- [ ] Ran an orphan check proving no gate, ADR, docs update, matrix row, BDD
+      scenario, public contract concern, test requirement, or phase-exit
+      requirement remains assigned only to the umbrella milestone.
 - [ ] Updated roadmap, build-order, gate, ADR, and compatibility references when
       a milestone was split so no orphan implementation plan remains.
 
