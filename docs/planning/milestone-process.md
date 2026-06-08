@@ -79,6 +79,16 @@ matrix before the next phase starts.
 
 ## Milestone splits
 
+Every milestone or equivalent roadmap work must include a split-or-justify
+decision before implementation. High-risk milestones must either be dissolved
+into decimal sub-milestones or explicitly justify why the combined scope is safe
+as one implementation unit.
+
+A missing gate, ADR, Definition of Done, acceptance/conformance matrix, BDD
+scenario, or test plan does not remove this requirement. The split-or-justify
+decision must still be recorded before coding, even when the missing artifact
+already blocks implementation.
+
 If a milestone is too broad, spans multiple high-risk surfaces, or cannot be
 made safe as one implementation unit, dissolve it into decimal sub-milestones
 such as `Milestone 7.1`, `Milestone 7.2`, and `Milestone 7.3`.
