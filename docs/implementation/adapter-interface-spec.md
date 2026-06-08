@@ -290,7 +290,7 @@ Resolution rules:
 - require connection `type` values to be literal adapter types,
 - fail on missing environment variables in referenced connection payloads,
 - fail on unsupported template syntax, including `{{ ... }}`, `{% ... %}`, and
-  `{# ... #}`, in referenced connection payloads,
+  `{# ... #}`, in referenced connection payloads or env-var defaults,
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credentials in generated artifacts or
@@ -300,9 +300,10 @@ Before shared adapter test-kit or external adapter package compatibility is
 claimed, adapter API conformance tests must cover profile rendering and
 diagnostic redaction. Those tests should include selected target loading,
 referenced-connection filtering, missing env vars, env-var defaults,
-unsupported template syntax including `{{ ... }}`, `{% ... %}`, and
-`{# ... #}`, adapter factory diagnostics, and future optional dependency, API
-compatibility, capability, metadata, rendering, and execution diagnostics.
+unsupported template syntax in values and defaults including `{{ ... }}`,
+`{% ... %}`, and `{# ... #}`, adapter factory diagnostics, and future optional
+dependency, API compatibility, capability, metadata, rendering, and execution
+diagnostics.
 Redaction conformance must cover unsafe rendered profile keys or
 values independently in diagnostic `code`, `message`, `hint`, `path`,
 `resource_type`, `resource_name`, `line`, `column`, and future structured

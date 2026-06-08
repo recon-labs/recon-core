@@ -401,6 +401,78 @@ profiles:
     assert "#}" not in diagnostic_text
 
 
+@pytest.mark.parametrize(
+    "database_value",
+    [
+        pytest.param(
+            "\"{{ env_var('WAREHOUSE_DB', '{{ raw }}') }}\"",
+            id="jinja-expression-default",
+        ),
+        pytest.param(
+            "\"{{ env_var('WAREHOUSE_DB', '{% if env %}prod.duckdb{% endif %}') }}\"",
+            id="jinja-statement-default",
+        ),
+        pytest.param(
+            "\"{{ env_var('WAREHOUSE_DB', '{# prod.duckdb #}') }}\"",
+            id="jinja-comment-default",
+        ),
+        pytest.param(
+            '\'env_var("WAREHOUSE_DB", "{{ raw }}")\'',
+            id="bare-template-default",
+        ),
+        pytest.param(
+            "'{{ env_var(\"WAREHOUSE_DB\", \"env_var(''OTHER_DB'')\") }}'",
+            id="jinja-embedded-env-var-default",
+        ),
+        pytest.param(
+            "'env_var(\"WAREHOUSE_DB\", \"env_var(''OTHER_DB'')\")'",
+            id="bare-embedded-env-var-default",
+        ),
+    ],
+)
+def test_load_selected_profile_rejects_unsupported_env_var_defaults(
+    tmp_path: Path,
+    database_value: str,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        f"""
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: legacy.duckdb
+          warehouse:
+            type: duckdb
+            database: {database_value}
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile(
+        context_result.context,
+        contracts=(contract(source_connection="legacy", target_connection="warehouse"),),
+    )
+
+    assert not result.succeeded
+    assert result.profile is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_CONFIG"
+    ]
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+    assert "{{ raw }}" not in diagnostic_text
+    assert "{% if env %}" not in diagnostic_text
+    assert "{# prod.duckdb #}" not in diagnostic_text
+    assert "OTHER_DB" not in diagnostic_text
+
+
 def test_load_selected_profile_rejects_unsupported_bare_env_var_expression(
     tmp_path: Path,
 ) -> None:

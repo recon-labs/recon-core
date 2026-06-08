@@ -384,8 +384,10 @@ def _render_string(
     environ: Mapping[str, str],
     diagnostics: list[Diagnostic],
 ) -> str:
-    if _contains_unsupported_template_expression(value) or _contains_unsupported_env_var_expression(
-        value
+    if (
+        _contains_unsupported_template_expression(value)
+        or _contains_unsupported_env_var_expression(value)
+        or _contains_unsupported_env_var_default(value)
     ):
         diagnostics.append(
             _diagnostic(
@@ -461,6 +463,25 @@ def _contains_unsupported_env_var_expression(value: str) -> bool:
         )
 
     return _BARE_ENV_VAR_PATTERN.fullmatch(value.strip()) is None
+
+
+def _contains_unsupported_env_var_default(value: str) -> bool:
+    if any(
+        _contains_unsupported_env_var_default_value(match.group("default"))
+        for match in _ENV_VAR_PATTERN.finditer(value)
+    ):
+        return True
+
+    bare_match = _BARE_ENV_VAR_PATTERN.fullmatch(value.strip())
+    return bare_match is not None and _contains_unsupported_env_var_default_value(
+        bare_match.group("default")
+    )
+
+
+def _contains_unsupported_env_var_default_value(default: str | None) -> bool:
+    if default is None:
+        return False
+    return _contains_template_marker(default) or _ENV_VAR_CALL_PATTERN.search(default) is not None
 
 
 def _template_marker_positions(value: str, marker: str) -> tuple[int, ...]:

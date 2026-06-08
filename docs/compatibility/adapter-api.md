@@ -290,14 +290,15 @@ Initial rules:
 - reject unsupported bare `env_var(...)` expressions, embedded env-var calls,
   filters, Jinja statement/comment fragments such as `{% ... %}` and
   `{# ... #}`, and other unsupported template fragments in referenced
-  non-routing fields instead of passing them through as literal config,
+  non-routing fields or env-var defaults instead of passing them through as
+  literal config,
 - require each connection `type` to be a literal non-empty adapter type; `type`
   is adapter routing metadata and does not support `env_var(...)` rendering,
 - model environment-specific adapter choices with separate selected targets or
   separate named connections, each with a literal `type`,
 - fail on missing environment variables in referenced connection payloads,
 - fail on unsupported template syntax, including `{{ ... }}`, `{% ... %}`,
-  and `{# ... #}`, in referenced connection payloads,
+  and `{# ... #}`, in referenced connection payloads or env-var defaults,
 - ignore missing environment variables in unselected targets and unreferenced
   connections for contract-specific invocations,
 - never emit secrets or fully rendered credential payloads in generated

@@ -253,9 +253,9 @@ defaults, for non-routing connection config fields. Bare `env_var(...)` is only
 valid as the whole rendered scalar aside from whitespace; unsupported bare
 env-var expressions, embedded env-var calls, filters, Jinja statement/comment
 fragments such as `{% ... %}` and `{# ... #}`, and unsupported template
-fragments in referenced non-routing fields fail profile loading instead of
-passing through as literal config. Connection `type` values must be literal
-adapter types and must not contain template fragments.
+fragments in referenced non-routing fields or env-var defaults fail profile
+loading instead of passing through as literal config. Connection `type` values
+must be literal adapter types and must not contain template fragments.
 
 Missing environment variables in referenced connection payloads are errors.
 Missing environment variables in unselected targets or unreferenced connections

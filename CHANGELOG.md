@@ -235,10 +235,10 @@ This project follows semantic versioning once public package releases begin.
 - Invalid `connections/profiles.yml` YAML diagnostics no longer include the
   raw YAML parser message, preventing malformed secret-bearing lines from
   appearing in CLI diagnostics.
-- Referenced `connections/profiles.yml` connection values that contain
-  unsupported Jinja template fragments, including `{{ ... }}`, `{% ... %}`,
-  and `{# ... #}`, now fail profile validation instead of passing raw template
-  text to adapters.
+- Referenced `connections/profiles.yml` connection values and env-var defaults
+  that contain unsupported Jinja template fragments or embedded `env_var(...)`
+  calls now fail profile validation instead of passing raw template text to
+  adapters.
 - CLI failures now print each diagnostic message as well as the diagnostic
   code, so `recon compile --render-sql` profile and adapter errors expose the
   actionable failure detail in terminal output.
