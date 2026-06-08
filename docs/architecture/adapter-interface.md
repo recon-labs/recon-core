@@ -303,6 +303,8 @@ A future adapter test kit should validate:
 - malformed adapter factory diagnostic payloads, including invalid
   `Diagnostic` field values,
 - profile `type`/adapter metadata mismatch rejection,
+- renderer `adapter_type` binding for any future public/shared helper that
+  accepts an explicit renderer,
 - check compatibility,
 - empty and malformed renderer output failures,
 - render-sql compile-validation blocked metadata when the test kit drives core

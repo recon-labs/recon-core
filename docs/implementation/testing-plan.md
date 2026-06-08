@@ -202,7 +202,10 @@ fails with `RC_ADAPTER_METADATA_INVALID`, profile `type`/adapter metadata
 mismatches fail with `RC_ADAPTER_TYPE_MISMATCH`, empty renderer output fails
 with `RC_ADAPTER_RENDERED_SQL_EMPTY`, malformed non-empty renderer output fails
 with `RC_ADAPTER_OPERATION_RENDER_FAILED`, including unsafe or duplicate
-renderer step names, and adapter factory exceptions, adapter metadata
+renderer step names, public/shared rendering helpers that accept explicit
+renderers fail before rendering when the renderer `adapter_type` is missing,
+malformed, exception-raising, or different from the resolved adapter type, and
+adapter factory exceptions, adapter metadata
 exceptions, and capability declaration exceptions become sanitized structured
 diagnostics instead of raw exceptions that can leak rendered profile keys or
 values.

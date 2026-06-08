@@ -85,6 +85,9 @@ test snapshots. It must include literal adapter `type` routing, including
 rejection of templated `{{ ... }}`, `{% ... %}`, `{# ... #}`, or
 `env_var(...)` `type` before adapter resolution, plus rejection of
 factory-returned adapter metadata that differs from the literal profile `type`,
+public/shared rendering helper cases where a supplied renderer's
+`adapter_type` is missing, malformed, exception-raising, or different from the
+resolved adapter type and therefore fails before rendering,
 diagnostic-code cases where unsafe config keys or rendered values are embedded
 in delimiter-separated or separatorless forms, such as `RC_PASSWORD_LEAK`,
 `RCPASSWORDLEAK`, `RCsuper-secretLEAK`, and `RC12LEAK`, before the shared test

@@ -316,7 +316,12 @@ conformance does not only prove value-shaped examples or delimiter-separated
 matching. It
 must also cover raw adapter exceptions from factories, adapter metadata
 declarations, and capability declarations, plus empty and malformed renderer
-output diagnostics. If a shared adapter test-kit harness drives core
+output diagnostics. Any shared helper, adapter repository, or test-kit harness
+that accepts both a resolved adapter and an explicit renderer must validate the
+renderer's `adapter_type` against the resolved adapter type before calling
+`render_plan()`, including clear failure cases for missing, malformed,
+exception-raising, or mismatched renderer metadata. If a shared adapter
+test-kit harness drives core
 `render-sql` flows, it must also cover compile-validation blocked metadata:
 otherwise renderable checks are marked `blocked` with
 `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS`, no compiled SQL is

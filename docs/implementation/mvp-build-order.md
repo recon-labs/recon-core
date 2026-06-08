@@ -399,6 +399,10 @@ Required gates:
   separate targets or named connections with literal `type` values; resolved
   adapter `adapter_type` metadata must match the literal profile `type` before
   renderer selection or execution,
+- if Milestone 7 introduces a renderer registry, execution-time renderer
+  selection, or any public/shared rendering helper that accepts an explicit
+  renderer, validate the renderer's declared `adapter_type` against the
+  resolved adapter type before rendering,
 - require adapter/profile diagnostic redaction conformance to cover unsafe
   rendered profile keys or values independently in diagnostic code, message,
   hint, path, `resource_type`, `resource_name`, `line`, `column`, and future
@@ -1434,6 +1438,11 @@ Required gate:
   payload, missing or invalid adapter API version declaration, and malformed
   capability support-state cases before creating or splitting the test-kit
   repository,
+- include public/shared rendering helper cases before creating or splitting the
+  test-kit repository: when a helper or harness accepts both a resolved adapter
+  and an explicit renderer, missing, malformed, exception-raising, or
+  mismatched renderer `adapter_type` metadata must fail before `render_plan()`
+  is invoked,
 - include sanitized adapter factory exception and sanitized capability
   declaration exception cases before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,
