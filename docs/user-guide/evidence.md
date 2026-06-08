@@ -16,9 +16,10 @@ Evidence should show:
 - pass/fail/warn/error status,
 - failure details where configured.
 
-Current implementation writes manifest and compiled YAML artifacts. Run results,
-failure details, reports, compiled SQL, and stateful evidence outputs are
-planned but not implemented yet.
+Current implementation writes manifest and compiled YAML artifacts. It also
+writes compiled SQL when `recon compile --render-sql` succeeds for supported
+adapter-backed checks. Run results, failure details, reports, and stateful
+evidence outputs are planned but not implemented yet.
 
 ## Current Machine-Readable Artifacts
 
@@ -34,22 +35,24 @@ integrations.
 ```text
 target/compiled_contracts/
 target/compiled_checks/
+target/compiled_sql/       # when recon compile --render-sql succeeds
 ```
 
-Compiled artifacts explain what Recon will run.
+Compiled artifacts explain what Recon will run. Compiled SQL is generated from
+the rendered typed check plans; it is inspectable compile output, not evidence
+that a check has executed.
 
 ## Planned Run Evidence
 
 Future run and evidence generation should write:
 
 ```text
-target/compiled_sql/
 target/run_results.json
 target/failures/
 reports/
 ```
 
-Reports will explain what Recon did run.
+Run results and reports will explain what Recon did run.
 
 ## Failure details
 

@@ -439,7 +439,9 @@ Milestone 5 should implement validation for missing `grain.keys`, missing
 `cdc.keys`, strict `basic_equivalence`, CDC delete mode, and CDC ordering where
 the relevant checks are compiled.
 
-Milestone 7 should implement prerequisite tracking and blocked check results.
+Milestone 7.1 should implement prerequisite tracking and blocked check result
+representation. Milestone 7.3 should execute grain-key safety checks and prove
+that null or duplicate grain keys block dependent future row-level value checks.
 
 CDC check implementation should start with a small supported subset and keep
 unsupported CDC modes explicit in diagnostics and evidence.

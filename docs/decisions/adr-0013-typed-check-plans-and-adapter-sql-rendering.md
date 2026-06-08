@@ -237,7 +237,10 @@ Milestone 5 should make validation and capability requirements explicit.
 Milestone 6 should implement the first local/dev adapter and the first internal
 adapter test-kit shape.
 
-Milestone 7 should execute compiled typed plans through adapters.
+Execution of compiled typed plans is staged through the Milestone 7 split:
+Milestone 7.2 starts adapter execution with row count, Milestone 7.3 executes
+grain-key safety checks, and Milestone 7.4 executes current aggregate metric
+checks.
 
 Production adapter repositories such as `recon-snowflake` and `recon-postgres`
 should split only after the adapter API and shared tests are stable enough.

@@ -340,17 +340,20 @@ Adding or changing a typed operation is a public adapter and typed-plan change.
 Milestone 6 renders SQL. It does not decide every future execution placement
 strategy.
 
-Before check-engine execution, Recon must define where comparison work may run:
+Before typed-plan execution, Recon must define where comparison work may run for
+the relevant execution sub-milestone:
 
 - source system,
 - target system,
 - adapter-managed intermediate system such as DuckDB,
 - bounded Python-side comparison inside Recon Core.
 
-The first check-engine implementation must not silently fall back to Python for
-unsupported SQL behavior. Any Python or intermediate-system fallback requires
-explicit limits, diagnostics, privacy rules, result semantics, and evidence
-visibility.
+Milestone 7.2 must define placement for row-count execution, Milestone 7.3 must
+define placement for grain-key safety execution, and Milestone 7.4 must define
+placement for aggregate metric execution. No execution sub-milestone may
+silently fall back to Python for unsupported SQL behavior. Any Python or
+intermediate-system fallback requires explicit limits, diagnostics, privacy
+rules, result semantics, and evidence visibility.
 
 ## Alternatives Considered
 
@@ -404,7 +407,8 @@ a clear diagnostic until a fallback strategy is designed.
   repositories split.
 - Production adapter packages remain gated by adapter API stability and a
   shared adapter test kit.
-- Check execution placement remains a required decision before Milestone 7.
+- Check execution placement remains a required decision before Milestone 7.2,
+  7.3, or 7.4 executes its assigned typed plans.
 
 ## Implementation Guidance
 

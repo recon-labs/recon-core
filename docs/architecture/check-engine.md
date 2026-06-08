@@ -29,6 +29,14 @@ EvidenceArtifact references
 Diagnostics
 ```
 
+Milestone 7 introduces the check engine in split stages. Milestone 7.1 owns the
+boundary, result status model, internal dispatch, and prerequisite/blocking
+representation. Milestone 7.2 starts execution with row count, Milestone 7.3 adds
+grain-key safety execution, and Milestone 7.4 adds current aggregate metric
+execution. Run-result artifacts remain Milestone 8, and evidence reports,
+failure details, and evidence links remain Milestone 9 unless a later split
+explicitly changes those boundaries.
+
 ## Check lifecycle
 
 Recommended lifecycle:

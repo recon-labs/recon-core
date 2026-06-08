@@ -32,6 +32,14 @@ EvidenceArtifact references
 Diagnostics
 ```
 
+Implementation is split across Milestone 7 sub-milestones. Milestone 7.1 owns
+the check-engine boundary, status model, internal dispatch, and
+prerequisite/blocking representation. Milestone 7.2 adds row-count execution,
+Milestone 7.3 adds grain-key safety execution, and Milestone 7.4 adds current
+aggregate metric execution. `target/run_results.json` remains Milestone 8, and
+evidence reports, failure details, and evidence links remain Milestone 9 unless
+a later split explicitly changes those boundaries.
+
 ## Check interface
 
 Each check implementation should declare:

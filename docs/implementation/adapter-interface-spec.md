@@ -373,10 +373,13 @@ a clear unsupported diagnostic until query execution is designed.
 ## Execution placement
 
 The adapter interface does not by itself decide where comparisons execute.
-Milestone 7 check-engine work must define whether comparisons run in source
-systems, target systems, adapter-managed intermediate systems, or bounded
-Python-side comparison. Unsupported SQL rendering must not silently fall back to
-Python.
+Milestone 7 is split so execution placement is assigned by executable surface:
+Milestone 7.2 defines row-count placement, Milestone 7.3 defines grain-key
+safety placement, and Milestone 7.4 defines aggregate metric placement. Each
+sub-milestone must define whether its comparisons run in source systems, target
+systems, adapter-managed intermediate systems, or bounded Python-side
+comparison. Unsupported SQL rendering or execution must not silently fall back
+to Python.
 
 ## Hashing
 

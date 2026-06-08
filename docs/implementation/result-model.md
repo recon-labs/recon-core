@@ -145,6 +145,11 @@ value suppressed in one public surface is not leaked through another.
 
 ## JSON artifact
 
+Milestone 7.1 may define the check result/status model and prerequisite or
+blocked-check representation without writing a generated run-result artifact.
+`target/run_results.json` remains Milestone 8 unless a future split explicitly
+changes that boundary.
+
 `target/run_results.json` should include:
 
 - artifact type,
