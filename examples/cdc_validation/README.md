@@ -20,13 +20,20 @@ schema_policies/
 
 ## Current Status
 
-This is a project and contract fixture for the framework design. `recon parse`
-and `recon compile` are implemented for the current parser and compiler scope.
-`recon run` is registered in the CLI but is not implemented yet.
+This is a future/negative design fixture for the framework design, not a
+currently executable CDC example. `recon parse` is implemented for the current
+parser scope, but `recon compile` is expected to reject the unsupported future
+surfaces used here. `recon run` is registered in the CLI but is not implemented
+yet.
 
-This example references `recon_core.cdc_equivalence`, which remains future
-compiler scope. Current `recon compile` should report that pack as unsupported
-rather than silently ignoring it.
+This fixture intentionally includes current compile blockers:
+
+- `recon_core.cdc_equivalence` remains future compiler scope. Current
+  `recon compile` should report that pack as unsupported rather than silently
+  ignoring it.
+- `columns.timestamp[].tolerance: 5 seconds` remains future timestamp tolerance
+  scope. Current `recon compile` should reject that unsupported tolerance syntax
+  rather than treating timestamp tolerance as executable behavior.
 
 Generated artifacts are written under `target/`. Future evidence and state
 outputs belong under `reports/` and `state/`. Those directories should not be
