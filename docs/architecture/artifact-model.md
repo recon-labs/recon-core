@@ -112,6 +112,11 @@ as current evidence. Future writers for run results, evidence, failure details,
 reports, state, docs output, and selector-scoped artifacts must define that
 lifecycle before the artifact becomes a compatibility surface.
 
+Batched artifact writers should validate all batch path components and preflight
+all output paths before writing the first file. For compiled SQL, unsafe
+contract, check, or renderer step path segments and case-insensitive duplicate
+step names must fail before `target/compiled_sql/` is published.
+
 ## Artifact versioning
 
 Artifact formats should include top-level header fields.

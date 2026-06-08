@@ -161,6 +161,9 @@ renderer output is a rendering failure and must not be represented as successful
 rendering with empty `sql_paths`. Malformed non-empty renderer output is also a
 rendering failure and must not reach compiled SQL artifact writing, including
 unsafe path-like or duplicate renderer step names.
+The compiled SQL writer validates the whole SQL batch and preflights output
+paths before writing any SQL file, so invalid later renderer steps must not leave
+partial `target/compiled_sql/` artifacts behind.
 For example:
 
 ```text

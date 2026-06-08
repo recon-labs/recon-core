@@ -1,4 +1,7 @@
+import importlib
+import os
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -34,6 +37,20 @@ _DUCKDB_NUMERIC_SUM_TYPES = (
 )
 _SOURCE_RELATION_SQL = '"qa"."customer_source"'
 _TARGET_RELATION_SQL = '"qa"."customer_target"'
+
+
+def _duckdb_module() -> Any:
+    if os.environ.get("RECON_REQUIRE_DUCKDB_TESTS") == "1":
+        try:
+            return importlib.import_module("duckdb")
+        except ImportError:
+            pytest.fail(
+                "DuckDB SQL renderer semantic tests are required in this environment. "
+                "Install with `.[dev,duckdb]`.",
+                pytrace=False,
+            )
+
+    return pytest.importorskip("duckdb")
 
 
 def _aggregate_input_predicate(relation: str, column: str = "revenue") -> str:
@@ -470,7 +487,7 @@ def test_render_grouped_aggregate_comparison_plan(
 def test_key_diff_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (customer_id integer)")
     con.execute("create table target_table (customer_id varchar)")
@@ -493,7 +510,7 @@ def test_key_diff_type_mismatch_raises_duckdb_error(
 def test_key_diff_type_mismatch_raises_duckdb_error_without_rows(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (customer_id integer)")
     con.execute("create table target_table (customer_id varchar)")
@@ -514,7 +531,7 @@ def test_key_diff_type_mismatch_raises_duckdb_error_without_rows(
 def test_aggregate_value_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (revenue integer)")
     con.execute("create table target_table (revenue double)")
@@ -546,7 +563,7 @@ def test_aggregate_value_type_mismatch_raises_duckdb_error(
 def test_aggregate_input_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (revenue boolean)")
     con.execute("create table target_table (revenue integer)")
@@ -578,7 +595,7 @@ def test_aggregate_input_type_mismatch_raises_duckdb_error(
 def test_aggregate_boolean_input_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (flag boolean)")
     con.execute("create table target_table (flag boolean)")
@@ -610,7 +627,7 @@ def test_aggregate_boolean_input_raises_duckdb_error(
 def test_aggregate_unsupported_same_input_type_raises_recon_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (revenue varchar)")
     con.execute("create table target_table (revenue varchar)")
@@ -642,7 +659,7 @@ def test_aggregate_unsupported_same_input_type_raises_recon_error(
 def test_aggregate_large_bigint_preserves_exact_difference(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (revenue bigint)")
     con.execute("create table target_table (revenue bigint)")
@@ -673,7 +690,7 @@ def test_aggregate_large_bigint_preserves_exact_difference(
 def test_aggregate_decimal_input_preserves_exact_difference(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (revenue decimal(10, 2))")
     con.execute("create table target_table (revenue decimal(10, 2))")
@@ -706,7 +723,7 @@ def test_aggregate_decimal_input_preserves_exact_difference(
 def test_aggregate_uhugeint_input_raises_recon_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (revenue uhugeint)")
     con.execute("create table target_table (revenue uhugeint)")
@@ -738,7 +755,7 @@ def test_aggregate_uhugeint_input_raises_recon_error(
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month integer, revenue integer)")
     con.execute("create table target_table (month varchar, revenue integer)")
@@ -772,7 +789,7 @@ def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error(
 def test_grouped_aggregate_value_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month integer, revenue integer)")
     con.execute("create table target_table (month integer, revenue double)")
@@ -806,7 +823,7 @@ def test_grouped_aggregate_value_type_mismatch_raises_duckdb_error(
 def test_grouped_aggregate_input_type_mismatch_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month integer, revenue integer)")
     con.execute("create table target_table (month integer, revenue bigint)")
@@ -840,7 +857,7 @@ def test_grouped_aggregate_input_type_mismatch_raises_duckdb_error(
 def test_grouped_aggregate_boolean_input_raises_duckdb_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month integer, flag boolean)")
     con.execute("create table target_table (month integer, flag boolean)")
@@ -874,7 +891,7 @@ def test_grouped_aggregate_boolean_input_raises_duckdb_error(
 def test_grouped_aggregate_unsupported_same_input_type_raises_recon_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month varchar, revenue varchar)")
     con.execute("create table target_table (month varchar, revenue varchar)")
@@ -908,7 +925,7 @@ def test_grouped_aggregate_unsupported_same_input_type_raises_recon_error(
 def test_grouped_aggregate_large_bigint_preserves_exact_difference(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month varchar, revenue bigint)")
     con.execute("create table target_table (month varchar, revenue bigint)")
@@ -943,7 +960,7 @@ def test_grouped_aggregate_large_bigint_preserves_exact_difference(
 def test_grouped_aggregate_decimal_input_preserves_exact_difference(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month varchar, revenue decimal(10, 2))")
     con.execute("create table target_table (month varchar, revenue decimal(10, 2))")
@@ -978,7 +995,7 @@ def test_grouped_aggregate_decimal_input_preserves_exact_difference(
 def test_grouped_aggregate_uhugeint_input_raises_recon_error(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month varchar, revenue uhugeint)")
     con.execute("create table target_table (month varchar, revenue uhugeint)")
@@ -1012,7 +1029,7 @@ def test_grouped_aggregate_uhugeint_input_raises_recon_error(
 def test_grouped_aggregate_key_type_mismatch_raises_duckdb_error_without_rows(
     renderer: DuckDbSqlRenderer,
 ) -> None:
-    duckdb = pytest.importorskip("duckdb")
+    duckdb = _duckdb_module()
     con = duckdb.connect(database=":memory:")
     con.execute("create table source_table (month integer, revenue integer)")
     con.execute("create table target_table (month varchar, revenue integer)")

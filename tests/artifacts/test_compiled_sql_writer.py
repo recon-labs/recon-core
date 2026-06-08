@@ -96,6 +96,56 @@ def test_compiled_sql_writer_rejects_path_like_names(tmp_path: Path) -> None:
     assert not (tmp_path / "target" / "outside.sql").exists()
 
 
+def test_compiled_sql_writer_rejects_invalid_later_step_without_partial_sql(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="safe compiled SQL path segment"):
+        CompiledSqlWriter().write(
+            contract_name="customer_revenue",
+            check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+            rendered_sql=(
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="00-row_count-source",
+                ),
+                RenderedSql(
+                    sql="select 2",
+                    operation_type="row_count",
+                    step_name="../outside",
+                ),
+            ),
+            target_path=tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
+
+
+def test_compiled_sql_writer_rejects_case_insensitive_duplicate_steps_without_partial_sql(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="not unique"):
+        CompiledSqlWriter().write(
+            contract_name="customer_revenue",
+            check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+            rendered_sql=(
+                RenderedSql(
+                    sql="select 1",
+                    operation_type="row_count",
+                    step_name="Same",
+                ),
+                RenderedSql(
+                    sql="select 2",
+                    operation_type="row_count",
+                    step_name="same",
+                ),
+            ),
+            target_path=tmp_path / "target",
+        )
+
+    assert not (tmp_path / "target" / COMPILED_SQL_DIR_NAME).exists()
+
+
 def test_compiled_sql_writer_rejects_symlinked_compiled_sql_directory(
     tmp_path: Path,
 ) -> None:

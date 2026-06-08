@@ -77,6 +77,12 @@ This project follows semantic versioning once public package releases begin.
 
 ### Fixed
 
+- CI now runs DuckDB SQL renderer semantic tests in a required job that installs
+  `.[dev,duckdb]`, preventing optional DuckDB execution coverage from being
+  silently skipped.
+- `CompiledSqlWriter` now validates a full SQL batch and preflights output paths
+  before writing any files, preventing partial `target/compiled_sql/` output
+  when a later rendered step is invalid.
 - `recon compile` now reports structured validation diagnostics for invalid
   stable ID parts, duplicate contract names, and case-insensitive compiled
   artifact filename collisions instead of crashing or silently overwriting

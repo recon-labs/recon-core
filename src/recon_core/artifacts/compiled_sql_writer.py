@@ -23,27 +23,47 @@ class CompiledSqlWriter:
         target_path: Path,
         overwrite: bool = False,
     ) -> tuple[str, ...]:
+        _validate_compiled_sql_batch(
+            contract_name=contract_name,
+            check_id=check_id,
+            rendered_sql=rendered_sql,
+        )
         output_root = target_path / COMPILED_SQL_DIR_NAME
         ensure_real_artifact_directory(output_root)
         contract_dir = _ensure_safe_nested_directory(output_root, contract_name)
         check_dir = _ensure_safe_nested_directory(contract_dir, check_id)
 
         sql_paths: list[str] = []
-        seen_step_names: set[str] = set()
-        for rendered in rendered_sql:
-            _validate_compiled_sql_path_segment(rendered.step_name)
-            if rendered.step_name in seen_step_names:
-                raise ValueError(
-                    f"Compiled SQL step name {rendered.step_name!r} is not unique "
-                    f"for check {check_id!r}."
-                )
-            seen_step_names.add(rendered.step_name)
-            output_path = check_dir / f"{rendered.step_name}.sql"
+        output_paths = tuple(check_dir / f"{rendered.step_name}.sql" for rendered in rendered_sql)
+        for output_path in output_paths:
             ensure_safe_artifact_write(output_path, overwrite=overwrite)
+
+        for rendered, output_path in zip(rendered_sql, output_paths, strict=True):
             output_path.write_text(_sql_text(rendered.sql), encoding="utf-8")
             sql_paths.append(output_path.relative_to(target_path).as_posix())
 
         return tuple(sql_paths)
+
+
+def _validate_compiled_sql_batch(
+    *,
+    contract_name: str,
+    check_id: str,
+    rendered_sql: tuple[RenderedSql, ...],
+) -> None:
+    _validate_compiled_sql_path_segment(contract_name)
+    _validate_compiled_sql_path_segment(check_id)
+
+    seen_step_names: set[str] = set()
+    for rendered in rendered_sql:
+        _validate_compiled_sql_path_segment(rendered.step_name)
+        normalized_step_name = rendered.step_name.casefold()
+        if normalized_step_name in seen_step_names:
+            raise ValueError(
+                f"Compiled SQL step name {rendered.step_name!r} is not unique "
+                f"for check {check_id!r}."
+            )
+        seen_step_names.add(normalized_step_name)
 
 
 def _ensure_safe_nested_directory(parent: Path, directory_name: str) -> Path:

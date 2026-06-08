@@ -165,6 +165,13 @@ Adapter tests for key-dependent operations should cover null-key detection,
 duplicate-key detection, key-diff rendering, and CDC-key operation rendering
 where supported.
 
+The in-core DuckDB SQL renderer semantic tests must be gated in CI with the
+optional DuckDB extra installed. The required CI path should install
+`.[dev,duckdb]`, set `RECON_REQUIRE_DUCKDB_TESTS=1`, and run
+`tests/adapters/test_duckdb_sql_renderer.py` so optional dependency coverage
+cannot silently skip the SQL comparison cases that protect no-coercion and exact
+numeric behavior.
+
 Production adapters should eventually use a shared adapter test kit. The same
 test kit should run in every adapter repo and should include operation-rendering
 golden tests.
