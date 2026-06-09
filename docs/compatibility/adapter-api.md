@@ -344,11 +344,13 @@ a different comparison engine than Core planned.
 Probabilistic key-diff strategies, including Bloom filters or other set
 sketches, are also Core-owned semantics. Future adapters may build, serialize,
 merge, or probe probabilistic summaries only after Recon defines false-positive
-policy, hash and key canonicalization, partition/window scope, privacy
-classification for serialized summaries, result/evidence wording, and whether
-suspected missing or extra records require exact confirmation before export.
-An adapter must not report a probabilistic hit as exact source-target
-equivalence.
+policy, hash and key canonicalization, composite-key serialization,
+bidirectional A-to-B and B-to-A probing, partition/window scope, multi-phase
+build/transport/store/probe/compare/cleanup lifecycle, privacy classification
+for serialized summaries, intermediate summary/result storage, result/evidence
+wording, and whether suspected missing or extra records require exact
+confirmation before export. An adapter must not report a probabilistic hit as
+exact source-target equivalence.
 
 For result and evidence sinks, Core owns sink mode, destination requiredness,
 sink-write status, privacy classification, and the rule that sink placement
@@ -643,7 +645,7 @@ The following changes affect adapter API compatibility:
 | Changing profile selection, env-var rendering, or secret redaction rules | Compatibility-impacting. |
 | Changing compiled SQL path or rendering status semantics | Compatibility-impacting for artifacts and adapters. |
 | Changing execution placement, comparison placement, Python fallback, or materialization/staging semantics | Compatibility-impacting for typed plans, adapters, results, evidence, and test kits. |
-| Adding or changing probabilistic key-diff, Bloom/sketch, false-positive-rate, hash/canonicalization, partitioning, or exact-confirmation semantics | Compatibility-impacting for typed plans, adapters, results, evidence, failure details, and test kits. |
+| Adding or changing probabilistic key-diff, Bloom/sketch, false-positive-rate, hash/canonicalization, composite-key serialization, bidirectional probing, partitioning, multi-phase lifecycle, intermediate summary storage, or exact-confirmation semantics | Compatibility-impacting for typed plans, adapters, results, evidence, failure details, and test kits. |
 | Adding required staging, execution, or sink-write adapter methods | Adapter API version change. |
 | Changing result/evidence sink mode, sink requiredness, sink-write status, destination ownership, table schema, migration, or partial-write behavior | Compatibility-impacting and may be breaking for result readers, adapters, and integrations. |
 | Moving an in-core adapter into an external package | Compatibility-impacting and requires migration guidance. |

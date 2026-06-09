@@ -147,7 +147,7 @@ tests, and adapter test-kit rows.
 | Execution placement | `side_local_execution`, `same_context_execution`, `bounded_result_fetch` | Adapter can execute the planned operation in the location Core selected and return only the bounded result shape Core allowed. |
 | Comparison placement | `same_context_comparison`, `external_comparison_engine` | Adapter or configured engine can compare source and target results in one approved context without adapter-owned semantic changes. |
 | Materialization and staging | `temporary_staging_for_comparison`, `relation_extract`, `relation_load`, `table_to_table_copy` | Adapter can move, stage, or load data or summaries only under an explicit materialization policy with cleanup, privacy, and limits. |
-| Probabilistic key coverage | `bloom_filter_build`, `bloom_filter_probe`, `bloom_filter_serialize`, `set_sketch_merge`, `probabilistic_key_diff` | Adapter can build, serialize, transfer, merge, or probe key-membership summaries only under an explicit false-positive, hash/canonicalization, partitioning, privacy, and evidence policy. |
+| Probabilistic key coverage | `bloom_filter_build`, `bloom_filter_probe`, `bloom_filter_serialize`, `set_sketch_merge`, `probabilistic_key_diff` | Adapter can build, serialize, transfer, merge, store, or probe key-membership summaries only under an explicit false-positive, hash/canonicalization, composite-key serialization, bidirectional probing, partitioning, privacy, intermediate-summary, and evidence policy. |
 | Result/evidence table writes | `table_create`, `table_migrate`, `table_append`, `table_upsert`, `table_merge`, `transactional_batch_write`, `table_metadata`, `temporary_staging_for_sink` | Adapter can write production result/evidence sink records with explicit schema, versioning, migration, idempotency, retry, and partial-write behavior. |
 
 The final names may differ. The compatibility requirement is the same: unknown,
@@ -177,8 +177,9 @@ Capability changes affect compatibility when they:
 - change execution placement, comparison placement, materialization/staging, or
   sink-write capability semantics.
 - add or change probabilistic key-diff, Bloom filter, set sketch,
-  false-positive-rate, hash/canonicalization, partitioning, or exact
-  confirmation capability semantics.
+  false-positive-rate, hash/canonicalization, composite-key serialization,
+  bidirectional probing, partitioning, multi-phase lifecycle,
+  intermediate-summary storage, or exact-confirmation capability semantics.
 
 When a capability changes, update:
 
