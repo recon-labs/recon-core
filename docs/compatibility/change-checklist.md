@@ -66,6 +66,9 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked whether execution placement changed across operation execution
       location, comparison location, materialization/staging policy, Python
       fallback behavior, or unsupported-placement diagnostics.
+- [ ] Checked whether probabilistic key-diff, Bloom filters, set sketches,
+      false-positive-rate policy, hash/canonicalization, partition/window
+      scope, sensitive summary handling, or exact-confirmation behavior changed.
 - [ ] Checked whether result/evidence sink placement changed across sink mode,
       source/target/third destination ownership, sink requiredness,
       sink-write status, table schema/versioning, migration, idempotency,
@@ -166,6 +169,10 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked materialization/staging conformance before any adapter claims
       temporary staging, extracts, loads, table-to-table copy, cleanup,
       row/memory limits, or large-result movement compatibility.
+- [ ] Checked probabilistic key-diff conformance before any adapter claims
+      Bloom filter, set sketch, approximate key coverage, summary
+      serialization, summary probing, or suspected missing/extra key export
+      compatibility.
 - [ ] Checked result/evidence sink-write conformance before any adapter claims
       table-create, migration, append, upsert, merge, transactional batch
       write, metadata, or staging-for-sink compatibility.
@@ -181,6 +188,9 @@ review. This checklist is a process guide; it is not a CI gate.
       placement, comparison placement, materialization/staging, result/evidence
       sink mode, result table schema, or adapter write/sink compatibility
       changed.
+- [ ] Updated `docs/compatibility/compatibility-matrix.md` when probabilistic
+      key-diff, Bloom/sketch, approximate key coverage, or adapter
+      probabilistic-summary compatibility changed.
 - [ ] Added a new compatibility dimension when the change introduced one.
 
 ### Version constant impact

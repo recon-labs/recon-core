@@ -25,8 +25,9 @@ Current state:
 - `ADAPTER_API_VERSION = "1"` exists in code as a pre-alpha adapter boundary,
 - the in-core DuckDB local development adapter renders current typed check
   plans to SQL,
-- adapter execution, metadata fetching, materialization/staging, and
-  result/evidence sink writes are not implemented yet.
+- adapter execution, metadata fetching, materialization/staging,
+  probabilistic key-diff, and result/evidence sink writes are not implemented
+  yet.
 
 Adapter repositories such as `recon-postgres` and `recon-snowflake` should split
 only after typed check plans, adapter API versioning, and shared adapter tests
@@ -340,6 +341,15 @@ and perform approved mechanics, but they must not silently choose Python
 fallback, dialect-specific casts, inferred mappings, data movement, staging, or
 a different comparison engine than Core planned.
 
+Probabilistic key-diff strategies, including Bloom filters or other set
+sketches, are also Core-owned semantics. Future adapters may build, serialize,
+merge, or probe probabilistic summaries only after Recon defines false-positive
+policy, hash and key canonicalization, partition/window scope, privacy
+classification for serialized summaries, result/evidence wording, and whether
+suspected missing or extra records require exact confirmation before export.
+An adapter must not report a probabilistic hit as exact source-target
+equivalence.
+
 For result and evidence sinks, Core owns sink mode, destination requiredness,
 sink-write status, privacy classification, and the rule that sink placement
 does not imply where a check executed. Future adapters may write result or
@@ -351,8 +361,9 @@ not enough to infer a sink.
 
 External adapter packages, a future `recon-duckdb` split, or a shared adapter
 test kit must not claim compatibility for broad placement, comparison-engine,
-materialization/staging, or table-sink behavior until the relevant capability
-names, conformance matrix rows, and privacy tests exist.
+materialization/staging, probabilistic key-diff, Bloom/sketch, or table-sink
+behavior until the relevant capability names, conformance matrix rows, and
+privacy tests exist.
 
 ## Core-owned behavior
 
@@ -368,6 +379,7 @@ Recon Core owns:
 - base adapter interfaces,
 - comparison execution-placement policy,
 - materialization and staging policy,
+- probabilistic key-diff semantics and evidence wording,
 - result/evidence sink placement, requiredness, write-status, and privacy
   semantics.
 
@@ -388,6 +400,7 @@ Adapters own:
 - temporary object behavior,
 - bounded result fetching,
 - approved materialization and staging mechanics,
+- approved probabilistic summary mechanics,
 - approved result/evidence sink write mechanics,
 - capability declarations,
 - adapter-specific tests.
@@ -630,6 +643,7 @@ The following changes affect adapter API compatibility:
 | Changing profile selection, env-var rendering, or secret redaction rules | Compatibility-impacting. |
 | Changing compiled SQL path or rendering status semantics | Compatibility-impacting for artifacts and adapters. |
 | Changing execution placement, comparison placement, Python fallback, or materialization/staging semantics | Compatibility-impacting for typed plans, adapters, results, evidence, and test kits. |
+| Adding or changing probabilistic key-diff, Bloom/sketch, false-positive-rate, hash/canonicalization, partitioning, or exact-confirmation semantics | Compatibility-impacting for typed plans, adapters, results, evidence, failure details, and test kits. |
 | Adding required staging, execution, or sink-write adapter methods | Adapter API version change. |
 | Changing result/evidence sink mode, sink requiredness, sink-write status, destination ownership, table schema, migration, or partial-write behavior | Compatibility-impacting and may be breaking for result readers, adapters, and integrations. |
 | Moving an in-core adapter into an external package | Compatibility-impacting and requires migration guidance. |
