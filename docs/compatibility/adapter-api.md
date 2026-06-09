@@ -19,10 +19,14 @@ Current state:
 - no external adapter API version has been released,
 - no shared adapter test kit exists yet,
 - ADR 0020 locks the first adapter/profile/rendering boundary for Milestone 6,
+- ADR 0021 locks execution placement and comparison-engine ownership,
+- ADR 0022 locks result/evidence sink placement, privacy, and write-status
+  ownership,
 - `ADAPTER_API_VERSION = "1"` exists in code as a pre-alpha adapter boundary,
 - the in-core DuckDB local development adapter renders current typed check
   plans to SQL,
-- adapter execution and metadata fetching are not implemented yet.
+- adapter execution, metadata fetching, materialization/staging, and
+  result/evidence sink writes are not implemented yet.
 
 Adapter repositories such as `recon-postgres` and `recon-snowflake` should split
 only after typed check plans, adapter API versioning, and shared adapter tests
@@ -323,8 +327,32 @@ SqlRenderer
 ```
 
 `BaseAdapter` owns connection lifecycle, metadata, execution, adapter metadata,
-and capability declarations. `SqlRenderer` owns dialect rendering for Core
-typed operations.
+capability declarations, and future approved write/staging mechanics.
+`SqlRenderer` owns dialect rendering for Core typed operations.
+
+## Execution, Placement, And Sink Compatibility
+
+Execution placement and sink placement are separate compatibility surfaces.
+
+For execution, Core owns the planned operation execution location, comparison
+location, and materialization/staging policy. Adapters may declare capabilities
+and perform approved mechanics, but they must not silently choose Python
+fallback, dialect-specific casts, inferred mappings, data movement, staging, or
+a different comparison engine than Core planned.
+
+For result and evidence sinks, Core owns sink mode, destination requiredness,
+sink-write status, privacy classification, and the rule that sink placement
+does not imply where a check executed. Future adapters may write result or
+evidence tables only after explicit write/sink capabilities, schema/versioning,
+migration, idempotency, retry, retention, and partial-write behavior are
+defined and tested. A source, target, or third configured connection may be a
+sink destination only when the destination is explicit; adapter availability is
+not enough to infer a sink.
+
+External adapter packages, a future `recon-duckdb` split, or a shared adapter
+test kit must not claim compatibility for broad placement, comparison-engine,
+materialization/staging, or table-sink behavior until the relevant capability
+names, conformance matrix rows, and privacy tests exist.
 
 ## Core-owned behavior
 
@@ -337,8 +365,11 @@ Recon Core owns:
 - check requirements and prerequisites,
 - capability requirements,
 - result and evidence models,
-- base adapter interfaces.
-- comparison execution-placement policy.
+- base adapter interfaces,
+- comparison execution-placement policy,
+- materialization and staging policy,
+- result/evidence sink placement, requiredness, write-status, and privacy
+  semantics.
 
 Adapters must not redefine reconciliation semantics.
 
@@ -355,6 +386,9 @@ Adapters own:
 - timestamp behavior,
 - hash behavior,
 - temporary object behavior,
+- bounded result fetching,
+- approved materialization and staging mechanics,
+- approved result/evidence sink write mechanics,
 - capability declarations,
 - adapter-specific tests.
 
@@ -595,6 +629,9 @@ The following changes affect adapter API compatibility:
 | Changing adapter registry behavior | Compatibility-impacting. |
 | Changing profile selection, env-var rendering, or secret redaction rules | Compatibility-impacting. |
 | Changing compiled SQL path or rendering status semantics | Compatibility-impacting for artifacts and adapters. |
+| Changing execution placement, comparison placement, Python fallback, or materialization/staging semantics | Compatibility-impacting for typed plans, adapters, results, evidence, and test kits. |
+| Adding required staging, execution, or sink-write adapter methods | Adapter API version change. |
+| Changing result/evidence sink mode, sink requiredness, sink-write status, destination ownership, table schema, migration, or partial-write behavior | Compatibility-impacting and may be breaking for result readers, adapters, and integrations. |
 | Moving an in-core adapter into an external package | Compatibility-impacting and requires migration guidance. |
 
 Before 1.0, breaking changes may still happen, but they must be documented and
@@ -616,3 +653,5 @@ After adapter packages exist, a breaking adapter API change should include:
 - `docs/decisions/adr-0012-adapter-and-package-ecosystem.md`
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
 - `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`
+- `docs/decisions/adr-0021-execution-placement-and-comparison-engine-strategy.md`
+- `docs/decisions/adr-0022-evidence-privacy-failure-detail-and-result-sinks.md`
