@@ -55,4 +55,5 @@ adr-0018-check-pack-invocation-config.md
 adr-0019-column-and-value-comparison-surface.md
 adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md
 adr-0021-execution-placement-and-comparison-engine-strategy.md
+adr-0022-evidence-privacy-failure-detail-and-result-sinks.md
 ```
