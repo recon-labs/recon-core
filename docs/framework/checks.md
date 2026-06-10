@@ -228,7 +228,12 @@ These are related but different.
 
 ## Check outputs
 
-A check should return a structured result: check name, check type, status, severity, source value, target value, diff value, tolerance, failure count, evidence references, and skip/error reason when applicable.
+A check should return a structured result: check name, check type, status,
+severity, source value, target value, diff value, tolerance, failure count,
+diagnostics, and machine-readable reason code when applicable. Blocked checks
+should include `blocked_by`. Artifact, evidence, failure-detail, state, and
+sink references should appear only when an owning writer actually produced
+those outputs.
 
 ## Status values
 
@@ -238,11 +243,22 @@ Possible statuses:
 - `fail`,
 - `warn`,
 - `error`,
-- `skipped`.
+- `skipped`,
+- `blocked`,
+- `not_executable`.
 
-`error` means the check could not run. `fail` means the check ran and found mismatches. `skipped` should include a clear reason and should not hide unsafe behavior.
+`pass`, `fail`, and `warn` require the check to have executed. `error` means
+Recon hit a runtime, artifact, internal, or unsafe-condition problem that
+prevents a trustworthy result. `skipped` means explicit user, configuration, or
+future selector policy intentionally skipped the check. `blocked` means a
+prerequisite failed, errored, or was unavailable. `not_executable` means the
+compiled check is valid but cannot run with the current engine, typed
+operation, capability, placement, materialization policy, or implemented
+surface.
 
-When a check is skipped because a prerequisite failed, the result should include `blocked_by` and `skip_reason`.
+Prerequisite failures should not be represented as skipped checks. A dependent
+check should return `blocked` with `blocked_by`, a machine-readable reason
+code, and safe diagnostics.
 
 ## Severity
 

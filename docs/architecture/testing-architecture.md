@@ -83,7 +83,7 @@ Examples:
 - manifest shape,
 - compiled check shape,
 - run result shape,
-- blocked checks include prerequisites and skip reasons,
+- blocked checks include prerequisites and machine-readable reason codes,
 - diagnostic inclusion,
 - artifact version field.
 
