@@ -136,9 +136,12 @@ compiled SQL artifacts for current DuckDB relation-backed typed plans.
 
 Runs compiled checks.
 
-It may parse and compile automatically when generated artifacts are missing or stale.
+The first check-engine boundary should use already compiled checks and should
+not write generated run or evidence artifacts. Later runner/result and evidence
+phases may parse or compile automatically when artifact freshness semantics are
+locked.
 
-Expected outputs:
+Later runner/result and evidence phase outputs:
 
 ```text
 target/run_results.json

@@ -107,9 +107,12 @@ rejected even when overwrite behavior is explicitly enabled.
 
 `recon run` executes checks.
 
-It should use compiled artifacts when they are available and fresh, or parse/compile automatically when needed.
+The first check-engine boundary should use already compiled checks and should
+not write generated run or evidence artifacts. Later runner/result and evidence
+phases may use compiled artifacts when they are available and fresh, or
+parse/compile automatically when artifact freshness semantics are locked.
 
-Main outputs:
+Later runner/result and evidence phase outputs:
 
 ```text
 target/run_results.json

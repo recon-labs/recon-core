@@ -290,9 +290,10 @@ evidence expose the distinction.
 
 ## Query endpoint boundary
 
-Current executable adapter-aware behavior is relation-only. Query endpoints can
-remain parseable, but adapter-aware rendering or execution must return a clear
-unsupported diagnostic for `source.query` or `target.query`.
+Current adapter-aware rendering is relation-backed only. Query endpoints can
+remain parseable, but adapter-aware rendering must return a clear unsupported
+diagnostic for `source.query` or `target.query`. Adapter execution remains
+future work.
 
 Executable query endpoints require a later design for SELECT-only validation,
 single-statement handling, wrapping, artifact visibility, and adapter

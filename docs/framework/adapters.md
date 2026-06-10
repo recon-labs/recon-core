@@ -394,10 +394,10 @@ run results, evidence, or adapter test snapshots are published.
 
 ## Query endpoint boundary
 
-Current executable adapter-aware rendering and execution are relation-only.
-`source.query` and `target.query` may remain parseable, but they must produce a
-clear unsupported diagnostic if adapter-aware rendering or execution tries to
-use them.
+Current adapter-aware rendering is relation-backed only. `source.query` and
+`target.query` may remain parseable, but they must produce a clear unsupported
+diagnostic if adapter-aware rendering tries to use them. Adapter execution
+remains future work.
 
 Current adapter-aware compile implements this boundary for SQL rendering:
 query endpoints produce `blocked` rendering metadata and no SQL files.

@@ -137,7 +137,7 @@ Tests:
 Required gate:
 
 - resolve the local resource loading and precedence gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  the applicable milestone design prework gate before
   expanding this milestone beyond contract-resource loading.
 
 Recommended commit message:
@@ -213,7 +213,7 @@ Required gates:
 
 - resolve the local resource loading and precedence gate,
 - resolve the macro discovery and indexing gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -813,9 +813,9 @@ Build:
 Required gate:
 
 - resolve the generated artifact lifecycle and cleanup gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - resolve the artifact freshness and cache optimization gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -870,7 +870,7 @@ Non-goals:
 Required gate:
 
 - resolve the selectors and contract selection semantics gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - confirm Post-MVP Milestone 10.5 artifact freshness and cleanup behavior is
   sufficient for selector-scoped generated artifacts.
 
@@ -915,7 +915,7 @@ Tests:
 Required gate:
 
 - resolve the aggregate metrics expansion gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  the applicable milestone design prework gate before
   implementation.
 
 Recommended commit message:
@@ -955,7 +955,7 @@ Tests:
 Required gate:
 
 - resolve the schema policy and metadata checks gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  the applicable milestone design prework gate before
   implementation.
 
 Recommended commit message:
@@ -1000,7 +1000,7 @@ Tests:
 Required gate:
 
 - resolve the source-target column mapping gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  the applicable milestone design prework gate before
   implementation.
 
 Recommended commit message:
@@ -1039,7 +1039,7 @@ Do not build:
 Required gate:
 
 - resolve the macro reference semantics gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1078,7 +1078,7 @@ Do not build:
 Required gate:
 
 - resolve the macro execution and rendering boundary gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1166,7 +1166,7 @@ Required gate:
 - resolve the local custom check-pack resource semantics gate,
 - resolve the reusable local policy file resources gate,
 - resolve the packages, deps, and package macro resources gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1198,7 +1198,7 @@ Build:
 Required gate:
 
 - resolve the package dependency installer and lock workflow gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1230,7 +1230,7 @@ Build:
 Required gate:
 
 - resolve the endpoint resources and references gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1260,7 +1260,7 @@ Build:
 Required gate:
 
 - resolve the query endpoint support boundary gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 - resolve the generated artifact lifecycle and cleanup gate if query endpoint
   execution writes query-specific compiled SQL, results, evidence, or debug
   artifacts.
@@ -1299,7 +1299,7 @@ Build:
 Required gate:
 
 - resolve the selectors and contract selection semantics gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 - resolve the generated artifact lifecycle and cleanup gate before selector
   compile/run writes partial or scoped generated artifacts.
 
@@ -1329,7 +1329,7 @@ Build:
 Required gate:
 
 - resolve the defaults, inheritance, and template boundary gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1363,7 +1363,7 @@ Build:
 Required gate:
 
 - resolve the row-level value check execution gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1392,7 +1392,7 @@ Build:
 Required gate:
 
 - resolve the timestamp tolerance and timezone execution gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1420,7 +1420,7 @@ Build:
 Required gate:
 
 - resolve the row hash and canonical hash comparison gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1452,7 +1452,7 @@ Build:
 Required gate:
 
 - resolve the sampling execution modes gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - resolve the probabilistic key-diff/Bloom/sketch gate before using compact
   summaries for sampled key coverage, including false-positive safeguards,
   canonical composite-key serialization, partition/window scope, multi-phase
@@ -1488,7 +1488,7 @@ Build:
 Required gate:
 
 - resolve the multi-policy sampling composition gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1525,7 +1525,7 @@ Do not build:
 Required gate:
 
 - resolve the state, watermarks, and persisted samples gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - prove watermark advancement, persisted sample keys, and previous-failure state
   are explicit, versioned, and recoverable without relying on result tables or
   evidence sinks.
@@ -1562,7 +1562,7 @@ Build:
 Required gate:
 
 - resolve the result table writer gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - resolve adapter write/sink capability requirements before writing through any
   source, target, or third configured connection,
 - define behavior for unsupported sink capability, unsafe destination config,
@@ -1600,7 +1600,7 @@ Build:
 Required gate:
 
 - resolve the CDC first implementation scope gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - resolve the probabilistic key-diff/Bloom/sketch gate before using compact
   summaries for CDC coverage, including bidirectional probing, partition/window
   scope, false-positive handling, exact-confirmation behavior, and evidence
@@ -1632,7 +1632,7 @@ Build:
 Required gate:
 
 - resolve the asymmetric CDC delete representation gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1665,7 +1665,7 @@ Build:
 Required gate:
 
 - resolve the advanced CDC modes and propagation checks gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1696,7 +1696,7 @@ Build:
 Required gate:
 
 - resolve the future CLI commands and options gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` for the
+  the applicable milestone design prework gate for the
   specific command or option being implemented,
 - resolve the documentation generation command gate before adding docs
   generation behavior,
@@ -1734,7 +1734,7 @@ Build:
 Required gate:
 
 - resolve the adapter test kit and adapter package split gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - satisfy the Adapter/Profile Diagnostic Conformance Gate in
   `docs/compatibility/adapter-api.md` before creating or splitting the shared
   test-kit repository, publishing shared test-kit expectations, splitting
@@ -1861,7 +1861,7 @@ Build:
 Required gate:
 
 - resolve the semi-structured and JSON comparison gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1893,7 +1893,7 @@ Build:
 Required gate:
 
 - resolve the advanced evidence, redaction, templates, and sign-off gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - resolve the failure detail JSONL and large result handling gate before adding
   non-CSV or streaming failure-detail formats,
 - resolve exact-confirmation behavior before probabilistic suspected missing or
@@ -1929,7 +1929,7 @@ Build:
 Required gate:
 
 - resolve the Hub and external integrations gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1957,7 +1957,7 @@ Build:
 Required gate:
 
 - resolve the source-location diagnostics gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1986,7 +1986,7 @@ Build:
 Required gate:
 
 - resolve the named identities and multi-grain contracts gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -2015,7 +2015,7 @@ Build:
 Required gate:
 
 - resolve the public contract schema stabilization gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -2043,7 +2043,7 @@ Build:
 Required gate:
 
 - resolve the deprecation and migration policy gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -2072,7 +2072,7 @@ Build:
 Required gate:
 
 - resolve the remote and database state backend gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -2100,7 +2100,7 @@ Build:
 Required gate:
 
 - resolve the official package content release gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -2128,7 +2128,7 @@ Build:
 Required gate:
 
 - resolve the documentation site and examples repo split gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -2157,7 +2157,7 @@ Build:
 Required gate:
 
 - resolve the hosted service, UI, and enterprise policy controls gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -2186,7 +2186,7 @@ Build:
 Required gate:
 
 - resolve the domain-specific package boundaries gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 

@@ -11,7 +11,10 @@ recon compile
   -> target/compiled_checks/
   -> target/compiled_sql/ when --render-sql succeeds
 
-recon run
+recon run, first check-engine boundary
+  -> command diagnostics and in-memory result objects only
+
+future runner/result and evidence phases
   -> target/run_results.json
   -> target/failures/
   -> reports/

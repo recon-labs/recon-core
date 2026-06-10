@@ -391,9 +391,10 @@ cross-connection rendering or execution placement is designed.
 
 ## Query endpoints
 
-Current executable adapter-aware behavior is relation-only. Query endpoints may
-parse, but adapter-aware rendering or execution should fail with a clear
-unsupported diagnostic until query execution is designed.
+Current adapter-aware rendering is relation-backed only. Query endpoints may
+parse, but adapter-aware rendering should fail with a clear unsupported
+diagnostic until query execution is designed. Adapter execution remains future
+work.
 
 ## Execution placement
 

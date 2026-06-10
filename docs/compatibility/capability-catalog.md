@@ -126,9 +126,9 @@ adapter API is stable.
 | `semi_structured_projection` | Adapter can project semi-structured data into comparable fields. |
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
-Current executable adapter-aware behavior is relation-only. The `queries`
+Current adapter-aware rendering is relation-backed only. The `queries`
 capability is reserved for future executable query endpoint support and is not
-required by current relation-only checks.
+required by current relation-backed rendering.
 
 Future tolerance or normalization execution may require additional granular
 capabilities after typed policy payloads are implemented. ADR 0009 locks
