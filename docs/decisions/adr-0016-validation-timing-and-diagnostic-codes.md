@@ -63,12 +63,18 @@ fail
 warn
 error
 skipped
+blocked
+not_executable
 ```
 
 An error diagnostic means the command must return a non-zero validation,
 runtime, or configuration exit category. A check failure means a check executed
-successfully and found a mismatch. A skipped check means a prerequisite failed
-or an explicit future skip mode applies.
+successfully and found a mismatch. A skipped check means explicit user,
+configuration, or future selector policy intentionally skipped the check. A
+blocked check means a prerequisite failed, errored, or was unavailable.
+`not_executable` means the compiled check is valid input but cannot run with the
+current engine, typed operation, capability, placement, materialization policy,
+or implemented operation surface.
 
 ## Phase Ownership
 
@@ -215,7 +221,7 @@ errors:
 
 - null key checks fail when data contains null keys,
 - duplicate key checks fail when data contains duplicate keys,
-- dependent row-level value checks are skipped when prerequisite safety checks
+- dependent row-level value checks are blocked when prerequisite safety checks
   fail.
 
 The runner must not reinterpret raw authored YAML as the source of execution

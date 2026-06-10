@@ -237,21 +237,24 @@ target/compiled_sql/
 
 ### Run
 
-`recon run` should:
+`recon run` should progress in stages:
 
-- parse and compile if needed,
-- execute compiled checks,
-- write run results,
-- write failure details where configured,
+- first consume already compiled check artifacts and fail clearly when they are
+  missing, invalid, or empty,
+- execute compiled checks once each execution phase is implemented,
+- parse and compile automatically only after artifact freshness semantics are
+  locked,
+- write run results in the runner/result artifact phase,
+- write failure details where configured in the evidence phase,
 - return non-zero on error-severity failures.
 
-Required run artifact:
+Future run artifact:
 
 ```text
 target/run_results.json
 ```
 
-Recommended report:
+Future recommended report:
 
 ```text
 reports/*.html

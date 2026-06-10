@@ -353,15 +353,17 @@ RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
 RC_VALIDATE_INVALID_CDC_KEYS
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED
-RC_RUNTIME_CHECK_BLOCKED_BY_FAILED_PREREQUISITE
+RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE
 RC_RUNTIME_NULL_GRAIN_KEYS
 RC_RUNTIME_DUPLICATE_GRAIN_KEYS
 RC_RUNTIME_NULL_CDC_KEYS
 RC_RUNTIME_DUPLICATE_CDC_KEYS
 ```
 
-Diagnostic messages must identify the check, contract, required identity, and
-fix.
+`RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` is the generic dependent-check
+blocked diagnostic. Key-specific runtime diagnostics remain owned by the
+grain-key and CDC execution phases. Diagnostic messages must identify the check,
+contract, required identity, and fix.
 
 ## Testing Strategy
 

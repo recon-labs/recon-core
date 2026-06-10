@@ -395,31 +395,6 @@ from starting.
 
 ## Runtime diagnostics
 
-Examples:
-
-```text
-RC_RUNTIME_CHECK_ERROR
-RC_RUNTIME_CHECK_BLOCKED_BY_FAILED_PREREQUISITE
-RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND
-RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID
-RC_RUNTIME_NO_COMPILED_CHECKS
-RC_RUNTIME_CHECK_NOT_EXECUTABLE
-RC_RUNTIME_UNSUPPORTED_CHECK_TYPE
-RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION
-RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT
-RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY
-RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE
-RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR
-RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED
-RC_RUNTIME_NULL_GRAIN_KEYS
-RC_RUNTIME_DUPLICATE_GRAIN_KEYS
-RC_RUNTIME_NULL_CDC_KEYS
-RC_RUNTIME_DUPLICATE_CDC_KEYS
-RC_RUNTIME_MANIFEST_WRITE_FAILED
-RC_RUNTIME_STATE_WRITE_FAILED
-RC_RUNTIME_EVIDENCE_WRITE_FAILED
-```
-
 First check-engine result diagnostics use the runtime family because they are
 created while loading compiled check artifacts or preparing run-time check
 results. Locked codes:
@@ -436,6 +411,13 @@ results. Locked codes:
 | `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY` | run | error | Required staging, movement, or materialization policy is not implemented or allowed. |
 | `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, or is missing. |
 | `RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR` | run | error | An unexpected check-engine error occurred after sanitization. |
+
+Future runtime, state, evidence, and key-safety phases may add or retain
+additional runtime-family codes for check execution errors, key safety failures,
+artifact writes, state writes, and evidence writes when those behaviors are
+implemented. Those later-phase codes are not part of the first check-engine
+boundary until their owning phase locks semantics, compatibility docs, and test
+coverage.
 
 These diagnostics explain non-execution; they are not reconciliation mismatch
 evidence. They must preserve safe code, severity, message, resource context,
