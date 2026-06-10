@@ -449,6 +449,10 @@ Cross-cutting gate assignments:
 
 ### Milestone 7.1: check-engine boundary and result model
 
+Prework:
+
+- `docs/planning/milestone-7-1-prework.md`
+
 Build:
 
 - check-engine service boundary behind the existing `recon run` placeholder,
