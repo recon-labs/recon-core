@@ -45,7 +45,10 @@ Recommended early command:
 recon init
 ```
 
-`recon run` may parse and compile automatically when needed.
+The first check-engine boundary for `recon run` consumes already compiled check
+artifacts and fails clearly when those artifacts are missing, invalid, or empty.
+Later runner phases may parse or compile automatically after artifact freshness
+semantics are locked.
 
 ### Project config
 
