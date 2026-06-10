@@ -563,7 +563,7 @@ resolution, or probabilistic summary builders.
 
 ### Implementation Sequence
 
-Use this sequence after Step 18 confirms readiness:
+Use this sequence when the user explicitly starts Milestone 7.1 implementation:
 
 1. Add result/status/reason models and aggregation tests.
 2. Add compiled-check artifact loading tests and loader implementation.
