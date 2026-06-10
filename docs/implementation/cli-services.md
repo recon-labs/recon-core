@@ -132,9 +132,13 @@ Common options:
 Not all need to be implemented at first.
 
 `--select` and `--exclude` should not be implemented until selector syntax,
-named selectors, partial compile/run behavior, and run result metadata are
-designed. Selector handling should be service-level behavior backed by parsed
-manifest metadata, not ad hoc CLI file scanning.
+partial compile/run behavior, generated artifact cleanup, and run result
+metadata are designed. The first selector implementation should stay narrow:
+explicit contract and path scope for compile, SQL rendering, and run. Named
+selectors, check-level selection, tag/domain/package selectors, state/result
+selectors, and richer composition should wait for the later selector expansion.
+Selector handling should be service-level behavior backed by parsed manifest
+metadata, not ad hoc CLI file scanning.
 
 `--profiles-dir` and future profile/target override behavior should not expose
 secrets in diagnostics or generated artifacts. Missing environment variables in

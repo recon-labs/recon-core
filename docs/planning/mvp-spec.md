@@ -309,7 +309,12 @@ The MVP should not include:
 - SCD2 support,
 - previous-failure state backend,
 - persisted random sampling,
+- `--select`, `--exclude`, `selectors.yml`, or partial compile/run execution,
 - advanced permissions/secrets management.
+
+The MVP run-result and evidence artifacts should still avoid assuming that
+every future invocation is whole-project. They may reserve safe selected-scope
+metadata or scope fields, but selector execution itself remains post-MVP.
 
 ## MVP example
 

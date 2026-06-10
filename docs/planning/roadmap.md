@@ -42,6 +42,10 @@ Core capabilities:
 - terminal summary,
 - basic evidence artifacts.
 
+MVP run results and evidence should reserve enough scope metadata to avoid
+assuming that every future invocation is whole-project. Selector execution is
+not part of the 0.1 release line.
+
 Contract capabilities:
 
 - relation-based source/target,
@@ -100,7 +104,8 @@ Capabilities:
 - basic HTML report,
 - `recon list` for manifest-backed resource discovery,
 - `recon clean` for safely removing generated artifacts,
-- selector design for tag/name selection,
+- artifact freshness and cleanup for generated outputs,
+- minimal contract/path selectors for compile, SQL rendering, and run,
 - improved error and warning model.
 
 Checks:
@@ -198,7 +203,7 @@ Capabilities:
 - early `recon deps`,
 - local check pack packages,
 - sample/tolerance/schema policy packages,
-- richer selectors,
+- richer selectors, including named selectors and check-level selection,
 - documentation generation command.
 
 Ecosystem:

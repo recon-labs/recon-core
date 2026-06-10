@@ -95,12 +95,13 @@ Future dependency file for Recon packages.
 
 ## `selectors.yml`
 
-Named selectors for running groups of contracts.
+Future named selectors for reusable selected scopes.
 
 This file is a future project resource. Its syntax and semantics are not locked
-yet. Before implementation, Recon should define how selectors match contracts,
-how `--select` and `--exclude` compose, and how partial compile/run artifacts
-record selected scope.
+yet. Minimal contract/path selectors should not require `selectors.yml`. Before
+named selector implementation, Recon should define how selector files match
+contracts and checks, how `--select` and `--exclude` compose, and how partial
+compile/run artifacts record selected scope.
 
 ## `connections/`
 

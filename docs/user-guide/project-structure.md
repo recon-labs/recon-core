@@ -63,8 +63,10 @@ macros/
 docs/
 ```
 
-`selectors.yml` is a future project resource. Its syntax is not locked yet, and
-`recon run --select` / `recon compile --select` are not implemented.
+`selectors.yml` is a future project resource for named selector definitions.
+Its syntax is not locked yet, and `recon run --select` /
+`recon compile --select` are not implemented. Minimal future contract/path
+selectors should not require `selectors.yml`.
 
 `recon parse` indexes local check-pack, sampling-policy, tolerance-policy,
 schema-policy, and macro files as source-file metadata in

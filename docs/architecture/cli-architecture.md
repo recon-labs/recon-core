@@ -201,12 +201,14 @@ Detailed diagnostics belong in artifacts and reports.
 
 Selectors should be handled through parsed metadata.
 
-Future examples:
+Future illustrative examples:
 
 ```bash
-recon run --select tag:cdc
-recon run --select contract:customer_revenue
-recon run --exclude tag:experimental
+recon compile --select "contract:customer_revenue"
+recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
+recon run --select "selector:critical_reconciliations"
+recon run --select "check:customer_revenue.row_count"
+recon run --exclude "contract:experimental_*"
 ```
 
 Selector logic should not require scanning files independently from the parser.
@@ -215,6 +217,11 @@ Selector syntax and semantics are not locked yet. Implementing `--select`,
 `--exclude`, named selectors, or partial compile/run behavior requires a future
 design decision covering selection precedence, empty matches, artifact
 freshness, and run result metadata.
+
+Selector support should be staged. The first implementation should focus on
+explicit contract/path scope for compile, SQL rendering, and run. Named
+selectors, check-level selectors, tag/domain/package selectors, state/result
+selectors, and richer composition should build on that later.
 
 ## Design principle
 

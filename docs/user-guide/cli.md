@@ -246,18 +246,25 @@ Hint: <fix when available>
 
 ## Selectors
 
-Future selector examples:
+Future illustrative selector examples:
 
 ```bash
-recon run --select tag:critical
-recon run --select contract:customer_revenue
-recon run --exclude tag:experimental
+recon compile --select "contract:customer_revenue"
+recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
+recon run --select "selector:critical_reconciliations"
+recon run --select "check:customer_revenue.row_count"
+recon run --exclude "contract:experimental_*"
 ```
 
 Selectors are not implemented yet, and the exact selector syntax is not locked.
 Before adding `--select`, `--exclude`, or `selectors.yml`, Recon needs a
 selector design covering syntax, manifest metadata, partial compile/run
 behavior, and run result semantics.
+
+Selector support should be introduced in stages. The first implementation should
+stay narrow around explicit contract/path scope for compile, SQL rendering, and
+run. Named selectors, check-level selectors, tag/domain/package selectors,
+state/result selectors, and richer composition remain later design work.
 
 Selectors should use parsed project metadata rather than scanning files
 independently from the parser.

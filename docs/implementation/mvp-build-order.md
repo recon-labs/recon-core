@@ -681,6 +681,11 @@ Required gate:
 - resolve the result/evidence sink metadata boundary before adding sink status or
   sink references to run results. Milestone 8 may record local metadata only; it
   must not write table sinks, evidence sinks, state, or external stores.
+- resolve the selector-readiness portion of the selectors and contract
+  selection semantics gate before finalizing run-result scope metadata. Milestone
+  8 must not implement `--select`, `--exclude`, `selectors.yml`, partial run, or
+  partial compile, but run results should not assume every future run is
+  whole-project forever.
 
 Tests:
 
@@ -694,7 +699,9 @@ Tests:
   raw rows, keys, values, aggregates, relation names, query text, and runtime
   error text,
 - local run-result artifacts include stable metadata for placement/capability
-  decisions without implying evidence, sink, state, or result-table writes.
+  decisions without implying evidence, sink, state, or result-table writes,
+- run-result scope metadata can represent whole-project runs now and can evolve
+  to selected-scope runs later without changing the meaning of existing fields.
 
 ## Milestone 9: evidence
 
@@ -720,6 +727,11 @@ Required gate:
 - resolve the result/evidence sink boundary before evidence links can reference
   table-backed sinks or external stores. Milestone 9 local artifacts must not
   silently become required when a future sink-only mode is configured.
+- resolve the selector-readiness portion of the selectors and contract
+  selection semantics gate before finalizing evidence scope wording. Milestone 9
+  must not implement selectors, but evidence should clearly identify whole-run
+  scope and avoid wording that would make future selected-scope evidence
+  misleading.
 
 Tests:
 
@@ -734,7 +746,10 @@ Tests:
   artifact references,
 - disabled local evidence, local-only evidence, terminal-only output, and future
   sink-only configuration cases fail or report clearly according to the locked
-  evidence mode instead of silently writing unexpected files.
+  evidence mode instead of silently writing unexpected files,
+- evidence scope wording can represent whole-project runs now and can evolve to
+  selected-scope runs later without implying unselected contracts or checks were
+  reconciled.
 
 ## Milestone 10: examples and docs alignment
 
@@ -782,6 +797,8 @@ Build:
   results, and evidence,
 - generated artifact cleanup and publish-ordering rules for stale, partial, and
   orphaned outputs across generated artifact families,
+- selected-scope artifact freshness rules that future selector-scoped compile,
+  SQL rendering, run result, and evidence outputs can reuse,
 - cache/invalidation keys based on authored files, project config, relevant
   resource checksums, command options, and adapter-capability inputs,
 - stale-artifact diagnostics and safe fallback behavior,
@@ -800,6 +817,55 @@ Recommended commit message:
 
 ```text
 feat: add artifact freshness checks
+```
+
+## Post-MVP Milestone 10.6: minimal contract and path selectors
+
+Build this after Post-MVP Milestone 10.5 defines artifact freshness and scoped
+generated-output rules.
+
+Goal:
+
+- support a small, explicit selector subset early without waiting for the full
+  selector system.
+
+Build:
+
+- `recon compile --select "contract:..."`,
+- `recon compile --render-sql --select "contract:..."`,
+- `recon run --select "contract:..."`,
+- `path:...` selection for contract files if path matching can be defined
+  without file-scanning ambiguity,
+- optional `--exclude "contract:..."` only if exclusion composition is locked
+  for the minimal selector subset,
+- selected-scope metadata in compiled artifacts, rendered SQL metadata, run
+  results, terminal summaries, and evidence references touched by the selected
+  invocation,
+- diagnostics for invalid selector syntax, unknown selector method, selectors
+  that match nothing, and selectors that match resources outside the command's
+  supported scope.
+
+Non-goals:
+
+- `selectors.yml`,
+- named `selector:...` references,
+- check-level `check:...` selection,
+- tag/domain/team/package selectors,
+- state/result selectors,
+- graph operators, dependency expansion, or transformation-style selection,
+- partial parse or partial manifest generation.
+
+Required gate:
+
+- resolve the selectors and contract selection semantics gate in
+  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+- confirm Post-MVP Milestone 10.5 artifact freshness and cleanup behavior is
+  sufficient for selector-scoped generated artifacts.
+
+Recommended commit message:
+
+```text
+feat: add minimal contract selectors
 ```
 
 ## Post-MVP Milestone 11: aggregate metrics expansion
@@ -1193,21 +1259,25 @@ Recommended commit message:
 feat: execute query endpoints
 ```
 
-## Post-MVP Milestone 19: selectors and subset execution
+## Post-MVP Milestone 19: rich selectors and subset execution expansion
 
-Build this after manifest metadata and run result scope fields can accurately
-describe partial work.
+Build this after minimal contract/path selectors prove the selected-scope
+metadata, artifact freshness, and run/evidence behavior.
 
 Goal:
 
-- support `--select`, `--exclude`, and `selectors.yml` without producing
-  misleading partial artifacts or evidence.
+- expand selector support without producing misleading partial artifacts or
+  evidence.
 
 Build:
 
-- selector syntax and named selector schema,
-- contract and optional check selection semantics,
-- partial compile/run behavior,
+- `selectors.yml` and named `selector:...` schema,
+- check-level `check:...` selection semantics,
+- richer `--select` and `--exclude` composition,
+- optional tag/domain/team/package selectors only after selector metadata is
+  explicit and documented,
+- state/result selectors only after state and run-result artifacts can support
+  them safely,
 - selected-scope metadata in artifacts and run results,
 - diagnostics for empty or invalid selections.
 
@@ -1221,7 +1291,7 @@ Required gate:
 Recommended commit message:
 
 ```text
-feat: add contract selectors
+feat: add rich selectors
 ```
 
 ## Post-MVP Milestone 20: defaults and inheritance boundaries

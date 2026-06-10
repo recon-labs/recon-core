@@ -23,27 +23,35 @@ Decision:
 
 ### How should selectors and contract subset execution work?
 
-Open.
+Partially decided.
 
-Examples:
+MVP should reserve run-result and evidence scope metadata so future selected
+invocations do not require a public artifact redesign. Early post-MVP selector
+work should start with minimal contract/path selection for compile, SQL
+rendering, and run. Richer selectors remain open.
+
+Illustrative examples:
 
 ```bash
-recon run --select tag:critical
-recon run --select contract:customer_revenue
-recon run --exclude tag:experimental
+recon compile --select "contract:customer_revenue"
+recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
+recon run --select "selector:critical_reconciliations"
+recon run --select "check:customer_revenue.row_count"
+recon run --exclude "contract:experimental_*"
 ```
 
 Preferred direction:
 
 - use parsed manifest metadata, not raw file scanning,
-- design selector syntax before implementation,
-- define named selector shape in `selectors.yml`,
-- define how `--select` and `--exclude` compose,
+- design the minimal contract/path selector syntax before implementation,
+- define named selector shape in `selectors.yml` later,
+- define how `--select` and `--exclude` compose for the minimal subset before
+  adding richer composition,
 - record selected scope in compiled artifacts or run results when relevant,
 - fail clearly when selectors match nothing unless an explicit empty-selection
   mode is added,
-- resolve with a future ADR before transformation-style selectors or partial run
-  behavior.
+- resolve with a future ADR before named selectors, transformation-style
+  selectors, state/result selectors, or rich partial run behavior.
 
 ### How much inheritance should contracts support?
 
