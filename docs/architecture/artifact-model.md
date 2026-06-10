@@ -10,6 +10,12 @@ human-readable
 stateful
 ```
 
+Result/evidence sinks are not a fourth artifact category by default. They are
+configured destinations that receive records after execution. A sink may later
+write database rows or external records that reference local artifacts, but
+those records do not become local generated artifacts unless a writer creates a
+file under an ignored artifact path.
+
 ## Machine-oriented artifacts
 
 Machine-oriented artifacts are optimized for automation.
@@ -46,6 +52,9 @@ Expected uses:
 - alerting,
 - reporting.
 
+`target/run_results.json` is planned for Milestone 8. Milestone 7.1 may define
+in-memory result shape only and must not publish this artifact.
+
 ## Human-readable artifacts
 
 Human-readable artifacts are optimized for inspection and debugging.
@@ -66,6 +75,10 @@ requirements, prerequisites, and blocking policy.
 
 Reports should show execution evidence.
 
+Reports are local evidence artifacts when written under `reports/`. A future
+table-backed evidence sink can coexist with reports or replace optional report
+writing only when policy makes that mode explicit.
+
 ## Stateful artifacts
 
 Stateful artifacts support future runs.
@@ -83,6 +96,11 @@ State may include:
 - sample keys,
 - previous failed keys,
 - run history.
+
+State is not evidence by default. It powers future runs. Persisted sample keys,
+previous-failure keys, and watermarks may be referenced by evidence when policy
+allows it, but their retention, update, privacy, and locking semantics belong
+to state milestones.
 
 ## Artifact writers
 
@@ -105,6 +123,12 @@ StateWriter
 `CompiledSqlWriter` are implemented. Run-result, failure-detail, report, and
 state writers are future work.
 
+Production result/evidence sink writers are also future work. They must not be
+added as hidden side effects of run-result or evidence writers. Table-backed
+sinks require explicit destination configuration, schema/versioning, privacy
+policy, write requiredness, idempotency, partial-write behavior, and adapter
+write/sink capabilities before implementation.
+
 Generated artifact writers own cleanup and publish ordering for their output
 paths. A writer or service must not leave stale, partial, or orphaned generated
 artifacts after a failed write in a way that downstream automation could read
@@ -113,6 +137,11 @@ payload shape and the full output path set before creating directories or files.
 Future writers for run results, evidence, failure details, reports, state, docs
 output, and selector-scoped artifacts must define that
 lifecycle before the artifact becomes a compatibility surface.
+
+Future sink writers must define equivalent publish ordering and failure
+semantics for non-file destinations. A failed required sink write must not make
+evidence appear complete, and a partial write must be surfaced distinctly from
+a failed reconciliation check.
 
 Batched artifact writers should validate all batch path components and preflight
 all output paths before writing the first file. For compiled SQL, unsafe
@@ -169,6 +198,16 @@ They should be:
 
 Failure summaries for key safety checks should show null-key or duplicate-key
 counts and may include bounded example keys when evidence settings allow them.
+
+Large failure-detail export, JSONL, streaming, pagination, chunking, and
+external large-result stores belong to advanced evidence/result-store work.
+Run-result artifacts should reference large details instead of embedding them.
+
+Future probabilistic key-diff summaries, including Bloom-filter-like summaries
+and set sketches, are sensitive or policy-controlled until a later strategy
+proves safer handling. Candidate missing or extra records from probabilistic
+strategies must not be represented as exact failure-detail artifacts unless
+exact confirmation is required and performed.
 
 ## Design principle
 

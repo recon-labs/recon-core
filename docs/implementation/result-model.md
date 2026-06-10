@@ -6,6 +6,16 @@ The result model records what Recon executed and what happened.
 
 Results should be useful for humans, CI, orchestration, dashboards, reports, and future integrations.
 
+The result model is separate from evidence writers, result/evidence sinks, and
+state backends. In-memory results describe what happened. Writers and sinks
+decide where allowed result or evidence records are published. State powers
+future runs and is not evidence by default.
+
+Milestone 7.1 may define in-memory result/check-engine shape and reserve
+future-compatible metadata concepts, but it must not write `target/run_results.json`,
+evidence, reports, failure details, result/evidence sinks, result tables, or
+state.
+
 ## Run result
 
 Suggested model:
@@ -22,6 +32,10 @@ class RunResult:
     diagnostics: list[Diagnostic]
     artifacts: list[EvidenceArtifact]
 ```
+
+Future generated `RunResult` artifacts may include sink-write metadata and
+artifact references, but the exact serialized schema belongs to Milestone 8 or
+the later sink milestone that first emits it.
 
 ## Contract result
 
@@ -60,6 +74,11 @@ class CheckResult:
     diagnostics: list[Diagnostic]
 ```
 
+Future check results may need placement, capability, artifact-reference,
+sink-reference, and exact/probabilistic classification fields. Those concepts
+are reserved for compatibility but are not stable serialized fields until their
+implementing milestones write a public schema.
+
 ## Status values
 
 Run and contract statuses may include:
@@ -85,6 +104,11 @@ skipped
 prerequisite failed. Skipped checks should include `blocked_by` and
 `skip_reason`.
 
+Future result status work must distinguish reconciliation outcomes from
+publication outcomes. A failed required evidence or sink write is not the same
+as a failed source-target comparison, and run metadata must make that
+distinction visible.
+
 ## Severity
 
 Severity affects run outcome.
@@ -109,6 +133,11 @@ Example:
   "path": "target/failures/customer_revenue__row_diff.csv"
 }
 ```
+
+Artifact references point to generated local files. Future sink references point
+to configured result/evidence destinations, such as table-backed stores. State
+references point to data used by future runs. These references should not be
+collapsed into one generic field once they become stable public schema.
 
 ## Diagnostics
 
@@ -143,6 +172,14 @@ Terminal output, logs, diagnostics, run results, linked failure details,
 reports, and adapter test-kit snapshots must share the same privacy rules so a
 value suppressed in one public surface is not leaked through another.
 
+Serialized probabilistic summaries, Bloom-filter-like summaries, set sketches,
+and intermediate probe outputs are sensitive or policy-controlled until a later
+strategy proves safer handling. Results from probabilistic key-diff strategies
+must distinguish exact, approximate, probabilistic, inconclusive, truncated, and
+confirmation-required outcomes. Candidate missing or extra records must not be
+presented as exact failure rows unless exact confirmation is required and
+performed.
+
 ## JSON artifact
 
 Milestone 7.1 may define the check result/status model and prerequisite or
@@ -161,13 +198,25 @@ changes that boundary.
 - artifact references.
 - identity used by key-dependent checks,
 - prerequisite and blocked-check information.
+- placement and capability metadata when execution milestones define it,
+- sink-write metadata when sink milestones define it.
 
 ## Avoid large embedded data
 
 Failure rows should not be embedded directly into `run_results.json` except for
 small summaries allowed by the source/target data privacy policy.
 
-Large details belong in separate files.
+Large details belong in separate bounded files, configured sinks, or future
+external stores. Large failure-detail export, JSONL, streaming, pagination,
+chunking, and moving large failure rows from execution engines to sink tables
+belong to Post-MVP Milestone 31 unless a later split explicitly changes that
+boundary.
+
+Production result tables belong to Post-MVP Milestone 25.5. They may target a
+source, target, or third configured connection only when explicit destination
+configuration, table schema/versioning, privacy policy, sink requiredness,
+idempotency, partial-write behavior, and adapter write/sink capabilities are
+defined.
 
 ## Design principle
 

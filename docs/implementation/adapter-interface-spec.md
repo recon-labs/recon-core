@@ -10,8 +10,8 @@ This specification follows:
 
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
 - `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`
-- `docs/decisions/adr-0021-execution-placement-and-adapter-capability-strategy.md`
-- `docs/decisions/adr-0022-evidence-privacy-failure-detail-and-result-sink-strategy.md`
+- `docs/decisions/adr-0021-execution-placement-and-comparison-engine-strategy.md`
+- `docs/decisions/adr-0022-evidence-privacy-failure-detail-and-result-sinks.md`
 
 ## Base adapter responsibilities
 

@@ -18,8 +18,11 @@ Evidence should show:
 
 Current implementation writes manifest and compiled YAML artifacts. It also
 writes compiled SQL when `recon compile --render-sql` succeeds for supported
-adapter-backed checks. Run results, failure details, reports, and stateful
-evidence outputs are planned but not implemented yet.
+adapter-backed checks. Run results, failure details, reports, and state outputs
+are planned but not implemented yet.
+
+Compiled SQL is not proof that checks ran. It is compile output that can be
+inspected before execution.
 
 ## Current Machine-Readable Artifacts
 
@@ -54,6 +57,34 @@ reports/
 
 Run results and reports will explain what Recon did run.
 
+`target/run_results.json` is planned as the first durable machine-readable run
+result artifact in Milestone 8. Basic local evidence, reports, and bounded
+failure details are planned for Milestone 9. Milestone 7.1 only defines
+in-memory check-engine/result boundaries and does not write run results,
+evidence, reports, failure details, result/evidence sinks, result tables, or
+state.
+
+## Local Artifacts, Sinks, And State
+
+Recon keeps local artifacts, result/evidence sinks, and state separate:
+
+- local artifacts are generated files under ignored paths such as `target/` and
+  `reports/`,
+- result/evidence sinks are configured destinations for outcome or evidence
+  records after execution,
+- state powers future runs, such as watermarks, previous failures, and
+  persisted sample keys.
+
+Future sink modes may allow terminal-only output, local artifacts, table sinks,
+both local and table output, or disabled optional writers. Non-local sinks must
+be explicitly configured. Recon must not infer that source, target, or a third
+connection should receive result tables just because that connection exists.
+
+Local HTML reports are optional evidence writers in future policy terms. A
+table-backed evidence or result sink does not automatically mean a local HTML
+report was written, and a local HTML report does not imply table-backed
+persistence.
+
 ## Failure details
 
 Future failure details may be written under:
@@ -72,6 +103,17 @@ comparison keys, normalized values, aggregate values, row counts, relation
 names, query text, and runtime error text are public, sensitive, or
 policy-controlled. Use row limits, disabling failure export, and
 masking/redaction when available.
+
+Failure detail output should be bounded and optional by default. Large failure
+detail export, JSONL, streaming, pagination, chunking, and external large-result
+stores are future advanced evidence work.
+
+Future probabilistic key-diff strategies, such as Bloom-filter-like summaries
+or other set sketches, require careful evidence wording. Candidate missing or
+extra records from probabilistic strategies must not be presented as exact
+failure details unless exact confirmation is required and performed.
+Serialized summaries and intermediate probe outputs are sensitive or
+policy-controlled until a later strategy proves safer handling.
 
 ## Full versus sampled evidence
 
