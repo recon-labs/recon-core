@@ -42,11 +42,11 @@ Check logic should not write result tables, evidence tables, state files, or
 failure-detail files directly. It should return structured outcomes and bounded
 artifact or sink write requests for the appropriate writer layer.
 
-Milestone 7.1 defines no generated evidence writer behavior. Milestone 8 owns
-local run-result artifacts. Milestone 9 owns basic local evidence, reports, and
-bounded failure details. Production table/result sinks belong to Post-MVP
-Milestone 25.5 after sink schema, write semantics, privacy, and adapter
-conformance are locked.
+The first check-engine boundary defines no generated evidence writer behavior.
+A later run-result artifact phase owns local run-result artifacts. A later
+evidence phase owns basic local evidence, reports, and bounded failure details.
+Production table/result sinks belong to later result-store work after sink
+schema, write semantics, privacy, and adapter conformance are locked.
 
 ## Failure detail writer
 
@@ -66,9 +66,9 @@ target/failures/{contract_name}__{check_name}.csv
 
 Large failure-detail movement, JSONL, streaming, pagination, chunking, external
 large-result stores, and writing large failure records through sink adapters are
-Post-MVP Milestone 31 concerns unless a later split explicitly changes that
-boundary. Failure-detail writers should prefer bounded files and references
-over unbounded rows in memory or run-result artifacts.
+advanced evidence/result-store concerns unless a later split explicitly changes
+that boundary. Failure-detail writers should prefer bounded files and
+references over unbounded rows in memory or run-result artifacts.
 
 ## HTML report writer
 

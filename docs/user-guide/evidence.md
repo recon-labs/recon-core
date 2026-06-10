@@ -58,11 +58,10 @@ reports/
 Run results and reports will explain what Recon did run.
 
 `target/run_results.json` is planned as the first durable machine-readable run
-result artifact in Milestone 8. Basic local evidence, reports, and bounded
-failure details are planned for Milestone 9. Milestone 7.1 only defines
-in-memory check-engine/result boundaries and does not write run results,
-evidence, reports, failure details, result/evidence sinks, result tables, or
-state.
+result artifact. Basic local evidence, reports, and bounded failure details are
+also future work. The current check-engine boundary only defines in-memory
+check-engine/result behavior and does not write run results, evidence, reports,
+failure details, result/evidence sinks, result tables, or state.
 
 ## Local Artifacts, Sinks, And State
 

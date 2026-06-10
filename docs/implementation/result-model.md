@@ -11,10 +11,10 @@ state backends. In-memory results describe what happened. Writers and sinks
 decide where allowed result or evidence records are published. State powers
 future runs and is not evidence by default.
 
-Milestone 7.1 may define in-memory result/check-engine shape and reserve
-future-compatible metadata concepts, but it must not write `target/run_results.json`,
-evidence, reports, failure details, result/evidence sinks, result tables, or
-state.
+The first check-engine boundary may define in-memory result/check-engine shape
+and reserve future-compatible metadata concepts, but it must not write
+`target/run_results.json`, evidence, reports, failure details, result/evidence
+sinks, result tables, or state.
 
 ## Run result
 
@@ -34,8 +34,8 @@ class RunResult:
 ```
 
 Future generated `RunResult` artifacts may include sink-write metadata and
-artifact references, but the exact serialized schema belongs to Milestone 8 or
-the later sink milestone that first emits it.
+artifact references, but the exact serialized schema belongs to the future
+run-result artifact phase or the later sink phase that first emits it.
 
 ## Contract result
 
@@ -77,7 +77,7 @@ class CheckResult:
 Future check results may need placement, capability, artifact-reference,
 sink-reference, and exact/probabilistic classification fields. Those concepts
 are reserved for compatibility but are not stable serialized fields until their
-implementing milestones write a public schema.
+implementing phases write a public schema.
 
 ## Status values
 
@@ -182,10 +182,10 @@ performed.
 
 ## JSON artifact
 
-Milestone 7.1 may define the check result/status model and prerequisite or
-blocked-check representation without writing a generated run-result artifact.
-`target/run_results.json` remains Milestone 8 unless a future split explicitly
-changes that boundary.
+The first check-engine boundary may define the check result/status model and
+prerequisite or blocked-check representation without writing a generated
+run-result artifact. `target/run_results.json` remains future run-result
+artifact work unless a future split explicitly changes that boundary.
 
 `target/run_results.json` should include:
 
@@ -198,8 +198,8 @@ changes that boundary.
 - artifact references.
 - identity used by key-dependent checks,
 - prerequisite and blocked-check information.
-- placement and capability metadata when execution milestones define it,
-- sink-write metadata when sink milestones define it.
+- placement and capability metadata when execution phases define it,
+- sink-write metadata when sink phases define it.
 
 ## Avoid large embedded data
 
@@ -209,10 +209,10 @@ small summaries allowed by the source/target data privacy policy.
 Large details belong in separate bounded files, configured sinks, or future
 external stores. Large failure-detail export, JSONL, streaming, pagination,
 chunking, and moving large failure rows from execution engines to sink tables
-belong to Post-MVP Milestone 31 unless a later split explicitly changes that
-boundary.
+belong to advanced evidence/result-store work unless a later split explicitly
+changes that boundary.
 
-Production result tables belong to Post-MVP Milestone 25.5. They may target a
+Production result tables belong to later result-store work. They may target a
 source, target, or third configured connection only when explicit destination
 configuration, table schema/versioning, privacy policy, sink requiredness,
 idempotency, partial-write behavior, and adapter write/sink capabilities are

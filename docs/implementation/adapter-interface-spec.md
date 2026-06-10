@@ -221,7 +221,8 @@ required-capability diagnostics instead of uncaught exceptions.
 Core check logic should define typed abstract operations.
 
 Adapters should provide dialect-specific SQL for the operations emitted by the
-compiler. Milestone 6 does not expand the typed operation catalog.
+compiler. The current adapter-aware rendering scope does not expand the typed
+operation catalog.
 For every check marked `rendered`, the renderer must return at least one SQL
 step. Empty renderer output is `RC_ADAPTER_RENDERED_SQL_EMPTY` and must be
 recorded as a rendering failure, not as `rendered` with empty `sql_paths`.
@@ -293,9 +294,9 @@ Rendered SQL belongs under:
 target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
-Milestone 6 adapter-aware rendering uses `not_rendered`, `rendered`,
-`blocked`, and `failed`. Earlier draft statuses `deferred` and `unsupported`
-are no longer emitted for SQL rendering metadata.
+Adapter-aware rendering uses `not_rendered`, `rendered`, `blocked`, and
+`failed`. Earlier draft statuses `deferred` and `unsupported` are no longer
+emitted for SQL rendering metadata.
 When an adapter is known, compiled checks also record `rendering.adapter_type`.
 
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
@@ -383,29 +384,28 @@ query text, relation names, row values, credentials, rendered connection
 details, or engine-specific private payloads and is not safe public output by
 default.
 
-For Milestone 6 DuckDB SQL rendering, source and target connection names may
+For current DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type
 and connection config. Distinct connection contexts are blocked until explicit
 cross-connection rendering or execution placement is designed.
 
 ## Query endpoints
 
-Milestone 6 is relation-only for executable adapter-aware behavior. Query
-endpoints may parse, but adapter-aware rendering or execution should fail with
-a clear unsupported diagnostic until query execution is designed.
+Current executable adapter-aware behavior is relation-only. Query endpoints may
+parse, but adapter-aware rendering or execution should fail with a clear
+unsupported diagnostic until query execution is designed.
 
 ## Execution placement
 
 The adapter interface does not by itself decide where comparisons execute.
-Milestone 7 is split so execution placement is assigned by executable surface:
-Milestone 7.2 defines row-count placement, Milestone 7.3 defines grain-key
-safety placement, and Milestone 7.4 defines aggregate metric placement. Each
-sub-milestone must define whether its comparisons run in source systems, target
-systems, adapter-managed intermediate systems, or bounded Python-side
-comparison. Unsupported SQL rendering or execution must not silently fall back
-to Python.
+Execution placement is assigned by executable surface: row-count placement,
+grain-key safety placement, and aggregate metric placement are separate
+decisions. Each execution phase must define whether its comparisons run in
+source systems, target systems, adapter-managed intermediate systems, or bounded
+Python-side comparison. Unsupported SQL rendering or execution must not silently
+fall back to Python.
 
-Milestone 7.1 may introduce internal check-engine dispatch and blocker
+The first check-engine boundary may introduce internal dispatch and blocker
 metadata, but it must not add adapter execution, public placement syntax,
 materialization, generated run-result artifacts, evidence, state, result sinks,
 or probabilistic key-diff behavior.
@@ -434,8 +434,8 @@ failure rows.
 ## Future adapter conformance gates
 
 External adapter packages should not claim production compatibility until the
-Milestone 29 shared adapter test kit covers the relevant public boundary. The
-test kit must expand with each implemented family:
+shared adapter test kit covers the relevant public boundary. The test kit must
+expand with each implemented family:
 
 - execution placement capability validation when execution is implemented,
 - staging and materialization conformance when staging is implemented,
@@ -467,7 +467,7 @@ recon-oracle
 
 `recon-duckdb` is a future external package candidate after adapter API and
 shared adapter test-kit stability. Additional production adapter packages should
-also wait for the Milestone 29 adapter conformance gate.
+also wait for the adapter conformance gate.
 
 ## Design principle
 

@@ -156,10 +156,10 @@ Unqualified references resolve only in the root project namespace. Package and
 framework references use `<namespace>.<resource_name>`. The `recon_core`
 namespace is reserved for framework built-ins.
 
-Milestone 4.6 should not introduce typed config models for local check-pack,
-sampling-policy, tolerance-policy, schema-policy, or macro resources. It should
-index those files as source-file metadata only until each resource schema is
-locked and implemented.
+Current source-file indexing should not introduce typed config models for local
+check-pack, sampling-policy, tolerance-policy, schema-policy, or macro
+resources. It should index those files as source-file metadata only until each
+resource schema is locked and implemented.
 
 ```python
 @dataclass(frozen=True)

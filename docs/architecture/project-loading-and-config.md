@@ -127,8 +127,8 @@ adapter type, and non-secret relation identifiers. They must not include
 secrets or fully rendered credential payloads.
 
 Current implementation loads profiles for `recon compile --render-sql` only.
-Plain parse and compile do not require `connections/profiles.yml`. Milestone 6
-adapter-aware rendering requires referenced source and target connections to
+Plain parse and compile do not require `connections/profiles.yml`.
+Adapter-aware rendering requires referenced source and target connections to
 resolve to the same adapter type and rendered connection config. Distinct
 connection configs are blocked rather than implicitly bridged.
 
@@ -206,18 +206,17 @@ Locked design:
 - macros may be discovered and checksummed but are not parsed or executed until
   macro semantics are locked.
 
-Milestone 4.6 implements local non-contract resource discovery as source-file
-indexing only. It adds file metadata for check packs, sample policies,
-tolerance policies, schema policies, and macros to the shared parsed project and
-manifest `files` map, but it does not create parsed resource summaries, validate
-references, expand custom check packs, load endpoint resources, or introduce
-package loading.
+Current local non-contract resource discovery is source-file indexing only. It
+adds file metadata for check packs, sample policies, tolerance policies, schema
+policies, and macros to the shared parsed project and manifest `files` map, but
+it does not create parsed resource summaries, validate references, expand custom
+check packs, load endpoint resources, or introduce package loading.
 
-Milestone 5 validation should not resolve or validate references to
-local/package check-pack resources, sampling policies, tolerance policies,
-schema policies, endpoint resources, or macros until those resources are loaded
-through one shared project-loading model. Unsupported built-in check-pack names
-should still fail validation instead of compiling as silent no-ops.
+Validation should not resolve or validate references to local/package check-pack
+resources, sampling policies, tolerance policies, schema policies, endpoint
+resources, or macros until those resources are loaded through one shared
+project-loading model. Unsupported built-in check-pack names should still fail
+validation instead of compiling as silent no-ops.
 
 ## Configuration precedence
 

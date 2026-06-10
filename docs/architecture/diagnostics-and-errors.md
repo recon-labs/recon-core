@@ -184,7 +184,7 @@ RC_RUNTIME_*
 RC_EVIDENCE_*
 ```
 
-Milestone 5 validation timing and diagnostic code ownership are locked in
+Validation timing and diagnostic code ownership are locked in
 `docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
 
 ## CLI rendering

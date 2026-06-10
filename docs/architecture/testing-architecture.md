@@ -126,8 +126,8 @@ Do not overuse golden files for volatile output.
 Use test-driven development for non-trivial behavior.
 
 Validation rules should have explicit tests for both valid and invalid cases.
-Milestone 5 validation tests should assert diagnostic code, severity, and phase
-ownership according to
+Validation tests should assert diagnostic code, severity, and phase ownership
+according to
 `docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.
 
 ## CI expectations

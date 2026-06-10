@@ -19,10 +19,9 @@ State is separate from evidence and result stores:
 - result stores support review, reporting, and integrations,
 - state controls future run behavior.
 
-Milestone 7.1 through 7.4 must not write state. Local state belongs to Post-MVP
-Milestone 25. Production result tables belong to Post-MVP Milestone 25.5 and
-must not silently become state tables. Remote or database-backed state belongs
-to Post-MVP Milestone 37.
+Current check-engine and execution phases must not write state. Local state,
+production result tables, and remote/database-backed state are separate future
+workstreams. Production result tables must not silently become state tables.
 
 ## Watermark
 
@@ -121,16 +120,15 @@ or policy-controlled because they may reveal information about source or target
 key sets. If they are retained across runs, the state design must define scope,
 retention, cleanup, privacy, and exact/probabilistic result semantics.
 
-## Milestone recommendation
+## Sequencing recommendation
 
 v0.1 can start with local generated artifacts and no stateful run behavior.
 
 v0.2 should keep state, watermark, previous-failure, and sample-key behavior at
-the design/gate level where needed. v0.3 / Post-MVP Milestone 25 should add
-local state for incremental windows, previous failures, persisted sample keys,
-and watermark advancement. Production result tables should be handled in
-Post-MVP Milestone 25.5, and remote/database state should remain separate until
-Post-MVP Milestone 37.
+the design/gate level where needed. Later local-state work should add local
+state for incremental windows, previous failures, persisted sample keys, and
+watermark advancement. Production result tables and remote/database state should
+remain separate future workstreams.
 
 ## Design principle
 

@@ -93,8 +93,9 @@ must validate support states before rendering or executing required operations.
 Malformed support-state values must become structured diagnostics instead of
 uncaught adapter errors.
 
-Milestone 6 uses only the capability subset required by currently emitted typed
-operations. It does not expand the typed operation catalog.
+Current adapter-aware rendering uses only the capability subset required by
+currently emitted typed operations. It does not expand the typed operation
+catalog.
 
 ## Draft capability names
 
@@ -125,9 +126,9 @@ adapter API is stable.
 | `semi_structured_projection` | Adapter can project semi-structured data into comparable fields. |
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
-In Milestone 6, executable adapter-aware behavior is relation-only. The
-`queries` capability is reserved for future executable query endpoint support
-and is not required by current relation-only checks.
+Current executable adapter-aware behavior is relation-only. The `queries`
+capability is reserved for future executable query endpoint support and is not
+required by current relation-only checks.
 
 Future tolerance or normalization execution may require additional granular
 capabilities after typed policy payloads are implemented. ADR 0009 locks

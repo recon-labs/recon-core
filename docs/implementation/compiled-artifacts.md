@@ -82,8 +82,8 @@ Compiled-check `rendering.sql_paths` stores paths relative to the configured
 compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
-For Milestone 6 DuckDB rendering, source and target connection names may differ
-only if their selected profile entries resolve to the same adapter type and
+For current DuckDB rendering, source and target connection names may differ only
+if their selected profile entries resolve to the same adapter type and
 connection config. Resolved adapter `adapter_type` metadata must match each
 literal profile connection `type` before renderer selection. Distinct adapter
 connection contexts are blocked because the compiled SQL is rendered for one

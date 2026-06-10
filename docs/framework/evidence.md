@@ -15,11 +15,12 @@ Evidence, run results, result sinks, and state are related but separate:
 - state powers future runs and is not evidence by default,
 - execution placement does not decide sink placement.
 
-Milestone 7.1 may define in-memory result/check-engine shape only. It must not
-write run-result artifacts, evidence, reports, failure details, result/evidence
-sinks, result tables, or state. `target/run_results.json` belongs to Milestone
-8. Basic local evidence, reports, and bounded failure details belong to
-Milestone 9. Production result tables belong to Post-MVP Milestone 25.5.
+The current check-engine boundary may define in-memory result/check-engine shape
+only. It must not write run-result artifacts, evidence, reports, failure
+details, result/evidence sinks, result tables, or state. `target/run_results.json`
+belongs to the future run-result artifact phase. Basic local evidence, reports,
+and bounded failure details belong to the future evidence phase. Production
+result tables belong to later result-store work.
 
 ## Evidence types
 
@@ -73,9 +74,9 @@ Machine-readable run outcome:
 target/run_results.json
 ```
 
-This is the first durable machine-readable result artifact and remains planned
-for Milestone 8. It should reference generated artifacts or future sink records
-instead of embedding large source/target values or failure rows.
+This is the first durable machine-readable result artifact and remains future
+work. It should reference generated artifacts or future sink records instead of
+embedding large source/target values or failure rows.
 
 ### Failure details
 
@@ -184,8 +185,8 @@ If failure rows exceed configured limits, evidence should clearly say results we
 
 Large failure-detail export, JSONL, streaming, pagination, chunking, external
 large-result stores, and moving large failure rows from an execution engine to a
-sink belong to Post-MVP Milestone 31 unless a future split explicitly changes
-that boundary.
+sink belong to advanced evidence/result-store work unless a future split
+explicitly changes that boundary.
 
 ## Exit codes
 
@@ -193,18 +194,18 @@ Recon should return non-zero when error-severity checks fail.
 
 Warnings may be configurable.
 
-## Milestone recommendation
+## Sequencing recommendation
 
-Current compile milestones produce manifest, compiled checks/contracts, and
-compiled SQL where supported. Milestone 7 introduces in-memory check-engine
-results only.
+Current compile behavior produces manifest, compiled checks/contracts, and
+compiled SQL where supported. The first check-engine boundary should introduce
+in-memory check results only.
 
-Milestone 8 should add local run results. Milestone 9 should add basic local
-evidence, reports, and bounded failure details.
+The run-result artifact phase should add local run results. The basic evidence
+phase should add local evidence, reports, and bounded failure details.
 
-Post-MVP Milestone 25 should add local state and persisted sample visibility.
-Post-MVP Milestone 25.5 should add production result table writing after state,
-result table schemas, sink modes, and adapter write conformance are locked.
+Later state work should add local state and persisted sample visibility. Later
+result-store work should add production result table writing after state, result
+table schemas, sink modes, and adapter write conformance are locked.
 
 ## Design principle
 

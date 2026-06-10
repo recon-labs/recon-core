@@ -29,7 +29,7 @@ Current state:
   library level.
 - `recon compile` writes compiled checks artifacts containing draft typed
   plans.
-- ADR 0020 locks Milestone 6 as SQL rendering for currently emitted operations
+- ADR 0020 locks adapter-aware SQL rendering for currently emitted operations
   only.
 - `recon compile --render-sql` renders currently emitted typed operations to
   DuckDB SQL for relation-backed contracts.
@@ -68,8 +68,8 @@ location, comparison location, materialization or staging policy, required
 adapter capabilities, placement blockers, sink or artifact references, and
 exact/probabilistic result classification. Those concepts are not stable
 serialized fields today. Their exact schema belongs to the implementation
-milestone that first emits them and must be updated with adapter API docs,
-artifact compatibility docs, and conformance tests in the same change.
+phase that first emits them and must be updated with adapter API docs, artifact
+compatibility docs, and conformance tests in the same change.
 
 ## Draft operation catalog
 
@@ -100,12 +100,12 @@ The current model validates payload schemas for the operations emitted by the
 compiler. Planned operation names must not be emitted until their payload schema,
 capability expectations, docs, and tests exist.
 
-Milestone 6 must not expand the emitted operation catalog. SQL renderers should
-render only operations already produced by current check-pack and metric
-compilation. Placeholder operations such as `null_safe_equal`, `cast`, `limit`,
-`hash`, `timestamp_diff`, and `schema_metadata` remain non-emittable until
-payload schemas, capability mappings, renderer tests, and compatibility docs
-are updated together.
+The current adapter-aware rendering scope must not expand the emitted operation
+catalog. SQL renderers should render only operations already produced by current
+check-pack and metric compilation. Placeholder operations such as
+`null_safe_equal`, `cast`, `limit`, `hash`, `timestamp_diff`, and
+`schema_metadata` remain non-emittable until payload schemas, capability
+mappings, renderer tests, and compatibility docs are updated together.
 
 Column selectors must be resolved before typed plans are emitted. Per ADR 0019,
 raw wildcard selectors such as `columns: "*"` must not appear in typed
@@ -158,13 +158,12 @@ Adapters must not hide new reconciliation behavior in dialect-specific rendering
 
 ## Rendering and execution placement
 
-Milestone 6 renders typed operations to SQL through adapters but does not
-execute checks.
+Current adapter-aware rendering renders typed operations to SQL through adapters
+but does not execute checks.
 
-Execution is split after Milestone 6. Milestone 7.2 owns row-count typed-plan
-execution, Milestone 7.3 owns grain-key safety typed-plan execution, and
-Milestone 7.4 owns current aggregate metric typed-plan execution. Each execution
-sub-milestone must resolve comparison placement for its assigned operations
+Execution is split by executable surface. Row-count typed-plan execution,
+grain-key safety typed-plan execution, and current aggregate metric typed-plan
+execution each resolve comparison placement for their assigned operations
 before implementation and must not silently fall back to Python, adapter dialect
 casts, inferred mappings, or unsupported comparison behavior.
 

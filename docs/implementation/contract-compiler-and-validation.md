@@ -495,9 +495,9 @@ project-level default policy
 framework default
 ```
 
-Milestone 5 may validate and resolve MVP policy shapes, but named tolerance
-policy references require the ADR 0017 resource loader before they can be
-resolved.
+The validation rulebook may validate and resolve MVP policy shapes, but named
+tolerance policy references require the ADR 0017 resource loader before they can
+be resolved.
 
 Compiled checks should show resolved tolerance, null, and normalization
 behavior when that policy affects a compiled check.

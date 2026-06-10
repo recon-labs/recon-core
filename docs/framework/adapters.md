@@ -65,10 +65,10 @@ key-summary strategies follow the same ownership boundary:
 - Adapter capability declarations do not create new comparison semantics.
   `unknown`, `unsupported`, `not_implemented`, malformed, or incompatible
   capability states must never satisfy required behavior.
-- Milestone 7.1 may reserve internal planning metadata for those future
-  boundaries, but it must not add public YAML placement syntax, check
-  execution, generated run results, evidence, sinks, state, or probabilistic
-  key-diff behavior.
+- The first check-engine boundary may reserve internal planning metadata for
+  those future boundaries, but it must not add public YAML placement syntax,
+  check execution, generated run results, evidence, sinks, state, or
+  probabilistic key-diff behavior.
 
 This follows the adapter-boundary maturity of dbt, but Recon should not use
 dbt-style macro dispatch as the primary comparison engine. Typed plans are
@@ -88,13 +88,13 @@ adapter API and shared adapter test kit are stable enough for external adapter
 packages.
 
 The in-core DuckDB adapter is the early proof adapter. External adapter package
-splits and additional production adapters should wait until the Milestone 29
-adapter conformance and shared test-kit gates exist. Production table/result
-sinks additionally depend on the result-sink design gates and write/sink
-conformance. Bloom filters, sketches, and other probabilistic key-summary
-strategies additionally depend on the probabilistic key-diff gate and adapter
-test-kit conformance for summary build, serialization, transport or storage,
-probing, reverse-direction probing when needed, metrics, and cleanup.
+splits and additional production adapters should wait until adapter conformance
+and shared test-kit gates exist. Production table/result sinks additionally
+depend on the result-sink design gates and write/sink conformance. Bloom
+filters, sketches, and other probabilistic key-summary strategies additionally
+depend on the probabilistic key-diff gate and adapter test-kit conformance for
+summary build, serialization, transport or storage, probing, reverse-direction
+probing when needed, metrics, and cleanup.
 
 Install the current in-core DuckDB local development adapter with:
 
@@ -150,8 +150,8 @@ Capability families should remain granular enough to distinguish:
 - diagnostics and redaction behavior.
 
 Exact capability names for future execution, staging, sinks, and probabilistic
-summaries are not stable until their implementing milestones update the adapter
-API, typed-plan compatibility docs, and shared adapter conformance tests.
+summaries are not stable until their implementing phases update the adapter API,
+typed-plan compatibility docs, and shared adapter conformance tests.
 
 Capabilities allow Recon to fail early when a check cannot run.
 
@@ -259,7 +259,7 @@ Recon must define whether two empty aggregate results compare equal, how that
 differs from comparing numeric zero, and how the distinction appears in run
 results and evidence.
 
-Milestone 6 adapter-aware rendering should migrate rendering statuses to:
+Adapter-aware rendering should use these rendering statuses:
 
 ```text
 not_rendered
@@ -321,11 +321,11 @@ Missing environment variables in referenced connection payloads are errors.
 Missing environment variables in unselected targets or unreferenced connections
 do not fail contract-specific invocations.
 
-For Milestone 6 DuckDB SQL rendering, source and target connection names may
-differ only when their selected profile entries resolve to the same adapter type
-and connection config. Distinct connection contexts are blocked because the
-rendered SQL targets one execution context and does not attach or bridge
-multiple databases.
+For current DuckDB SQL rendering, source and target connection names may differ
+only when their selected profile entries resolve to the same adapter type and
+connection config. Distinct connection contexts are blocked because the rendered
+SQL targets one execution context and does not attach or bridge multiple
+databases.
 
 Generated artifacts and diagnostics may include profile name, target name,
 adapter type, and non-secret relation identifiers. They must not include
@@ -395,10 +395,10 @@ run results, evidence, or adapter test snapshots are published.
 
 ## Query endpoint boundary
 
-Milestone 6 is relation-only for executable adapter-aware rendering and
-execution. `source.query` and `target.query` may remain parseable, but they
-must produce a clear unsupported diagnostic if adapter-aware rendering or
-execution tries to use them.
+Current executable adapter-aware rendering and execution are relation-only.
+`source.query` and `target.query` may remain parseable, but they must produce a
+clear unsupported diagnostic if adapter-aware rendering or execution tries to
+use them.
 
 Current adapter-aware compile implements this boundary for SQL rendering:
 query endpoints produce `blocked` rendering metadata and no SQL files.
@@ -409,10 +409,10 @@ capabilities.
 
 ## Execution placement boundary
 
-Milestone 6 renders SQL but does not execute checks. Before the check engine
-executes typed plans, Recon must define where comparison work may run: source
-system, target system, adapter-managed intermediate system, or bounded
-Python-side comparison.
+Current adapter-aware rendering produces SQL but does not execute checks.
+Before the check engine executes typed plans, Recon must define where comparison
+work may run: source system, target system, adapter-managed intermediate
+system, or bounded Python-side comparison.
 
 Unsupported SQL behavior must not silently fall back to Python. Any Python or
 intermediate-system fallback requires explicit limits, privacy rules,

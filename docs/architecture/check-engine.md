@@ -29,19 +29,18 @@ EvidenceArtifact references
 Diagnostics
 ```
 
-Milestone 7 introduces the check engine in split stages. Milestone 7.1 owns the
-boundary, result status model, internal dispatch, and prerequisite/blocking
-representation. Milestone 7.2 starts execution with row count, Milestone 7.3 adds
-grain-key safety execution, and Milestone 7.4 adds current aggregate metric
-execution. Run-result artifacts remain Milestone 8, and evidence reports,
-failure details, and evidence links remain Milestone 9 unless a later split
-explicitly changes those boundaries.
+The check engine is introduced in split stages. The first boundary owns the
+result status model, internal dispatch, and prerequisite/blocking
+representation. Later execution phases add row count, grain-key safety, and
+current aggregate metric execution. Run-result artifacts, evidence reports,
+failure details, and evidence links remain separate later surfaces unless a
+future split explicitly changes those boundaries.
 
-Milestone 7.1 is not an execution milestone. It may define internal dispatch
-and blocker metadata that later execution needs, but it must not add public YAML
-placement syntax, adapter execution, generated run results, evidence reports,
-failure-detail export, state, sink writes, materialization, or probabilistic
-key-diff behavior.
+The first check-engine boundary is not an execution phase. It may define
+internal dispatch and blocker metadata that later execution needs, but it must
+not add public YAML placement syntax, adapter execution, generated run results,
+evidence reports, failure-detail export, state, sink writes, materialization, or
+probabilistic key-diff behavior.
 
 ## Check lifecycle
 
@@ -78,11 +77,11 @@ rules, result semantics, and evidence visibility before implementation.
 
 Placement decisions must be gate-backed per executable surface:
 
-- Milestone 7.2 defines row-count placement.
-- Milestone 7.3 defines grain-key safety placement.
-- Milestone 7.4 defines current aggregate metric placement.
-- Later milestones define result artifacts, evidence, failure details, sinks,
-  sampling, CDC, and advanced stores before those behaviors can execute.
+- row-count placement,
+- grain-key safety placement,
+- current aggregate metric placement,
+- result artifacts, evidence, failure details, sinks, sampling, CDC, and
+  advanced stores before those behaviors can execute.
 
 The engine must represent placement or capability blockers explicitly. A check
 that cannot satisfy its required execution context, materialization policy,

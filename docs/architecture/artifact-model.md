@@ -52,8 +52,9 @@ Expected uses:
 - alerting,
 - reporting.
 
-`target/run_results.json` is planned for Milestone 8. Milestone 7.1 may define
-in-memory result shape only and must not publish this artifact.
+`target/run_results.json` is planned for the future run-result artifact phase.
+The current check-engine boundary may define in-memory result shape only and
+must not publish this artifact.
 
 ## Human-readable artifacts
 

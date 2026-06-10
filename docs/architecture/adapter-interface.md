@@ -77,16 +77,15 @@ recon-oracle
 DuckDB starts as the first local development adapter inside `recon-core`.
 External adapter packages, including a future `recon-duckdb`, should split only
 after the adapter API and shared adapter test kit are stable. The package split
-and additional production adapters should wait for the Milestone 29 adapter
-conformance gate so every adapter proves the same public boundary before it
-claims compatibility.
+and additional production adapters should wait for the adapter conformance gate
+so every adapter proves the same public boundary before it claims compatibility.
 
 The current DuckDB local development adapter is distributed through the
 optional `recon-core[duckdb]` extra while it remains in-core.
 
 ## Base interface
 
-The Milestone 6 API boundary separates base adapter behavior from SQL dialect
+The current API boundary separates base adapter behavior from SQL dialect
 rendering:
 
 ```python
@@ -174,8 +173,8 @@ materialization or staging, result and evidence sink writes, and probabilistic
 key-summary operations. Those areas must stay capability-based and conservative:
 `unknown`, `unsupported`, `not_implemented`, malformed, or incompatible states
 do not satisfy required behavior. Exact capability names are not stable until
-the implementing milestones update this document, the compatibility docs, and
-the shared adapter test kit together.
+the implementing phases update this document, the compatibility docs, and the
+shared adapter test kit together.
 
 Compile without an adapter may produce typed plans with
 `rendering.status: not_rendered`. Adapter-aware rendering must validate adapter
@@ -215,9 +214,9 @@ traceable to contract, check ID, rendering step or typed operation, side when
 applicable, and adapter type. When an adapter is known, compiled checks record
 that adapter in `rendering.adapter_type`.
 
-Milestone 6 adapter-aware rendering uses `not_rendered`, `rendered`,
-`blocked`, and `failed`. Earlier draft statuses `deferred` and `unsupported`
-are no longer emitted for SQL rendering metadata.
+Adapter-aware rendering uses `not_rendered`, `rendered`, `blocked`, and
+`failed`. Earlier draft statuses `deferred` and `unsupported` are no longer
+emitted for SQL rendering metadata.
 
 ## Metadata
 
@@ -276,7 +275,7 @@ Current DuckDB behavior renders SQL for existing typed plans only. It guards
 key/group and aggregate comparison SQL against unsafe dialect coercion and
 rejects boolean inputs for current `sum` metric rendering because DuckDB treats
 `sum(boolean)` as a true-value count. It also rejects `UHUGEINT` aggregate
-inputs until exact aggregate behavior for that type is proven. Milestone 6
+inputs until exact aggregate behavior for that type is proven. Current
 rendering also requires source and target DuckDB connections to resolve to the
 same rendered connection config; cross-file or cross-connection rendering
 remains future work. Connection lifecycle, metadata fetching, and check
@@ -291,9 +290,9 @@ evidence expose the distinction.
 
 ## Query endpoint boundary
 
-Milestone 6 is relation-only for executable adapter-aware behavior. Query
-endpoints can remain parseable, but adapter-aware rendering or execution must
-return a clear unsupported diagnostic for `source.query` or `target.query`.
+Current executable adapter-aware behavior is relation-only. Query endpoints can
+remain parseable, but adapter-aware rendering or execution must return a clear
+unsupported diagnostic for `source.query` or `target.query`.
 
 Executable query endpoints require a later design for SELECT-only validation,
 single-statement handling, wrapping, artifact visibility, and adapter
