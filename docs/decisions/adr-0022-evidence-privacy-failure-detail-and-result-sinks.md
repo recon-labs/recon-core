@@ -12,8 +12,8 @@ decides where checks run and where source/target results are compared. Sink
 placement decides where outcomes, evidence, reports, failure details, state
 references, or table records are written after execution.
 
-Recon needs durable terminology before Milestones 8 and 9 implement run results
-or evidence, and before later milestones add production result tables, advanced
+Recon needs durable terminology before run-result and evidence phases implement
+durable output, and before later phases add production result tables, advanced
 stores, or external adapter packages. Without this boundary, a future
 implementation could accidentally put environment-specific destinations in
 contracts, treat result tables as state, make local HTML mandatory in every
@@ -59,16 +59,16 @@ Recon will use these sink families:
 
 | Family | Examples | Ownership |
 | --- | --- | --- |
-| Ephemeral/in-memory results | `RunResult`, `CheckResult` objects, test fixtures | Milestone 7.1 may define internal shapes. |
-| Terminal summary | Concise CLI result output | Milestone 8. |
-| Local run-result artifact | `target/run_results.json` | Milestone 8. |
-| Local evidence artifacts | `target/failures/`, `reports/`, evidence links | Milestone 9. |
-| Local state artifacts | `state/`, sample-key files, watermark files | Post-MVP Milestone 25. |
-| Production result tables | `recon_runs`, `recon_check_results`, failure/evidence link tables | Post-MVP Milestone 25.5. |
-| Advanced evidence/result stores | Evidence vaults, templates, sign-off artifacts, JSONL/streaming large results | Post-MVP Milestone 31. |
-| Remote/database state backend | Shared production state tables or backend | Post-MVP Milestone 37. |
+| Ephemeral/in-memory results | `RunResult`, `CheckResult` objects, test fixtures | First check-engine boundary may define internal shapes. |
+| Terminal summary | Concise CLI result output | Run-result artifact phase. |
+| Local run-result artifact | `target/run_results.json` | Run-result artifact phase. |
+| Local evidence artifacts | `target/failures/`, `reports/`, evidence links | Basic evidence phase. |
+| Local state artifacts | `state/`, sample-key files, watermark files | Local state phase. |
+| Production result tables | `recon_runs`, `recon_check_results`, failure/evidence link tables | Production result-table phase. |
+| Advanced evidence/result stores | Evidence vaults, templates, sign-off artifacts, JSONL/streaming large results | Advanced evidence/result-store phase. |
+| Remote/database state backend | Shared production state tables or backend | Remote state-backend phase. |
 
-Milestones 7.1, 7.2, 7.3, and 7.4 must not write run-result artifacts,
+Initial check-execution phases must not write run-result artifacts,
 evidence artifacts, failure details, reports, production result tables, or
 state.
 
@@ -89,7 +89,7 @@ default. Every non-local sink must be explicitly configured and visible in run
 metadata.
 
 `target/run_results.json` remains the first durable machine-readable result
-artifact in Milestone 8. Later table-only enterprise modes may disable local
+artifact in the run-result artifact phase. Later table-only enterprise modes may disable local
 run-result writing only if the table sink carries equivalent invocation,
 artifact-version, status, diagnostic, artifact-reference, and sink-write
 metadata, and terminal output states that local run results were not written.
@@ -184,11 +184,11 @@ engine payloads.
 
 Failure details are a high-risk evidence surface.
 
-Milestone 9 may implement simple local failure details only after privacy
+The basic evidence phase may implement simple local failure details only after privacy
 defaults, row limits, truncation behavior, and artifact references are locked.
 CSV is the first local failure-detail format. JSONL, streaming, pagination,
 external large-result stores, and richer failure-detail schemas remain
-Post-MVP Milestone 31 / Gate 6C work.
+advanced evidence and large-result-store gate work.
 
 Default failure-detail rules:
 
@@ -206,7 +206,7 @@ Default failure-detail rules:
 
 Production result tables are a result store, not a state backend by default.
 
-Post-MVP Milestone 25.5 owns:
+The production result-table phase owns:
 
 - table schema and versioning,
 - schema migration behavior,
@@ -221,8 +221,8 @@ Post-MVP Milestone 25.5 owns:
   records,
 - privacy and masking behavior for table rows.
 
-Result table implementation must wait until Milestones 8 and 9 establish local
-run-result and basic evidence semantics, and until local state shape is stable
+Result table implementation must wait until the run-result artifact and basic
+evidence phases establish local semantics, and until local state shape is stable
 enough to avoid confusing result tables with state tables.
 
 Adapters must explicitly declare write/result-sink capabilities before Recon
@@ -241,7 +241,7 @@ temporary_staging_for_sink
 ```
 
 The final capability names and semantics belong to the adapter/capability docs
-and Post-MVP Milestone 29 test-kit work.
+and future adapter test-kit work.
 
 ### State boundary
 
@@ -254,25 +254,25 @@ Examples:
 - A `recon_check_results` table is a result store.
 - A `recon_watermarks` table is state.
 
-Local state belongs to Post-MVP Milestone 25. Remote or database-backed state
-belongs to Post-MVP Milestone 37. Production result tables in Milestone 25.5
+Local state belongs to local state work. Remote or database-backed state
+belongs to remote state-backend work. Production result tables
 must not silently become remote state.
 
-## Milestone Ownership
+## Phase Ownership
 
-| Milestone | Owns | Must not own |
+| Phase | Owns | Must not own |
 | --- | --- | --- |
-| 7.1 | In-memory result/check-engine shape may reserve optional sink and artifact-reference fields. | No sink configuration, sink writes, run-result artifact, evidence, report, failure details, result tables, or state. |
-| 7.2 | Row-count execution may return in-memory outcomes and sanitized diagnostics. | No run-result/evidence sink writes. |
-| 7.3 | Grain-key safety execution may return in-memory outcomes and prerequisite/blocking metadata. | No raw key export, failure detail sink, evidence sink, or state write. |
-| 7.4 | Aggregate execution may return in-memory outcomes and sanitized bounded summaries allowed by privacy policy. | No run-result/evidence sink writes or grouped large-result export. |
-| 8 | Terminal summary and local `target/run_results.json`. | No production result tables or advanced evidence stores. |
-| 9 | Basic local evidence, reports, failure details, truncation, and artifact references. | No production result tables unless explicitly re-split. |
-| 25 | Local state, watermarks, persisted sample keys, and previous-failure keys. | No remote/database-backed state. |
-| 25.5 | Production result tables and write semantics. | No advanced evidence vault/templates/sign-off or remote state backend. |
-| 29 | Adapter test kit and adapter write/sink capability conformance. | No adapter may claim sink compatibility without conformance. |
-| 31 | Advanced evidence/result stores, JSONL/streaming large details, evidence vaults, templates, sign-off, richer redaction. | No basic evidence behavior should wait for these advanced surfaces. |
-| 37 | Remote/database-backed state. | Do not conflate with result tables. |
+| First check-engine boundary | In-memory result/check-engine shape may reserve optional sink and artifact-reference fields. | No sink configuration, sink writes, run-result artifact, evidence, report, failure details, result tables, or state. |
+| Row-count execution | Row-count execution may return in-memory outcomes and sanitized diagnostics. | No run-result/evidence sink writes. |
+| Grain-key safety execution | Grain-key safety execution may return in-memory outcomes and prerequisite/blocking metadata. | No raw key export, failure detail sink, evidence sink, or state write. |
+| Aggregate execution | Aggregate execution may return in-memory outcomes and sanitized bounded summaries allowed by privacy policy. | No run-result/evidence sink writes or grouped large-result export. |
+| Run-result artifact | Terminal summary and local `target/run_results.json`. | No production result tables or advanced evidence stores. |
+| Basic evidence | Basic local evidence, reports, failure details, truncation, and artifact references. | No production result tables unless explicitly re-split in planning docs. |
+| Local state | Local state, watermarks, persisted sample keys, and previous-failure keys. | No remote/database-backed state. |
+| Production result tables | Production result tables and write semantics. | No advanced evidence vault/templates/sign-off or remote state backend. |
+| Adapter test kit and write/sink conformance | Adapter test kit and adapter write/sink capability conformance. | No adapter may claim sink compatibility without conformance. |
+| Advanced evidence/result stores | Advanced evidence/result stores, JSONL/streaming large details, evidence vaults, templates, sign-off, richer redaction. | No basic evidence behavior should wait for these advanced surfaces. |
+| Remote state backend | Remote/database-backed state. | Do not conflate with result tables. |
 
 ## Testing Strategy
 
@@ -344,7 +344,7 @@ schema/version, privilege, retention, idempotency, and migration behavior.
 Result and evidence implementation will be staged, but the boundaries are clear
 before code is written.
 
-Milestone 7.1 can reserve internal shape for future sink metadata without
+The first check-engine boundary can reserve internal shape for future sink metadata without
 writing artifacts.
 
 Milestones 8 and 9 can implement local results and basic evidence without

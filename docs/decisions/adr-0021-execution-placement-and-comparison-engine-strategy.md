@@ -4,15 +4,15 @@
 
 Recon compiles equivalence contracts into typed check plans. ADR 0013 keeps
 reconciliation semantics in Core and lets adapters render or execute
-system-specific mechanics. ADR 0020 defines the Milestone 6 adapter, profile,
-and SQL rendering boundary, but deliberately stops before check execution.
+system-specific mechanics. ADR 0020 defines the adapter, profile, and SQL
+rendering boundary, but deliberately stops before check execution.
 
-Milestone 7 is split into:
+Check execution is staged into separate implementation phases:
 
-- Milestone 7.1: check-engine boundary and in-memory result model,
-- Milestone 7.2: row-count execution,
-- Milestone 7.3: grain-key safety execution,
-- Milestone 7.4: current aggregate metric execution.
+- check-engine boundary and in-memory result model,
+- row-count execution,
+- grain-key safety execution,
+- current aggregate metric execution.
 
 Before any typed plan execution, Recon needs a durable execution-placement
 policy. The same logical check can have different correctness, privacy,
@@ -61,7 +61,7 @@ result metadata:
 | Same-context pushdown | Source and target relations are addressable from one adapter execution context, so the comparison query can run in that context. | Current in-core DuckDB relation-backed execution. |
 | Recon-local comparison | Recon Core compares returned values in process memory. | Only for explicitly bounded scalar or small structured results. |
 | Adapter-managed intermediate engine | An adapter-managed engine stages data or summaries and performs comparison outside the original source or target. | Future gated work after staging, privacy, cleanup, and capability semantics are defined. |
-| External comparison engine | A third configured connection acts as the comparison engine for staged source and target data or summaries. | Future gated work; not Milestone 7. |
+| External comparison engine | A third configured connection acts as the comparison engine for staged source and target data or summaries. | Future gated work outside the initial check-execution split. |
 
 These concepts describe execution and comparison placement only. Evidence or
 result sinks are a separate decision surface. A run may execute in one location
@@ -74,7 +74,7 @@ Recon must prefer blocked or failed execution over misleading evidence.
 
 Execution placement follows these rules:
 
-- No execution milestone may silently fall back to Python when adapter SQL,
+- No execution phase may silently fall back to Python when adapter SQL,
   adapter execution, engine capabilities, or placement requirements are
   unsupported.
 - Recon-local comparison is allowed only for explicitly bounded results.
@@ -97,9 +97,9 @@ Execution placement follows these rules:
   query text, database error text, rendered profile values, or high-cardinality
   grouped results unless the relevant privacy and evidence policy permits it.
 
-### Milestone ownership
+### Phase ownership
 
-Milestone 7.1 may define result/check-engine fields that leave room for future
+The first check-engine boundary may define result/check-engine fields that leave room for future
 placement metadata:
 
 - planned operation execution location,
@@ -109,11 +109,11 @@ placement metadata:
 - capability or placement blocker diagnostics,
 - `not_executable` or `blocked` status reasons.
 
-Milestone 7.1 must not execute adapters, query source/target systems, write
+The first check-engine boundary must not execute adapters, query source/target systems, write
 `target/run_results.json`, write evidence, write reports, emit failure details,
 add public YAML placement syntax, or decide result/evidence sink placement.
 
-Milestone 7.2 owns row-count execution placement. The first safe policy is:
+The row-count execution phase owns row-count execution placement. The first safe policy is:
 
 - push source row count to the source side and target row count to the target
   side when both endpoints are supported by the selected adapter execution
@@ -123,22 +123,22 @@ Milestone 7.2 owns row-count execution placement. The first safe policy is:
 - block unsupported query endpoints, cross-adapter execution, cross-context
   execution, and unbounded fallback.
 
-Milestone 7.3 owns grain-key safety execution placement. It must preserve
+The grain-key safety execution phase owns grain-key safety execution placement. It must preserve
 `grain.keys` as comparison identity and must not infer keys or mappings.
 Side-local null-key and duplicate-key summaries may be pushed down when
 supported. Missing-key and extra-key comparison requires either same-context
 pushdown or a later explicit materialization/intermediate-engine policy.
 Recon-local key-set comparison is not allowed by default.
 
-Milestone 7.4 owns aggregate metric execution placement for the current emitted
+The aggregate metric execution phase owns aggregate metric execution placement for the current emitted
 aggregate operations. Ungrouped scalar aggregates may use side-local pushdown
 and bounded Recon-local comparison. Grouped aggregate comparison must not fetch
 unbounded groups into Core memory. It requires same-context pushdown, explicit
 bounded result limits, or a later materialization/intermediate-engine policy.
 
-Milestone 8 owns durable run-result artifacts and may record placement and
-capability metadata from executed checks. Milestone 9 owns evidence, reports,
-failure details, and privacy policy for evidence output. Future milestones own
+The run-result artifact phase owns durable run-result artifacts and may record placement and
+capability metadata from executed checks. The evidence phase owns evidence, reports,
+failure details, and privacy policy for evidence output. Future phases own
 query endpoint execution, row-level value comparison, sampling execution, CDC
 execution, adapter test-kit conformance, external adapter packages, and
 external comparison engines.
@@ -160,8 +160,9 @@ placement_blockers
 ```
 
 The exact schema belongs to the implementation milestone that emits the
-machine-readable surface. Milestone 7.1 can define internal in-memory shapes,
-but stable artifact fields belong to Milestone 8 or later.
+machine-readable surface. The first check-engine boundary can define internal
+in-memory shapes, but stable artifact fields belong to the run-result artifact
+phase or later.
 
 ## Testing Strategy
 
@@ -178,7 +179,7 @@ Each execution sub-milestone must add matrix-backed tests for:
 - diagnostics preserve code, severity, safe message, path/resource context, and
   actionable hint where available.
 
-Post-MVP adapter test-kit work must include SQL comparison conformance for
+Future adapter test-kit work must include SQL comparison conformance for
 null-safe equality, key-diff semantics, grouped nullable keys, type mismatch,
 aggregate empty-input behavior, unsupported capabilities, and dependency
 installation behavior. Adapter package discovery or metadata is not sufficient
@@ -211,9 +212,9 @@ Adapters know system mechanics, but Core owns reconciliation semantics. If
 adapters choose placement independently, the same contract could mean different
 things on different systems.
 
-### Add user-facing YAML placement controls in Milestone 7.1
+### Add user-facing YAML placement controls in the first check-engine boundary
 
-Rejected for Milestone 7.1.
+Rejected for the first check-engine boundary.
 
 The first task is to lock Core concepts and result boundaries. Public placement
 syntax would affect contract schema, compatibility, evidence, privacy, and
@@ -221,7 +222,7 @@ adapter expectations, and it needs a separate design before implementation.
 
 ### Add an external comparison engine immediately
 
-Rejected for Milestone 7.
+Rejected for the initial check-execution split.
 
 External comparison engines are useful for enterprise-scale checks, but they
 require explicit staging, cleanup, credential, privacy, capability, cost,

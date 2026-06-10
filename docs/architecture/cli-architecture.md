@@ -206,9 +206,7 @@ Future illustrative examples:
 ```bash
 recon compile --select "contract:customer_revenue"
 recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
-recon run --select "selector:critical_reconciliations"
-recon run --select "check:customer_revenue.row_count"
-recon run --exclude "contract:experimental_*"
+recon run --select "contract:customer_revenue"
 ```
 
 Selector logic should not require scanning files independently from the parser.

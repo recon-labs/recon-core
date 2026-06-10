@@ -251,9 +251,7 @@ Future illustrative selector examples:
 ```bash
 recon compile --select "contract:customer_revenue"
 recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
-recon run --select "selector:critical_reconciliations"
-recon run --select "check:customer_revenue.row_count"
-recon run --exclude "contract:experimental_*"
+recon run --select "contract:customer_revenue"
 ```
 
 Selectors are not implemented yet, and the exact selector syntax is not locked.
