@@ -17,12 +17,12 @@ evidence. For example, a contract may compare rows by a business key while CDC
 delete propagation depends on the source primary key. Those are related but not
 identical assumptions.
 
-Mature tools support this separation in different ways:
+Implementation constraints support this separation in different ways:
 
-- dbt keeps tests explicit and records compiled/run artifacts.
-- Data diff tools require primary-key-like columns for row-level diffing, even
+- explicit tests and generated artifacts keep validation behavior auditable,
+- data diff tools require primary-key-like columns for row-level diffing, even
   when those columns are not formal database primary keys.
-- Data-quality tools model uniqueness as an explicit validation.
+- data quality tools model uniqueness as an explicit validation.
 - CDC systems expose update/delete behavior through physical or event identity.
 
 Recon should use those patterns without becoming a generic data-quality or CDC
@@ -451,13 +451,3 @@ unsupported CDC modes explicit in diagnostics and evidence.
 - ADR 0007: Grain Keys and Row-Level Uniqueness
 - ADR 0011: CDC Policy and Delete Modes
 - ADR 0013: Typed Check Plans and Adapter SQL Rendering
-- dbt data tests: https://docs.getdbt.com/reference/resource-properties/data-tests
-- dbt artifacts: https://docs.getdbt.com/reference/artifacts/manifest-json
-- dbt run results: https://docs.getdbt.com/reference/artifacts/run-results-json
-- Datafold Data Diff: https://docs.datafold.com/data-diff/how-datafold-diffs-data
-- Google Data Validation Tool: https://github.com/GoogleCloudPlatform/professional-services-data-validator
-- Soda reconciliation checks: https://docs.soda.io/sodacl-reference/recon
-- Great Expectations uniqueness: https://docs.greatexpectations.io/docs/reference/learn/data_quality_use_cases/uniqueness/
-- AWS DMS validation: https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Validating.html
-- AWS DMS PostgreSQL CDC limitations: https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html
-- Debezium PostgreSQL connector: https://debezium.io/documentation/reference/stable/connectors/postgresql.html

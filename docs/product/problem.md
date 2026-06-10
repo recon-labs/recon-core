@@ -6,9 +6,9 @@ Data teams often need to prove that one dataset matches another.
 
 Examples:
 
-- MongoDB source data should match BigQuery target data after CDC.
-- SQL Server should match Snowflake bronze after AWS DMS and Snowpipe.
-- Redshift/Spark outputs should match Snowflake/dbt outputs after modernization.
+- Operational source data should match warehouse target data after CDC.
+- Source tables should match warehouse landing tables after replication.
+- Legacy warehouse and processing outputs should match modern warehouse outputs after modernization.
 - Bronze, Silver, and Gold layers should preserve the expected data grain and totals.
 - Old revenue logic should match rewritten revenue logic within acceptable tolerance.
 - A new warehouse table should match the system it replaced before cutover.
@@ -123,7 +123,7 @@ A good solution should let teams:
 - support deterministic and incremental sampling,
 - run checks repeatedly,
 - capture failures and evidence,
-- integrate with CI/Airflow,
+- integrate with CI or orchestration,
 - keep logic in Git,
 - generate sign-off artifacts.
 

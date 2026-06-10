@@ -14,20 +14,22 @@ Recon is an open-source framework that helps data teams prove that two data outp
 
 Recon turns manual SQL comparisons, spreadsheets, tickets, and reruns into versioned equivalence contracts and repeatable evidence.
 
-## Analogy
+## Framing
 
-> dbt is for transforming data as code. Recon is for proving data equivalence as code.
+> Transformation as Code is for building data outputs. Reconciliation as Code is
+> for proving data outputs are equivalent.
 
-This is not meant to claim Recon is dbt. It explains the workflow ambition: make a messy data engineering practice structured, versioned, reusable, and community-driven.
+This explains the workflow ambition: make a messy data engineering practice
+structured, versioned, reusable, and community-driven.
 
 ## What Recon should be first in mind for
 
 Recon should be the first tool people think of when they say:
 
-- “We need to prove BigQuery matches MongoDB after CDC.”
-- “We need to prove Snowflake matches SQL Server after DMS.”
-- “We need to compare old Redshift outputs to new Snowflake outputs.”
-- “We rewrote a Spark job and need to prove the result is the same.”
+- “We need to prove the warehouse target matches the operational source after CDC.”
+- “We need to prove the replicated target matches the source after migration.”
+- “We need to compare old warehouse outputs to new warehouse outputs.”
+- “We rewrote a batch job and need to prove the result is the same.”
 - “Analysts are manually comparing old vs new pipeline outputs.”
 - “We need audit evidence before cutover.”
 - “We need continuous validation that source and warehouse stay aligned.”
@@ -74,9 +76,9 @@ Migration validation CLIs can compare systems.
 
 Recon aims to be a broader Reconciliation as Code framework for migrations, CDC, refactors, layers, packages, evidence, and community standards.
 
-### Versus dbt tests
+### Versus transformation-framework tests
 
-dbt tests are excellent for warehouse-side assertions.
+Transformation-framework tests are useful for warehouse-side assertions.
 
 Recon focuses on source-target and old-new equivalence across systems or outputs.
 

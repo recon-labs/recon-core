@@ -15,21 +15,15 @@ Recon silently ignores config, applies only part of it, or lets packages invent
 untyped config shapes, compiled checks and evidence can misrepresent what was
 validated.
 
-dbt Core provides useful reference patterns:
+Resource configuration needs these properties:
 
 - parser nodes build resolved config from project config, schema YAML, and
   in-file `config()` calls,
 - resource config paths are tracked and unused config paths can warn,
 - parsed nodes keep config visible in manifest artifacts,
-- dbt allows rich project/package behavior that is appropriate for SQL
-  transformation, but Recon's evidence boundary requires stricter failures for
+- transformation frameworks may allow rich project/package behavior, but Recon's
+  evidence boundary requires stricter failures for
   unsupported or unused check-pack config.
-
-Relevant dbt references:
-
-- `core/dbt/parser/base.py`
-- `core/dbt/config/runtime.py`
-- `core/dbt/parser/manifest.py`
 
 ## Decision
 
@@ -218,11 +212,11 @@ package namespace behavior.
 Rejected. Arbitrary config would be easy for packages but unsafe for evidence.
 Unknown keys could be ignored or interpreted differently across packages.
 
-### Copy dbt's Flexible Config Model Directly
+### Copy a flexible transformation config model directly
 
-Rejected. dbt's flexibility is useful for SQL transformations, but Recon's
-evidence model needs stronger guarantees that authored config affected the
-compiled checks exactly as shown.
+Rejected. Broad transformation-framework flexibility is useful for SQL
+transformations, but Recon's evidence model needs stronger guarantees that
+authored config affected the compiled checks exactly as shown.
 
 ### Support `on_empty: warn` Immediately
 

@@ -99,11 +99,10 @@ compile must represent at least one authored contract.
 
 ## Compiler validation boundaries
 
-Compiler validation should follow the same separation used by mature
-manifest-based tools: source-file discovery, parsed models, graph/resource
-lookup, validation, and artifact writing stay separate. For Recon, the parser
-remains responsible for structural authored-file parsing, while the compiler
-owns validation that depends on compiled intent, check-pack expansion, metrics,
+Compiler validation should keep source-file discovery, parsed models,
+graph/resource lookup, validation, and artifact writing separate. For Recon, the
+parser remains responsible for structural authored-file parsing, while the
+compiler owns validation that depends on compiled intent, check-pack expansion, metrics,
 policies, or identity requirements.
 
 Implementation guidance:

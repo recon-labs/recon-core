@@ -70,10 +70,9 @@ key-summary strategies follow the same ownership boundary:
   check execution, generated run results, evidence, sinks, state, or
   probabilistic key-diff behavior.
 
-This follows the adapter-boundary maturity of dbt, but Recon should not use
-dbt-style macro dispatch as the primary comparison engine. Typed plans are
-preferred because Recon must produce inspectable compiled checks, generated SQL,
-diagnostics, and evidence.
+Recon should not use macro dispatch as the primary comparison engine. Typed
+plans are preferred because Recon must produce inspectable compiled checks,
+generated SQL, diagnostics, and evidence.
 
 ## Initial strategy
 

@@ -1,10 +1,11 @@
-# Competitive Landscape
+# Adjacent Categories
 
 ## Purpose
 
-This document explains how Recon relates to existing tools and why the product should exist.
+This document explains how Recon relates to adjacent tool categories and why the
+product should exist.
 
-The goal is not to attack other tools. The goal is to position Recon clearly.
+The goal is to position Recon clearly by category and product scope.
 
 ## Main categories
 
@@ -15,21 +16,22 @@ Recon overlaps with several categories:
 3. table diff tools,
 4. migration validation utilities,
 5. observability platforms,
-6. dbt-style transformation/testing tools,
+6. transformation and warehouse-testing tools,
 7. custom SQL/Python scripts.
 
 Recon should not try to replace all of them.
 
-## Soda
+## Data Quality Frameworks
 
-Soda provides data quality checks and has reconciliation capabilities in its broader product ecosystem.
+Data quality frameworks provide dataset-local checks and may include broader
+validation workflows.
 
-Where Soda is strong:
+Where they are strong:
 
 - data quality checks,
 - YAML-like check definitions,
-- cloud history/alerts,
-- source-target reconciliation features in paid/library contexts.
+- history and alerts,
+- validation workflows.
 
 Recon opportunity:
 
@@ -39,17 +41,17 @@ Recon opportunity:
 - evidence workflow,
 - CDC/refactor/medallion use cases as first-class concepts.
 
-Recon should not claim Soda is irrelevant. Soda validates the market.
+Recon should not become a general data quality framework.
 
-## Great Expectations / GX
+## Flexible Validation Frameworks
 
-GX is a flexible validation framework.
+Flexible validation frameworks are useful when teams need programmable
+dataset-local validation.
 
-Where GX is strong:
+Where they are strong:
 
 - expectations,
 - validation results,
-- Data Docs,
 - Python flexibility,
 - data quality workflows.
 
@@ -62,11 +64,12 @@ Recon opportunity:
 
 Recon should not become a general expectation framework.
 
-## dbt tests
+## Transformation-Framework Tests
 
-dbt provides tests, docs, macros, packages, and a mature developer workflow.
+Transformation frameworks often provide warehouse-side assertions, project
+structure, documentation, packages, and adapters.
 
-Where dbt is strong:
+Where they are strong:
 
 - transformations,
 - warehouse SQL modeling,
@@ -82,11 +85,12 @@ Recon opportunity:
 - support CDC and migration evidence,
 - package reusable reconciliation logic.
 
-Recon should learn from dbt’s project maturity, not compete with dbt’s transformation domain.
+Recon should not compete with the transformation domain.
 
-## Datafold / data diff tools
+## Data Diff Tools
 
-Datafold and similar tools provide strong data diff and migration validation capabilities.
+Data diff tools provide value-level comparison and migration validation
+capabilities.
 
 Where they are strong:
 
@@ -106,11 +110,11 @@ Recon opportunity:
 
 Recon should not be only a diff engine.
 
-## Google Data Validation Tool / DVT
+## Migration Validation CLIs
 
-DVT is a source-target validation CLI.
+Migration validation CLIs compare systems during platform changes.
 
-Where DVT is strong:
+Where they are strong:
 
 - heterogeneous source-target validation,
 - migration validation,
@@ -126,7 +130,7 @@ Recon opportunity:
 - developer-first project structure,
 - CDC/refactor/medallion workflows.
 
-Recon should respect DVT as a strong technical reference.
+Recon should be broader than a one-purpose migration validation CLI.
 
 ## Vendor migration validation tools
 
@@ -147,7 +151,7 @@ Recon opportunity:
 
 ## Custom scripts
 
-The biggest competitor is not always a product. It is internal scripts.
+The biggest alternative is not always a product. It is internal scripts.
 
 Where scripts are strong:
 

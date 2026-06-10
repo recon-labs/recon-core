@@ -20,16 +20,15 @@ non-contract resources, Recon needs a durable rule for:
 - how missing optional resource directories behave,
 - what macro loading means before macro semantics exist.
 
-dbt Core is the main reference. dbt uses a central file-type catalog that maps
-resource types to project path fields, extensions, and parser classes. It reads
-files across the root project and installed packages, records source files with
-project names and checksums, parses resources through resource-specific parser
-classes, checks manifest uniqueness after parsing, and rejects duplicate package
-project names.
+Project loading should use central file-type catalogs that map resource types to
+project path fields, extensions, and parser classes. It should read files across
+the root project and installed packages, record source files with project names
+and checksums, parse resources through resource-specific parsers, check manifest
+uniqueness after parsing, and reject duplicate package project names.
 
-Recon should borrow dbt's resource catalog and namespace discipline, but not
-dbt's macro-dispatch model as Recon's primary comparison engine. Core
-reconciliation semantics remain typed check plans and explicit validation.
+Recon should use resource catalog and namespace discipline, but not macro
+dispatch as its primary comparison engine. Core reconciliation semantics remain
+typed check plans and explicit validation.
 
 ## Decision
 
@@ -195,8 +194,8 @@ When package loading is implemented:
 - package resource schemas and compatibility ranges must be documented before
   implementation.
 
-This follows dbt's mature pattern of loading a root project plus dependencies
-while rejecting duplicate project/package names.
+This preserves deterministic loading of a root project plus dependencies while
+rejecting duplicate project/package names.
 
 ## Manifest and Source Files
 
@@ -274,7 +273,7 @@ Rejected.
 Framework built-ins are public behavior. Local customization should use local
 names or future explicit extension points, not silent shadowing.
 
-### Parse and execute macros like dbt
+### Parse and execute macros as primary resources
 
 Rejected for this phase.
 
@@ -322,11 +321,3 @@ Tests should cover:
 
 - ADR 0013: Typed Check Plans and Adapter SQL Rendering
 - ADR 0016: Validation Timing and Diagnostic Codes
-- dbt Core file reader:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/parser/read_files.py`
-- dbt Core manifest loader:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/parser/manifest.py`
-- dbt Core runtime dependency loading:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/config/runtime.py`
-- dbt Core package resolver:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/deps/resolver.py`

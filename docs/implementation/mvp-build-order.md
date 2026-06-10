@@ -914,7 +914,7 @@ Do not build:
 
 - macro rendering,
 - macro execution,
-- dbt-style macro dispatch as the primary comparison engine,
+- macro dispatch as the primary comparison engine,
 - arbitrary custom SQL behavior hidden behind macro names.
 
 Required gate:
@@ -1753,9 +1753,9 @@ Build:
 
 - Recon Hub index metadata,
 - GitHub Action,
-- Airflow provider/operator,
-- Dagster integration,
-- dbt integration patterns,
+- orchestrator provider/operator,
+- workflow provider integration,
+- transformation framework integration patterns,
 - data catalog and issue/ticket integration boundaries.
 
 Required gate:

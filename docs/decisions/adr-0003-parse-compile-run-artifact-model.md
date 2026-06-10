@@ -45,7 +45,7 @@ reports/
 
 ## Reasoning
 
-This separation gives Recon a mature framework shape.
+This separation gives Recon a clear framework shape.
 
 `parse` validates and understands the project.
 

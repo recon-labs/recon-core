@@ -19,20 +19,16 @@ implementation could accidentally put environment-specific destinations in
 contracts, treat result tables as state, make local HTML mandatory in every
 environment, or leak sensitive source/target values through a secondary output.
 
-Mature tools provide useful patterns:
+Evidence and orchestration design has these constraints:
 
-- dbt writes local versioned artifacts first and handles persisted test
-  failures separately from run result rows.
-- Great Expectations separates validation results, metadata stores, and Data
-  Docs.
-- Soda supports local/no-upload modes and treats failed-row samples as a
-  separately controlled detail surface.
-- Google Cloud Data Validation Tool uses explicit result handlers for database
-  result tables.
-- Airflow separates small metadata channels from large payloads and makes
-  remote logging/storage explicit.
+- local versioned artifacts should stay separate from persisted failure details,
+- validation results, metadata stores, and human-readable reports should remain
+  distinct surfaces,
+- local/no-upload modes and failed-row samples need explicit controls,
+- database result tables need explicit result handlers,
+- small metadata channels and large payload storage need separate policies.
 
-Recon should borrow explicit destinations, local-first artifacts, bounded detail
+Recon should use explicit destinations, local-first artifacts, bounded detail
 output, and store separation while preserving source-target reconciliation
 semantics and fail-closed evidence.
 

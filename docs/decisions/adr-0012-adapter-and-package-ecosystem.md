@@ -4,7 +4,8 @@
 
 Recon is cross-system by nature.
 
-It may compare Postgres to Snowflake, MySQL to BigQuery, SQL Server to Snowflake, MongoDB to BigQuery, Redshift to Snowflake, Databricks to BigQuery, or other combinations.
+It may compare any supported source and target combination across operational
+databases, warehouses, lakehouses, document stores, and other data platforms.
 
 Each system has different SQL syntax, metadata behavior, type systems, timestamp behavior, hashing, and connection requirements.
 

@@ -8,7 +8,7 @@ Examples include:
 
 - source database versus warehouse replica,
 - old warehouse output versus new warehouse output,
-- Spark output versus Snowflake output,
+- batch processing output versus warehouse output,
 - Bronze layer versus Silver layer,
 - old business metric versus new business metric,
 - CDC stream versus target table.
@@ -44,7 +44,8 @@ The framework needs to support:
 - CI and orchestration usage,
 - repeatable validation after fixes.
 
-A code-first model fits engineering teams that already use Git, pull requests, CI, dbt, Airflow, and data platform workflows.
+A code-first model fits engineering teams that already use Git, pull requests,
+CI, orchestration, transformation, and data platform workflows.
 
 ## Alternatives considered
 

@@ -9,9 +9,9 @@ casting differently.
 A common real case is:
 
 ```text
-SQL Server source stores empty string ''
-AWS DMS writes staged files
-Snowflake file format loads empty field as NULL
+source system stores empty string ''
+replication service writes staged files
+warehouse file format loads empty field as NULL
 ```
 
 Strict byte-for-byte comparison would fail. Silent equivalence would be unsafe.

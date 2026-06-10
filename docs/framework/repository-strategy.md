@@ -91,7 +91,7 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
    repo claims compatibility.
 3. Add official check/policy packages.
 4. Add `recon-hub-index`.
-5. Add integrations such as `recon-airflow`.
+5. Add integrations such as `recon-orchestrator`.
 
 ## Source of truth
 

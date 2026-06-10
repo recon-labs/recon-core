@@ -69,11 +69,13 @@ Recon asks:
 
 Both are important. Recon focuses on the second question.
 
-## Strategic analogy
+## Strategic Framing
 
-> dbt is for transforming data as code. Recon is for proving data equivalence as code.
+> Transformation as Code is for building data outputs. Reconciliation as Code is
+> for proving data outputs are equivalent.
 
-This analogy is directional, not literal. Recon should learn from dbt’s mature open-source ergonomics: CLI-first workflow, project structure, packages, adapters, selectors, docs, and artifacts. Recon’s domain is different: equivalence, reconciliation, evidence, and source-target validation.
+This framing is directional, not literal. Recon's domain is equivalence,
+reconciliation, evidence, and source-target validation.
 
 ## Long-term vision
 
@@ -113,7 +115,7 @@ Recon must not drift into being:
 
 - a generic data quality platform,
 - a CDC/ingestion tool,
-- a dbt replacement,
+- a warehouse transformation framework replacement,
 - a dashboarding product first,
 - a fuzzy entity matching / MDM tool,
 - a one-off table diff script.

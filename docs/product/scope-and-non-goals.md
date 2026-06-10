@@ -138,11 +138,12 @@ Recon does not move data.
 
 It validates data after or alongside movement.
 
-### dbt replacement
+### Warehouse transformation framework replacement
 
 Recon does not transform warehouse data as its main purpose.
 
-It may integrate with dbt workflows and learn from dbt’s structure, but it does not replace dbt.
+It may integrate with transformation workflows, but it does not replace
+transformation frameworks.
 
 ### Automatic mapping inference
 

@@ -42,7 +42,8 @@ Preferred direction:
 - record selected scope in compiled artifacts or run results when relevant,
 - fail clearly when selectors match nothing unless an explicit empty-selection
   mode is added,
-- resolve with a future ADR before dbt-like selectors or partial run behavior.
+- resolve with a future ADR before transformation-style selectors or partial run
+  behavior.
 
 ### How much inheritance should contracts support?
 
@@ -211,7 +212,7 @@ Preferred direction:
 
 ## Tolerances and normalization
 
-### How should SQL Server empty string to Snowflake null be handled?
+### How should empty string to warehouse null be handled?
 
 Locked by ADR 0009:
 
@@ -312,7 +313,7 @@ Preferred direction:
 Preferred direction:
 
 - use a local/test-friendly adapter for development,
-- prioritize Postgres/Snowflake paths based on real use,
+- prioritize initial production adapter paths based on real use,
 - keep adapter interface stable before splitting many repos.
 
 ### When should adapter packages split from `recon-core`?
@@ -322,7 +323,7 @@ Preferred direction:
 - after the typed check-plan model, adapter API versioning, and shared adapter
   test kit are stable enough.
 
-### Should Recon use dbt-style macro dispatch for dialect support?
+### Should Recon use macro dispatch for dialect support?
 
 Decision:
 

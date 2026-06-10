@@ -14,10 +14,10 @@ It means comparing two datasets or outputs to determine whether they are equival
 
 Examples:
 
-- SQL Server table vs Snowflake table,
-- MongoDB collection vs BigQuery table,
-- Redshift model output vs Snowflake model output,
-- old Spark job result vs new dbt model result,
+- source database table vs warehouse table,
+- operational collection vs analytics table,
+- old model output vs new model output,
+- old batch job result vs new model result,
 - bronze layer vs silver layer,
 - source system vs warehouse replica.
 
@@ -45,9 +45,9 @@ It validates ongoing data movement from operational systems into analytics platf
 Examples:
 
 ```text
-MongoDB -> BigQuery
-SQL Server -> AWS DMS -> Snowpipe -> Snowflake
-Postgres -> Debezium -> Kafka -> Databricks
+operational collection -> analytics table
+source database -> replication service -> warehouse ingestion -> warehouse table
+database change stream -> event bus -> lakehouse table
 ```
 
 Typical checks:
@@ -68,10 +68,10 @@ This validates a one-time or phased platform transition.
 
 Examples:
 
-- Redshift to Snowflake,
-- Teradata to BigQuery,
-- SQL Server reporting mart to Databricks,
-- legacy ETL to dbt/Snowpark.
+- legacy warehouse to modern warehouse,
+- legacy reporting platform to analytics warehouse,
+- source reporting mart to governed lakehouse,
+- legacy ETL to modern transformation layer.
 
 Typical checks:
 
@@ -91,8 +91,8 @@ This validates that a rewritten pipeline produces equivalent output.
 
 Examples:
 
-- Spark job rewritten as dbt,
-- Airflow SQL task rewritten as a model,
+- batch job rewritten as a model,
+- scheduler-owned SQL task rewritten as a model,
 - Python transformation replaced by SQL,
 - old metric calculation replaced by new metric layer.
 
@@ -162,7 +162,8 @@ Examples:
 
 Recon may include limited dataset-local checks when they support reconciliation, but generic DQ is not Recon’s main category.
 
-Recon should integrate with, not replace, tools like dbt tests, Soda, or Great Expectations.
+Recon should integrate with, not replace, dataset-local testing and validation
+tools.
 
 ## 8. Financial/accounting reconciliation
 

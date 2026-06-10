@@ -116,9 +116,9 @@ Schema policy packages may provide common technical-column ignore rules.
 
 Examples:
 
-- DMS metadata columns,
-- Fivetran metadata columns,
-- Debezium metadata columns,
+- replication service metadata columns,
+- managed ingestion metadata columns,
+- change-event metadata columns,
 - ingestion audit columns.
 
 These should remain explicit. Installing a package should not silently ignore columns unless a user references the policy.
@@ -149,8 +149,8 @@ Possible categories:
 Future integrations:
 
 ```text
-recon-airflow
-recon-dagster
+recon-orchestrator
+recon-workflow-provider
 recon-github-action
 ```
 

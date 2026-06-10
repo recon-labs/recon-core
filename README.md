@@ -87,7 +87,7 @@ Recon is not:
 
 - a generic data quality platform,
 - an ingestion or CDC movement tool,
-- a dbt replacement,
+- a warehouse transformation framework replacement,
 - an MDM or fuzzy matching platform,
 - an automatic data repair tool.
 

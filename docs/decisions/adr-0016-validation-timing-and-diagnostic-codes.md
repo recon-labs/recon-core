@@ -15,19 +15,12 @@ needs a durable rule for:
 - how warnings differ from errors and check failures,
 - how diagnostics appear in artifacts.
 
-dbt Core is the primary open-source reference for phase separation. dbt reads
-files, parses resources through parser classes, processes references and docs,
-then checks manifest consistency before writing its manifest. dbt also uses
-structured events and warning/error handling for parse-time and manifest-time
-conditions such as unused resource config paths, missing referenced nodes, and
-duplicate resources.
+Parser and validation design should separate file reading, resource parsing,
+reference processing, consistency checks, structured events, warnings, and
+errors. Result surfaces should also distinguish success/failure state,
+structured detail, metadata, exceptions, warnings, and execution errors.
 
-Great Expectations and Soda are useful references for result surfaces: GX
-validation results separate `success`, `result`, metadata, and exception
-information; Soda distinguishes check result states such as pass, fail, error,
-and explicit warn.
-
-Recon should learn from those patterns without becoming a generic data quality
+Recon should use that separation without becoming a generic data quality
 framework. Recon's trust boundary is source-target equivalence evidence, so
 ambiguous reconciliation behavior must fail before execution whenever possible.
 
@@ -419,13 +412,3 @@ Recommended implementation shape:
 - ADR 0006: Contract Compiler and Validation Rules
 - ADR 0014: Key Semantics and Check Dependencies
 - ADR 0015: Compiled Artifact Schema and Versioning
-- dbt Core parser README:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/parser/README.md`
-- dbt Core ManifestLoader:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/parser/manifest.py`
-- dbt Core events:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/events/types.py`
-- Great Expectations `ExpectationValidationResult`:
-  `https://docs.greatexpectations.io/docs/reference/api/core/expectationvalidationresult_class/`
-- Soda scan result states:
-  `https://docs.soda.io/soda-v3/run-a-scan`

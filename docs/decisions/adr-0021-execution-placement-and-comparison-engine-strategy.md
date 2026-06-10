@@ -19,19 +19,17 @@ policy. The same logical check can have different correctness, privacy,
 performance, and evidence implications depending on where source operations,
 target operations, comparison, materialization, and fallback behavior happen.
 
-Mature tools provide useful reference points:
+Execution placement has these constraints:
 
-- dbt keeps database-specific behavior behind adapters and records adapter
-  metadata in artifacts, but transformation macro dispatch is not Recon's
-  comparison contract.
-- Great Expectations and Soda separate result status from bounded detail and
-  make high-volume detail explicit.
-- Google Cloud Data Validation Tool shows why large source-target row
-  comparison needs explicit keys, partitioning, and result handling.
-- Airflow provider packaging shows that extension discovery is different from
-  semantic compatibility.
+- database-specific behavior should stay behind adapters, while adapter metadata
+  remains visible in artifacts,
+- result status should be separated from bounded detail, and high-volume detail
+  should be explicit,
+- large source-target row comparison needs explicit keys, partitioning, and
+  result handling,
+- extension discovery is different from semantic compatibility.
 
-Recon should borrow those boundaries while preserving its own rule: Core owns
+Recon should use those boundaries while preserving its own rule: Core owns
 source-target equivalence semantics, and adapters execute only the mechanics
 Core has approved.
 

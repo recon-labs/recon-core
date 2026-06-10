@@ -131,7 +131,8 @@ Mitigation:
 
 ### Existing tools cover enough
 
-Some teams may already use dbt tests, Soda, GX, DVT, Datafold, or custom scripts.
+Some teams may already use dataset-local tests, data quality tools, migration
+validation CLIs, data diff tools, or custom scripts.
 
 Mitigation:
 
