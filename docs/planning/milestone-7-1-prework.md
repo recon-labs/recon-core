@@ -437,8 +437,9 @@ review.
 | Public contract and changelog decision | 7.1 affects planned result/diagnostic surfaces but does not stabilize generated artifacts. | Public contract decision states no new YAML syntax, artifact version, adapter API change, selector claim, evidence schema, or sink/table schema. Changelog decision is not required for prework. | Implementation must update compatibility docs if status names, reason codes, diagnostic codes, CLI output, or serialized fields change from this prework. |
 
 Gate status for this prework: satisfied for 7.1 implementation planning.
-Remaining pre-implementation work is the exact implementation file/test map
-and the final prompt/docs drift check.
+The exact future implementation file/test map and final prompt/docs drift
+check are recorded below in the Future Implementation Map and Implementation
+Readiness Report.
 
 ## Phase-Exit Checklist
 
