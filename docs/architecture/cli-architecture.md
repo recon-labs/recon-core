@@ -223,6 +223,12 @@ explicit contract/path scope for compile, SQL rendering, and run. Named
 selectors, check-level selectors, tag/domain/package selectors, state/result
 selectors, and richer composition should build on that later.
 
+Future `path:...` selectors should resolve against project-relative manifest
+paths produced by resource discovery. Exact file-path matching should be
+defined before directory-prefix matching. If a selected file contains multiple
+contracts, the selector should include all contracts in that file unless a later
+composition rule narrows it explicitly.
+
 ## Design principle
 
 The CLI should feel simple while delegating complex framework behavior to testable services.

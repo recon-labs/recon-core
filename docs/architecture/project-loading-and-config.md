@@ -150,6 +150,8 @@ This directory should be ignored.
 contract/path selector surface exists.
 
 Selector behavior should operate on manifest metadata rather than raw file scans.
+Path selectors should use project-relative resource paths recorded by parser
+discovery, including nested contract files under configured contract paths.
 
 Selector syntax and semantics are not locked yet. Project loading may preserve
 the future resource location, but implementation of `selectors.yml`, rich

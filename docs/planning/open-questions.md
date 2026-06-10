@@ -44,6 +44,12 @@ Preferred direction:
 
 - use parsed manifest metadata, not raw file scanning,
 - design the minimal contract/path selector syntax before implementation,
+- make `path:...` use project-relative manifest paths,
+- lock exact file-path selection before directory-prefix selection,
+- define that selecting a multi-contract YAML file selects all contracts in that
+  file unless later composition narrows it,
+- treat metric-generated checks as part of the selected contract until
+  check-level selectors are implemented,
 - define named selector shape in `selectors.yml` later,
 - define how `--select` and `--exclude` compose for the minimal subset before
   adding richer composition,

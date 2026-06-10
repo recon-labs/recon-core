@@ -112,6 +112,17 @@ Recon can parse multiple contract files in a project. Simple multi-contract
 YAML files are also supported by parse. Selecting a subset of contracts to
 compile or run is a separate future selector feature.
 
+Contract discovery is recursive under configured contract paths, so subfolders
+such as `contracts/customer/` and `contracts/orders/` are supported. Generated
+compiled contract and check artifacts use the contract name rather than the
+source folder, so contract names must be unique across the project.
+
+Future `path:...` selectors should use project-relative manifest paths such as
+`contracts/customer/customer_revenue.yml`. Exact file-path selection should come
+before directory-prefix selection. Selecting a multi-contract YAML file should
+select every contract in that file unless a later selector design explicitly
+narrows it further.
+
 ## `sample_policies/`
 
 Reusable sampling policies.

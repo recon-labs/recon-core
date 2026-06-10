@@ -269,6 +269,15 @@ state/result selectors, and richer composition remain later design work.
 Selectors should use parsed project metadata rather than scanning files
 independently from the parser.
 
+Future `path:...` selectors should match project-relative manifest paths such
+as `contracts/revenue/customer_revenue.yml`. Exact file-path selection should be
+defined before directory-prefix selection. Selecting a multi-contract YAML file
+should include all contracts in that file unless a later selector design
+explicitly combines file selection with a narrower contract or check selector.
+Metrics currently live inside contracts, so contract/path selectors select the
+metric-generated checks for the selected contracts; individual metric/check
+selection waits for later `check:...` support.
+
 ## Artifact directories
 
 Generated artifacts should be written under:

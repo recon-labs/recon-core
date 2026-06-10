@@ -150,6 +150,26 @@ Parser support for multiple contract files and simple multi-contract YAML files
 does not imply selector support; selecting subsets for compile/run is a
 separate future CLI design.
 
+Configured contract paths are discovered recursively. Subfolders such as
+`contracts/customer/` and `contracts/orders/` are part of the normal project
+shape. The manifest records project-relative source paths for discovered files.
+
+Compiled contract and check artifacts are keyed by contract name, not by source
+folder:
+
+```text
+target/compiled_contracts/<contract_name>.yml
+target/compiled_checks/<contract_name>.yml
+```
+
+Because generated artifact filenames are contract-name based, contract names
+must be globally unique across configured contract paths and subfolders. A
+future `path:...` selector should use the manifest's project-relative source
+paths, not an independent filesystem scan. Exact file selection should be
+locked before directory-prefix selection. Selecting a multi-contract YAML file
+should select all contracts authored in that file unless a later selector design
+explicitly combines file selection with a narrower contract or check selector.
+
 ## `check_packs/`
 
 Local reusable check packs.

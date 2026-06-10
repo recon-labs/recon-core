@@ -835,7 +835,12 @@ Build:
 - `recon compile --render-sql --select "contract:..."`,
 - `recon run --select "contract:..."`,
 - `path:...` selection for contract files if path matching can be defined
-  without file-scanning ambiguity,
+  against project-relative manifest paths without file-scanning ambiguity,
+- exact file-path selection before directory-prefix selection,
+- multi-contract file selection that includes every contract in the selected
+  file unless narrower composition is explicitly designed,
+- contract/path selectors include metric-generated checks for selected
+  contracts; individual metric/check selection remains later `check:...` scope,
 - optional `--exclude "contract:..."` only if exclusion composition is locked
   for the minimal selector subset,
 - selected-scope metadata in compiled artifacts, rendered SQL metadata, run
