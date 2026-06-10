@@ -201,12 +201,22 @@ Detailed diagnostics belong in artifacts and reports.
 
 Selectors should be handled through parsed metadata.
 
-Future illustrative examples:
+Future illustrative examples by gated stage:
+
+Minimal contract/path selector examples:
 
 ```bash
 recon compile --select "contract:customer_revenue"
 recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
 recon run --select "contract:customer_revenue"
+```
+
+Later gated selector examples:
+
+```bash
+recon run --select "selector:critical_reconciliations"
+recon run --select "check:customer_revenue.row_count"
+recon run --exclude "contract:experimental_*"
 ```
 
 Selector logic should not require scanning files independently from the parser.
@@ -220,6 +230,9 @@ Selector support should be staged. The first implementation should focus on
 explicit contract/path scope for compile, SQL rendering, and run. Named
 selectors, check-level selectors, tag/domain/package selectors, state/result
 selectors, and richer composition should build on that later.
+Contract-only exclusion, including simple contract-name patterns such as
+`contract:experimental_*`, can be gated into the first selector implementation
+only if pattern syntax and select/exclude precedence are locked first.
 
 Future `path:...` selectors should resolve against project-relative manifest
 paths produced by resource discovery. Exact file-path matching should be

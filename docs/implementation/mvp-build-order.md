@@ -838,6 +838,9 @@ Build:
 - `recon compile --select "contract:..."`,
 - `recon compile --render-sql --select "contract:..."`,
 - `recon run --select "contract:..."`,
+- `recon run --exclude "contract:experimental_*"` only if the selector gate
+  locks contract-pattern syntax and select/exclude precedence for the minimal
+  selector subset,
 - `path:...` selection for contract files if path matching can be defined
   against project-relative manifest paths without file-scanning ambiguity,
 - exact file-path selection before directory-prefix selection,
@@ -845,8 +848,8 @@ Build:
   file unless narrower composition is explicitly designed,
 - contract/path selectors include metric-generated checks for selected
   contracts; individual metric/check selection remains later `check:...` scope,
-- optional `--exclude "contract:..."` only if exclusion composition is locked
-  for the minimal selector subset,
+- contract exclusion by exact name, and by simple contract-name pattern only if
+  that pattern syntax is explicitly admitted into the minimal selector gate,
 - selected-scope metadata in compiled artifacts, rendered SQL metadata, run
   results, terminal summaries, and evidence references touched by the selected
   invocation,
@@ -1281,8 +1284,11 @@ Goal:
 Build:
 
 - `selectors.yml` and named `selector:...` schema,
+- `recon run --select "selector:critical_reconciliations"`,
 - check-level `check:...` selection semantics,
+- `recon run --select "check:customer_revenue.row_count"`,
 - richer `--select` and `--exclude` composition,
+- contract-pattern exclusion not admitted into the minimal selector subset,
 - optional tag/domain/team/package selectors only after selector metadata is
   explicit and documented,
 - state/result selectors only after state and run-result artifacts can support

@@ -246,12 +246,22 @@ Hint: <fix when available>
 
 ## Selectors
 
-Future illustrative selector examples:
+Future illustrative selector examples by gated stage:
+
+Minimal contract/path selector examples:
 
 ```bash
 recon compile --select "contract:customer_revenue"
 recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
 recon run --select "contract:customer_revenue"
+```
+
+Later gated selector examples:
+
+```bash
+recon run --select "selector:critical_reconciliations"
+recon run --select "check:customer_revenue.row_count"
+recon run --exclude "contract:experimental_*"
 ```
 
 Selectors are not implemented yet, and the exact selector syntax is not locked.
@@ -263,6 +273,10 @@ Selector support should be introduced in stages. The first implementation should
 stay narrow around explicit contract/path scope for compile, SQL rendering, and
 run. Named selectors, check-level selectors, tag/domain/package selectors,
 state/result selectors, and richer composition remain later design work.
+Contract-only exclusion, including simple contract-name patterns such as
+`contract:experimental_*`, may be included in the first selector implementation
+only if the selector gate locks pattern syntax and select/exclude precedence;
+otherwise it remains part of richer selector expansion.
 
 Selectors should use parsed project metadata rather than scanning files
 independently from the parser.

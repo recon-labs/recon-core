@@ -30,11 +30,19 @@ invocations do not require a public artifact redesign. Early post-MVP selector
 work should start with minimal contract/path selection for compile, SQL
 rendering, and run. Richer selectors remain open.
 
-Illustrative examples:
+Illustrative examples by gated stage:
+
+Minimal contract/path selector examples:
 
 ```bash
 recon compile --select "contract:customer_revenue"
 recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
+recon run --select "contract:customer_revenue"
+```
+
+Later gated selector examples:
+
+```bash
 recon run --select "selector:critical_reconciliations"
 recon run --select "check:customer_revenue.row_count"
 recon run --exclude "contract:experimental_*"
@@ -52,7 +60,9 @@ Preferred direction:
   check-level selectors are implemented,
 - define named selector shape in `selectors.yml` later,
 - define how `--select` and `--exclude` compose for the minimal subset before
-  adding richer composition,
+  adding richer composition; simple contract-name pattern exclusion such as
+  `contract:experimental_*` may be included in the earliest selector slice only
+  if pattern syntax and precedence are locked there,
 - record selected scope in compiled artifacts or run results when relevant,
 - fail clearly when selectors match nothing unless an explicit empty-selection
   mode is added,
