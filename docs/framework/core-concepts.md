@@ -26,7 +26,8 @@ A **source** is the baseline output. It may be an application table, warehouse t
 
 A **target** is the output being validated. It may be a replicated warehouse table, new model output, transformed layer, or new platform output.
 
-Source and target are roles in a contract. They do not always mean “application DB” and “warehouse.”
+Source and target are roles in a contract. They do not always mean
+"application DB" and "warehouse."
 
 ## Relation and query
 
@@ -194,7 +195,10 @@ CDC propagation checks must also declare whether they require `cdc.keys`, orderi
 
 ## Evidence
 
-Evidence is the set of artifacts from a run: terminal summary, JSON results, CSV mismatches, HTML reports, result tables, compiled SQL, compiled checks, and sample keys.
+Evidence is the set of artifacts from a run. Depending on the implemented run
+and evidence phase, this can include terminal summaries, JSON results, bounded
+mismatch exports, HTML reports, result-table records, compiled SQL, compiled
+checks, and sample keys.
 
 Evidence is first-class.
 

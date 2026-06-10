@@ -264,8 +264,12 @@ Recommended strategy:
 - define typed check plans before adapter SQL rendering,
 - add adapter API versioning and capability declarations,
 - implement one lightweight SQL adapter for local/dev testing,
-- implement one practical adapter path first, likely Postgres or DuckDB for local repeatability,
-- keep Snowflake/Postgres production adapters as early follow-up packages or experimental modules.
+- keep DuckDB as the first practical in-core local adapter path for repeatable
+  development and tests,
+- defer official production adapter packages until the adapter package/test-kit
+  gates are satisfied. Experimental adapter work must not claim stable
+  execution, sink, result-table, or probabilistic-summary compatibility before
+  the relevant conformance gates exist and pass.
 
 The MVP should avoid making `recon-core` depend on every database driver.
 

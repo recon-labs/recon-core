@@ -60,10 +60,11 @@ Check planning
   Produces explicit typed check plans.
 
 Execution
-  Runs typed check plans through adapters.
+  Runs typed check plans through adapters as execution phases are implemented.
 
 Evidence
-  Writes run results, failure details, compiled artifacts, reports, and state.
+  Publishes run results, evidence, failure details, reports, and state only in
+  the phases that own those outputs.
 ```
 
 ## Architecture rule

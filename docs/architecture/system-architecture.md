@@ -98,11 +98,13 @@ Turns compiled contracts into typed executable check plans.
 
 ### Execution layer
 
-Runs typed check plans through adapters and collects results.
+Runs typed check plans through adapters as execution phases are implemented and
+collects results for those phases.
 
 ### Evidence layer
 
-Writes results, failure details, reports, compiled SQL, and state.
+Publishes run results, evidence artifacts, failure details, reports, compiled
+SQL references, and state only in the phases that own those outputs.
 
 ## Dependency direction
 

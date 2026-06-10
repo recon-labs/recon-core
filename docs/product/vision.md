@@ -92,7 +92,8 @@ business metric rewrite is equivalent
 Long term, Recon should support an ecosystem:
 
 - `recon-core` as the framework brain,
-- adapter packages such as `recon-snowflake`, `recon-postgres`, `recon-bigquery`,
+- future adapter packages such as `recon-snowflake`, `recon-postgres`, and
+  `recon-bigquery`,
 - check-pack packages such as `recon-checks-cdc`,
 - sampling and tolerance policy packages,
 - Recon Hub for community discovery,

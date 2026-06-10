@@ -51,7 +51,8 @@ This separation gives Recon a clear framework shape.
 
 `compile` expands hidden or inherited behavior into inspectable artifacts.
 
-`run` executes the compiled plan and writes results.
+`run` executes the compiled plan and returns or writes results through the
+runner and evidence phases that own those outputs.
 
 This model supports:
 

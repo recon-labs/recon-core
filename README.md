@@ -227,7 +227,8 @@ The intended command responsibilities are:
   and writes `target/manifest.json`.
 - `recon compile` expands contracts, defaults, check packs, metrics, sampling,
   tolerances, schema policies, and CDC settings into explicit artifacts.
-- `recon run` executes compiled checks and writes results and evidence.
+- `recon run` executes compiled checks and returns or writes results and
+  evidence only as the assigned runner/evidence phases implement those outputs.
 
 Current `recon parse` validation is intentionally structural. It validates YAML
 syntax, contract file discovery, required contract fields, endpoint shape,

@@ -202,7 +202,8 @@ The company needs evidence that the new system produces equivalent or approved r
 
 ### Recon value
 
-Recon produces structured run results, failure details, and sign-off-ready reports.
+Recon is intended to produce structured run results, bounded failure details,
+and sign-off-ready reports as the runner and evidence phases are implemented.
 
 ## Use case 8: Source-to-target monitoring for critical domains
 
