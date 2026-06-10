@@ -318,6 +318,11 @@ Every compiled check must include:
 - `rendering`,
 - `diagnostics`.
 
+`blocking_policy.on_prerequisite_failure: skipped` is the current
+compiled-artifact policy token. It is not the runtime check status. When a
+prerequisite fails, the runner/result layer must report the dependent check as
+`blocked` with `blocked_by` and a machine-readable reason code.
+
 ## Origin Metadata
 
 Every compiled check must record why it exists.
@@ -553,6 +558,10 @@ Example compiled check:
     sql_paths: []
   diagnostics: []
 ```
+
+The `blocking_policy.on_prerequisite_failure: skipped` token above preserves the
+compiled artifact policy shape. It does not permit run results to represent
+failed prerequisites as skipped checks.
 
 Metric compilation must not depend on `grain.keys`.
 

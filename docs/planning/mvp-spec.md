@@ -377,7 +377,8 @@ The MVP is acceptable when:
 - row-level checks block on null or duplicate keys,
 - compiled artifacts are readable,
 - run results are machine-readable,
-- users can understand why each check passed, failed, warned, errored, or skipped,
+- users can understand why each check passed, failed, warned, errored, skipped,
+  was blocked, or was not executable,
 - documentation matches implementation behavior.
 
 After these criteria pass, Recon is eligible for a 0.1 release-readiness pass.
