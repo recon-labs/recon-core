@@ -177,6 +177,9 @@ Milestone 7 split acceptance/conformance matrix:
 | Public output and generated artifacts | Terminal output, diagnostics, logs, run-result artifacts, evidence/report/failure-detail links. | Milestone 7 public output is limited to assigned execution/result surfaces; no generated run-result/evidence artifacts appear before Milestones 8 and 9. | 7.1-7.4 negative tests for absent `target/run_results.json`, evidence, report, and failure-detail output unless scope changes. | Generated artifact lifecycle gate; Milestone 8 and 9 boundaries. | `target/run_results.json` belongs to Milestone 8; evidence/report/failure details belong to Milestone 9. |
 | Execution placement and no silent fallback | Row count, key checks, aggregate checks, unsupported placement, missing capability, materialization requested too early, third-engine comparison requested too early, and in-memory/Python fallback temptation. | Each executing sub-milestone uses only its locked placement strategy. Unsupported or unavailable placement fails with explicit blocked/not-executable diagnostics rather than silently changing execution engine. | Pre-7.2, 7.3, and 7.4 placement tests for supported pushdown, unsupported placement, missing capability, and no fallback/materialization cases. | ADR 0021 and comparison execution placement gate. | Generic placement syntax, staging/materialization, third-engine comparison, and fallback policies remain future scope unless separately designed. |
 
+The final Milestone 7.1 acceptance/conformance matrix, edge-case matrix, and
+BDD workflow scenarios live in `docs/planning/milestone-7-1-prework.md`.
+
 Future result, evidence, state, sink, probabilistic, and adapter conformance matrix:
 
 | Dimension | Owning milestone | Cases | Expected behavior | Test coverage | Docs or gate impact | Out-of-scope rationale |
