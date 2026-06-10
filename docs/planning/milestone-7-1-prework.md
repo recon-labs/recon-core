@@ -657,6 +657,39 @@ Recommended future implementation commit message:
 feat: add check engine result boundary
 ```
 
+## Implementation Readiness Report
+
+Split Decision: Already Split / Follow Existing Split.
+
+Readiness status: ready for future Milestone 7.1 implementation planning. This
+means the prework artifact, public docs, ADRs, compatibility docs, gates,
+acceptance/conformance matrix, BDD scenarios, phase-exit checklist,
+implementation map, and current implementation state no longer have known
+design blockers for the 7.1 scope. It does not mean Milestone 7.1 is
+implemented.
+
+Final drift-check results:
+
+| Area checked | Result |
+| --- | --- |
+| Current implementation | `RunService` is still a structured placeholder, no `check_engine` package exists yet, and compiled-check artifact writers already exist. This matches the future implementation map. |
+| Build order and test plan | Milestone 7.1 remains the check-engine boundary/result-model slice. Testing-plan references point to this prework artifact for the final matrix, scenarios, gate proof, phase-exit checklist, and implementation map. |
+| Result, check-engine, and diagnostic docs | Statuses, aggregate statuses, reason codes, command/result separation, runtime diagnostic codes, and no-output behavior match this prework. |
+| Compatibility docs | The check-engine/result model is documented as a planned pre-alpha surface. No stable generated result artifact, result version, YAML syntax, adapter API, selector surface, evidence schema, sink schema, or table schema is claimed. |
+| Decision records | The implementation map stays within the typed check-plan boundary, key/prerequisite semantics, validation/diagnostic ownership, execution-placement strategy, and evidence/privacy/sink boundaries. |
+| Gate file assignments | Internal dispatch, placement blockers, generated artifact lifecycle, source/target privacy, evidence/sinks, large failure details, probabilistic key coverage, and selectors are all represented as either 7.1 constraints or future-gated work. |
+| Selector and selected-scope behavior | Selectors, partial compile/run, selected-scope artifacts, selected-scope run results, and selected-scope evidence remain out of 7.1 and are assigned to later selector/scoped-artifact work. |
+| Probabilistic key coverage | Bloom filters, set sketches, probabilistic summaries, candidate missing/extra rows, and exact-confirmation policy remain out of 7.1 and future-gated. |
+| Evidence, sinks, state, and result tables | 7.1 may reserve empty references only. Local result artifacts, evidence, reports, failure details, state, table sinks, external stores, and large-result movement remain later work. |
+| Public documentation hygiene | The public prework and testing-plan docs contain no mature-project research notes, external research links, or named comparison-source references. |
+| Changelog and migration | No changelog or migration entry is required for this prework. Future implementation should add a changelog entry if `recon run` changes from the current placeholder into user-visible compiled-check boundary behavior. |
+
+Implementation may start only when the user explicitly starts the implementation
+phase. The first implementation step should be the test-first sequence in the
+Future Implementation Map. During implementation, any behavior that differs
+from this prework must update the affected docs, compatibility references, and
+changelog decision before phase exit.
+
 ## Compatibility Impact
 
 Milestone 7.1 touches planned public result and diagnostic surfaces, but it must
@@ -785,6 +818,6 @@ Milestone 7.1 is complete only when:
 
 ## Remaining Blockers Before Coding
 
-Implementation must not start until the following follow-up prework is complete:
-
-- final prompt/docs drift check and implementation-readiness report.
+No known prework blockers remain for Milestone 7.1. Coding still requires an
+explicit implementation-phase request and must begin from the test-first map in
+this artifact.
