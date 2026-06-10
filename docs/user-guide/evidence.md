@@ -13,7 +13,8 @@ Evidence should show:
 - null/normalization rules,
 - schema ignores,
 - CDC mode,
-- pass/fail/warn/error status,
+- check status, including `pass`, `fail`, `warn`, `error`, `skipped`,
+  `blocked`, and `not_executable` outcomes,
 - failure details where configured.
 
 Current implementation writes manifest and compiled YAML artifacts. It also

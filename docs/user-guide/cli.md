@@ -214,7 +214,12 @@ target/failures/
 reports/
 ```
 
-`run` should parse and compile automatically when needed.
+The first check-engine boundary should consume already compiled check artifacts
+and fail clearly when those artifacts are missing, invalid, or empty. It should
+not parse authored YAML or recompile contracts.
+
+Later runner phases may parse or compile automatically after artifact freshness
+semantics are locked.
 
 ## Exit codes
 
