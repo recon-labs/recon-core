@@ -396,6 +396,106 @@ Then it does not update or delete those files.
 And it does not record those paths or destinations as written by the current
 run.
 
+## Gate Satisfaction Proof
+
+This section proves that the design gates needed for Milestone 7.1 are
+represented before implementation. "Satisfied for 7.1 prework" means the
+design and documentation are explicit enough for implementation planning.
+Implementation must still prove each applicable row with tests and phase-exit
+review.
+
+| Gate or decision | 7.1 applicability | Proof in this prework | Implementation requirement |
+| --- | --- | --- | --- |
+| Split decision and lightweight prework | Milestone 7 is already split and 7.1 is the check-engine boundary/result-model slice. | This artifact states `Split Decision: Already Split / Follow Existing Split`, scope, non-goals, expected behavior, affected docs, required tests, compatibility, security, privacy, and Definition of Done. | Preserve 7.1 as a no-execution slice. Do not move row-count, key-safety, aggregate, runner artifact, or evidence behavior into 7.1. |
+| High-risk acceptance and BDD planning | 7.1 touches result semantics, diagnostics, run behavior, and future public output surfaces. | The acceptance/conformance matrix, edge-case matrix, and BDD scenarios enumerate positive, negative, privacy, output, placement, selector, and probabilistic cases. | Every required row must map to a test, an existing test, or a documented out-of-scope decision before implementation is complete. |
+| Check-engine execution boundary | 7.1 creates the first service boundary without data execution. | Scope and expected behavior require already compiled checks only and explicitly prohibit parsing, compiling, profile loading, adapter execution, SQL rendering, and source/target queries. | Implement only the compiled-check service/model boundary. Any check needing runtime execution must be `not_executable` or `blocked`, not silently executed. |
+| Typed check-plan boundary | 7.1 may consume compiled typed intent but must not expand the typed operation catalog. | Non-goals exclude new runtime typed operations. The matrix covers unsupported typed operations and later-phase operations. | Preserve existing compiled intent shape unless a compatibility update is made. Unknown valid operations produce `not_executable`; malformed artifacts produce artifact diagnostics. |
+| Key semantics and prerequisite blocking | 7.1 needs prerequisite result representation but does not execute key checks. | Status taxonomy includes `blocked`; reason codes include prerequisite failure, error, and missing cases; matrix and BDD scenarios require `blocked_by`. | Implement prerequisite blocking representation only. Do not execute grain-key checks or infer dependency success. |
+| Runtime diagnostics and diagnostic output conformance | 7.1 owns first-boundary runtime diagnostic codes. | Runtime diagnostic codes are locked, and matrices require safe preservation of code, severity, message, path, resource context, and hint. | Tests must prove locked codes, deterministic serialization, and suppression of unsafe raw exceptions, query text, credentials, and source/target values. |
+| Internal dispatch versus public check registry | 7.1 may introduce internal dispatch for compiled checks. | The matrix allows internal dispatch and explicitly excludes public authored `checks: [...]`, public registry behavior, package-provided checks, and user-extensible check registration. | Keep dispatch internal. Do not expose or stabilize authored check registry semantics in 7.1. |
+| Execution placement and materialization | 7.1 may reserve in-memory placement/capability blockers only. | Placement constraints and matrix rows require unsupported placement/materialization to become `not_executable` and prohibit Python fallback, staging, and generated outputs. | Implement blocker metadata and diagnostics only. Do not decide or execute source-side, target-side, same-context, intermediate, external, or Recon-local comparison placement. |
+| Evidence, sink, and state boundaries | 7.1 may reserve empty artifact and sink references only. | Evidence/sink/state constraints and no-generated-output scenarios prohibit result artifacts, evidence, reports, failure details, state, sink writes, result tables, and large-result stores. | Result objects may expose empty reference slots only. Tests must prove no files, tables, sinks, or state outputs are written or mutated. |
+| Generated artifact lifecycle | 7.1 must not publish generated run outputs. | Non-goals and scenarios explicitly prohibit `target/run_results.json`, evidence, reports, state, selected-scope outputs, and mutation of stale outputs. | Do not add artifact writer behavior. If any implementation path writes generated outputs, 7.1 scope has been violated. |
+| Selector readiness and subset execution | 7.1 must not implement selectors or partial run semantics. | Non-goals, matrix rows, and BDD scenarios exclude `--select`, `--exclude`, partial compile/run, selected-scope metadata, selected-scope run results, and selected-scope evidence. | Selector-like input must fail clearly if accepted by the API surface. Do not silently ignore selectors or emit scoped artifacts/results. |
+| Probabilistic key-diff and sketch strategies | 7.1 must not implement compact probabilistic key coverage. | Non-goals, matrix rows, and BDD scenarios exclude probabilistic summaries, Bloom/sketch artifacts, candidate missing/extra rows, and probabilistic evidence claims. | Probabilistic typed operations must be unsupported in 7.1. Do not create summary artifacts, candidate failure rows, or exact/probabilistic classifications. |
+| Source/target privacy | 7.1 should avoid data exposure by construction because no queries run. | Security/privacy requirements and matrices require empty source/target values, safe diagnostics, and no relation names, query text, profile values, credentials, or raw tracebacks. | Tests must prove non-executed results cannot carry source/target values through messages, metadata, diagnostics, refs, or serialized fields. |
+| Public contract and changelog decision | 7.1 affects planned result/diagnostic surfaces but does not stabilize generated artifacts. | Public contract decision states no new YAML syntax, artifact version, adapter API change, selector claim, evidence schema, or sink/table schema. Changelog decision is not required for prework. | Implementation must update compatibility docs if status names, reason codes, diagnostic codes, CLI output, or serialized fields change from this prework. |
+
+Gate status for this prework: satisfied for 7.1 implementation planning.
+Remaining pre-implementation work is the exact implementation file/test map
+and the final prompt/docs drift check.
+
+## Phase-Exit Checklist
+
+Use this checklist before considering Milestone 7.1 implementation complete.
+
+### Scope And Inputs
+
+- [ ] Implementation consumes already compiled checks or equivalent compiled
+  in-memory fixtures only.
+- [ ] No authored YAML parsing, compilation, profile loading, adapter
+  lifecycle, SQL rendering, source/target query, or runtime execution path is
+  invoked.
+- [ ] Multiple compiled contracts, empty scopes, malformed artifacts, and
+  missing artifacts are handled explicitly.
+
+### Result Model And Status Semantics
+
+- [ ] `RunResult`, `ContractResult`, and `CheckResult` serialize
+  deterministically.
+- [ ] Check statuses, aggregate statuses, and reason codes exactly match this
+  prework.
+- [ ] `no_checks` never aggregates to `pass`.
+- [ ] `blocked` results include `blocked_by` and a prerequisite reason.
+- [ ] Unsupported compiled checks, unsupported typed operations, later-phase
+  operations, missing capabilities, unsupported placement, and unsupported
+  materialization all become explicit non-pass outcomes.
+
+### Diagnostics, Security, And Privacy
+
+- [ ] Runtime diagnostic codes match the locked 7.1 list.
+- [ ] Safe diagnostic fields are preserved where available.
+- [ ] Unsafe raw exception text, tracebacks, query text, relation names,
+  credentials, profile values, source/target values, keys, rows, normalized
+  values, and diff values are absent from diagnostics and result serialization.
+- [ ] Unexpected check-engine errors produce sanitized diagnostics.
+
+### Negative Output And Side-Effect Proof
+
+- [ ] No adapter, profile, renderer, query, artifact writer, evidence writer,
+  report writer, state backend, sink writer, or result-table writer is invoked.
+- [ ] No `target/run_results.json`, evidence, report, failure-detail, state,
+  result table, sink output, compiled SQL output, probabilistic summary,
+  Bloom/sketch artifact, selector output, or selected-scope output is created.
+- [ ] Preexisting generated files and directories are not mutated or deleted by
+  the 7.1 run boundary.
+- [ ] Artifact, evidence, state, failure-detail, and sink references remain
+  empty unless a later owning phase writes them.
+
+### Future-Gated Surface Proof
+
+- [ ] Execution placement and materialization are represented only as blockers
+  or metadata; no fallback comparison runs.
+- [ ] Evidence/result sink placement remains separate from execution placement
+  and is not implemented.
+- [ ] Selector and selected-scope inputs fail clearly if they reach 7.1
+  surfaces; no partial run behavior appears.
+- [ ] Probabilistic, Bloom, sketch, and approximate key-diff behavior remains
+  unsupported and produces no artifacts, candidate rows, or evidence claims.
+
+### Docs, Compatibility, And Review
+
+- [ ] Implementation tests cover every required acceptance/conformance row and
+  edge-case row, or explicitly document any row that remains out of scope.
+- [ ] BDD workflow scenarios pass or have an explicit out-of-scope rationale.
+- [ ] Compatibility docs still match implemented status names, reason codes,
+  diagnostics, serialized fields, and command behavior.
+- [ ] No changelog entry is needed, or a changelog entry has been added because
+  implementation changed user-visible behavior or a public contract surface.
+- [ ] Phase-exit review records tests run, uncovered rows, docs status, newly
+  discovered conformance requirements, and whether the next 7.x phase is safe
+  to start.
+
 ## Compatibility Impact
 
 Milestone 7.1 touches planned public result and diagnostic surfaces, but it must
@@ -526,10 +626,5 @@ Milestone 7.1 is complete only when:
 
 Implementation must not start until the following follow-up prework is complete:
 
-- final 7.1 acceptance/conformance matrix,
-- final 7.1 edge-case matrix,
-- final 7.1 BDD/workflow scenarios,
-- gate satisfaction proof,
-- phase-exit checklist,
 - exact implementation file/test map,
-- prompt/docs drift check.
+- final prompt/docs drift check and implementation-readiness report.

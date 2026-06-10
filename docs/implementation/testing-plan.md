@@ -178,7 +178,9 @@ Milestone 7 split acceptance/conformance matrix:
 | Execution placement and no silent fallback | Row count, key checks, aggregate checks, unsupported placement, missing capability, materialization requested too early, third-engine comparison requested too early, and in-memory/Python fallback temptation. | Each executing sub-milestone uses only its locked placement strategy. Unsupported or unavailable placement fails with explicit blocked/not-executable diagnostics rather than silently changing execution engine. | Pre-7.2, 7.3, and 7.4 placement tests for supported pushdown, unsupported placement, missing capability, and no fallback/materialization cases. | ADR 0021 and comparison execution placement gate. | Generic placement syntax, staging/materialization, third-engine comparison, and fallback policies remain future scope unless separately designed. |
 
 The final Milestone 7.1 acceptance/conformance matrix, edge-case matrix, and
-BDD workflow scenarios live in `docs/planning/milestone-7-1-prework.md`.
+BDD workflow scenarios live in `docs/planning/milestone-7-1-prework.md`. The
+same prework artifact also contains the 7.1 gate satisfaction proof and
+phase-exit checklist.
 
 Future result, evidence, state, sink, probabilistic, and adapter conformance matrix:
 
