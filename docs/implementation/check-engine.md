@@ -40,6 +40,42 @@ execution, grain-key safety execution, and current aggregate metric execution.
 remain separate later surfaces unless a later split explicitly changes those
 boundaries.
 
+The first boundary is not an adapter execution lifecycle. It must not load
+profiles, open source or target connections, instantiate runtime adapters,
+render or execute SQL, query source or target systems, write
+`target/run_results.json`, write evidence, emit reports, export failure
+details, write state, write sink records, create materialized or staged data, or
+produce probabilistic summaries. Any dependency slot for adapters, state, or
+evidence is a future seam unless the owning execution or writer phase explicitly
+activates it.
+
+## First-boundary result metadata
+
+The check engine may reserve in-memory metadata concepts that later stages use
+to explain execution. Reserved metadata must be empty, not applicable, or
+blocked until the owning phase implements the behavior.
+
+Reserved concepts:
+
+- planned operation execution location,
+- planned comparison location,
+- adapter or engine used,
+- required capabilities and capability mismatch reason,
+- blocked or not-executable reason,
+- materialization or staging policy,
+- exact, approximate, probabilistic, inconclusive, truncated, or
+  confirmation-required result classification,
+- artifact references,
+- future result/evidence sink metadata.
+
+These concepts must not create public YAML controls, stable public result
+schema fields, adapter compatibility claims, or generated outputs by
+themselves. A check that cannot satisfy its execution placement, adapter
+capability, materialization policy, privacy rule, or result representation must
+return an explicit blocker or not-executable reason with diagnostics. It must
+not silently run in another location, fall back to Python, or present missing
+execution as pass/fail evidence.
+
 ## Check interface
 
 Each check implementation should declare:
@@ -129,6 +165,11 @@ skipped
 `error` means the check could not run.
 
 `skipped` means the check was intentionally not run because a prerequisite failed or configuration said to skip.
+
+A not-yet-executable or unsupported check is a blocked/non-execution outcome,
+not a successful comparison. The exact stable status taxonomy is owned by the
+first check-engine result-model implementation, but every such result must make
+the reason machine-readable and must preserve safe diagnostics.
 
 ## Failure details
 

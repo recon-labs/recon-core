@@ -42,6 +42,20 @@ not add public YAML placement syntax, adapter execution, generated run results,
 evidence reports, failure-detail export, state, sink writes, materialization, or
 probabilistic key-diff behavior.
 
+The same boundary may reserve in-memory metadata for future execution and output
+phases: operation execution placement, comparison placement, adapter or engine
+used, required capabilities, capability mismatch, blocked or not-executable
+reason, materialization policy, result classification, artifact references, and
+future sink metadata. Reserved metadata is not a compatibility promise by
+itself. It must remain empty, not applicable, or blocked until an owning phase
+defines public field names, versioning, privacy behavior, and tests.
+
+No-output behavior is part of the first boundary. A check result can state that
+no adapter ran, no artifact was written, no evidence was produced, no failure
+detail was exported, no state changed, and no sink write was configured or
+attempted. It must not contain paths, table names, object locations, or sink
+destinations that were not actually written by a later writer phase.
+
 ## Check lifecycle
 
 Recommended lifecycle:

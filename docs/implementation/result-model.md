@@ -79,6 +79,32 @@ sink-reference, and exact/probabilistic classification fields. Those concepts
 are reserved for compatibility but are not stable serialized fields until their
 implementing phases write a public schema.
 
+## First-boundary metadata reservations
+
+The first check-engine boundary may keep future-compatible metadata in memory so
+later execution and writer phases do not need to reshape the result model. That
+metadata is explanatory only until the owning execution, runner, evidence, or
+sink phase makes it a public schema.
+
+Reserved metadata concepts:
+
+| Concept | Purpose | First-boundary behavior |
+| --- | --- | --- |
+| execution placement | Records the planned source-side and target-side operation locations. | May be represented as unset, not applicable, or blocked; no adapter execution or source/target query is allowed. |
+| comparison placement | Records where source and target operation outputs would be compared. | May explain why no comparison ran; no Python fallback, same-context comparison, or external engine execution is implied. |
+| adapter or engine used | Names the adapter, execution context, or engine that actually ran a check. | Empty unless an earlier compiled artifact or in-memory fixture already supplies non-runtime metadata; no profile-backed lifecycle is started. |
+| capability fit | Records required capabilities and capability mismatch reasons. | Capability mismatch may block or mark a result not executable, but it must not trigger fallback behavior. |
+| blocked or not-executable reason | Explains why a check did not run. | Must be visible through structured reason fields and diagnostics; a check that did not execute must not look like pass/fail comparison evidence. |
+| materialization policy | Records whether data movement, staging, or temporary objects were used. | Always absent, not applicable, or blocked until an explicit materialization phase defines movement, cleanup, and privacy rules. |
+| result classification | Distinguishes exact, approximate, probabilistic, inconclusive, truncated, or confirmation-required results. | Exact/probabilistic fields are reserved only; no probabilistic summary or candidate record export is produced. |
+| artifact references | Points to generated local outputs. | Empty for the first boundary because no generated run-result, evidence, report, failure-detail, state, or SQL artifact is written by the check engine. |
+| sink references | Points to configured result/evidence destinations. | Empty or not configured; no local, table-backed, source, target, or third-connection sink write occurs. |
+
+These reservations do not create public YAML syntax, public JSON fields, adapter
+capability promises, or artifact-writing behavior. A future durable schema must
+define field names, status values, versioning, privacy rules, and compatibility
+tests before external automation can rely on them.
+
 ## Status values
 
 Run and contract statuses may include:
@@ -103,6 +129,12 @@ skipped
 `skipped` should be used when a check intentionally did not run because a
 prerequisite failed. Skipped checks should include `blocked_by` and
 `skip_reason`.
+
+Checks that do not execute because the required engine, adapter capability,
+execution placement, materialization policy, or result representation is not
+available must carry an explicit reason and diagnostic. They must not be
+reported as successful comparisons, and they must not be rewritten into another
+execution strategy to make the run appear complete.
 
 Future result status work must distinguish reconciliation outcomes from
 publication outcomes. A failed required evidence or sink write is not the same
@@ -186,6 +218,12 @@ The first check-engine boundary may define the check result/status model and
 prerequisite or blocked-check representation without writing a generated
 run-result artifact. `target/run_results.json` remains future run-result
 artifact work unless a future split explicitly changes that boundary.
+
+Before a generated result artifact exists, in-memory results must still be able
+to state that no artifact writer, evidence writer, failure-detail writer, state
+backend, or sink writer ran. No path, table, object-store location, or sink
+destination should be recorded as written unless that output was actually
+created by an owning writer phase.
 
 `target/run_results.json` should include:
 
