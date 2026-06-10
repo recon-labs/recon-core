@@ -37,6 +37,12 @@ execution. Run-result artifacts remain Milestone 8, and evidence reports,
 failure details, and evidence links remain Milestone 9 unless a later split
 explicitly changes those boundaries.
 
+Milestone 7.1 is not an execution milestone. It may define internal dispatch
+and blocker metadata that later execution needs, but it must not add public YAML
+placement syntax, adapter execution, generated run results, evidence reports,
+failure-detail export, state, sink writes, materialization, or probabilistic
+key-diff behavior.
+
 ## Check lifecycle
 
 Recommended lifecycle:
@@ -69,6 +75,30 @@ Adapters own system-specific rendering and execution.
 Unsupported SQL rendering must not silently fall back to Python. Python-side or
 intermediate-system comparison requires explicit limits, diagnostics, privacy
 rules, result semantics, and evidence visibility before implementation.
+
+Placement decisions must be gate-backed per executable surface:
+
+- Milestone 7.2 defines row-count placement.
+- Milestone 7.3 defines grain-key safety placement.
+- Milestone 7.4 defines current aggregate metric placement.
+- Later milestones define result artifacts, evidence, failure details, sinks,
+  sampling, CDC, and advanced stores before those behaviors can execute.
+
+The engine must represent placement or capability blockers explicitly. A check
+that cannot satisfy its required execution context, materialization policy,
+adapter capability, privacy rule, or result representation is blocked; it is
+not rewritten into another placement and is not silently executed in Core
+memory.
+
+## Adapter capability fit
+
+Checks declare required semantics. Core translates those semantics into typed
+operations and required capabilities. Adapters report available mechanics.
+
+The check engine must validate capability fit before execution starts. Capability
+states such as `unknown`, `unsupported`, `not_implemented`, malformed, or
+incompatible do not satisfy required behavior. A missing or inadequate
+capability is a structured blocker, not permission to use a fallback strategy.
 
 ## Check registry
 
@@ -129,6 +159,16 @@ or normalization policy. Policy resolution follows ADR 0009, and adapter
 capability validation must happen before rendering policy-dependent typed
 operations, including limited regex replacement.
 
+Future key-diff strategies may include exact same-context key comparison or
+probabilistic summaries such as Bloom filters or set sketches. Exact key
+comparison is preferred when safe placement exists. Probabilistic strategies
+must not be introduced as hidden optimizations; they require explicit
+false-positive semantics, partition or window scope, deterministic composite-key
+serialization, bidirectional probing when both missing and extra coverage are
+needed, privacy classification for serialized summaries, and exact-confirmation
+rules before failure rows or sink records are presented as concrete missing or
+extra records.
+
 ## Aggregate checks
 
 Aggregate checks can run without row-level keys when they have explicit metrics or aggregate definitions.
@@ -161,6 +201,13 @@ A check should be able to produce:
 - summary only,
 - limited failure rows,
 - full failure output only when explicitly configured.
+
+Large failure details should not be embedded directly in `CheckResult` or a
+future run-result artifact. Future sink-backed evidence may write large details
+to a configured source, target, or independent sink adapter only after sink
+placement, schema versioning, idempotency, retention, privacy, and adapter write
+conformance are defined. Until then, failure rows remain bounded samples or
+references to explicitly generated local artifacts.
 
 ## Execution ordering
 

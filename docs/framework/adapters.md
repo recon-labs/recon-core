@@ -53,6 +53,23 @@ aggregate, key diff, duplicate key, null-safe equality, casts, limits, hashes,
 timestamp diff, and schema metadata requests. SQL adapters render those
 operations into dialect SQL.
 
+Future execution placement, materialization, result sinks, and probabilistic
+key-summary strategies follow the same ownership boundary:
+
+- Core owns reconciliation semantics, placement selection, comparison safety,
+  result classification, privacy policy, artifact references, and evidence
+  meaning.
+- Adapters declare granular capabilities and perform system-specific mechanics
+  such as rendering, execution, metadata reads, staging, writes, and summary
+  operations.
+- Adapter capability declarations do not create new comparison semantics.
+  `unknown`, `unsupported`, `not_implemented`, malformed, or incompatible
+  capability states must never satisfy required behavior.
+- Milestone 7.1 may reserve internal planning metadata for those future
+  boundaries, but it must not add public YAML placement syntax, check
+  execution, generated run results, evidence, sinks, state, or probabilistic
+  key-diff behavior.
+
 This follows the adapter-boundary maturity of dbt, but Recon should not use
 dbt-style macro dispatch as the primary comparison engine. Typed plans are
 preferred because Recon must produce inspectable compiled checks, generated SQL,
@@ -69,6 +86,15 @@ Long term, adapters should split into packages such as `recon-postgres`, `recon-
 A future `recon-duckdb` package should not split from `recon-core` until the
 adapter API and shared adapter test kit are stable enough for external adapter
 packages.
+
+The in-core DuckDB adapter is the early proof adapter. External adapter package
+splits and additional production adapters should wait until the Milestone 29
+adapter conformance and shared test-kit gates exist. Production table/result
+sinks additionally depend on the result-sink design gates and write/sink
+conformance. Bloom filters, sketches, and other probabilistic key-summary
+strategies additionally depend on the probabilistic key-diff gate and adapter
+test-kit conformance for summary build, serialization, transport or storage,
+probing, reverse-direction probing when needed, metrics, and cleanup.
 
 Install the current in-core DuckDB local development adapter with:
 
@@ -108,7 +134,24 @@ payload.
 
 ## Capabilities
 
-Adapters should declare capabilities such as relation support, query support, temp tables, metadata columns, hash expression, timestamp diff, precision/scale metadata, and JSON path support.
+Adapters should declare capabilities such as relation support, query support,
+temp tables, metadata columns, hash expression, timestamp diff, precision/scale
+metadata, and JSON path support.
+
+Capability families should remain granular enough to distinguish:
+
+- metadata and relation introspection,
+- typed operation rendering,
+- execution in an adapter context,
+- adapter-managed staging or materialization,
+- result and evidence sink writes,
+- portable or adapter-local hashing,
+- probabilistic key-summary build, merge, serialization, probe, and cleanup,
+- diagnostics and redaction behavior.
+
+Exact capability names for future execution, staging, sinks, and probabilistic
+summaries are not stable until their implementing milestones update the adapter
+API, typed-plan compatibility docs, and shared adapter conformance tests.
 
 Capabilities allow Recon to fail early when a check cannot run.
 
@@ -374,6 +417,26 @@ Python-side comparison.
 Unsupported SQL behavior must not silently fall back to Python. Any Python or
 intermediate-system fallback requires explicit limits, privacy rules,
 diagnostics, result semantics, and evidence visibility.
+
+Execution placement is not an adapter choice. Adapters expose what they can do;
+Core decides whether a check is allowed to use source pushdown, target pushdown,
+an intermediate adapter context, or bounded in-core comparison. If the required
+placement or capability is unavailable, Recon must return a clear blocker
+instead of moving data implicitly or producing misleading evidence.
+
+Future placement-aware execution must also decide where intermediate data may
+be materialized, where large result or evidence rows may be written, and which
+references can appear in run results or evidence. Large failure details should
+be represented by bounded samples and sink references, not by embedding
+unbounded rows in Core result objects.
+
+Probabilistic key-diff strategies such as Bloom filters or set sketches are
+future execution strategies, not general adapter shortcuts. They require
+explicit false-positive semantics, partition or window scope, deterministic
+composite-key serialization, bidirectional probing when equivalence requires
+both missing and extra coverage, exact-confirmation rules before publishing
+failure rows, privacy classification for serialized summaries, and adapter
+capabilities for every lifecycle phase.
 
 ## Hashing warning
 

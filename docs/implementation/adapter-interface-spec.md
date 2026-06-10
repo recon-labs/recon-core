@@ -10,6 +10,8 @@ This specification follows:
 
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
 - `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`
+- `docs/decisions/adr-0021-execution-placement-and-adapter-capability-strategy.md`
+- `docs/decisions/adr-0022-evidence-privacy-failure-detail-and-result-sink-strategy.md`
 
 ## Base adapter responsibilities
 
@@ -25,6 +27,11 @@ Adapters should implement:
 
 SQL-capable adapters should also implement a dialect renderer for typed check
 plan operations. Core defines the operations; adapters define dialect rendering.
+
+Adapters do not own reconciliation semantics, execution placement, evidence
+meaning, privacy classification, failure-detail bounds, or sink/result
+classification. They declare capabilities and perform approved mechanics after
+Core validates that a check is allowed to use those mechanics.
 
 ## Interface sketch
 
@@ -129,6 +136,23 @@ class AdapterCapabilities:
 `unknown`, `unsupported`, and `not_implemented` do not satisfy required
 capabilities. `versioned` support must be checked against adapter or engine
 version before rendering or execution.
+
+Future adapter capability families include:
+
+- execution in a resolved adapter context,
+- adapter-managed staging or materialization,
+- result and evidence sink writes,
+- portable hash or adapter-local hash behavior,
+- probabilistic key-summary build, merge, serialization, probe, reverse-probe,
+  metrics, and cleanup,
+- diagnostics and redaction behavior.
+
+The exact capability names for these families are intentionally unstabilized in
+this document. They become public adapter contract only when the implementing
+milestone updates the adapter API, typed-plan compatibility docs, public
+contract inventory, and shared adapter conformance tests together. Malformed,
+incompatible, `unknown`, `unsupported`, or `not_implemented` capability states
+must remain blockers.
 
 ## Adapter registry
 
@@ -381,6 +405,44 @@ systems, adapter-managed intermediate systems, or bounded Python-side
 comparison. Unsupported SQL rendering or execution must not silently fall back
 to Python.
 
+Milestone 7.1 may introduce internal check-engine dispatch and blocker
+metadata, but it must not add adapter execution, public placement syntax,
+materialization, generated run-result artifacts, evidence, state, result sinks,
+or probabilistic key-diff behavior.
+
+Future placement-aware execution must define movement and materialization
+rules before an adapter is allowed to move source or target rows into another
+context. Source pushdown, target pushdown, intermediate adapter execution, and
+bounded in-core comparison are separate strategies with separate capability,
+privacy, result, and evidence requirements.
+
+Production result/evidence sink writes require a sink contract before adapters
+can claim support. That contract must cover schema versioning, idempotency,
+retention, privacy/redaction, destination capability fit, write diagnostics,
+and bounded local result objects that reference large sink output rather than
+embedding it.
+
+Probabilistic key-diff strategies, including Bloom-filter-like summaries and
+other set sketches, require a separate strategy contract before adapters can
+claim support. That contract must cover exact vs probabilistic semantics,
+false-positive configuration, partition or window scope, deterministic
+composite-key serialization, bidirectional probing when equivalence requires
+both missing and extra coverage, intermediate summary storage and cleanup,
+privacy classification, and exact confirmation before publishing concrete
+failure rows.
+
+## Future adapter conformance gates
+
+External adapter packages should not claim production compatibility until the
+Milestone 29 shared adapter test kit covers the relevant public boundary. The
+test kit must expand with each implemented family:
+
+- execution placement capability validation when execution is implemented,
+- staging and materialization conformance when staging is implemented,
+- result and evidence sink write conformance when sinks are implemented,
+- probabilistic key-summary lifecycle conformance when probabilistic key-diff
+  is implemented.
+
 ## Hashing
 
 Adapters must not claim portable hash compatibility without tests.
@@ -404,7 +466,8 @@ recon-oracle
 ```
 
 `recon-duckdb` is a future external package candidate after adapter API and
-shared adapter test-kit stability.
+shared adapter test-kit stability. Additional production adapter packages should
+also wait for the Milestone 29 adapter conformance gate.
 
 ## Design principle
 
