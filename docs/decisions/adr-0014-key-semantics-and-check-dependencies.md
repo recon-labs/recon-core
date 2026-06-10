@@ -246,13 +246,13 @@ Data-dependent key problems are check failures:
 - null CDC keys fail the corresponding CDC key safety check when required,
 - duplicate CDC keys fail the corresponding CDC key safety check when required.
 
-Dependent checks must be skipped when their prerequisites fail.
+Dependent checks must be blocked when their prerequisites fail.
 
-A skipped dependent check must include:
+A blocked dependent check must include:
 
-- status `skipped`,
+- status `blocked`,
 - `blocked_by`,
-- `skip_reason`,
+- a machine-readable reason code,
 - diagnostics or messages that identify the failed prerequisite,
 - evidence links when available.
 
@@ -328,7 +328,7 @@ Run results should show:
 - whether a check used `grain.keys`, `cdc.keys`, or no key identity,
 - prerequisite check results,
 - `blocked_by`,
-- `skip_reason`,
+- machine-readable blocked or skipped reason codes,
 - key null counts,
 - duplicate key counts,
 - bounded example keys when evidence configuration allows them.
@@ -375,7 +375,7 @@ Implementation should include tests for:
 - null-key check failures,
 - duplicate-key check failures,
 - blocked row-level value checks,
-- result `blocked_by` and `skip_reason` serialization,
+- result `blocked_by` and machine-readable reason-code serialization,
 - compiled artifact identity and requirement metadata,
 - CDC delete-mode validation,
 - CDC key requirement validation.
@@ -432,16 +432,17 @@ without explicit change identity.
 
 ## Implementation Guidance
 
-Milestone 4 should include identity and requirement metadata in compiled check
-models even before every check type exists.
+The compiler foundation should include identity and requirement metadata in
+compiled check models even before every check type exists.
 
-Milestone 5 should implement validation for missing `grain.keys`, missing
-`cdc.keys`, strict `basic_equivalence`, CDC delete mode, and CDC ordering where
-the relevant checks are compiled.
+The validation rulebook should implement validation for missing `grain.keys`,
+missing `cdc.keys`, strict `basic_equivalence`, CDC delete mode, and CDC
+ordering where the relevant checks are compiled.
 
-Milestone 7.1 should implement prerequisite tracking and blocked check result
-representation. Milestone 7.3 should execute grain-key safety checks and prove
-that null or duplicate grain keys block dependent future row-level value checks.
+The first check-engine result boundary should implement prerequisite tracking
+and blocked check result representation. The grain-key safety execution phase
+should execute grain-key safety checks and prove that null or duplicate grain
+keys block dependent future row-level value checks.
 
 CDC check implementation should start with a small supported subset and keep
 unsupported CDC modes explicit in diagnostics and evidence.

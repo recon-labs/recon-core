@@ -128,8 +128,8 @@ EvidenceReference
 Diagnostic
 ```
 
-Check results for blocked checks should include the failed prerequisite checks
-and a skip reason.
+Check results for blocked checks should include the failed prerequisite checks,
+`blocked_by`, and a machine-readable reason code.
 
 ## Identifiers
 

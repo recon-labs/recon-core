@@ -43,7 +43,12 @@ fail
 warn
 error
 skipped
+blocked
+not_executable
 ```
+
+`unsupported` and `not_yet_executable` are not check statuses. They are
+machine-readable reason-code concepts for `not_executable` check results.
 
 ## Error code categories
 
@@ -395,6 +400,16 @@ Examples:
 ```text
 RC_RUNTIME_CHECK_ERROR
 RC_RUNTIME_CHECK_BLOCKED_BY_FAILED_PREREQUISITE
+RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND
+RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID
+RC_RUNTIME_NO_COMPILED_CHECKS
+RC_RUNTIME_CHECK_NOT_EXECUTABLE
+RC_RUNTIME_UNSUPPORTED_CHECK_TYPE
+RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION
+RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT
+RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY
+RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE
+RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR
 RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED
 RC_RUNTIME_NULL_GRAIN_KEYS
 RC_RUNTIME_DUPLICATE_GRAIN_KEYS
@@ -404,6 +419,29 @@ RC_RUNTIME_MANIFEST_WRITE_FAILED
 RC_RUNTIME_STATE_WRITE_FAILED
 RC_RUNTIME_EVIDENCE_WRITE_FAILED
 ```
+
+First check-engine result diagnostics use the runtime family because they are
+created while loading compiled check artifacts or preparing run-time check
+results. Locked codes:
+
+| Code | Timing | Severity | Use for |
+| --- | --- | --- | --- |
+| `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND` | run | error | Expected compiled-check artifacts are missing. |
+| `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID` | run | error | A compiled-check artifact is unreadable, malformed, or incompatible with the current loader. |
+| `RC_RUNTIME_NO_COMPILED_CHECKS` | run | error | No compiled checks are available in the requested run scope. This must not be reported as `pass`. |
+| `RC_RUNTIME_CHECK_NOT_EXECUTABLE` | run | error | A compiled check is valid but cannot execute in the current check-engine surface. |
+| `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE` | run | error | The compiled check type has no internal dispatch handler. |
+| `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION` | run | error | The compiled typed operation has no runtime executor in the current check-engine surface. |
+| `RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT` | run | error | Required operation or comparison placement is not implemented or allowed. |
+| `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY` | run | error | Required staging, movement, or materialization policy is not implemented or allowed. |
+| `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, or is missing. |
+| `RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR` | run | error | An unexpected check-engine error occurred after sanitization. |
+
+These diagnostics explain non-execution; they are not reconciliation mismatch
+evidence. They must preserve safe code, severity, message, resource context,
+path, and hint where available. They must not expose raw source/target values,
+query text, relation names, rendered profile values, credentials, raw database
+errors, raw tracebacks, or unredacted artifact contents.
 
 ## Message style
 

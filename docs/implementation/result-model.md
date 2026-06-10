@@ -18,7 +18,7 @@ sinks, result tables, or state.
 
 ## Run result
 
-Suggested model:
+First-boundary in-memory model:
 
 ```python
 @dataclass(frozen=True)
@@ -27,10 +27,11 @@ class RunResult:
     project_name: str
     started_at: str
     finished_at: str
-    status: str
+    status: RunStatus
     contract_results: list[ContractResult]
     diagnostics: list[Diagnostic]
-    artifacts: list[EvidenceArtifact]
+    artifact_refs: list[ArtifactRef]
+    sink_refs: list[SinkRef]
 ```
 
 Future generated `RunResult` artifacts may include sink-write metadata and
@@ -43,7 +44,7 @@ run-result artifact phase or the later sink phase that first emits it.
 @dataclass(frozen=True)
 class ContractResult:
     contract_name: str
-    status: str
+    status: RunStatus
     check_results: list[CheckResult]
     diagnostics: list[Diagnostic]
 ```
@@ -53,10 +54,14 @@ class ContractResult:
 ```python
 @dataclass(frozen=True)
 class CheckResult:
+    check_id: str
     name: str
-    type: str
-    status: str
+    check_type: str
+    contract_name: str
+    status: CheckStatus
     severity: str
+    executed: bool
+    reason_code: CheckReason | None
     identity: str | None
     message: str | None
     source_value: Any | None
@@ -69,8 +74,8 @@ class CheckResult:
     normalization: Any | None
     failure_count: int | None
     blocked_by: list[str]
-    skip_reason: str | None
-    artifacts: list[EvidenceArtifact]
+    artifact_refs: list[ArtifactRef]
+    sink_refs: list[SinkRef]
     diagnostics: list[Diagnostic]
 ```
 
@@ -107,16 +112,7 @@ tests before external automation can rely on them.
 
 ## Status values
 
-Run and contract statuses may include:
-
-```text
-pass
-fail
-warn
-error
-```
-
-Check statuses may include:
+Check statuses:
 
 ```text
 pass
@@ -124,11 +120,92 @@ fail
 warn
 error
 skipped
+blocked
+not_executable
 ```
 
-`skipped` should be used when a check intentionally did not run because a
-prerequisite failed. Skipped checks should include `blocked_by` and
-`skip_reason`.
+Status meanings:
+
+| Status | Meaning |
+| --- | --- |
+| `pass` | The check executed and proved the configured comparison condition. |
+| `fail` | The check executed and found a reconciliation difference at error severity. |
+| `warn` | The check executed and found a reconciliation difference at warning severity. |
+| `error` | Recon attempted to prepare or evaluate the check but hit a runtime, artifact, internal, or unsafe-condition problem that prevents a trustworthy result. |
+| `skipped` | The check intentionally did not run because explicit user, configuration, or future selector policy said to skip it. |
+| `blocked` | The check did not run because a prerequisite check failed, errored, or was unavailable. |
+| `not_executable` | The check is compiled but cannot execute with the current engine, capability, placement, materialization, or implemented operation surface. |
+
+Run and contract aggregate statuses:
+
+```text
+pass
+fail
+warn
+error
+skipped
+blocked
+not_executable
+no_checks
+```
+
+Aggregate status rules:
+
+- `pass` requires every required check in scope to execute and pass.
+- `fail` means at least one executed check found an error-severity
+  reconciliation difference.
+- `warn` means no check failed or errored, and at least one executed check found
+  a warning-severity reconciliation difference.
+- `error` means a run, contract, artifact, or check-engine problem prevented a
+  trustworthy result.
+- `blocked` means no higher-priority error or failure exists and at least one
+  required check was blocked by prerequisites.
+- `not_executable` means no higher-priority error, failure, or blocker exists
+  and at least one required compiled check could not execute.
+- `skipped` means every check in scope was intentionally skipped by an explicit
+  policy. Selector-driven or policy-driven skip behavior is not part of the
+  first check-engine boundary.
+- `no_checks` means the run or contract had no compiled checks in scope. It is
+  not equivalent to `pass`.
+
+Aggregate status precedence for non-empty scopes is:
+
+```text
+error > fail > blocked > not_executable > warn > skipped > pass
+```
+
+`no_checks` is used only when there are no compiled checks in scope.
+
+Counts and per-check results should preserve the full mixture when multiple
+statuses occur. For example, a run can aggregate to `fail` while still reporting
+blocked dependent checks.
+
+## Reason codes
+
+`unsupported` and `not_yet_executable` are not top-level statuses. They are
+machine-readable reasons for `not_executable` results.
+
+First-boundary reason codes:
+
+| Reason code | Required status | Meaning |
+| --- | --- | --- |
+| `prerequisite_failed` | `blocked` | A prerequisite check executed and failed. |
+| `prerequisite_error` | `blocked` | A prerequisite check errored before producing a trustworthy result. |
+| `prerequisite_missing` | `blocked` | A required prerequisite result is absent. |
+| `unsupported_check_type` | `not_executable` | The compiled check type has no internal handler in the current check engine. |
+| `unsupported_typed_operation` | `not_executable` | The compiled check references a typed operation the current runtime cannot execute. |
+| `missing_engine_capability` | `not_executable` | Required engine or adapter capability is unavailable or not declared. |
+| `unsupported_execution_placement` | `not_executable` | Required operation or comparison placement is not implemented or allowed. |
+| `unsupported_materialization_policy` | `not_executable` | Required data movement, staging, or materialization policy is not implemented or allowed. |
+| `not_implemented_in_current_phase` | `not_executable` | The check is valid but belongs to a later execution phase. |
+| `skipped_by_policy` | `skipped` | Explicit user or configuration policy skipped the check. Reserved until skip policy exists. |
+| `selected_out` | `skipped` | Future selector behavior excluded the check from the run. Reserved until selectors exist. |
+
+Every `blocked`, `not_executable`, or `skipped` result must carry a
+`reason_code`, a safe message, and diagnostics. `blocked` results must also
+carry `blocked_by`. A non-executed check must use `executed=false`, must leave
+source/target values empty, and must not include failure detail, artifact, or
+sink references unless a later owning writer phase actually produced them.
 
 Checks that do not execute because the required engine, adapter capability,
 execution placement, materialization policy, or result representation is not
@@ -140,6 +217,20 @@ Future result status work must distinguish reconciliation outcomes from
 publication outcomes. A failed required evidence or sink write is not the same
 as a failed source-target comparison, and run metadata must make that
 distinction visible.
+
+## Command result separation
+
+Command-level `ServiceResult` and check-level results are separate. The command
+result owns CLI exit category, top-level message, and command diagnostics.
+`RunResult`, `ContractResult`, and `CheckResult` own reconciliation status,
+reason codes, per-check diagnostics, and future artifact/sink references.
+
+The first check-engine boundary may expose in-memory result objects and
+testable dictionary serialization for service plumbing. It must not expose a
+stable generated result schema, and it must not write `target/run_results.json`.
+The CLI may print a concise command message and safe diagnostics, but it must
+not render a final run summary, evidence table, artifact link, or sink
+destination until the owning runner/evidence phase exists.
 
 ## Severity
 

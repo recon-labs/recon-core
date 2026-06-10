@@ -38,7 +38,12 @@ fail
 warn
 error
 skipped
+blocked
+not_executable
 ```
+
+`unsupported` and `not_yet_executable` are not statuses. They are structured
+reason-code concepts for `not_executable` check results.
 
 ## Error categories
 
@@ -122,8 +127,16 @@ Checks ran successfully and found mismatches.
 
 Check failures are not validation diagnostics. For example, null-key and
 duplicate-key checks fail after reading source or target data, and dependent
-row-level checks should be skipped with explicit `blocked_by` and
-`skip_reason`.
+row-level checks should be blocked with explicit `blocked_by` and a
+machine-readable reason.
+
+The first check-engine boundary should use runtime diagnostics for missing or
+invalid compiled-check artifacts, empty compiled-check scopes,
+not-executable checks, unsupported check types, unsupported typed operations,
+unsupported execution placement, unsupported materialization policy,
+prerequisite blocking, and unexpected sanitized check-engine errors. Those
+diagnostics explain non-execution and must not be presented as mismatch
+evidence.
 
 ### Evidence diagnostics
 

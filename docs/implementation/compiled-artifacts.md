@@ -679,7 +679,9 @@ Row-level value checks should include prerequisites and blocking policy:
 ```
 
 If a prerequisite fails at runtime, dependent row-level value checks should be
-skipped with `blocked_by` and `skip_reason` in run results.
+reported with result status `blocked`, `blocked_by`, and a machine-readable
+reason in run results. The current compiled-artifact policy token is not itself
+the run-result status.
 
 ## Compiled SQL
 

@@ -158,18 +158,81 @@ fail
 warn
 error
 skipped
+blocked
+not_executable
 ```
 
-`fail` means the check ran and found mismatches.
+`pass`, `fail`, and `warn` require the check to have executed.
 
-`error` means the check could not run.
+`fail` means the check ran and found an error-severity reconciliation
+difference.
 
-`skipped` means the check was intentionally not run because a prerequisite failed or configuration said to skip.
+`warn` means the check ran and found a warning-severity reconciliation
+difference.
 
-A not-yet-executable or unsupported check is a blocked/non-execution outcome,
-not a successful comparison. The exact stable status taxonomy is owned by the
-first check-engine result-model implementation, but every such result must make
-the reason machine-readable and must preserve safe diagnostics.
+`error` means Recon attempted to prepare or evaluate the check but a runtime,
+compiled-artifact, internal, or unsafe-condition problem prevented a trustworthy
+result.
+
+`skipped` means the check was intentionally not run because explicit user,
+configuration, or future selector policy said to skip it. Selector-driven skip
+behavior is not implemented by the first check-engine boundary.
+
+`blocked` means the check did not run because a prerequisite failed, errored, or
+was unavailable. Blocked results must include `blocked_by` and a
+machine-readable reason.
+
+`not_executable` means the compiled check is valid input to the run boundary
+but cannot execute with the current check engine, typed operation, capability,
+execution placement, materialization policy, or implemented operation surface.
+
+`unsupported` and `not_yet_executable` are reason-code concepts, not statuses.
+Unsupported check types, unsupported typed operations, missing capabilities,
+unsupported placement, unsupported materialization, and behavior that belongs
+to a later execution phase should produce `not_executable` with a structured
+reason and diagnostics.
+
+Every `blocked`, `not_executable`, or `skipped` result must set
+`executed=false`, preserve safe diagnostics, leave source/target values empty,
+and avoid artifact, evidence, failure-detail, state, or sink references unless a
+later owning phase actually produced them.
+
+Run and contract aggregate statuses are defined by the result model. They must
+not aggregate a run with only blocked, not-executable, errored, or empty check
+sets to `pass`.
+
+## Run service boundary
+
+The first `recon run` implementation should use already compiled check
+artifacts as input. It should not parse authored YAML, recompile contracts,
+load runtime profiles, open adapters, render SQL, execute queries, write
+generated files, or run selector/subset logic.
+
+Missing compiled-check artifacts, malformed compiled-check artifacts, and empty
+compiled-check scopes are runtime diagnostics, not successful runs. They should
+produce command-level failure through `ServiceResult` and should not claim
+source-target equivalence.
+
+Command-level `ServiceResult` remains separate from `RunResult`. The CLI may
+render a concise message and safe diagnostics, but final run summaries,
+`target/run_results.json`, evidence tables, report links, failure-detail links,
+state references, and sink destinations remain owned by later phases.
+
+## Internal dispatch boundary
+
+The first boundary may define an internal dispatch registry for already
+compiled check types. This registry is an implementation detail for compiled
+checks and is not a public authored check registry.
+
+Unknown or unsupported compiled check types should produce
+`not_executable` with reason `unsupported_check_type` and safe diagnostics.
+Compiled checks whose typed operations are not executable in the current phase
+should produce `not_executable` with reason `unsupported_typed_operation` or
+`not_implemented_in_current_phase`.
+
+The registry must not make explicit authored `checks: [...]`, package-provided
+check implementations, or user-extensible check registration appear supported
+before their public contract is designed.
 
 ## Failure details
 
@@ -190,7 +253,7 @@ keys.
 If null or duplicate keys are present, value comparisons should not guess.
 
 If null or duplicate key safety checks fail, dependent row-level value checks
-should return status `skipped` with `blocked_by` and `skip_reason`.
+should return status `blocked` with `blocked_by` and a machine-readable reason.
 
 ## Aggregate checks
 

@@ -103,6 +103,50 @@ adapter capability, privacy rule, or result representation is blocked; it is
 not rewritten into another placement and is not silently executed in Core
 memory.
 
+## Result semantics
+
+Check outcomes use these statuses:
+
+```text
+pass
+fail
+warn
+error
+skipped
+blocked
+not_executable
+```
+
+`pass`, `fail`, and `warn` require actual check execution. `error` records a
+runtime, artifact, internal, or unsafe-condition problem that prevents a
+trustworthy result. `blocked` records prerequisite dependency blocking.
+`not_executable` records valid compiled checks that cannot run with the current
+engine, typed operation, placement, capability, materialization, or implemented
+surface. `skipped` is reserved for explicit user, configuration, or future
+selector skip policy.
+
+Unsupported and not-yet-executable checks are represented as
+`not_executable` with machine-readable reason codes and safe diagnostics.
+Reason codes, not status names, distinguish unsupported check type,
+unsupported typed operation, missing engine capability, unsupported execution
+placement, unsupported materialization policy, and behavior that belongs to a
+later execution phase.
+
+Run and contract aggregate results must never collapse incomplete execution to
+`pass`. Empty check scopes, all-blocked checks, all-not-executable checks, and
+errored check-engine preparation are explicit non-pass outcomes.
+
+Command-level service results are separate from reconciliation results. The CLI
+exit category and top-level message belong to command plumbing. `RunResult`,
+`ContractResult`, and `CheckResult` carry reconciliation status, reason codes,
+diagnostics, and future artifact or sink references.
+
+The first run boundary may load already compiled checks and route them through
+internal dispatch. It must not parse authored YAML, compile contracts, load
+runtime profiles, execute adapters, render SQL, query source or target systems,
+write generated artifacts, emit evidence, mutate state, write sinks, produce
+probabilistic summaries, or execute selector/subset scopes.
+
 ## Adapter capability fit
 
 Checks declare required semantics. Core translates those semantics into typed
@@ -163,7 +207,7 @@ Value-level row checks require non-null and unique keys in source and target.
 Null-key and duplicate-key checks should run before row-level value checks.
 
 If null keys or duplicates are found, row-level value checks should be blocked
-and returned as `skipped` with `blocked_by` and `skip_reason`.
+and returned as `blocked` with `blocked_by` and a machine-readable reason.
 Row-level value checks should not execute with unresolved wildcard selectors;
 column resolution follows ADR 0019.
 
