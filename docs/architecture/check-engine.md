@@ -99,9 +99,9 @@ Placement decisions must be gate-backed per executable surface:
 
 The engine must represent placement or capability blockers explicitly. A check
 that cannot satisfy its required execution context, materialization policy,
-adapter capability, privacy rule, or result representation is blocked; it is
-not rewritten into another placement and is not silently executed in Core
-memory.
+adapter capability, privacy rule, or result representation is `not_executable`
+or blocked with a machine-readable reason; it is not rewritten into another
+placement and is not silently executed in Core memory.
 
 ## Result semantics
 
@@ -132,9 +132,17 @@ unsupported typed operation, missing engine capability, unsupported execution
 placement, unsupported materialization policy, and behavior that belongs to a
 later execution phase.
 
+Known compiled check types or typed operations assigned to a later execution
+phase use reason `not_implemented_in_current_phase`. Validly shaped typed
+operations the runtime does not recognize or support use
+`unsupported_typed_operation`. Malformed operation payloads are invalid compiled
+artifacts and should fail before dispatch.
+
 Run and contract aggregate results must never collapse incomplete execution to
 `pass`. Empty check scopes, all-blocked checks, all-not-executable checks, and
 errored check-engine preparation are explicit non-pass outcomes.
+Empty compiled-check scope aggregates to `no_checks`; the first run service
+boundary maps it to command-level diagnostic `RC_RUNTIME_NO_COMPILED_CHECKS`.
 
 Command-level service results are separate from reconciliation results. The CLI
 exit category and top-level message belong to command plumbing. `RunResult`,

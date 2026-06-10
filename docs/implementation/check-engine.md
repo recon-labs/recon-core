@@ -192,6 +192,14 @@ unsupported placement, unsupported materialization, and behavior that belongs
 to a later execution phase should produce `not_executable` with a structured
 reason and diagnostics.
 
+Known compiled check types or typed operations assigned to a later execution
+phase should use reason `not_implemented_in_current_phase` and diagnostic
+`RC_RUNTIME_CHECK_NOT_EXECUTABLE`. Validly shaped typed operations the runtime
+does not recognize or support should use reason `unsupported_typed_operation`
+and diagnostic `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION`. Malformed typed
+operation payloads are invalid compiled artifacts and should fail before
+dispatch.
+
 Every `blocked`, `not_executable`, or `skipped` result must set
 `executed=false`, preserve safe diagnostics, leave source/target values empty,
 and avoid artifact, evidence, failure-detail, state, or sink references unless a
@@ -200,6 +208,10 @@ later owning phase actually produced them.
 Run and contract aggregate statuses are defined by the result model. They must
 not aggregate a run with only blocked, not-executable, errored, or empty check
 sets to `pass`.
+
+Empty compiled-check scope aggregates to `no_checks`. The first `RunService`
+boundary maps that aggregate outcome to command-level runtime failure with
+`RC_RUNTIME_NO_COMPILED_CHECKS`, not to success.
 
 ## Run service boundary
 
@@ -227,8 +239,9 @@ checks and is not a public authored check registry.
 Unknown or unsupported compiled check types should produce
 `not_executable` with reason `unsupported_check_type` and safe diagnostics.
 Compiled checks whose typed operations are not executable in the current phase
-should produce `not_executable` with reason `unsupported_typed_operation` or
-`not_implemented_in_current_phase`.
+should produce `not_executable` with reason
+`not_implemented_in_current_phase`. Validly shaped unknown typed operations
+should produce `not_executable` with reason `unsupported_typed_operation`.
 
 The registry must not make explicit authored `checks: [...]`, package-provided
 check implementations, or user-extensible check registration appear supported

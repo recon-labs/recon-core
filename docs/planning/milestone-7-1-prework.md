@@ -90,7 +90,7 @@ The first boundary should:
 - report checks that belong to later execution phases as `not_executable`,
 - report prerequisite dependency failures as `blocked`,
 - report missing, malformed, incompatible, or empty compiled-check inputs as
-  runtime diagnostics and non-pass outcomes,
+  runtime diagnostics and deterministic non-pass outcomes,
 - keep artifact, evidence, failure-detail, state, and sink references empty
   unless a later owning phase actually writes those outputs.
 
@@ -146,6 +146,20 @@ First-boundary reason codes:
 
 `no_checks` is not equivalent to `pass`. Empty compiled-check scope must not
 look like successful source-target reconciliation.
+
+For the first run boundary, an empty compiled-check scope is deterministic:
+
+- the check engine aggregate status is `no_checks`,
+- `RunService` maps that outcome to a command-level runtime failure with
+  diagnostic `RC_RUNTIME_NO_COMPILED_CHECKS`,
+- no generated result, evidence, report, state, or sink output is written.
+
+For dispatch, `not_implemented_in_current_phase` is used when a compiled check
+or typed operation is valid and known to Recon but belongs to a later execution
+phase. `unsupported_typed_operation` is used when the compiled artifact contains
+a validly shaped typed operation that the current runtime does not recognize or
+support. Malformed operation payloads are artifact-invalid diagnostics, not
+runtime dispatch choices.
 
 ## Runtime Diagnostics
 
@@ -230,8 +244,8 @@ complete.
 | --- | --- | --- | --- | --- | --- |
 | Service boundary and command/result separation | `recon run` service entry, command-level failure, in-memory run result creation. | `ServiceResult` owns CLI exit category and command diagnostics; reconciliation status lives in `RunResult`, `ContractResult`, and `CheckResult`. | Service tests for `RunService`; model tests proving `ServiceResult` is not reused as `CheckResult`. | Result-model docs and diagnostic output conformance gate. | Runner summary and stable run-result artifact belong to the future runner/result phase. |
 | In-memory result model shape | `RunResult`, `ContractResult`, `CheckResult`, diagnostic lists, empty artifact/sink refs. | Models serialize deterministically with status, reason code, `executed`, `blocked_by`, safe diagnostics, and empty output references. | Unit tests for model construction and dictionary serialization. | Public contract inventory tracks this as planned pre-alpha surface. | Stable `target/run_results.json` schema and version constant are not 7.1 scope. |
-| Status and reason taxonomy | `pass`, `fail`, `warn`, `error`, `skipped`, `blocked`, `not_executable`, aggregate `no_checks`, all first-boundary reason codes. | Statuses and reason codes match this prework; `unsupported` and `not_yet_executable` are not statuses. | Enum/model tests for every status, reason, invalid combination, and serialization value. | Compatibility matrix and result-model docs. | Additional execution statuses require compatibility review in later phases. |
-| Aggregate status behavior | Empty scope, all blocked, all not executable, error plus other statuses, fail plus blocked, warning-only fixtures, all pass fixtures. | `no_checks` is not pass; precedence for non-empty scopes is `error > fail > blocked > not_executable > warn > skipped > pass`; mixed statuses remain visible in counts/results. | Pure aggregation tests using in-memory fixtures. | Result-model docs. | Real pass/fail/warn from database execution belongs to later execution phases. |
+| Status and reason taxonomy | `pass`, `fail`, `warn`, `error`, `skipped`, `blocked`, `not_executable`, aggregate `no_checks`, all first-boundary reason codes. | Statuses and reason codes match this prework; `unsupported` and `not_yet_executable` are not statuses. Empty compiled-check scope deterministically maps to aggregate `no_checks` plus command-level `RC_RUNTIME_NO_COMPILED_CHECKS`. Known later-phase operations use `not_implemented_in_current_phase`; unknown valid operation types use `unsupported_typed_operation`; malformed operation payloads are artifact-invalid diagnostics. | Enum/model tests for every status, reason, invalid combination, serialization value, empty-scope mapping, and later-phase versus unsupported-operation mapping. | Compatibility matrix and result-model docs. | Additional execution statuses require compatibility review in later phases. |
+| Aggregate status behavior | Empty scope, all blocked, all not executable, error plus other statuses, fail plus blocked, warning-only fixtures, all skipped, mixed pass plus skipped, all pass fixtures. | `no_checks` is not pass; empty compiled-check scope is a runtime failure for `RunService`; precedence for non-empty scopes is `error > fail > blocked > not_executable > warn > pass > skipped`, with `skipped` used only when every check in scope was intentionally skipped. Mixed statuses remain visible in counts/results. | Pure aggregation tests using in-memory fixtures. | Result-model docs. | Real pass/fail/warn from database execution belongs to later execution phases. |
 | Compiled-check loading boundary | Existing compiled-check artifact path, multiple contracts, source metadata, diagnostic-bearing compiled checks. | 7.1 consumes compiled artifacts or equivalent compiled fixtures only; it does not parse authored YAML or recompile contracts. | Service tests with temporary compiled artifacts and in-memory fixtures. | Parse/compile/run architecture and compiled artifact docs. | Artifact freshness, cache reuse, and selected-scope freshness are later work. |
 | Missing, empty, or malformed compiled artifacts | Missing compiled-check directory/file, empty check list, invalid YAML, wrong artifact version, missing required fields. | Produce non-pass runtime diagnostics with locked codes; never report source-target equivalence. | Service/loader tests for each artifact error and safe diagnostic. | Runtime diagnostics docs. | Compile-time validation of authored YAML remains parser/compiler scope. |
 | Internal dispatch boundary | Known compiled check type assigned to a later phase, unknown check type, unsupported typed operation. | Dispatch is internal only; unsupported or later-phase checks produce `not_executable` with reason and diagnostics. | Dispatch tests for known-later, unknown, and unsupported operation cases. | Explicit authored checks/check registry gate. | Public authored `checks: [...]`, package checks, and user-extensible registries remain future scope. |
@@ -254,12 +268,13 @@ scope during implementation review.
 | Compiled-check artifact path is missing. | Command-level runtime failure with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND`; no run pass and no generated output. | Service test with missing target artifact. |
 | Compiled-check artifact exists but is unreadable or invalid YAML. | Runtime failure with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID`; unsafe parser text is not emitted. | Loader/service test with malformed file. |
 | Compiled-check artifact has unsupported or wrong artifact version. | Runtime failure with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID`; no fallback parsing. | Loader/model test for version mismatch. |
-| Compiled-check artifact has zero checks. | Aggregate status is `no_checks` or command failure with `RC_RUNTIME_NO_COMPILED_CHECKS`; never `pass`. | Aggregation/service test for empty scope. |
+| Compiled-check artifact has zero checks. | Aggregate status is `no_checks`; `RunService` maps the empty scope to command-level runtime failure with `RC_RUNTIME_NO_COMPILED_CHECKS`; never `pass`. | Aggregation/service test for empty scope. |
 | Compiled check is missing required ID, name, type, or plan fields. | Runtime artifact-invalid diagnostic; no partial result that looks executable. | Loader validation test for each missing field group. |
 | Duplicate compiled check IDs appear in one run scope. | Runtime artifact-invalid diagnostic; dispatch does not choose one silently. | Loader validation test. |
 | Compiled check type is unknown. | Check result `not_executable`, reason `unsupported_check_type`, diagnostic `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE`. | Dispatch test. |
-| Compiled check has known type but operation belongs to later phase. | Check result `not_executable`, reason `not_implemented_in_current_phase` or `unsupported_typed_operation`. | Dispatch test using row-count/key/aggregate fixtures as appropriate. |
-| Compiled typed operation is malformed or unrecognized. | Check result `not_executable` or artifact-invalid diagnostic, depending on whether the artifact shape is valid. | Dispatch/loader tests for valid-unknown versus malformed payload. |
+| Compiled check has known type but operation belongs to later phase. | Check result `not_executable`, reason `not_implemented_in_current_phase`, diagnostic `RC_RUNTIME_CHECK_NOT_EXECUTABLE`. | Dispatch test using row-count/key/aggregate fixtures as appropriate. |
+| Compiled typed operation is validly shaped but unrecognized. | Check result `not_executable`, reason `unsupported_typed_operation`, diagnostic `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION`. | Dispatch test for valid unknown operation type. |
+| Compiled typed operation payload is malformed. | Runtime artifact-invalid diagnostic; dispatch does not run. | Loader validation test for malformed operation payload. |
 | Required engine capability is absent or unknown. | Check result `not_executable`, reason `missing_engine_capability`; no fallback execution. | Capability-fit test with no adapter invocation. |
 | Required execution placement is unsupported. | Check result `not_executable`, reason `unsupported_execution_placement`; no Python fallback. | Placement blocker test. |
 | Required materialization or staging policy appears. | Check result `not_executable`, reason `unsupported_materialization_policy`; no staging output. | Materialization blocker test. |
@@ -291,8 +306,8 @@ written.
 
 Given a compiled-check artifact is present but contains no checks in scope.
 When the user runs `recon run`.
-Then Recon reports `RC_RUNTIME_NO_COMPILED_CHECKS` or an aggregate `no_checks`
-non-pass outcome.
+Then the in-memory aggregate status is `no_checks`.
+And `RunService` reports runtime diagnostic `RC_RUNTIME_NO_COMPILED_CHECKS`.
 And the result is not reported as `pass`.
 And no evidence or run-result artifact is written.
 
@@ -312,8 +327,8 @@ Given a compiled check is valid but its typed operation belongs to a later
 execution phase.
 When the check engine processes the compiled check during Milestone 7.1.
 Then the check result has status `not_executable`.
-And the reason code identifies unsupported operation or current-phase
-non-implementation.
+And the reason code is `not_implemented_in_current_phase`.
+And the diagnostic code is `RC_RUNTIME_CHECK_NOT_EXECUTABLE`.
 And the check result does not contain source value, target value, diff value,
 failure rows, artifact refs, or sink refs.
 
@@ -409,7 +424,7 @@ review.
 | Split decision and lightweight prework | Milestone 7 is already split and 7.1 is the check-engine boundary/result-model slice. | This artifact states `Split Decision: Already Split / Follow Existing Split`, scope, non-goals, expected behavior, affected docs, required tests, compatibility, security, privacy, and Definition of Done. | Preserve 7.1 as a no-execution slice. Do not move row-count, key-safety, aggregate, runner artifact, or evidence behavior into 7.1. |
 | High-risk acceptance and BDD planning | 7.1 touches result semantics, diagnostics, run behavior, and future public output surfaces. | The acceptance/conformance matrix, edge-case matrix, and BDD scenarios enumerate positive, negative, privacy, output, placement, selector, and probabilistic cases. | Every required row must map to a test, an existing test, or a documented out-of-scope decision before implementation is complete. |
 | Check-engine execution boundary | 7.1 creates the first service boundary without data execution. | Scope and expected behavior require already compiled checks only and explicitly prohibit parsing, compiling, profile loading, adapter execution, SQL rendering, and source/target queries. | Implement only the compiled-check service/model boundary. Any check needing runtime execution must be `not_executable` or `blocked`, not silently executed. |
-| Typed check-plan boundary | 7.1 may consume compiled typed intent but must not expand the typed operation catalog. | Non-goals exclude new runtime typed operations. The matrix covers unsupported typed operations and later-phase operations. | Preserve existing compiled intent shape unless a compatibility update is made. Unknown valid operations produce `not_executable`; malformed artifacts produce artifact diagnostics. |
+| Typed check-plan boundary | 7.1 may consume compiled typed intent but must not expand the typed operation catalog. | Non-goals exclude new runtime typed operations. The matrix covers unsupported typed operations and later-phase operations. | Preserve existing compiled intent shape unless a compatibility update is made. Known later-phase operations produce `not_implemented_in_current_phase`; unknown valid operations produce `unsupported_typed_operation`; malformed artifacts produce artifact-invalid diagnostics. |
 | Key semantics and prerequisite blocking | 7.1 needs prerequisite result representation but does not execute key checks. | Status taxonomy includes `blocked`; reason codes include prerequisite failure, error, and missing cases; matrix and BDD scenarios require `blocked_by`. | Implement prerequisite blocking representation only. Do not execute grain-key checks or infer dependency success. |
 | Runtime diagnostics and diagnostic output conformance | 7.1 owns first-boundary runtime diagnostic codes. | Runtime diagnostic codes are locked, and matrices require safe preservation of code, severity, message, path, resource context, and hint. | Tests must prove locked codes, deterministic serialization, and suppression of unsafe raw exceptions, query text, credentials, and source/target values. |
 | Internal dispatch versus public check registry | 7.1 may introduce internal dispatch for compiled checks. | The matrix allows internal dispatch and explicitly excludes public authored `checks: [...]`, public registry behavior, package-provided checks, and user-extensible check registration. | Keep dispatch internal. Do not expose or stabilize authored check registry semantics in 7.1. |
@@ -513,7 +528,7 @@ Expected source changes:
 | `src/recon_core/artifacts/compiled_check_loader.py` | Add a compiled-check artifact loader for `target/compiled_checks/*.yml`. | Read compiled artifacts only. Validate artifact type, version, required fields, duplicate check IDs, and malformed YAML. Do not parse authored contracts or call compile services. |
 | `src/recon_core/artifacts/__init__.py` | Export the compiled-check loader and load result if the loader is placed under artifacts. | Keep writer behavior unchanged. Do not add result artifact writers. |
 | `src/recon_core/compiler/models.py` | Add strict compiled-artifact `from_dict` or parsing helpers only if the loader needs typed compiled models. | Do not change `to_dict` output, compiled artifact version, typed operation names, or typed operation payload semantics. |
-| `src/recon_core/check_engine/dispatch.py` | Add an internal dispatch table for already compiled check types. | Known 7.2/7.3/7.4 check types return `not_executable` or current-phase reasons in 7.1. Unknown valid check types return `unsupported_check_type`. |
+| `src/recon_core/check_engine/dispatch.py` | Add an internal dispatch table for already compiled check types. | Known later-phase compiled check types or typed operations return `not_executable` with reason `not_implemented_in_current_phase`. Unknown compiled check types return `unsupported_check_type`; valid unknown typed operations return `unsupported_typed_operation`. |
 | `src/recon_core/check_engine/engine.py` | Add the first `CheckEngine` orchestration over loaded compiled artifacts. | Evaluate prerequisites, preserve safe diagnostics, produce in-memory `RunResult`, and never execute adapters, render SQL, query data, or write outputs. |
 | `src/recon_core/services/run.py` | Replace the placeholder with a run service that loads project context, loads compiled checks, invokes the check engine, and maps the result to `ServiceResult`. | `RunService.execute()` should still return command-level `ServiceResult`. The reconciliation result is produced by the check engine and is not embedded in `ServiceResult` or written to disk. |
 | `src/recon_core/cli/main.py` | Update only if needed for the new command-level message or exit mapping. | Do not add `--select`, profile, adapter, artifact, evidence, sink, or result-output options in 7.1. |
@@ -530,9 +545,9 @@ Write tests before implementation in this order:
 | Test path | Coverage |
 | --- | --- |
 | `tests/check_engine/test_models.py` | Status enum values, reason enum values, deterministic `RunResult`, `ContractResult`, and `CheckResult` serialization, empty artifact/sink refs, invalid non-executed result combinations, and `ServiceResult` separation. |
-| `tests/check_engine/test_aggregation.py` | Aggregate status precedence, `no_checks` non-pass behavior, mixed statuses, all blocked, all not executable, warning-only fixtures, and all-pass in-memory fixtures. |
+| `tests/check_engine/test_aggregation.py` | Aggregate status precedence, `no_checks` non-pass behavior, mixed statuses, all blocked, all not executable, warning-only fixtures, all-skipped fixtures, mixed pass-plus-skipped fixtures, and all-pass in-memory fixtures. |
 | `tests/check_engine/test_loader.py` | Missing compiled-check directory/file, invalid YAML, wrong artifact type, wrong version, missing required fields, duplicate check IDs, empty check scope, safe diagnostics, and multi-contract artifact loading. |
-| `tests/check_engine/test_dispatch.py` | Unsupported compiled check type, unsupported typed operation, later-phase row-count/key/aggregate operations, missing capability, unsupported execution placement, unsupported materialization, and no public registry behavior. |
+| `tests/check_engine/test_dispatch.py` | Unsupported compiled check type, valid unknown typed operation, malformed operation payload handoff to artifact-invalid diagnostics, later-phase row-count/key/aggregate operations with `not_implemented_in_current_phase`, missing capability, unsupported execution placement, unsupported materialization, and no public registry behavior. |
 | `tests/check_engine/test_engine.py` | Prerequisite blocking for failed, errored, and missing prerequisites; `blocked_by` ordering/deduplication; safe diagnostic preservation; sanitized internal engine error; and no source/target value population for non-executed results. |
 | `tests/services/test_run_service.py` | `RunService` loads compiled checks only, maps missing/invalid/empty inputs to command-level failures, returns no pass for non-execution, invokes no parse/compile/profile/adapter/renderer/query APIs, writes no generated outputs, and leaves stale output files untouched. |
 | `tests/cli/test_main.py` | Replace the run placeholder test with 7.1 command behavior: concise message, locked runtime diagnostics, correct exit code, and no run summary, artifact link, evidence link, selector behavior, or sink output. |
@@ -621,7 +636,7 @@ pre-commit run --all-files
 | --- | --- | --- |
 | `ServiceResult` becomes a carrier for reconciliation results. | Keep `ServiceResult` command-level only; expose reconciliation objects through check-engine APIs and tests. | Revert service/CLI plumbing while keeping independent result model tests. |
 | Loader accidentally parses authored YAML or recompiles contracts. | Loader reads only `target/compiled_checks/*.yml` and validates compiled artifact shape. | Revert loader integration in `RunService`; keep loader tests failing until fixed. |
-| 7.1 silently runs checks that belong to 7.2/7.3/7.4. | Dispatch returns `not_executable` or current-phase reasons for execution-phase checks. | Revert handler implementation to non-executing dispatch. |
+| 7.1 silently runs checks that belong to 7.2/7.3/7.4. | Dispatch returns `not_executable` with reason `not_implemented_in_current_phase` for execution-phase checks. | Revert handler implementation to non-executing dispatch. |
 | Adapter/profile/renderer calls sneak into run behavior. | Negative tests use fakes or monkeypatches that fail on profile, adapter, renderer, query, and writer calls. | Revert `RunService` orchestration and keep check-engine model work isolated. |
 | Runtime diagnostics leak source/target or profile data. | Sanitization tests assert unsafe values are absent from diagnostics, messages, metadata, and serialized results. | Revert diagnostic helper changes and use safe generic runtime diagnostics. |
 | Generated outputs are written too early. | Temporary-directory tests prove no `target/run_results.json`, evidence, report, failure-detail, state, sink, or SQL output is created or mutated. | Revert writer calls and any result artifact schema additions. |

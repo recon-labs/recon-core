@@ -99,20 +99,35 @@ compiled-check rendering metadata.
 
 ## RunService
 
-Responsibilities:
+First check-engine boundary responsibilities:
 
-- ensure parse/compile are available or run them,
-- build execution plan,
-- run checks,
+- locate the project root,
+- load already compiled check artifacts from the generated target path,
+- invoke the check engine over compiled checks only,
+- map command-level outcomes and diagnostics to `ServiceResult`,
+- return a concise command message and exit category.
+
+The first check-engine boundary must not parse authored YAML, invoke
+`ParseService`, invoke `CompileService`, load runtime profiles, instantiate
+adapters, render SQL, execute queries, write `target/run_results.json`, write
+evidence, write reports, write failure details, write state, or write
+result/evidence sinks.
+
+Later runner and evidence phases may expand `RunService` responsibilities to:
+
+- parse and compile automatically when artifact freshness semantics are locked,
+- build execution plans,
+- run checks through supported adapter execution paths,
 - write run results,
 - write evidence,
-- return run summary and exit category.
+- return final run summaries and exit categories.
 
 Run-time profile loading follows the same selected-target and secret redaction
-rules as adapter-aware compile. `RunService` must also preserve the same
-unsupported-template and adapter diagnostic redaction behavior before execution.
-`RunService` must revalidate adapter API compatibility and required
-capabilities before execution.
+rules as adapter-aware compile once adapter execution is implemented. At that
+point, `RunService` must also preserve the same unsupported-template and adapter
+diagnostic redaction behavior before execution, and it must revalidate adapter
+API compatibility and required capabilities before execution. These execution
+responsibilities are not part of the first check-engine boundary.
 
 ## CLI options
 

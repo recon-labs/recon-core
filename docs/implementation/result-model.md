@@ -151,7 +151,9 @@ no_checks
 
 Aggregate status rules:
 
-- `pass` requires every required check in scope to execute and pass.
+- `pass` requires every required, non-skipped check in scope to execute and pass.
+  Skipped checks remain visible in counts/results and must be explained by an
+  explicit skip reason.
 - `fail` means at least one executed check found an error-severity
   reconciliation difference.
 - `warn` means no check failed or errored, and at least one executed check found
@@ -163,7 +165,9 @@ Aggregate status rules:
 - `not_executable` means no higher-priority error, failure, or blocker exists
   and at least one required compiled check could not execute.
 - `skipped` means every check in scope was intentionally skipped by an explicit
-  policy. Selector-driven or policy-driven skip behavior is not part of the
+  policy. Mixed pass-plus-skipped runs aggregate to `pass` only when every
+  non-skipped required check passed and the skipped checks carry explicit skip
+  reasons. Selector-driven or policy-driven skip behavior is not part of the
   first check-engine boundary.
 - `no_checks` means the run or contract had no compiled checks in scope. It is
   not equivalent to `pass`.
@@ -171,10 +175,13 @@ Aggregate status rules:
 Aggregate status precedence for non-empty scopes is:
 
 ```text
-error > fail > blocked > not_executable > warn > skipped > pass
+error > fail > blocked > not_executable > warn > pass > skipped
 ```
 
-`no_checks` is used only when there are no compiled checks in scope.
+`no_checks` is used only when there are no compiled checks in scope. For the
+first `RunService` boundary, empty compiled-check scope is also a command-level
+runtime failure with `RC_RUNTIME_NO_COMPILED_CHECKS`; the aggregate status still
+remains `no_checks` so the result cannot look like a successful reconciliation.
 
 Counts and per-check results should preserve the full mixture when multiple
 statuses occur. For example, a run can aggregate to `fail` while still reporting
@@ -193,11 +200,11 @@ First-boundary reason codes:
 | `prerequisite_error` | `blocked` | A prerequisite check errored before producing a trustworthy result. |
 | `prerequisite_missing` | `blocked` | A required prerequisite result is absent. |
 | `unsupported_check_type` | `not_executable` | The compiled check type has no internal handler in the current check engine. |
-| `unsupported_typed_operation` | `not_executable` | The compiled check references a typed operation the current runtime cannot execute. |
+| `unsupported_typed_operation` | `not_executable` | The compiled check references a validly shaped typed operation the current runtime does not recognize or support. |
 | `missing_engine_capability` | `not_executable` | Required engine or adapter capability is unavailable or not declared. |
 | `unsupported_execution_placement` | `not_executable` | Required operation or comparison placement is not implemented or allowed. |
 | `unsupported_materialization_policy` | `not_executable` | Required data movement, staging, or materialization policy is not implemented or allowed. |
-| `not_implemented_in_current_phase` | `not_executable` | The check is valid but belongs to a later execution phase. |
+| `not_implemented_in_current_phase` | `not_executable` | The check or typed operation is valid and known to Recon but belongs to a later execution phase. |
 | `skipped_by_policy` | `skipped` | Explicit user or configuration policy skipped the check. Reserved until skip policy exists. |
 | `selected_out` | `skipped` | Future selector behavior excluded the check from the run. Reserved until selectors exist. |
 
@@ -212,6 +219,13 @@ execution placement, materialization policy, or result representation is not
 available must carry an explicit reason and diagnostic. They must not be
 reported as successful comparisons, and they must not be rewritten into another
 execution strategy to make the run appear complete.
+
+Known compiled check types or typed operations assigned to a later execution
+phase use `not_implemented_in_current_phase` with
+`RC_RUNTIME_CHECK_NOT_EXECUTABLE`. Validly shaped but unknown operation types use
+`unsupported_typed_operation` with `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION`.
+Malformed operation payloads are invalid compiled artifacts and should be
+reported before dispatch.
 
 Future result status work must distinguish reconciliation outcomes from
 publication outcomes. A failed required evidence or sink write is not the same
