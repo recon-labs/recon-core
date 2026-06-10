@@ -153,7 +153,8 @@ Capabilities:
 - watermarks,
 - previous failure retest,
 - persisted random samples,
-- richer result tables,
+- richer result table design, with production table writes gated by Post-MVP
+  Milestone 25.5 and adapter write/sink conformance in Post-MVP Milestone 29,
 - richer evidence reports,
 - `recon debug` for project, profile, adapter, and connection diagnostics,
 - orchestrator-friendly CLI behavior,
@@ -166,8 +167,15 @@ Adapters:
 
 - stable typed check-plan model,
 - stable adapter interface and API versioning,
-- first official SQL adapters split or prepared for split,
-- adapter test kit planning.
+- first official SQL adapters prepared for split,
+- adapter test kit planning and conformance design,
+- `recon-duckdb` extraction deferred until the adapter package/test-kit gates
+  are satisfied,
+- official external adapter repositories deferred until Post-MVP Milestone 29,
+  the adapter test-kit and package split milestone that proves cross-repo
+  compatibility,
+- experimental adapters allowed only when they do not claim stable execution,
+  sink, result-table, or probabilistic-summary compatibility.
 
 Checks:
 
@@ -221,7 +229,8 @@ Expected capabilities:
 - production-ready CLI,
 - stable evidence artifacts,
 - stable parse/compile/run flow,
-- multiple official adapters,
+- multiple official adapters after shared adapter conformance proves the
+  supported execution and sink surfaces,
 - package support,
 - strong documentation,
 - reliable test suite.
@@ -241,6 +250,8 @@ Possible later capabilities:
 - issue/ticket integrations,
 - evidence vault,
 - approval/sign-off workflows,
+- probabilistic key-diff adapter support after Gate 4K and shared adapter
+  test-kit conformance in Post-MVP Milestone 29,
 - hosted service,
 - enterprise policy controls.
 
