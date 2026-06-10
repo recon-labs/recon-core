@@ -496,6 +496,167 @@ Use this checklist before considering Milestone 7.1 implementation complete.
   discovered conformance requirements, and whether the next 7.x phase is safe
   to start.
 
+## Future Implementation Map
+
+This map is the implementation plan for Milestone 7.1 after the final drift
+check passes. It is not permission to implement before that check.
+
+### Source File Map
+
+Expected source changes:
+
+| Path | Change | Notes |
+| --- | --- | --- |
+| `src/recon_core/check_engine/__init__.py` | Add new package exports for the first check-engine boundary. | Export only internal/pre-alpha result and engine primitives needed by tests and `RunService`. Do not expose a public check registry. |
+| `src/recon_core/check_engine/models.py` | Add `CheckStatus`, `RunStatus`, `CheckReason`, `ArtifactRef`, `SinkRef`, `CheckResult`, `ContractResult`, `RunResult`, and aggregate-status helpers. | Keep command-level `ServiceResult` separate. Result serialization is deterministic in memory only and must keep artifact/sink refs empty in 7.1. |
+| `src/recon_core/check_engine/diagnostics.py` | Add locked 7.1 runtime diagnostic constants and safe diagnostic helper functions. | Use the `RC_RUNTIME_*` codes listed in this prework. Do not emit raw exception text, query text, relation names, credentials, profile values, or source/target row values. |
+| `src/recon_core/artifacts/compiled_check_loader.py` | Add a compiled-check artifact loader for `target/compiled_checks/*.yml`. | Read compiled artifacts only. Validate artifact type, version, required fields, duplicate check IDs, and malformed YAML. Do not parse authored contracts or call compile services. |
+| `src/recon_core/artifacts/__init__.py` | Export the compiled-check loader and load result if the loader is placed under artifacts. | Keep writer behavior unchanged. Do not add result artifact writers. |
+| `src/recon_core/compiler/models.py` | Add strict compiled-artifact `from_dict` or parsing helpers only if the loader needs typed compiled models. | Do not change `to_dict` output, compiled artifact version, typed operation names, or typed operation payload semantics. |
+| `src/recon_core/check_engine/dispatch.py` | Add an internal dispatch table for already compiled check types. | Known 7.2/7.3/7.4 check types return `not_executable` or current-phase reasons in 7.1. Unknown valid check types return `unsupported_check_type`. |
+| `src/recon_core/check_engine/engine.py` | Add the first `CheckEngine` orchestration over loaded compiled artifacts. | Evaluate prerequisites, preserve safe diagnostics, produce in-memory `RunResult`, and never execute adapters, render SQL, query data, or write outputs. |
+| `src/recon_core/services/run.py` | Replace the placeholder with a run service that loads project context, loads compiled checks, invokes the check engine, and maps the result to `ServiceResult`. | `RunService.execute()` should still return command-level `ServiceResult`. The reconciliation result is produced by the check engine and is not embedded in `ServiceResult` or written to disk. |
+| `src/recon_core/cli/main.py` | Update only if needed for the new command-level message or exit mapping. | Do not add `--select`, profile, adapter, artifact, evidence, sink, or result-output options in 7.1. |
+| `src/recon_core/services/__init__.py` | Update only if new service-level types must be exported. | Prefer keeping check-engine internals exported from `recon_core.check_engine`, not service plumbing. |
+
+Do not add files for adapters, profiles, SQL execution, evidence writers,
+state backends, sink writers, result-table writers, selectors, or
+probabilistic summaries in Milestone 7.1.
+
+### Test-First Map
+
+Write tests before implementation in this order:
+
+| Test path | Coverage |
+| --- | --- |
+| `tests/check_engine/test_models.py` | Status enum values, reason enum values, deterministic `RunResult`, `ContractResult`, and `CheckResult` serialization, empty artifact/sink refs, invalid non-executed result combinations, and `ServiceResult` separation. |
+| `tests/check_engine/test_aggregation.py` | Aggregate status precedence, `no_checks` non-pass behavior, mixed statuses, all blocked, all not executable, warning-only fixtures, and all-pass in-memory fixtures. |
+| `tests/check_engine/test_loader.py` | Missing compiled-check directory/file, invalid YAML, wrong artifact type, wrong version, missing required fields, duplicate check IDs, empty check scope, safe diagnostics, and multi-contract artifact loading. |
+| `tests/check_engine/test_dispatch.py` | Unsupported compiled check type, unsupported typed operation, later-phase row-count/key/aggregate operations, missing capability, unsupported execution placement, unsupported materialization, and no public registry behavior. |
+| `tests/check_engine/test_engine.py` | Prerequisite blocking for failed, errored, and missing prerequisites; `blocked_by` ordering/deduplication; safe diagnostic preservation; sanitized internal engine error; and no source/target value population for non-executed results. |
+| `tests/services/test_run_service.py` | `RunService` loads compiled checks only, maps missing/invalid/empty inputs to command-level failures, returns no pass for non-execution, invokes no parse/compile/profile/adapter/renderer/query APIs, writes no generated outputs, and leaves stale output files untouched. |
+| `tests/cli/test_main.py` | Replace the run placeholder test with 7.1 command behavior: concise message, locked runtime diagnostics, correct exit code, and no run summary, artifact link, evidence link, selector behavior, or sink output. |
+| `tests/services/test_command_services.py` | Remove `RunService` from placeholder-stub expectations once `run` is implemented. Keep any other placeholder expectations intact. |
+| `tests/artifacts/test_compiled_check_loader.py` | Add this separate file only if loader tests are kept with artifact tests rather than check-engine tests. Cover loader file-path and malformed artifact cases there. |
+| `tests/compiler/test_models.py` | Add only if `compiler.models` gains `from_dict` parsing helpers. Prove round-trip parsing without changing existing `to_dict` serialization. |
+
+Negative tests must fail if any 7.1 path calls profile loading, adapter
+resolution, SQL rendering, source/target query execution, artifact writers,
+evidence writers, state backends, sink writers, result-table writers, selector
+resolution, or probabilistic summary builders.
+
+### Implementation Sequence
+
+Use this sequence after Step 18 confirms readiness:
+
+1. Add result/status/reason models and aggregation tests.
+2. Add compiled-check artifact loading tests and loader implementation.
+3. Add internal dispatch tests and dispatch implementation.
+4. Add prerequisite/blocking and diagnostic preservation tests, then implement
+   the check engine orchestration.
+5. Add run-service tests for missing, invalid, empty, and valid compiled-check
+   inputs, then replace the `RunService` placeholder.
+6. Update CLI tests and CLI message handling only as needed.
+7. Run the negative side-effect tests against temporary `target/`, `reports/`,
+   and `state/` directories with preexisting files.
+8. Run the phase-exit checklist in this prework before starting the next
+   Milestone 7 sub-milestone.
+
+### Public Artifacts And Docs During Implementation
+
+Milestone 7.1 implementation may create in-memory dictionaries in tests, but it
+must not create a stable generated result artifact. Do not add
+`target/run_results.json`, `RUN_RESULT_VERSION`, evidence files, reports,
+failure-detail files, state files, result-table schemas, sink schemas, or
+selector-scoped outputs.
+
+During implementation, update these docs only if behavior differs from this
+prework:
+
+- `docs/implementation/result-model.md`,
+- `docs/implementation/check-engine.md`,
+- `docs/implementation/errors-and-diagnostics.md`,
+- `docs/architecture/check-engine.md`,
+- `docs/architecture/cli-architecture.md`,
+- `docs/implementation/cli-services.md`,
+- `docs/user-guide/cli.md`,
+- `README.md`,
+- `docs/compatibility/public-contract-inventory.md`,
+- `docs/compatibility/compatibility-matrix.md`,
+- `docs/compatibility/change-checklist.md`.
+
+Add a changelog entry during implementation if `recon run` changes from the
+current placeholder into user-visible compiled-check boundary behavior. No
+migration guidance is expected unless status names, reason codes, diagnostic
+codes, CLI exit behavior, or serialized dictionary fields change from this
+prework.
+
+### Validation Commands
+
+Minimum targeted validation for Milestone 7.1 implementation:
+
+```bash
+python -m pytest tests/check_engine tests/services/test_run_service.py tests/cli/test_main.py tests/services/test_results.py
+```
+
+Add these when the implementation touches artifact or compiler parsing helpers:
+
+```bash
+python -m pytest tests/artifacts/test_compiled_check_loader.py tests/compiler/test_models.py
+```
+
+Run full validation before phase exit:
+
+```bash
+python -m pytest
+python -m ruff check src tests
+python -m ruff format --check src tests
+python -m mypy src
+pre-commit run --all-files
+```
+
+### Risks And Rollback Points
+
+| Risk | Guardrail | Rollback point |
+| --- | --- | --- |
+| `ServiceResult` becomes a carrier for reconciliation results. | Keep `ServiceResult` command-level only; expose reconciliation objects through check-engine APIs and tests. | Revert service/CLI plumbing while keeping independent result model tests. |
+| Loader accidentally parses authored YAML or recompiles contracts. | Loader reads only `target/compiled_checks/*.yml` and validates compiled artifact shape. | Revert loader integration in `RunService`; keep loader tests failing until fixed. |
+| 7.1 silently runs checks that belong to 7.2/7.3/7.4. | Dispatch returns `not_executable` or current-phase reasons for execution-phase checks. | Revert handler implementation to non-executing dispatch. |
+| Adapter/profile/renderer calls sneak into run behavior. | Negative tests use fakes or monkeypatches that fail on profile, adapter, renderer, query, and writer calls. | Revert `RunService` orchestration and keep check-engine model work isolated. |
+| Runtime diagnostics leak source/target or profile data. | Sanitization tests assert unsafe values are absent from diagnostics, messages, metadata, and serialized results. | Revert diagnostic helper changes and use safe generic runtime diagnostics. |
+| Generated outputs are written too early. | Temporary-directory tests prove no `target/run_results.json`, evidence, report, failure-detail, state, sink, or SQL output is created or mutated. | Revert writer calls and any result artifact schema additions. |
+| Compiled artifact compatibility changes accidentally. | Do not change `to_dict`, artifact version, typed operation values, or compiled YAML writer behavior in 7.1. | Revert compiler model serialization changes; keep parsing helpers internal. |
+
+### Future-Owned Items Not Implemented In 7.1
+
+| Item | Owning milestone or gate |
+| --- | --- |
+| Runtime profile loading, adapter lifecycle, and row-count execution | Milestone 7.2 |
+| Grain-key null, duplicate, missing, and extra key execution | Milestone 7.3 |
+| Aggregate metric execution | Milestone 7.4 |
+| Local `target/run_results.json`, terminal summary finalization, run-result artifact versioning, and durable placement/capability metadata | Milestone 8 |
+| Basic local evidence, reports, bounded failure details, and evidence links | Milestone 9 |
+| Artifact freshness and cache support for scoped outputs | Post-MVP Milestone 10.5 |
+| Minimal contract/path selectors and selected-scope compile/render/run outputs | Post-MVP Milestone 10.6 |
+| Query endpoint execution | Post-MVP Milestone 18 |
+| Rich selectors, named selectors, check-level selectors, and state/result selectors | Post-MVP Milestone 19 |
+| Row-level value comparison | Post-MVP Milestone 21 |
+| Sampling execution and probabilistic sample coverage, if used | Post-MVP Milestone 24 plus the probabilistic key-diff gate |
+| State, watermarks, and persisted samples | Post-MVP Milestone 25 |
+| Production result tables and explicit source/target/third-connection result sinks | Post-MVP Milestone 25.5 |
+| CDC propagation execution and probabilistic CDC coverage, if used | Post-MVP Milestone 26 plus the probabilistic key-diff gate |
+| Adapter package split, adapter test kit, and external adapter capability claims | Post-MVP Milestone 29 |
+| Advanced evidence, external result/evidence stores, large failure-detail streaming, pagination, chunking, and JSONL | Post-MVP Milestone 31 |
+| Bloom filters, set sketches, probabilistic key-diff summaries, candidate missing/extra row export, and exact-confirmation policy | The probabilistic key-diff gate before any assigned implementation milestone |
+
+### Future Implementation Commit Message
+
+Recommended future implementation commit message:
+
+```text
+feat: add check engine result boundary
+```
+
 ## Compatibility Impact
 
 Milestone 7.1 touches planned public result and diagnostic surfaces, but it must
@@ -626,5 +787,4 @@ Milestone 7.1 is complete only when:
 
 Implementation must not start until the following follow-up prework is complete:
 
-- exact implementation file/test map,
 - final prompt/docs drift check and implementation-readiness report.

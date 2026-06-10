@@ -180,7 +180,7 @@ Milestone 7 split acceptance/conformance matrix:
 The final Milestone 7.1 acceptance/conformance matrix, edge-case matrix, and
 BDD workflow scenarios live in `docs/planning/milestone-7-1-prework.md`. The
 same prework artifact also contains the 7.1 gate satisfaction proof and
-phase-exit checklist.
+phase-exit checklist, plus the exact future implementation file/test map.
 
 Future result, evidence, state, sink, probabilistic, and adapter conformance matrix:
 
