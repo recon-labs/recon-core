@@ -11,6 +11,7 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 CHECK_NOT_EXECUTABLE = "RC_RUNTIME_CHECK_NOT_EXECUTABLE"
 UNSUPPORTED_CHECK_TYPE = "RC_RUNTIME_UNSUPPORTED_CHECK_TYPE"
 UNSUPPORTED_TYPED_OPERATION = "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+MISSING_ENGINE_CAPABILITY = "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
 UNSUPPORTED_EXECUTION_PLACEMENT = "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT"
 UNSUPPORTED_MATERIALIZATION_POLICY = "RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY"
 
@@ -86,6 +87,18 @@ def _classify(check: LoadedCompiledCheck) -> _DispatchClassification:
             ),
         )
 
+    missing_capability = _first_required_engine_capability(check)
+    if missing_capability is not None:
+        return _DispatchClassification(
+            reason=CheckReason.MISSING_ENGINE_CAPABILITY,
+            diagnostic_code=MISSING_ENGINE_CAPABILITY,
+            message=(
+                f"Check `{check.name}` requires engine capability "
+                f"`{missing_capability}` that is not available in the current "
+                "check-engine boundary."
+            ),
+        )
+
     unsupported_operation = _first_unsupported_operation_type(check)
     if unsupported_operation is not None:
         return _DispatchClassification(
@@ -121,6 +134,13 @@ def _operation_with_materialization_policy(
     for operation in check.plan.operations:
         if operation.get("materialization_policy") not in _EMPTY_MATERIALIZATION_POLICIES:
             return operation
+    return None
+
+
+def _first_required_engine_capability(check: LoadedCompiledCheck) -> str | None:
+    for capability in check.plan.required_capabilities:
+        if capability:
+            return capability
     return None
 
 

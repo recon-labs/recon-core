@@ -41,6 +41,15 @@ def test_unknown_typed_operation_is_not_executable_with_unsupported_reason() -> 
     assert "future_operation" in result.message
 
 
+def test_missing_required_engine_capability_is_explicit_non_execution() -> None:
+    result = CheckDispatcher().dispatch(_loaded_check(required_capabilities=("query_execution",)))
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert result.reason_code is CheckReason.MISSING_ENGINE_CAPABILITY
+    assert result.diagnostics[0].code == "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
+    assert "query_execution" in result.message
+
+
 def test_unsupported_execution_placement_is_explicit_non_execution() -> None:
     result = CheckDispatcher().dispatch(
         _loaded_check(
@@ -84,6 +93,7 @@ def _loaded_check(
     check_type: str = "row_count_diff",
     operation_type: str = "row_count",
     operation: dict[str, object] | None = None,
+    required_capabilities: tuple[str, ...] = (),
 ) -> LoadedCompiledCheck:
     return LoadedCompiledCheck(
         id="check.ecommerce_recon.customer_revenue.row_count_diff",
@@ -93,7 +103,7 @@ def _loaded_check(
         plan=LoadedCheckPlan(
             id="plan.ecommerce_recon.customer_revenue.row_count_diff",
             operations=(operation if operation is not None else {"type": operation_type},),
-            required_capabilities=(),
+            required_capabilities=required_capabilities,
         ),
         payload={
             "identity": {

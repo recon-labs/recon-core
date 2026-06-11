@@ -407,6 +407,7 @@ results. Locked codes:
 | `RC_RUNTIME_CHECK_NOT_EXECUTABLE` | run | error | A compiled check is valid but cannot execute in the current check-engine surface. |
 | `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE` | run | error | The compiled check type has no internal dispatch handler. |
 | `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION` | run | error | The compiled typed operation has no runtime executor in the current check-engine surface. |
+| `RC_RUNTIME_MISSING_ENGINE_CAPABILITY` | run | error | A compiled check requires an engine capability that is unavailable in the current check-engine boundary. |
 | `RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT` | run | error | Required operation or comparison placement is not implemented or allowed. |
 | `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY` | run | error | Required staging, movement, or materialization policy is not implemented or allowed. |
 | `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, or is missing. |

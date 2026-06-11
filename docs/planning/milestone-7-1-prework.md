@@ -171,6 +171,7 @@ Milestone 7.1 owns these first-boundary runtime diagnostic codes:
 - `RC_RUNTIME_CHECK_NOT_EXECUTABLE`,
 - `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE`,
 - `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION`,
+- `RC_RUNTIME_MISSING_ENGINE_CAPABILITY`,
 - `RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT`,
 - `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY`,
 - `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE`,
@@ -275,7 +276,7 @@ scope during implementation review.
 | Compiled check has known type but operation belongs to later phase. | Check result `not_executable`, reason `not_implemented_in_current_phase`, diagnostic `RC_RUNTIME_CHECK_NOT_EXECUTABLE`. | Dispatch test using row-count/key/aggregate fixtures as appropriate. |
 | Compiled typed operation is validly shaped but unrecognized. | Check result `not_executable`, reason `unsupported_typed_operation`, diagnostic `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION`. | Dispatch test for valid unknown operation type. |
 | Compiled typed operation payload is malformed. | Runtime artifact-invalid diagnostic; dispatch does not run. | Loader validation test for malformed operation payload. |
-| Required engine capability is absent or unknown. | Check result `not_executable`, reason `missing_engine_capability`; no fallback execution. | Capability-fit test with no adapter invocation. |
+| Required engine capability is absent or unknown. | Check result `not_executable`, reason `missing_engine_capability`, diagnostic `RC_RUNTIME_MISSING_ENGINE_CAPABILITY`; no fallback execution. | Capability-fit test with no adapter invocation. |
 | Required execution placement is unsupported. | Check result `not_executable`, reason `unsupported_execution_placement`; no Python fallback. | Placement blocker test. |
 | Required materialization or staging policy appears. | Check result `not_executable`, reason `unsupported_materialization_policy`; no staging output. | Materialization blocker test. |
 | Prerequisite result failed. | Dependent result `blocked`, reason `prerequisite_failed`, `blocked_by` includes prerequisite ID. | Prerequisite model test. |
