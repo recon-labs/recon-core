@@ -333,6 +333,61 @@ def test_loader_reports_malformed_known_operation_payloads(
     assert expected_message in diagnostic.message
 
 
+@pytest.mark.parametrize(
+    ("operations", "expected_message"),
+    [
+        (
+            [{"type": "compare_counts", "side": "source"}],
+            "compare_counts operation does not allow: side",
+        ),
+        (
+            [{"type": "row_count", "side": "source", "column": "revenue"}],
+            "row_count operation does not allow: column",
+        ),
+        (
+            [{"type": "row_count", "side": "source", "unexpected": {"secret": "value"}}],
+            "row_count operation does not allow: unexpected",
+        ),
+    ],
+)
+def test_loader_rejects_unexpected_known_operation_fields(
+    tmp_path: Path,
+    operations: list[dict[str, object]],
+    expected_message: str,
+) -> None:
+    payload = _compiled_checks_payload(checks=[_compiled_check_payload(operations=operations)])
+    _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert expected_message in diagnostic.message
+    assert "value" not in diagnostic.message
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        {"type": "row_count", "side": "source", "execution_placement": "external_engine"},
+        {"type": "row_count", "side": "source", "comparison_location": []},
+        {"type": "row_count", "side": "source", "materialization_policy": {}},
+    ],
+)
+def test_loader_preserves_reserved_operation_metadata_for_dispatch(
+    tmp_path: Path,
+    operation: dict[str, object],
+) -> None:
+    payload = _compiled_checks_payload(checks=[_compiled_check_payload(operations=[operation])])
+    _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert result.succeeded
+    assert result.artifacts[0].checks[0].plan.operations == (operation,)
+
+
 def _compiled_checks_artifact() -> CompiledChecksArtifact:
     return CompiledChecksArtifact(
         artifact_type=CompiledArtifactType.COMPILED_CHECKS,

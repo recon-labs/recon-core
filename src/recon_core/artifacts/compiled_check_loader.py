@@ -3,13 +3,14 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Final, cast
 
 import yaml
 
 from recon_core.artifacts._paths import reject_symlinked_path_components
 from recon_core.artifacts.compiled_check_writer import COMPILED_CHECKS_DIR_NAME
 from recon_core.compiler.models import (
+    _OPERATION_ALLOWED_FIELDS,
     COMPILED_ARTIFACT_VERSION,
     IdentityKind,
     KeyDiffDirection,
@@ -21,6 +22,14 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 COMPILED_CHECK_ARTIFACT_NOT_FOUND = "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND"
 COMPILED_CHECK_ARTIFACT_INVALID = "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
 NO_COMPILED_CHECKS = "RC_RUNTIME_NO_COMPILED_CHECKS"
+_OPERATION_BASE_FIELDS: Final[frozenset[str]] = frozenset({"type"})
+_RESERVED_OPERATION_METADATA_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "execution_placement",
+        "comparison_location",
+        "materialization_policy",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -315,6 +324,8 @@ def _validate_known_operation_shape(
     except ValueError:
         return
 
+    _reject_unexpected_known_operation_fields(operation, typed_operation, path=path)
+
     if typed_operation in {
         OperationType.ROW_COUNT,
         OperationType.NULL_KEY,
@@ -354,6 +365,27 @@ def _validate_known_operation_shape(
             raise _ArtifactShapeError(
                 f"Compiled-check artifact field {path}.group_by must not be empty."
             )
+
+
+def _reject_unexpected_known_operation_fields(
+    operation: Mapping[str, object],
+    typed_operation: OperationType,
+    *,
+    path: str,
+) -> None:
+    allowed_payload_fields = _OPERATION_ALLOWED_FIELDS.get(typed_operation)
+    if allowed_payload_fields is None:
+        return
+
+    allowed_fields = (
+        _OPERATION_BASE_FIELDS | allowed_payload_fields | _RESERVED_OPERATION_METADATA_FIELDS
+    )
+    unexpected_fields = sorted(set(operation) - allowed_fields)
+    if unexpected_fields:
+        raise _ArtifactShapeError(
+            f"Compiled-check artifact field {path}: {typed_operation.value} "
+            f"operation does not allow: {', '.join(unexpected_fields)}."
+        )
 
 
 def _parse_diagnostics(value: object, path: str) -> tuple[Diagnostic, ...]:
