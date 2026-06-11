@@ -53,6 +53,11 @@ This project follows semantic versioning once public package releases begin.
   `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql`, with
   compiled-check `rendering.sql_paths` references and `rendering.adapter_type`
   metadata when an adapter is known.
+- First `recon run` check-engine boundary for already compiled checks. The
+  command now loads `target/compiled_checks/`, builds in-memory run/contract/check
+  results, reports missing, invalid, empty, unsupported, blocked, and
+  not-executable compiled-check inputs with runtime diagnostics, and writes no
+  run-result, evidence, report, failure-detail, state, or sink artifacts.
 
 ### Changed
 
@@ -77,6 +82,8 @@ This project follows semantic versioning once public package releases begin.
 - Connection profile `type` values must now be literal adapter types; adapter
   type selection is public routing metadata and no longer supports
   `env_var(...)` rendering.
+- `recon run` now fails through the compiled-check/check-engine boundary instead
+  of returning the placeholder `RC_RUNTIME_NOT_IMPLEMENTED` diagnostic.
 
 ### Fixed
 

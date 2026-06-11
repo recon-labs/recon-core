@@ -436,10 +436,10 @@ review.
 | Source/target privacy | 7.1 should avoid data exposure by construction because no queries run. | Security/privacy requirements and matrices require empty source/target values, safe diagnostics, and no relation names, query text, profile values, credentials, or raw tracebacks. | Tests must prove non-executed results cannot carry source/target values through messages, metadata, diagnostics, refs, or serialized fields. |
 | Public contract and changelog decision | 7.1 affects planned result/diagnostic surfaces but does not stabilize generated artifacts. | Public contract decision states no new YAML syntax, artifact version, adapter API change, selector claim, evidence schema, or sink/table schema. Changelog decision is not required for prework. | Implementation must update compatibility docs if status names, reason codes, diagnostic codes, CLI output, or serialized fields change from this prework. |
 
-Gate status for this prework: satisfied for 7.1 implementation planning.
-The exact future implementation file/test map and final prompt/docs drift
-check are recorded below in the Future Implementation Map and Implementation
-Readiness Report.
+Gate status for this prework: satisfied for 7.1 implementation and later
+maintenance. The implementation file/test map and final prompt/docs drift check
+are recorded below in the Implementation Map and Implementation Readiness
+Report.
 
 ## Phase-Exit Checklist
 
@@ -512,10 +512,10 @@ Use this checklist before considering Milestone 7.1 implementation complete.
   discovered conformance requirements, and whether the next 7.x phase is safe
   to start.
 
-## Future Implementation Map
+## Implementation Map
 
-This map is the implementation plan for Milestone 7.1 after the final drift
-check passes. It is not permission to implement before that check.
+This map records the implementation plan used for Milestone 7.1. Future changes
+to this boundary still require the relevant gates and compatibility updates.
 
 ### Source File Map
 
@@ -531,7 +531,7 @@ Expected source changes:
 | `src/recon_core/compiler/models.py` | Add strict compiled-artifact `from_dict` or parsing helpers only if the loader needs typed compiled models. | Do not change `to_dict` output, compiled artifact version, typed operation names, or typed operation payload semantics. |
 | `src/recon_core/check_engine/dispatch.py` | Add an internal dispatch table for already compiled check types. | Known later-phase compiled check types or typed operations return `not_executable` with reason `not_implemented_in_current_phase`. Unknown compiled check types return `unsupported_check_type`; valid unknown typed operations return `unsupported_typed_operation`. |
 | `src/recon_core/check_engine/engine.py` | Add the first `CheckEngine` orchestration over loaded compiled artifacts. | Evaluate prerequisites, preserve safe diagnostics, produce in-memory `RunResult`, and never execute adapters, render SQL, query data, or write outputs. |
-| `src/recon_core/services/run.py` | Replace the placeholder with a run service that loads project context, loads compiled checks, invokes the check engine, and maps the result to `ServiceResult`. | `RunService.execute()` should still return command-level `ServiceResult`. The reconciliation result is produced by the check engine and is not embedded in `ServiceResult` or written to disk. |
+| `src/recon_core/services/run.py` | Run service loads project context, loads compiled checks, invokes the check engine, and maps the result to `ServiceResult`. | `RunService.execute()` still returns command-level `ServiceResult`. The reconciliation result is produced by the check engine and is not embedded in `ServiceResult` or written to disk. |
 | `src/recon_core/cli/main.py` | Update only if needed for the new command-level message or exit mapping. | Do not add `--select`, profile, adapter, artifact, evidence, sink, or result-output options in 7.1. |
 | `src/recon_core/services/__init__.py` | Update only if new service-level types must be exported. | Prefer keeping check-engine internals exported from `recon_core.check_engine`, not service plumbing. |
 
@@ -677,34 +677,31 @@ feat: add check engine result boundary
 
 Split Decision: Already Split / Follow Existing Split.
 
-Readiness status: ready for future Milestone 7.1 implementation planning. This
-means the prework artifact, public docs, ADRs, compatibility docs, gates,
+Readiness status: implementation complete for the first check-engine boundary.
+This means the prework artifact, public docs, ADRs, compatibility docs, gates,
 acceptance/conformance matrix, BDD scenarios, phase-exit checklist,
-implementation map, and current implementation state no longer have known
-design blockers for the 7.1 scope. It does not mean Milestone 7.1 is
-implemented.
+implementation map, and current implementation state have been reconciled with
+the implemented 7.1 scope.
 
 Final drift-check results:
 
 | Area checked | Result |
 | --- | --- |
-| Current implementation | `RunService` is still a structured placeholder, no `check_engine` package exists yet, and compiled-check artifact writers already exist. This matches the future implementation map. |
+| Current implementation | `RunService` loads compiled-check artifacts and routes them through the in-memory check-engine boundary. The `check_engine` package, compiled-check loader, result models, dispatcher, and engine orchestration exist. |
 | Build order and test plan | Milestone 7.1 remains the check-engine boundary/result-model slice. Testing-plan references point to this prework artifact for the final matrix, scenarios, gate proof, phase-exit checklist, and implementation map. |
 | Result, check-engine, and diagnostic docs | Statuses, aggregate statuses, reason codes, command/result separation, runtime diagnostic codes, and no-output behavior match this prework. |
-| Compatibility docs | The check-engine/result model is documented as a planned pre-alpha surface. No stable generated result artifact, result version, YAML syntax, adapter API, selector surface, evidence schema, sink schema, or table schema is claimed. |
+| Compatibility docs | The check-engine/result model is documented as an implemented pre-alpha in-memory boundary. No stable generated result artifact, result version, YAML syntax, adapter API, selector surface, evidence schema, sink schema, or table schema is claimed. |
 | Decision records | The implementation map stays within the typed check-plan boundary, key/prerequisite semantics, validation/diagnostic ownership, execution-placement strategy, and evidence/privacy/sink boundaries. |
 | Gate file assignments | Internal dispatch, placement blockers, generated artifact lifecycle, source/target privacy, evidence/sinks, large failure details, probabilistic key coverage, and selectors are all represented as either 7.1 constraints or future-gated work. |
 | Selector and selected-scope behavior | Selectors, partial compile/run, selected-scope artifacts, selected-scope run results, and selected-scope evidence remain out of 7.1 and are assigned to later selector/scoped-artifact work. |
 | Probabilistic key coverage | Bloom filters, set sketches, probabilistic summaries, candidate missing/extra rows, and exact-confirmation policy remain out of 7.1 and future-gated. |
 | Evidence, sinks, state, and result tables | 7.1 may reserve empty references only. Local result artifacts, evidence, reports, failure details, state, table sinks, external stores, and large-result movement remain later work. |
 | Public documentation hygiene | The public prework and testing-plan docs contain no mature-project research notes, external research links, or named comparison-source references. |
-| Changelog and migration | No changelog or migration entry is required for this prework. Future implementation should add a changelog entry if `recon run` changes from the current placeholder into user-visible compiled-check boundary behavior. |
+| Changelog and migration | The implementation changelog notes that `recon run` changed from a placeholder into user-visible compiled-check boundary behavior. |
 
-Implementation may start only when the user explicitly starts the implementation
-phase. The first implementation step should be the test-first sequence in the
-Future Implementation Map. During implementation, any behavior that differs
-from this prework must update the affected docs, compatibility references, and
-changelog decision before phase exit.
+Implementation has completed for the 7.1 scope. Future behavior that differs
+from this prework and implementation must update the affected docs,
+compatibility references, and changelog decision before phase exit.
 
 ## Compatibility Impact
 
@@ -786,22 +783,21 @@ Sink placement remains separate from execution placement.
 
 Milestone 7.1 is a pre-alpha public-surface planning and implementation unit.
 The check-engine service boundary, result status taxonomy, reason-code
-taxonomy, prerequisite/blocking representation, and diagnostics are planned
-public surfaces. The generated result artifact is not implemented or stabilized
-in this milestone.
+taxonomy, prerequisite/blocking representation, and diagnostics are implemented
+pre-alpha public surfaces. The generated result artifact is not implemented or
+stabilized in this milestone.
 
-Implementation must update compatibility docs if it changes any status name,
+Future changes must update compatibility docs if they change any status name,
 reason code, diagnostic code, command output, or serialized dictionary field
-from this prework.
+from this prework and implementation.
 
 ## Changelog Decision
 
-No changelog entry is required for this prework artifact.
+No changelog entry was required for this prework artifact by itself.
 
-During implementation, add a changelog entry only if user-visible behavior,
-public contract semantics, CLI behavior, generated artifact behavior,
-compatibility promises, release guidance, support ranges, or reconciliation
-outcomes change.
+The implementation changed user-visible `recon run` behavior from placeholder
+diagnostics to compiled-check boundary diagnostics, so the implementation
+changelog includes that entry.
 
 ## Definition Of Done
 
@@ -832,8 +828,8 @@ Milestone 7.1 is complete only when:
 - BDD workflow scenarios pass or are explicitly out of scope,
 - the phase-exit checklist passes.
 
-## Remaining Blockers Before Coding
+## Remaining Blockers
 
-No known prework blockers remain for Milestone 7.1. Coding still requires an
-explicit implementation-phase request and must begin from the test-first map in
-this artifact.
+No known Milestone 7.1 blockers remain after implementation. Future execution,
+generated run-result, evidence, selector, adapter/profile runtime, and sink
+work remains assigned to later gates and milestone slices.
