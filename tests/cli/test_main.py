@@ -32,14 +32,18 @@ def test_cli_help_lists_core_commands() -> None:
         assert command in result.output
 
 
-@pytest.mark.parametrize("command", ["run"])
-def test_placeholder_commands_fail_clearly(command: str) -> None:
-    result = CliRunner().invoke(main, [command])
+def test_run_command_reports_missing_compiled_artifacts() -> None:
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        _write_project()
+
+        result = runner.invoke(main, ["run"])
 
     assert result.exit_code == 3
-    assert f"Error: recon {command} is not implemented yet." in result.output
-    assert "Code: RC_RUNTIME_NOT_IMPLEMENTED" in result.output
-    assert "Hint: Implement " in result.output
+    assert "Error: Compiled-check artifacts could not be loaded." in result.output
+    assert "Code: RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND" in result.output
+    assert "Hint: Run `recon compile` before `recon run`." in result.output
 
 
 @pytest.mark.parametrize(
