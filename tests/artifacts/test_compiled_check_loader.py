@@ -185,6 +185,35 @@ def test_loader_reports_duplicate_check_ids(tmp_path: Path) -> None:
     assert "duplicate check id" in diagnostic.message
 
 
+@pytest.mark.parametrize(
+    ("identity", "expected_message"),
+    [
+        (None, "checks[0].identity"),
+        ({"kind": "banana", "keys": []}, "checks[0].identity.kind"),
+        ({"kind": "none"}, "checks[0].identity.keys"),
+    ],
+)
+def test_loader_reports_malformed_check_identity_payloads(
+    tmp_path: Path,
+    identity: dict[str, object] | None,
+    expected_message: str,
+) -> None:
+    check = _compiled_check_payload()
+    if identity is None:
+        del check["identity"]
+    else:
+        check["identity"] = identity
+    payload = _compiled_checks_payload(checks=[check])
+    _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert expected_message in diagnostic.message
+
+
 def test_loader_reports_malformed_operation_payload(tmp_path: Path) -> None:
     payload = _compiled_checks_payload(
         checks=[_compiled_check_payload(operations=[{"side": "source"}])]

@@ -239,6 +239,7 @@ def _parse_check(
 
     name = _required_string(check, "name", f"{path}.name")
     check_type = _required_string(check, "type", f"{path}.type")
+    _required_identity(check, "identity", f"{path}.identity", require_keys=False)
     plan = _parse_plan(_required_mapping(check, "plan", f"{path}.plan"), path=f"{path}.plan")
     prerequisites = _optional_string_tuple(check, "prerequisites", f"{path}.prerequisites")
     diagnostics = _parse_diagnostics(check.get("diagnostics"), f"{path}.diagnostics")
@@ -401,7 +402,13 @@ def _required_enum_value(
     return value
 
 
-def _required_identity(mapping: Mapping[str, object], key: str, path: str) -> None:
+def _required_identity(
+    mapping: Mapping[str, object],
+    key: str,
+    path: str,
+    *,
+    require_keys: bool = True,
+) -> None:
     identity = _required_mapping(mapping, key, path)
     _required_enum_value(
         identity,
@@ -410,7 +417,7 @@ def _required_identity(mapping: Mapping[str, object], key: str, path: str) -> No
         allowed_values={identity_kind.value for identity_kind in IdentityKind},
     )
     keys = _required_string_tuple(identity, "keys", f"{path}.keys")
-    if not keys:
+    if require_keys and not keys:
         raise _ArtifactShapeError(f"Compiled-check artifact field {path}.keys must not be empty.")
 
 
