@@ -32,6 +32,23 @@ def test_unknown_check_type_is_not_executable_with_unsupported_reason() -> None:
     assert "future_value_match" in result.message
 
 
+def test_unknown_check_type_reason_takes_priority_over_placement_metadata() -> None:
+    result = CheckDispatcher().dispatch(
+        _loaded_check(
+            check_type="future_value_match",
+            operation={
+                "type": "row_count",
+                "side": "source",
+                "execution_placement": "external_comparison_engine",
+            },
+        )
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert result.reason_code is CheckReason.UNSUPPORTED_CHECK_TYPE
+    assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_CHECK_TYPE"
+
+
 def test_unknown_typed_operation_is_not_executable_with_unsupported_reason() -> None:
     result = CheckDispatcher().dispatch(_loaded_check(operation_type="future_operation"))
 
@@ -39,6 +56,21 @@ def test_unknown_typed_operation_is_not_executable_with_unsupported_reason() -> 
     assert result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
     assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
     assert "future_operation" in result.message
+
+
+def test_unknown_typed_operation_reason_takes_priority_over_placement_metadata() -> None:
+    result = CheckDispatcher().dispatch(
+        _loaded_check(
+            operation={
+                "type": "future_operation",
+                "execution_placement": "external_comparison_engine",
+            }
+        )
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
+    assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
 
 
 def test_missing_required_engine_capability_is_explicit_non_execution() -> None:

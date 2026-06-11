@@ -52,6 +52,27 @@ class CheckDispatcher:
 
 
 def _classify(check: LoadedCompiledCheck) -> _DispatchClassification:
+    if check.check_type not in _KNOWN_LATER_PHASE_CHECK_TYPES:
+        return _DispatchClassification(
+            reason=CheckReason.UNSUPPORTED_CHECK_TYPE,
+            diagnostic_code=UNSUPPORTED_CHECK_TYPE,
+            message=(
+                f"Compiled check type `{check.check_type}` is not supported by "
+                "the current check-engine boundary."
+            ),
+        )
+
+    unsupported_operation = _first_unsupported_operation_type(check)
+    if unsupported_operation is not None:
+        return _DispatchClassification(
+            reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
+            diagnostic_code=UNSUPPORTED_TYPED_OPERATION,
+            message=(
+                f"Typed operation `{unsupported_operation}` is not supported by "
+                "the current check-engine boundary."
+            ),
+        )
+
     placement_operation = _operation_with_any_key(
         check,
         keys=("execution_placement", "comparison_location"),
@@ -77,16 +98,6 @@ def _classify(check: LoadedCompiledCheck) -> _DispatchClassification:
             ),
         )
 
-    if check.check_type not in _KNOWN_LATER_PHASE_CHECK_TYPES:
-        return _DispatchClassification(
-            reason=CheckReason.UNSUPPORTED_CHECK_TYPE,
-            diagnostic_code=UNSUPPORTED_CHECK_TYPE,
-            message=(
-                f"Compiled check type `{check.check_type}` is not supported by "
-                "the current check-engine boundary."
-            ),
-        )
-
     missing_capability = _first_required_engine_capability(check)
     if missing_capability is not None:
         return _DispatchClassification(
@@ -96,17 +107,6 @@ def _classify(check: LoadedCompiledCheck) -> _DispatchClassification:
                 f"Check `{check.name}` requires engine capability "
                 f"`{missing_capability}` that is not available in the current "
                 "check-engine boundary."
-            ),
-        )
-
-    unsupported_operation = _first_unsupported_operation_type(check)
-    if unsupported_operation is not None:
-        return _DispatchClassification(
-            reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
-            diagnostic_code=UNSUPPORTED_TYPED_OPERATION,
-            message=(
-                f"Typed operation `{unsupported_operation}` is not supported by "
-                "the current check-engine boundary."
             ),
         )
 
