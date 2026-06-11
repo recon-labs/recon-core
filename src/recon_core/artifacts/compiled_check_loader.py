@@ -10,6 +10,7 @@ import yaml
 from recon_core.artifacts.compiled_check_writer import COMPILED_CHECKS_DIR_NAME
 from recon_core.compiler.models import (
     COMPILED_ARTIFACT_VERSION,
+    IdentityKind,
     KeyDiffDirection,
     OperationSide,
     OperationType,
@@ -402,7 +403,12 @@ def _required_enum_value(
 
 def _required_identity(mapping: Mapping[str, object], key: str, path: str) -> None:
     identity = _required_mapping(mapping, key, path)
-    _required_string(identity, "kind", f"{path}.kind")
+    _required_enum_value(
+        identity,
+        "kind",
+        f"{path}.kind",
+        allowed_values={identity_kind.value for identity_kind in IdentityKind},
+    )
     keys = _required_string_tuple(identity, "keys", f"{path}.keys")
     if not keys:
         raise _ArtifactShapeError(f"Compiled-check artifact field {path}.keys must not be empty.")

@@ -206,6 +206,16 @@ def test_loader_reports_malformed_operation_payload(tmp_path: Path) -> None:
         ([{"type": "key_diff", "identity": {"kind": "grain", "keys": ["id"]}}], "direction"),
         ([{"type": "key_diff", "direction": "source_minus_target"}], "identity"),
         (
+            [
+                {
+                    "type": "null_key",
+                    "side": "source",
+                    "identity": {"kind": "banana", "keys": ["id"]},
+                }
+            ],
+            "plan.operations[0].identity.kind",
+        ),
+        (
             [{"type": "aggregate", "side": "source", "aggregate": "sum"}],
             "plan.operations[0].column",
         ),
