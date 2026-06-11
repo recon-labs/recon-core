@@ -1,3 +1,5 @@
+import pytest
+
 from recon_core.artifacts import LoadedCheckPlan, LoadedCompiledCheck
 from recon_core.check_engine import (
     CheckDispatcher,
@@ -112,6 +114,38 @@ def test_unsupported_materialization_policy_is_explicit_non_execution() -> None:
     assert result.status is CheckStatus.NOT_EXECUTABLE
     assert result.reason_code is CheckReason.UNSUPPORTED_MATERIALIZATION_POLICY
     assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY"
+
+
+@pytest.mark.parametrize(
+    ("operation", "reason", "diagnostic_code"),
+    [
+        (
+            {"type": "row_count", "side": "source", "execution_placement": []},
+            CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT,
+            "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT",
+        ),
+        (
+            {"type": "row_count", "side": "source", "comparison_location": []},
+            CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT,
+            "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT",
+        ),
+        (
+            {"type": "row_count", "side": "source", "materialization_policy": {}},
+            CheckReason.UNSUPPORTED_MATERIALIZATION_POLICY,
+            "RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY",
+        ),
+    ],
+)
+def test_reserved_metadata_with_unhashable_payload_is_explicit_non_execution(
+    operation: dict[str, object],
+    reason: CheckReason,
+    diagnostic_code: str,
+) -> None:
+    result = CheckDispatcher().dispatch(_loaded_check(operation=operation))
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert result.reason_code is reason
+    assert result.diagnostics[0].code == diagnostic_code
 
 
 def test_dispatch_boundary_is_internal_not_public_registry() -> None:

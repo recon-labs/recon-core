@@ -21,7 +21,7 @@ _KNOWN_LATER_PHASE_CHECK_TYPES: Final[frozenset[str]] = frozenset(
 _KNOWN_TYPED_OPERATION_TYPES: Final[frozenset[str]] = frozenset(
     operation_type.value for operation_type in OperationType
 )
-_EMPTY_MATERIALIZATION_POLICIES = {None, "", "none", "not_applicable"}
+_EMPTY_MATERIALIZATION_POLICY_VALUES = {"none", "not_applicable"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,7 +123,7 @@ def _operation_with_any_key(
     keys: tuple[str, ...],
 ) -> dict[str, object] | None:
     for operation in check.plan.operations:
-        if any(key in operation and operation[key] not in {None, ""} for key in keys):
+        if any(_has_reserved_value(operation.get(key)) for key in keys):
             return operation
     return None
 
@@ -132,9 +132,19 @@ def _operation_with_materialization_policy(
     check: LoadedCompiledCheck,
 ) -> dict[str, object] | None:
     for operation in check.plan.operations:
-        if operation.get("materialization_policy") not in _EMPTY_MATERIALIZATION_POLICIES:
+        if _has_materialization_policy(operation.get("materialization_policy")):
             return operation
     return None
+
+
+def _has_reserved_value(value: object) -> bool:
+    return value is not None and value != ""
+
+
+def _has_materialization_policy(value: object) -> bool:
+    if not _has_reserved_value(value):
+        return False
+    return not isinstance(value, str) or value not in _EMPTY_MATERIALIZATION_POLICY_VALUES
 
 
 def _first_required_engine_capability(check: LoadedCompiledCheck) -> str | None:
