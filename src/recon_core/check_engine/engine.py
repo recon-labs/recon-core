@@ -1,0 +1,195 @@
+"""Check-engine orchestration for loaded compiled checks."""
+
+from typing import Protocol
+
+from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledChecksArtifact
+from recon_core.check_engine.dispatch import CheckDispatcher
+from recon_core.check_engine.models import (
+    CheckReason,
+    CheckResult,
+    CheckStatus,
+    ContractResult,
+    RunResult,
+)
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
+
+BLOCKED_BY_PREREQUISITE = "RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE"
+CHECK_ENGINE_INTERNAL_ERROR = "RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR"
+
+
+class _Dispatcher(Protocol):
+    def dispatch(self, check: LoadedCompiledCheck) -> CheckResult: ...
+
+
+class CheckEngine:
+    """Build in-memory run results from loaded compiled checks without execution."""
+
+    def __init__(self, dispatcher: _Dispatcher | None = None) -> None:
+        self._dispatcher = dispatcher if dispatcher is not None else CheckDispatcher()
+
+    def run(
+        self,
+        artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+        *,
+        run_id: str,
+        started_at: str,
+        finished_at: str,
+        project_name: str | None = None,
+    ) -> RunResult:
+        resolved_project_name = _project_name(artifacts, project_name)
+        check_results_by_id: dict[str, CheckResult] = {}
+        contract_results: list[ContractResult] = []
+        run_diagnostics: list[Diagnostic] = []
+
+        for artifact in artifacts:
+            run_diagnostics.extend(artifact.diagnostics)
+            contract_check_results = tuple(
+                self._result_for_check(check, check_results_by_id) for check in artifact.checks
+            )
+            contract_results.append(
+                ContractResult.from_check_results(
+                    contract_name=artifact.contract_name,
+                    check_results=contract_check_results,
+                    diagnostics=artifact.diagnostics,
+                )
+            )
+
+        return RunResult.from_contract_results(
+            run_id=run_id,
+            project_name=resolved_project_name,
+            started_at=started_at,
+            finished_at=finished_at,
+            contract_results=tuple(contract_results),
+            diagnostics=tuple(run_diagnostics),
+        )
+
+    def _result_for_check(
+        self,
+        check: LoadedCompiledCheck,
+        check_results_by_id: dict[str, CheckResult],
+    ) -> CheckResult:
+        blocked_result = _blocked_result_if_needed(check, check_results_by_id)
+        if blocked_result is not None:
+            check_results_by_id[check.id] = blocked_result
+            return blocked_result
+
+        try:
+            result = self._dispatcher.dispatch(check)
+        except Exception:
+            result = _internal_error_result(check)
+
+        check_results_by_id[check.id] = result
+        return result
+
+
+def _project_name(
+    artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+    explicit_project_name: str | None,
+) -> str:
+    if explicit_project_name is not None:
+        return explicit_project_name
+    if artifacts:
+        return artifacts[0].project_name
+    return "unknown"
+
+
+def _blocked_result_if_needed(
+    check: LoadedCompiledCheck,
+    check_results_by_id: dict[str, CheckResult],
+) -> CheckResult | None:
+    for prerequisite_id in check.prerequisites:
+        prerequisite_result = check_results_by_id.get(prerequisite_id)
+        if prerequisite_result is None:
+            return _blocked_result(
+                check,
+                reason=CheckReason.PREREQUISITE_MISSING,
+                blocked_by=prerequisite_id,
+                message=(
+                    f"Check `{check.name}` did not run because prerequisite "
+                    f"`{prerequisite_id}` is missing."
+                ),
+            )
+        if prerequisite_result.status is CheckStatus.FAIL:
+            return _blocked_result(
+                check,
+                reason=CheckReason.PREREQUISITE_FAILED,
+                blocked_by=prerequisite_id,
+                message=(
+                    f"Check `{check.name}` did not run because prerequisite "
+                    f"`{prerequisite_id}` failed."
+                ),
+            )
+        if prerequisite_result.status is CheckStatus.ERROR:
+            return _blocked_result(
+                check,
+                reason=CheckReason.PREREQUISITE_ERROR,
+                blocked_by=prerequisite_id,
+                message=(
+                    f"Check `{check.name}` did not run because prerequisite "
+                    f"`{prerequisite_id}` errored."
+                ),
+            )
+    return None
+
+
+def _blocked_result(
+    check: LoadedCompiledCheck,
+    *,
+    reason: CheckReason,
+    blocked_by: str,
+    message: str,
+) -> CheckResult:
+    diagnostic = Diagnostic(
+        code=BLOCKED_BY_PREREQUISITE,
+        severity=DiagnosticSeverity.ERROR,
+        message=message,
+        resource_type="compiled_check",
+        resource_name=f"{check.contract_name}.{check.name}",
+        hint="Inspect the prerequisite check result before this dependent check.",
+    )
+    return CheckResult(
+        check_id=check.id,
+        name=check.name,
+        check_type=check.check_type,
+        contract_name=check.contract_name,
+        status=CheckStatus.BLOCKED,
+        executed=False,
+        reason_code=reason,
+        identity=_identity_label(check),
+        message=message,
+        blocked_by=(blocked_by,),
+        diagnostics=check.diagnostics + (diagnostic,),
+    )
+
+
+def _internal_error_result(check: LoadedCompiledCheck) -> CheckResult:
+    message = "Check engine internal error occurred before a trustworthy result was produced."
+    diagnostic = Diagnostic(
+        code=CHECK_ENGINE_INTERNAL_ERROR,
+        severity=DiagnosticSeverity.ERROR,
+        message=message,
+        resource_type="compiled_check",
+        resource_name=f"{check.contract_name}.{check.name}",
+        hint="Retry the command or inspect Recon Core logs if available.",
+    )
+    return CheckResult(
+        check_id=check.id,
+        name=check.name,
+        check_type=check.check_type,
+        contract_name=check.contract_name,
+        status=CheckStatus.ERROR,
+        executed=False,
+        message=message,
+        diagnostics=check.diagnostics + (diagnostic,),
+    )
+
+
+def _identity_label(check: LoadedCompiledCheck) -> str | None:
+    payload = check.payload
+    if payload is None:
+        return None
+    identity = payload.get("identity")
+    if not isinstance(identity, dict):
+        return None
+    kind = identity.get("kind")
+    return kind if isinstance(kind, str) else None

@@ -8,6 +8,11 @@ from recon_core.check_engine.dispatch import (
     UNSUPPORTED_TYPED_OPERATION,
     CheckDispatcher,
 )
+from recon_core.check_engine.engine import (
+    BLOCKED_BY_PREREQUISITE,
+    CHECK_ENGINE_INTERNAL_ERROR,
+    CheckEngine,
+)
 from recon_core.check_engine.models import (
     CheckReason,
     CheckResult,
@@ -23,7 +28,10 @@ from recon_core.check_engine.models import (
 )
 
 __all__ = [
+    "BLOCKED_BY_PREREQUISITE",
     "CHECK_NOT_EXECUTABLE",
+    "CHECK_ENGINE_INTERNAL_ERROR",
+    "CheckEngine",
     "CheckReason",
     "CheckDispatcher",
     "CheckResult",
