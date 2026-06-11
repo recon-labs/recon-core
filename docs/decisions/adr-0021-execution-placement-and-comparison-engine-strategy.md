@@ -57,8 +57,8 @@ result metadata:
 
 | Concept | Meaning | First allowed use |
 | --- | --- | --- |
-| Side-local pushdown | Source operations run in the source context and target operations run in the target context. Recon compares only bounded returned results. | Row counts and small aggregate summaries when capability and privacy rules are satisfied. |
-| Same-context pushdown | Source and target relations are addressable from one adapter execution context, so the comparison query can run in that context. | Current in-core DuckDB relation-backed execution. |
+| Side-local pushdown | Source operations run in the source context and target operations run in the target context. Recon compares only bounded returned results. | Later row-count and small aggregate summaries when capability and privacy rules are satisfied. |
+| Same-context pushdown | Source and target relations are addressable from one adapter execution context, so the comparison query can run in that context. | Current in-core DuckDB relation-backed execution and the first row-count execution phase. |
 | Recon-local comparison | Recon Core compares returned values in process memory. | Only for explicitly bounded scalar or small structured results. |
 | Adapter-managed intermediate engine | An adapter-managed engine stages data or summaries and performs comparison outside the original source or target. | Future gated work after staging, privacy, cleanup, and capability semantics are defined. |
 | External comparison engine | A third configured connection acts as the comparison engine for staged source and target data or summaries. | Future gated work outside the initial check-execution split. |
@@ -113,15 +113,17 @@ The first check-engine boundary must not execute adapters, query source/target s
 `target/run_results.json`, write evidence, write reports, emit failure details,
 add public YAML placement syntax, or decide result/evidence sink placement.
 
-The row-count execution phase owns row-count execution placement. The first safe policy is:
+The row-count execution phase owns row-count execution placement. The first
+implemented policy is same-context DuckDB relation-backed execution:
 
-- push source row count to the source side and target row count to the target
-  side when both endpoints are supported by the selected adapter execution
-  scope,
-- compare only scalar counts in Recon Core,
+- source and target relation endpoints must be addressable from the same selected
+  DuckDB adapter execution context,
+- the row-count comparison runs only through that same-context adapter path,
+- side-local scalar count comparison remains an allowed later placement pattern
+  after its capability, privacy, and result semantics are locked,
 - emit sanitized diagnostics for adapter/runtime failures,
 - block unsupported query endpoints, cross-adapter execution, cross-context
-  execution, and unbounded fallback.
+  execution, materialization, and unbounded or Recon-local fallback.
 
 The grain-key safety execution phase owns grain-key safety execution placement. It must preserve
 `grain.keys` as comparison identity and must not infer keys or mappings.
