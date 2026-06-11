@@ -402,7 +402,7 @@ results. Locked codes:
 | Code | Timing | Severity | Use for |
 | --- | --- | --- | --- |
 | `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND` | run | error | Expected compiled-check artifacts are missing. |
-| `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID` | run | error | A compiled-check artifact is unreadable, malformed, or incompatible with the current loader. |
+| `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID` | run | error | A compiled-check artifact is unreadable, malformed, unsafe to load, or incompatible with the current loader. |
 | `RC_RUNTIME_NO_COMPILED_CHECKS` | run | error | No compiled checks are available in the requested run scope. This must not be reported as `pass`. |
 | `RC_RUNTIME_CHECK_NOT_EXECUTABLE` | run | error | A compiled check is valid but cannot execute in the current check-engine surface. |
 | `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE` | run | error | The compiled check type has no internal dispatch handler. |

@@ -7,6 +7,7 @@ from typing import cast
 
 import yaml
 
+from recon_core.artifacts._paths import reject_symlinked_path_components
 from recon_core.artifacts.compiled_check_writer import COMPILED_CHECKS_DIR_NAME
 from recon_core.compiler.models import (
     COMPILED_ARTIFACT_VERSION,
@@ -85,6 +86,9 @@ class CompiledCheckLoader:
 
     def load(self, target_path: Path) -> CompiledCheckLoadResult:
         compiled_checks_dir = target_path / COMPILED_CHECKS_DIR_NAME
+        path_diagnostic = _symlinked_artifact_path_diagnostic(compiled_checks_dir)
+        if path_diagnostic is not None:
+            return CompiledCheckLoadResult(diagnostics=(path_diagnostic,))
         if not compiled_checks_dir.exists():
             return CompiledCheckLoadResult(
                 diagnostics=(_missing_artifacts_diagnostic(compiled_checks_dir),)
@@ -129,6 +133,9 @@ class CompiledCheckLoader:
         *,
         seen_check_ids: set[str],
     ) -> tuple[LoadedCompiledChecksArtifact | None, tuple[Diagnostic, ...]]:
+        path_diagnostic = _symlinked_artifact_path_diagnostic(artifact_path)
+        if path_diagnostic is not None:
+            return None, (path_diagnostic,)
         try:
             payload = _read_yaml_mapping(artifact_path)
             artifact = _parse_artifact(
@@ -163,6 +170,17 @@ def _read_yaml_mapping(path: Path) -> dict[str, object]:
     if not isinstance(loaded, dict):
         raise _ArtifactShapeError("Compiled-check artifact root must be a mapping.")
     return cast(dict[str, object], loaded)
+
+
+def _symlinked_artifact_path_diagnostic(path: Path) -> Diagnostic | None:
+    try:
+        reject_symlinked_path_components(path)
+    except FileExistsError:
+        return _invalid_artifact_diagnostic(
+            path,
+            "Compiled-check artifact path contains a symlink.",
+        )
+    return None
 
 
 def _parse_artifact(
@@ -259,6 +277,10 @@ def _parse_check(
 def _parse_plan(plan: Mapping[str, object], *, path: str) -> LoadedCheckPlan:
     plan_id = _required_string(plan, "id", f"{path}.id")
     raw_operations = _required_list(plan, "operations", f"{path}.operations")
+    if not raw_operations:
+        raise _ArtifactShapeError(
+            f"Compiled-check artifact field {path}.operations must not be empty."
+        )
     operations = tuple(
         _parse_operation(operation, path=f"{path}.operations[{index}]")
         for index, operation in enumerate(raw_operations)

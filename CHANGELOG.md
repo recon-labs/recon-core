@@ -90,6 +90,9 @@ This project follows semantic versioning once public package releases begin.
 - CI now runs DuckDB SQL renderer semantic tests in a required job that installs
   `.[dev,duckdb]`, preventing optional DuckDB execution coverage from being
   silently skipped.
+- `recon run` now rejects symlinked compiled-check artifact paths and empty
+  typed operation plans with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID`
+  instead of following external files or routing no-op plans through dispatch.
 - `CompiledSqlWriter` and `recon compile --render-sql` now validate and
   preflight the full rendered SQL output set before writing any SQL files,
   preventing partial or misleading `target/compiled_sql/` output when rendered

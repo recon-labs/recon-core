@@ -95,6 +95,48 @@ def test_loader_reports_empty_compiled_checks_directory(tmp_path: Path) -> None:
     assert diagnostic.path == str(tmp_path / "target" / "compiled_checks")
 
 
+def test_loader_rejects_symlinked_compiled_checks_path_component(tmp_path: Path) -> None:
+    external_target = tmp_path / "external_target"
+    _write_payload(
+        external_target / "compiled_checks" / "customer_revenue.yml",
+        _compiled_checks_payload(),
+    )
+    try:
+        (tmp_path / "target").symlink_to(external_target, target_is_directory=True)
+    except OSError:
+        pytest.skip("Filesystem does not support directory symlinks.")
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    assert result.artifacts == ()
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert diagnostic.path == str(tmp_path / "target" / "compiled_checks")
+    assert "symlink" in diagnostic.message
+
+
+def test_loader_rejects_symlinked_compiled_check_artifact_file(tmp_path: Path) -> None:
+    compiled_checks_dir = tmp_path / "target" / "compiled_checks"
+    compiled_checks_dir.mkdir(parents=True)
+    external_artifact = tmp_path / "external" / "customer_revenue.yml"
+    _write_payload(external_artifact, _compiled_checks_payload())
+    artifact_path = compiled_checks_dir / "customer_revenue.yml"
+    try:
+        artifact_path.symlink_to(external_artifact)
+    except OSError:
+        pytest.skip("Filesystem does not support file symlinks.")
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    assert result.artifacts == ()
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert diagnostic.path == str(artifact_path)
+    assert "symlink" in diagnostic.message
+
+
 def test_loader_reports_invalid_yaml_without_raw_artifact_content(tmp_path: Path) -> None:
     artifact_path = tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
     artifact_path.parent.mkdir(parents=True)
@@ -226,6 +268,19 @@ def test_loader_reports_malformed_operation_payload(tmp_path: Path) -> None:
     diagnostic = result.diagnostics[0]
     assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
     assert "plan.operations[0].type" in diagnostic.message
+
+
+def test_loader_reports_empty_operation_list_as_malformed_artifact(tmp_path: Path) -> None:
+    payload = _compiled_checks_payload(checks=[_compiled_check_payload(operations=[])])
+    _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert "plan.operations" in diagnostic.message
+    assert "must not be empty" in diagnostic.message
 
 
 @pytest.mark.parametrize(
