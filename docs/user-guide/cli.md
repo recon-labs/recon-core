@@ -221,8 +221,8 @@ Current behavior:
   empty,
 - returns `not_executable` check results with reason codes and diagnostics for
   known later-phase checks, unsupported check types, unsupported typed
-  operations, unsupported execution placement, or unsupported materialization
-  policy,
+  operations, missing required engine capabilities, unsupported execution
+  placement, or unsupported materialization policy,
 - returns `blocked` check results when prerequisites are missing, failed, or
   errored,
 - does not parse authored contract YAML,

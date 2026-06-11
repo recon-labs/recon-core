@@ -128,6 +128,35 @@ def test_engine_blocks_check_when_prerequisite_errors(tmp_path: Path) -> None:
     assert dependent_result.blocked_by == (prerequisite.id,)
 
 
+def test_engine_blocks_check_when_later_prerequisite_errors(tmp_path: Path) -> None:
+    prerequisite = _check(
+        check_id="check.ecommerce_recon.customer_revenue.duplicate_source_keys",
+        name="duplicate_source_keys",
+    )
+    dependent = _check(
+        check_id="check.ecommerce_recon.customer_revenue.value_match",
+        name="value_match",
+        check_type="value_match",
+        prerequisites=(prerequisite.id,),
+    )
+    dispatcher = _RaisingDispatcher(failing_check_id=prerequisite.id)
+    artifact = _artifact(tmp_path, checks=(dependent, prerequisite))
+
+    result = CheckEngine(dispatcher=dispatcher).run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+    )
+
+    dependent_result, prerequisite_result = result.contract_results[0].check_results
+    assert prerequisite_result.status is CheckStatus.ERROR
+    assert prerequisite_result.diagnostics[0].code == CHECK_ENGINE_INTERNAL_ERROR
+    assert dependent_result.status is CheckStatus.BLOCKED
+    assert dependent_result.reason_code is CheckReason.PREREQUISITE_ERROR
+    assert dependent_result.blocked_by == (prerequisite.id,)
+
+
 def test_engine_sanitizes_unexpected_dispatch_error(tmp_path: Path) -> None:
     artifact = _artifact(tmp_path, checks=(_check(),))
 

@@ -39,8 +39,9 @@ def test_run_service_loads_compiled_checks_and_returns_not_executable_status(
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_CHECK_NOT_EXECUTABLE"
+        "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
     ]
+    assert "row_count" in result.diagnostics[0].message
     assert not (tmp_path / "target" / "run_results.json").exists()
     assert not (tmp_path / "reports").exists()
     assert not (tmp_path / "state").exists()
@@ -62,7 +63,7 @@ def test_run_service_uses_compiled_artifacts_without_parsing_authored_contracts(
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_CHECK_NOT_EXECUTABLE"
+        "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
     ]
     assert "secret" not in "\n".join(
         f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
@@ -192,7 +193,7 @@ def _compiled_check_payload() -> dict[str, object]:
             "requires_cdc_keys": False,
             "required_columns": [],
             "required_metrics": [],
-            "required_capabilities": [],
+            "required_capabilities": ["row_count"],
         },
         "sampling": {"mode": "full"},
         "tolerance": None,
@@ -201,7 +202,7 @@ def _compiled_check_payload() -> dict[str, object]:
         "plan": {
             "id": "plan.ecommerce_recon.customer_revenue.row_count_diff",
             "operations": [{"type": "row_count", "side": "source"}],
-            "required_capabilities": [],
+            "required_capabilities": ["row_count"],
         },
         "rendering": {"status": "not_rendered", "sql_paths": []},
         "diagnostics": [],

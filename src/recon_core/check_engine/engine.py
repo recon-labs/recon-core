@@ -37,6 +37,7 @@ class CheckEngine:
         project_name: str | None = None,
     ) -> RunResult:
         resolved_project_name = _project_name(artifacts, project_name)
+        checks_by_id = _index_checks(artifacts)
         check_results_by_id: dict[str, CheckResult] = {}
         contract_results: list[ContractResult] = []
         run_diagnostics: list[Diagnostic] = []
@@ -44,7 +45,13 @@ class CheckEngine:
         for artifact in artifacts:
             run_diagnostics.extend(artifact.diagnostics)
             contract_check_results = tuple(
-                self._result_for_check(check, check_results_by_id) for check in artifact.checks
+                self._result_for_check(
+                    check,
+                    check_results_by_id,
+                    checks_by_id,
+                    active_check_ids=frozenset(),
+                )
+                for check in artifact.checks
             )
             contract_results.append(
                 ContractResult.from_check_results(
@@ -67,8 +74,19 @@ class CheckEngine:
         self,
         check: LoadedCompiledCheck,
         check_results_by_id: dict[str, CheckResult],
+        checks_by_id: dict[str, LoadedCompiledCheck],
+        active_check_ids: frozenset[str],
     ) -> CheckResult:
-        blocked_result = _blocked_result_if_needed(check, check_results_by_id)
+        existing_result = check_results_by_id.get(check.id)
+        if existing_result is not None:
+            return existing_result
+
+        blocked_result = self._blocked_result_if_needed(
+            check,
+            check_results_by_id,
+            checks_by_id,
+            active_check_ids=active_check_ids | {check.id},
+        )
         if blocked_result is not None:
             check_results_by_id[check.id] = blocked_result
             return blocked_result
@@ -81,6 +99,64 @@ class CheckEngine:
         check_results_by_id[check.id] = result
         return result
 
+    def _blocked_result_if_needed(
+        self,
+        check: LoadedCompiledCheck,
+        check_results_by_id: dict[str, CheckResult],
+        checks_by_id: dict[str, LoadedCompiledCheck],
+        *,
+        active_check_ids: frozenset[str],
+    ) -> CheckResult | None:
+        for prerequisite_id in check.prerequisites:
+            prerequisite_result = check_results_by_id.get(prerequisite_id)
+            if prerequisite_result is None:
+                prerequisite_check = checks_by_id.get(prerequisite_id)
+                if prerequisite_check is None:
+                    return _blocked_result(
+                        check,
+                        reason=CheckReason.PREREQUISITE_MISSING,
+                        blocked_by=prerequisite_id,
+                        message=(
+                            f"Check `{check.name}` did not run because prerequisite "
+                            f"`{prerequisite_id}` is missing."
+                        ),
+                    )
+                if prerequisite_id in active_check_ids:
+                    return _internal_error_result(check)
+                prerequisite_result = self._result_for_check(
+                    prerequisite_check,
+                    check_results_by_id,
+                    checks_by_id,
+                    active_check_ids=active_check_ids,
+                )
+            if prerequisite_result.status is CheckStatus.FAIL:
+                return _blocked_result(
+                    check,
+                    reason=CheckReason.PREREQUISITE_FAILED,
+                    blocked_by=prerequisite_id,
+                    message=(
+                        f"Check `{check.name}` did not run because prerequisite "
+                        f"`{prerequisite_id}` failed."
+                    ),
+                )
+            if prerequisite_result.status is CheckStatus.ERROR:
+                return _blocked_result(
+                    check,
+                    reason=CheckReason.PREREQUISITE_ERROR,
+                    blocked_by=prerequisite_id,
+                    message=(
+                        f"Check `{check.name}` did not run because prerequisite "
+                        f"`{prerequisite_id}` errored."
+                    ),
+                )
+        return None
+
+
+def _index_checks(
+    artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+) -> dict[str, LoadedCompiledCheck]:
+    return {check.id: check for artifact in artifacts for check in artifact.checks}
+
 
 def _project_name(
     artifacts: tuple[LoadedCompiledChecksArtifact, ...],
@@ -91,45 +167,6 @@ def _project_name(
     if artifacts:
         return artifacts[0].project_name
     return "unknown"
-
-
-def _blocked_result_if_needed(
-    check: LoadedCompiledCheck,
-    check_results_by_id: dict[str, CheckResult],
-) -> CheckResult | None:
-    for prerequisite_id in check.prerequisites:
-        prerequisite_result = check_results_by_id.get(prerequisite_id)
-        if prerequisite_result is None:
-            return _blocked_result(
-                check,
-                reason=CheckReason.PREREQUISITE_MISSING,
-                blocked_by=prerequisite_id,
-                message=(
-                    f"Check `{check.name}` did not run because prerequisite "
-                    f"`{prerequisite_id}` is missing."
-                ),
-            )
-        if prerequisite_result.status is CheckStatus.FAIL:
-            return _blocked_result(
-                check,
-                reason=CheckReason.PREREQUISITE_FAILED,
-                blocked_by=prerequisite_id,
-                message=(
-                    f"Check `{check.name}` did not run because prerequisite "
-                    f"`{prerequisite_id}` failed."
-                ),
-            )
-        if prerequisite_result.status is CheckStatus.ERROR:
-            return _blocked_result(
-                check,
-                reason=CheckReason.PREREQUISITE_ERROR,
-                blocked_by=prerequisite_id,
-                message=(
-                    f"Check `{check.name}` did not run because prerequisite "
-                    f"`{prerequisite_id}` errored."
-                ),
-            )
-    return None
 
 
 def _blocked_result(
