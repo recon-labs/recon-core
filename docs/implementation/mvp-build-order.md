@@ -137,7 +137,7 @@ Tests:
 Required gate:
 
 - resolve the local resource loading and precedence gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  the applicable milestone design prework gate before
   expanding this milestone beyond contract-resource loading.
 
 Recommended commit message:
@@ -213,7 +213,7 @@ Required gates:
 
 - resolve the local resource loading and precedence gate,
 - resolve the macro discovery and indexing gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -335,8 +335,8 @@ Current pre-implementation alignment:
 - `recon init` already writes the ADR 0020 selected profile/target shape with
   named `legacy` and `warehouse` connections in
   `connections/profiles.yml.example`.
-- Milestone 6 adapter/profile conformance rows are captured in
-  `docs/compatibility/adapter-api.md#milestone-6-adapterprofile-conformance-matrix`
+- Adapter/profile rendering conformance rows are captured in
+  `docs/compatibility/adapter-api.md#adapterprofile-rendering-conformance-matrix`
   and map required cases to existing tests or explicit future gates.
 
 Tests:
@@ -404,6 +404,12 @@ Out of scope for Milestone 7:
   artifact locking, which remain Milestone 8,
 - failure details, reports, evidence artifacts, and evidence links, which remain
   Milestone 9,
+- comparison placement, materialization, third-engine comparison, and any
+  fallback strategy beyond the assigned adapter pushdown path, which must be
+  resolved before the first executing sub-milestone that needs it,
+- result/evidence sink writes, result tables, state writes, probabilistic
+  summaries, Bloom/sketch key coverage, and large failure-detail stores, which
+  remain assigned to later milestones below,
 - query endpoint execution, which remains gated by a separate future query
   execution decision,
 - CDC propagation check execution and `cdc.keys` runtime behavior, which remain
@@ -416,12 +422,36 @@ Out of scope for Milestone 7:
 
 | Sub-milestone | Concrete implementation scope | Non-goals | High-risk surfaces touched | Required gates | Required ADRs or decisions | Required docs updates | Required acceptance/conformance matrix rows | Required BDD or workflow scenarios | Required tests | Public contract impact | Phase-exit review requirements | Blockers before coding |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Milestone 7.1 | Check-engine service boundary, check result model, status taxonomy, internal dispatch for already compiled check types, prerequisite/blocking representation, in-memory diagnostic/result serialization shape. | Adapter execution, profile-backed adapter lifecycle, `target/run_results.json`, evidence/report/failure-detail output, explicit authored `checks: [...]` support. | Check-engine boundary, result/status model, diagnostics, prerequisite/blocking semantics. | Diagnostic output message conformance gate; explicit authored checks and check registry gate if public registry behavior is introduced; generated artifact lifecycle remains out of scope. | ADR 0013 typed check-plan boundary; ADR 0014 key semantics and dependencies; result-model boundary that keeps generated run results in Milestone 8. | `docs/architecture/check-engine.md`, `docs/implementation/check-engine.md`, `docs/implementation/result-model.md`, `docs/implementation/errors-and-diagnostics.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`. | Check-engine boundary and result model; internal dispatch versus public check registry; public output and generated artifacts. | Compiled checks are loaded but adapter execution is still out of scope. | Result status serialization, prerequisite/blocking representation, diagnostic preservation, unsupported/not-yet-executable checks. | Planned check-engine/result public surface only; no stable generated result artifact or evidence schema. | Prove no adapter execution, source/target values, relation data, database errors, rendered profile values, run-result artifacts, evidence, reports, or failure details are emitted. | Current lightweight prework, Definition of Done, final 7.1 matrix rows, BDD scenario, test plan, prompt/docs drift check, and phase-exit checklist must be current. |
+| Milestone 7.1 | Check-engine service boundary, check result model, status taxonomy, internal dispatch for already compiled check types, prerequisite/blocking representation, in-memory diagnostic/result serialization shape. | Adapter execution, profile-backed adapter lifecycle, `target/run_results.json`, evidence/report/failure-detail output, explicit authored `checks: [...]` support. | Check-engine boundary, result/status model, diagnostics, prerequisite/blocking semantics. | Diagnostic output message conformance gate; explicit authored checks and check registry gate if public registry behavior is introduced; generated artifact lifecycle remains out of scope. | ADR 0013 typed check-plan boundary; ADR 0014 key semantics and dependencies; result-model boundary that keeps generated run results in Milestone 8. | `docs/architecture/check-engine.md`, `docs/implementation/check-engine.md`, `docs/implementation/result-model.md`, `docs/implementation/errors-and-diagnostics.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`. | Check-engine boundary and result model; internal dispatch versus public check registry; public output and generated artifacts. | Compiled checks are loaded but adapter execution is still out of scope. | Result status serialization, reason-code serialization, prerequisite/blocking representation, diagnostic preservation, `not_executable` results for unsupported or not-yet-executable checks. | Planned check-engine/result public surface only; no stable generated result artifact or evidence schema. | Prove no adapter execution, source/target values, relation data, database errors, rendered profile values, run-result artifacts, evidence, reports, or failure details are emitted. | Current lightweight prework, Definition of Done, final 7.1 matrix rows, BDD scenario, test plan, prompt/docs drift check, and phase-exit checklist must be current. |
 | Milestone 7.2 | Runtime profile loading for referenced connections, adapter factory resolution and lifecycle for execution, same-context DuckDB relation-backed execution, row-count execution, sanitized adapter/runtime diagnostics. | Query endpoints, cross-adapter or cross-connection execution, key checks, aggregate execution, run-result artifacts, evidence, reports, failure details. | Adapter execution, profiles/secrets, diagnostics/redaction, SQL/rendered plan execution placement, source/target privacy, row-count result surface. | Adapter/Profile Diagnostic Conformance Gate; source/target data privacy gate; comparison execution placement strategy gate for row count; renderer binding gate if renderer registries or shared helpers are introduced. | ADR 0013 typed check-plan boundary; ADR 0020 adapter/profile and SQL rendering boundary; comparison placement decision for row count. | `docs/compatibility/adapter-api.md`, `docs/architecture/adapter-interface.md`, `docs/implementation/adapter-interface-spec.md`, `docs/implementation/errors-and-diagnostics.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`. | Adapter execution lifecycle; adapter/profile diagnostic privacy; row-count execution; public output and generated artifacts. | A relation-backed DuckDB row-count check passes, fails, or errors. | Row-count pass/fail/error, adapter lifecycle/setup failure, runtime diagnostic redaction, privacy assertions, negative tests for absent run/evidence artifacts. | Planned adapter execution and row-count public surface; no generated run-result or evidence schema. | Prove no raw rows are emitted, relation names/counts/errors follow privacy policy, no unsupported query/cross-adapter behavior appears, no run/evidence artifacts are written. | Adapter/profile diagnostic conformance, source/target privacy classification, row-count comparison placement, current prework, DoD, matrix rows, BDD scenario, test plan, and phase-exit checklist must be complete. |
 | Milestone 7.3 | Grain-key null checks, duplicate-key checks, missing-key checks, extra-key checks, prerequisite/blocking semantics for dependent future row-level value checks. | Row-level value comparison, inferred mappings, inferred grain keys, CDC key execution, sampling bypass of non-null or uniqueness requirements, raw key export. | Grain-key safety execution, key semantics, prerequisite/blocking results, source/target privacy, comparison placement, sampling safety. | Comparison execution placement strategy gate for key checks; source/target data privacy gate; key semantics gate; sampling safety rules. | ADR 0007 grain keys and row-level uniqueness; ADR 0014 key semantics and check dependencies; ADR 0013 typed check-plan boundary. | `docs/implementation/check-engine.md`, `docs/implementation/result-model.md`, `docs/implementation/errors-and-diagnostics.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`, key semantics docs if scope changes. | Grain-key null and duplicate checks; missing and extra key checks; dependent row-level check blocking; public output and generated artifacts. | Null, duplicate, missing, or extra grain-key checks run before dependent row-level value checks. | Source/target null-key cases, duplicate-key cases, missing/extra key cases, blocked dependent row-level value checks, no inferred grain or mapping behavior, negative tests for absent run/evidence artifacts. | Planned grain-key safety public surface; no row-level value comparison, CDC execution, raw key export, or evidence/failure-detail schema. | Prove sampling does not bypass key requirements, no raw keys/row values are exported without a later privacy/evidence policy, dependent value checks remain future scope, no evidence/failure artifacts are written. | Key-check comparison placement, privacy policy for key outputs, current prework, DoD, matrix rows, BDD scenario, test plan, and phase-exit checklist must be complete. |
 | Milestone 7.4 | Current ungrouped `sum_diff` execution, current grouped aggregate diff execution, numeric tolerance for supported numeric aggregate comparisons, empty aggregate semantics, aggregate type-mismatch behavior. | Timestamp or string tolerance execution, null-equivalence or normalization execution, schema policy execution, new metric catalog expansion, run-result/evidence output. | Aggregate execution, typed operation execution, numeric tolerance behavior, source/target privacy, comparison placement. | Comparison execution placement strategy gate for aggregates; typed operation catalog expansion re-check before any operation beyond current compiled subset; source/target data privacy gate. | ADR 0013 typed check-plan boundary; ADR 0009 tolerance/null/normalization policy boundary for numeric tolerance; ADR 0020 adapter SQL rendering boundary. | `docs/compatibility/typed-check-plan.md`, `docs/framework/tolerance-policies.md` if tolerance behavior changes, `docs/implementation/check-engine.md`, `docs/implementation/result-model.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`. | Aggregate metric execution; public output and generated artifacts. | Ungrouped and grouped `sum` metric checks compare aggregates with numeric tolerance. | Ungrouped/grouped sum pass/fail/error, numeric tolerance, empty aggregate semantics, aggregate input/result type mismatch, negative tests for absent run/evidence artifacts. | Planned aggregate metric execution surface for current `sum` plans only; no new metric catalog, timestamp/string tolerance, normalization, schema policy, run-result, or evidence schema. | Prove aggregate outputs follow privacy policy, no new metric/tolerance/schema behavior appears, and run-result/evidence/report output remains Milestone 8/9 scope. | Aggregate comparison placement, typed operation catalog re-check, source/target privacy classification for aggregate values/grouped keys, current prework, DoD, matrix rows, BDD scenario, test plan, and phase-exit checklist must be complete. |
 
+Cross-cutting gate assignments:
+
+- Before Milestone 7.2 executes row-count checks, the implementation must lock
+  the execution-placement decision for row counts and prove unsupported
+  placement, third-engine comparison, materialization, and Python fallback paths
+  fail clearly instead of silently changing strategy.
+- Before Milestone 7.3 executes key checks, the implementation must lock the
+  exact key-check placement strategy. If probabilistic, Bloom, or sketch-based
+  key coverage is proposed, Gate 4K must be resolved first and exact versus
+  probabilistic result semantics must be reflected in result/evidence wording.
+- Before Milestone 7.4 executes aggregate checks, the implementation must lock
+  the aggregate placement strategy and prove unsupported pushdown does not fall
+  back to in-memory or cross-engine comparison without an explicit design.
+- Milestone 8 may record placement, capability, artifact, and sink-reference
+  metadata in local run results, but it must not write evidence/report artifacts,
+  result tables, state, or external sinks.
+- Milestone 9 may write basic local evidence/report/failure-detail artifacts,
+  but table-backed sinks, production result stores, state, and large external
+  stores remain later milestones.
+
 ### Milestone 7.1: check-engine boundary and result model
+
+Prework:
+
+- `docs/planning/milestone-7-1-prework.md`
 
 Build:
 
@@ -456,8 +486,8 @@ Required tests:
 - prerequisite/blocking result representation,
 - check-engine diagnostics preserve code, severity, message, path, resource
   context, and hint where available,
-- unsupported/not-yet-executable checks fail clearly instead of producing
-  misleading evidence.
+- `not_executable` results for unsupported or not-yet-executable checks fail
+  clearly instead of producing misleading evidence.
 
 Phase exit review:
 
@@ -637,6 +667,8 @@ Build:
 - execution plan,
 - run service,
 - `target/run_results.json`,
+- local run-result artifact metadata for execution placement, adapter/capability
+  status, artifact references, and future sink-reference placeholders,
 - exit code mapping,
 - terminal summary.
 
@@ -650,6 +682,14 @@ Required gate:
   query text, adapter runtime errors, or database error text.
 - resolve the generated artifact lifecycle and cleanup gate before writing
   `target/run_results.json`.
+- resolve the result/evidence sink metadata boundary before adding sink status or
+  sink references to run results. Milestone 8 may record local metadata only; it
+  must not write table sinks, evidence sinks, state, or external stores.
+- resolve the selector-readiness portion of the selectors and contract
+  selection semantics gate before finalizing run-result scope metadata. Milestone
+  8 must not implement `--select`, `--exclude`, `selectors.yml`, partial run, or
+  partial compile, but run results should not assume every future run is
+  whole-project forever.
 
 Tests:
 
@@ -661,7 +701,11 @@ Tests:
   runtime, adapter, prerequisite, and result-write failures,
 - run results and terminal output follow source/target data privacy defaults for
   raw rows, keys, values, aggregates, relation names, query text, and runtime
-  error text.
+  error text,
+- local run-result artifacts include stable metadata for placement/capability
+  decisions without implying evidence, sink, state, or result-table writes,
+- run-result scope metadata can represent whole-project runs now and can evolve
+  to selected-scope runs later without changing the meaning of existing fields.
 
 ## Milestone 9: evidence
 
@@ -670,6 +714,8 @@ Build:
 - failure detail writer,
 - simple report writer,
 - artifact references,
+- local-only artifact modes and optional local-output behavior,
+- bounded/truncated failure-detail policy,
 - sampling scope in evidence.
 
 Required gate:
@@ -682,6 +728,14 @@ Required gate:
   row counts, relation names, query text, adapter errors, or database errors.
 - resolve the generated artifact lifecycle and cleanup gate before writing
   failure details, reports, or evidence artifacts.
+- resolve the result/evidence sink boundary before evidence links can reference
+  table-backed sinks or external stores. Milestone 9 local artifacts must not
+  silently become required when a future sink-only mode is configured.
+- resolve the selector-readiness portion of the selectors and contract
+  selection semantics gate before finalizing evidence scope wording. Milestone 9
+  must not implement selectors, but evidence should clearly identify whole-run
+  scope and avoid wording that would make future selected-scope evidence
+  misleading.
 
 Tests:
 
@@ -693,7 +747,13 @@ Tests:
   emitting only diagnostic codes or hints,
 - failure details, reports, and evidence follow source/target data privacy
   defaults for raw-value export, masking/redaction, truncation, and generated
-  artifact references.
+  artifact references,
+- disabled local evidence, local-only evidence, terminal-only output, and future
+  sink-only configuration cases fail or report clearly according to the locked
+  evidence mode instead of silently writing unexpected files,
+- evidence scope wording can represent whole-project runs now and can evolve to
+  selected-scope runs later without implying unselected contracts or checks were
+  reconciled.
 
 ## Milestone 10: examples and docs alignment
 
@@ -741,6 +801,8 @@ Build:
   results, and evidence,
 - generated artifact cleanup and publish-ordering rules for stale, partial, and
   orphaned outputs across generated artifact families,
+- selected-scope artifact freshness rules that future selector-scoped compile,
+  SQL rendering, run result, and evidence outputs can reuse,
 - cache/invalidation keys based on authored files, project config, relevant
   resource checksums, command options, and adapter-capability inputs,
 - stale-artifact diagnostics and safe fallback behavior,
@@ -751,14 +813,71 @@ Build:
 Required gate:
 
 - resolve the generated artifact lifecycle and cleanup gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - resolve the artifact freshness and cache optimization gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
 ```text
 feat: add artifact freshness checks
+```
+
+## Post-MVP Milestone 10.6: minimal contract and path selectors
+
+Build this after Post-MVP Milestone 10.5 defines artifact freshness and scoped
+generated-output rules.
+
+Goal:
+
+- support a small, explicit selector subset early without waiting for the full
+  selector system.
+
+Build:
+
+- `recon compile --select "contract:..."`,
+- `recon compile --render-sql --select "contract:..."`,
+- `recon run --select "contract:..."`,
+- `recon run --exclude "contract:experimental_*"` only if the selector gate
+  locks contract-pattern syntax and select/exclude precedence for the minimal
+  selector subset,
+- `path:...` selection for contract files if path matching can be defined
+  against project-relative manifest paths without file-scanning ambiguity,
+- exact file-path selection before directory-prefix selection,
+- multi-contract file selection that includes every contract in the selected
+  file unless narrower composition is explicitly designed,
+- contract/path selectors include metric-generated checks for selected
+  contracts; individual metric/check selection remains later `check:...` scope,
+- contract exclusion by exact name, and by simple contract-name pattern only if
+  that pattern syntax is explicitly admitted into the minimal selector gate,
+- selected-scope metadata in compiled artifacts, rendered SQL metadata, run
+  results, terminal summaries, and evidence references touched by the selected
+  invocation,
+- diagnostics for invalid selector syntax, unknown selector method, selectors
+  that match nothing, and selectors that match resources outside the command's
+  supported scope.
+
+Non-goals:
+
+- `selectors.yml`,
+- named `selector:...` references,
+- check-level `check:...` selection,
+- tag/domain/team/package selectors,
+- state/result selectors,
+- graph operators, dependency expansion, or transformation-style selection,
+- partial parse or partial manifest generation.
+
+Required gate:
+
+- resolve the selectors and contract selection semantics gate in
+  the applicable milestone design prework gate,
+- confirm Post-MVP Milestone 10.5 artifact freshness and cleanup behavior is
+  sufficient for selector-scoped generated artifacts.
+
+Recommended commit message:
+
+```text
+feat: add minimal contract selectors
 ```
 
 ## Post-MVP Milestone 11: aggregate metrics expansion
@@ -796,7 +915,7 @@ Tests:
 Required gate:
 
 - resolve the aggregate metrics expansion gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  the applicable milestone design prework gate before
   implementation.
 
 Recommended commit message:
@@ -836,7 +955,7 @@ Tests:
 Required gate:
 
 - resolve the schema policy and metadata checks gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  the applicable milestone design prework gate before
   implementation.
 
 Recommended commit message:
@@ -881,7 +1000,7 @@ Tests:
 Required gate:
 
 - resolve the source-target column mapping gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` before
+  the applicable milestone design prework gate before
   implementation.
 
 Recommended commit message:
@@ -914,13 +1033,13 @@ Do not build:
 
 - macro rendering,
 - macro execution,
-- dbt-style macro dispatch as the primary comparison engine,
+- macro dispatch as the primary comparison engine,
 - arbitrary custom SQL behavior hidden behind macro names.
 
 Required gate:
 
 - resolve the macro reference semantics gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -959,7 +1078,7 @@ Do not build:
 Required gate:
 
 - resolve the macro execution and rendering boundary gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1047,7 +1166,7 @@ Required gate:
 - resolve the local custom check-pack resource semantics gate,
 - resolve the reusable local policy file resources gate,
 - resolve the packages, deps, and package macro resources gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1079,7 +1198,7 @@ Build:
 Required gate:
 
 - resolve the package dependency installer and lock workflow gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1111,7 +1230,7 @@ Build:
 Required gate:
 
 - resolve the endpoint resources and references gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1141,7 +1260,7 @@ Build:
 Required gate:
 
 - resolve the query endpoint support boundary gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 - resolve the generated artifact lifecycle and cleanup gate if query endpoint
   execution writes query-specific compiled SQL, results, evidence, or debug
   artifacts.
@@ -1152,35 +1271,42 @@ Recommended commit message:
 feat: execute query endpoints
 ```
 
-## Post-MVP Milestone 19: selectors and subset execution
+## Post-MVP Milestone 19: rich selectors and subset execution expansion
 
-Build this after manifest metadata and run result scope fields can accurately
-describe partial work.
+Build this after minimal contract/path selectors prove the selected-scope
+metadata, artifact freshness, and run/evidence behavior.
 
 Goal:
 
-- support `--select`, `--exclude`, and `selectors.yml` without producing
-  misleading partial artifacts or evidence.
+- expand selector support without producing misleading partial artifacts or
+  evidence.
 
 Build:
 
-- selector syntax and named selector schema,
-- contract and optional check selection semantics,
-- partial compile/run behavior,
+- `selectors.yml` and named `selector:...` schema,
+- `recon run --select "selector:critical_reconciliations"`,
+- check-level `check:...` selection semantics,
+- `recon run --select "check:customer_revenue.row_count"`,
+- richer `--select` and `--exclude` composition,
+- contract-pattern exclusion not admitted into the minimal selector subset,
+- optional tag/domain/team/package selectors only after selector metadata is
+  explicit and documented,
+- state/result selectors only after state and run-result artifacts can support
+  them safely,
 - selected-scope metadata in artifacts and run results,
 - diagnostics for empty or invalid selections.
 
 Required gate:
 
 - resolve the selectors and contract selection semantics gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 - resolve the generated artifact lifecycle and cleanup gate before selector
   compile/run writes partial or scoped generated artifacts.
 
 Recommended commit message:
 
 ```text
-feat: add contract selectors
+feat: add rich selectors
 ```
 
 ## Post-MVP Milestone 20: defaults and inheritance boundaries
@@ -1203,7 +1329,7 @@ Build:
 Required gate:
 
 - resolve the defaults, inheritance, and template boundary gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1229,15 +1355,15 @@ Build:
   value checks,
 - prerequisites on `null_source_keys`, `null_target_keys`,
   `duplicate_source_keys`, and `duplicate_target_keys`,
-- prerequisite blocking with `blocked_by` and `skip_reason` for null/duplicate
-  keys,
+- prerequisite blocking with `blocked_by` and machine-readable reason codes for
+  null/duplicate keys,
 - resolved column and policy payloads in typed plans,
 - result, failure-detail, and evidence output for value mismatches.
 
 Required gate:
 
 - resolve the row-level value check execution gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1266,7 +1392,7 @@ Build:
 Required gate:
 
 - resolve the timestamp tolerance and timezone execution gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1294,7 +1420,7 @@ Build:
 Required gate:
 
 - resolve the row hash and canonical hash comparison gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1318,13 +1444,19 @@ Build:
 - deterministic hash sampling only when portable behavior is proven,
 - explicit anchor-side semantics,
 - sampled check artifact and evidence visibility,
+- probabilistic or sketch-based sampled key coverage only if Gate 4K is resolved
+  and exact versus probabilistic semantics are explicit,
 - future mode diagnostics for random, previous-failure, stratified, and
   high-value samples until their state requirements are implemented.
 
 Required gate:
 
 - resolve the sampling execution modes gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate,
+- resolve the probabilistic key-diff/Bloom/sketch gate before using compact
+  summaries for sampled key coverage, including false-positive safeguards,
+  canonical composite-key serialization, partition/window scope, multi-phase
+  lifecycle, intermediate summary storage, and exact-confirmation rules.
 
 Recommended commit message:
 
@@ -1356,7 +1488,7 @@ Build:
 Required gate:
 
 - resolve the multi-policy sampling composition gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1387,11 +1519,16 @@ Do not build:
 
 - remote or database-backed state before Post-MVP Milestone 37 locks storage,
   locking, migration, and credential behavior.
+- result tables or evidence sinks; those remain result/evidence store surfaces,
+  not state by default.
 
 Required gate:
 
 - resolve the state, watermarks, and persisted samples gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate,
+- prove watermark advancement, persisted sample keys, and previous-failure state
+  are explicit, versioned, and recoverable without relying on result tables or
+  evidence sinks.
 
 Recommended commit message:
 
@@ -1412,8 +1549,11 @@ Goal:
 Build:
 
 - result table writer design and implementation,
+- explicit destination selection for source, target, or third configured
+  connection when adapter capabilities allow it,
 - table schema/versioning and migration rules,
 - write modes, retention, idempotency, and retry behavior,
+- sink requiredness and sink-write status semantics,
 - adapter/profile requirements and credential-safe diagnostics,
 - links between result tables, `run_results.json`, evidence artifacts, failure
   details, and state records,
@@ -1422,7 +1562,12 @@ Build:
 Required gate:
 
 - resolve the result table writer gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate,
+- resolve adapter write/sink capability requirements before writing through any
+  source, target, or third configured connection,
+- define behavior for unsupported sink capability, unsafe destination config,
+  schema migration failure, partial writes, retries, idempotency conflicts,
+  retention, and required sink failures before implementation.
 
 Recommended commit message:
 
@@ -1446,6 +1591,7 @@ Build:
 - freshness lag,
 - latest window count,
 - incremental key coverage,
+- probabilistic or sketch-based CDC key coverage only if Gate 4K is resolved,
 - explicit `cdc.keys` validation,
 - resolved CDC identity artifact shape, if CDC checks need resolved identity
   fields instead of the current authored CDC policy snapshot,
@@ -1454,7 +1600,11 @@ Build:
 Required gate:
 
 - resolve the CDC first implementation scope gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate,
+- resolve the probabilistic key-diff/Bloom/sketch gate before using compact
+  summaries for CDC coverage, including bidirectional probing, partition/window
+  scope, false-positive handling, exact-confirmation behavior, and evidence
+  wording for suspected missing or extra records.
 
 Recommended commit message:
 
@@ -1482,7 +1632,7 @@ Build:
 Required gate:
 
 - resolve the asymmetric CDC delete representation gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1515,7 +1665,7 @@ Build:
 Required gate:
 
 - resolve the advanced CDC modes and propagation checks gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1546,7 +1696,7 @@ Build:
 Required gate:
 
 - resolve the future CLI commands and options gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md` for the
+  the applicable milestone design prework gate for the
   specific command or option being implemented,
 - resolve the documentation generation command gate before adding docs
   generation behavior,
@@ -1577,12 +1727,14 @@ Build:
   `recon-core[...]` extras,
 - package split criteria,
 - adapter migration/version guidance,
+- adapter write/sink conformance for result and evidence sink capabilities,
+- probabilistic summary capability conformance for Bloom/sketch-like operations,
 - first official adapter package preparation.
 
 Required gate:
 
 - resolve the adapter test kit and adapter package split gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - satisfy the Adapter/Profile Diagnostic Conformance Gate in
   `docs/compatibility/adapter-api.md` before creating or splitting the shared
   test-kit repository, publishing shared test-kit expectations, splitting
@@ -1668,6 +1820,16 @@ Required gate:
   preserved independent render diagnostics from otherwise resolvable contracts
   when setup diagnostics also exist before creating or splitting the test-kit
   repository or publishing external adapter compatibility claims,
+- include result/evidence sink capability conformance before adapters claim
+  write/sink compatibility: unsupported, unknown, malformed, version-mismatched,
+  unsafe destination, missing schema, migration failure, partial write, retry,
+  idempotency, retention, and required-sink failure cases must fail or report
+  through locked sink-write status without falling back silently,
+- include probabilistic summary capability conformance before adapters claim
+  Bloom/sketch-like support: canonical composite-key serialization,
+  partition/window scope, bidirectional summary build/probe/compare lifecycle,
+  false-positive policy, intermediate summary cleanup/storage, and
+  exact-confirmation requirements must be tested,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the
@@ -1699,7 +1861,7 @@ Build:
 Required gate:
 
 - resolve the semi-structured and JSON comparison gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1720,6 +1882,8 @@ Build:
 
 - failure detail JSONL or streaming format for large mismatch sets,
 - large-result pagination, row limits, and truncation semantics,
+- large-result movement through artifact or sink references instead of embedding
+  raw rows in run-result artifacts,
 - masking and redaction policies,
 - evidence templates,
 - approval/sign-off artifacts,
@@ -1729,9 +1893,13 @@ Build:
 Required gate:
 
 - resolve the advanced evidence, redaction, templates, and sign-off gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`,
+  the applicable milestone design prework gate,
 - resolve the failure detail JSONL and large result handling gate before adding
-  non-CSV or streaming failure-detail formats.
+  non-CSV or streaming failure-detail formats,
+- resolve exact-confirmation behavior before probabilistic suspected missing or
+  extra records can drive large failure-detail export,
+- define chunking, pagination, retention, cleanup, privacy, retry/idempotency,
+  and large-store failure behavior before adding external large-result stores.
 
 Recommended commit message:
 
@@ -1753,15 +1921,15 @@ Build:
 
 - Recon Hub index metadata,
 - GitHub Action,
-- Airflow provider/operator,
-- Dagster integration,
-- dbt integration patterns,
+- orchestrator provider/operator,
+- workflow provider integration,
+- transformation framework integration patterns,
 - data catalog and issue/ticket integration boundaries.
 
 Required gate:
 
 - resolve the Hub and external integrations gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1789,7 +1957,7 @@ Build:
 Required gate:
 
 - resolve the source-location diagnostics gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1818,7 +1986,7 @@ Build:
 Required gate:
 
 - resolve the named identities and multi-grain contracts gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1847,7 +2015,7 @@ Build:
 Required gate:
 
 - resolve the public contract schema stabilization gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1875,7 +2043,7 @@ Build:
 Required gate:
 
 - resolve the deprecation and migration policy gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1904,7 +2072,7 @@ Build:
 Required gate:
 
 - resolve the remote and database state backend gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1932,7 +2100,7 @@ Build:
 Required gate:
 
 - resolve the official package content release gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1960,7 +2128,7 @@ Build:
 Required gate:
 
 - resolve the documentation site and examples repo split gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -1989,7 +2157,7 @@ Build:
 Required gate:
 
 - resolve the hosted service, UI, and enterprise policy controls gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 
@@ -2018,7 +2186,7 @@ Build:
 Required gate:
 
 - resolve the domain-specific package boundaries gate in
-  `.codex/brain_dumps/2026-05-20-milestone-design-prework-gates.md`.
+  the applicable milestone design prework gate.
 
 Recommended commit message:
 

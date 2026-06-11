@@ -99,11 +99,10 @@ compile must represent at least one authored contract.
 
 ## Compiler validation boundaries
 
-Compiler validation should follow the same separation used by mature
-manifest-based tools: source-file discovery, parsed models, graph/resource
-lookup, validation, and artifact writing stay separate. For Recon, the parser
-remains responsible for structural authored-file parsing, while the compiler
-owns validation that depends on compiled intent, check-pack expansion, metrics,
+Compiler validation should keep source-file discovery, parsed models,
+graph/resource lookup, validation, and artifact writing separate. For Recon, the
+parser remains responsible for structural authored-file parsing, while the
+compiler owns validation that depends on compiled intent, check-pack expansion, metrics,
 policies, or identity requirements.
 
 Implementation guidance:
@@ -495,9 +494,9 @@ project-level default policy
 framework default
 ```
 
-Milestone 5 may validate and resolve MVP policy shapes, but named tolerance
-policy references require the ADR 0017 resource loader before they can be
-resolved.
+The validation rulebook may validate and resolve MVP policy shapes, but named
+tolerance policy references require the ADR 0017 resource loader before they can
+be resolved.
 
 Compiled checks should show resolved tolerance, null, and normalization
 behavior when that policy affects a compiled check.

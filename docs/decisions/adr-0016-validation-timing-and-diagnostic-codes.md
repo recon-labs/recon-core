@@ -15,19 +15,12 @@ needs a durable rule for:
 - how warnings differ from errors and check failures,
 - how diagnostics appear in artifacts.
 
-dbt Core is the primary open-source reference for phase separation. dbt reads
-files, parses resources through parser classes, processes references and docs,
-then checks manifest consistency before writing its manifest. dbt also uses
-structured events and warning/error handling for parse-time and manifest-time
-conditions such as unused resource config paths, missing referenced nodes, and
-duplicate resources.
+Parser and validation design should separate file reading, resource parsing,
+reference processing, consistency checks, structured events, warnings, and
+errors. Result surfaces should also distinguish success/failure state,
+structured detail, metadata, exceptions, warnings, and execution errors.
 
-Great Expectations and Soda are useful references for result surfaces: GX
-validation results separate `success`, `result`, metadata, and exception
-information; Soda distinguishes check result states such as pass, fail, error,
-and explicit warn.
-
-Recon should learn from those patterns without becoming a generic data quality
+Recon should use that separation without becoming a generic data quality
 framework. Recon's trust boundary is source-target equivalence evidence, so
 ambiguous reconciliation behavior must fail before execution whenever possible.
 
@@ -70,12 +63,18 @@ fail
 warn
 error
 skipped
+blocked
+not_executable
 ```
 
 An error diagnostic means the command must return a non-zero validation,
 runtime, or configuration exit category. A check failure means a check executed
-successfully and found a mismatch. A skipped check means a prerequisite failed
-or an explicit future skip mode applies.
+successfully and found a mismatch. A skipped check means explicit user,
+configuration, or future selector policy intentionally skipped the check. A
+blocked check means a prerequisite failed, errored, or was unavailable.
+`not_executable` means the compiled check is valid input but cannot run with the
+current engine, typed operation, capability, placement, materialization policy,
+or implemented operation surface.
 
 ## Phase Ownership
 
@@ -222,7 +221,7 @@ errors:
 
 - null key checks fail when data contains null keys,
 - duplicate key checks fail when data contains duplicate keys,
-- dependent row-level value checks are skipped when prerequisite safety checks
+- dependent row-level value checks are blocked when prerequisite safety checks
   fail.
 
 The runner must not reinterpret raw authored YAML as the source of execution
@@ -419,13 +418,3 @@ Recommended implementation shape:
 - ADR 0006: Contract Compiler and Validation Rules
 - ADR 0014: Key Semantics and Check Dependencies
 - ADR 0015: Compiled Artifact Schema and Versioning
-- dbt Core parser README:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/parser/README.md`
-- dbt Core ManifestLoader:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/parser/manifest.py`
-- dbt Core events:
-  `https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/events/types.py`
-- Great Expectations `ExpectationValidationResult`:
-  `https://docs.greatexpectations.io/docs/reference/api/core/expectationvalidationresult_class/`
-- Soda scan result states:
-  `https://docs.soda.io/soda-v3/run-a-scan`

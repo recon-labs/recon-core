@@ -15,15 +15,16 @@ Milestone 4 introduces compiled contract and compiled check artifacts. Those
 artifacts become user-facing and automation-facing generated files, so their
 shape needs a durable decision before implementation.
 
-Mature data tools informed this decision:
+Artifact design has these constraints:
 
-- dbt uses versioned generated artifacts and stable identifiers for automation.
-- SQLMesh makes planned changes inspectable before execution.
-- Great Expectations and Soda keep validation/check results structured.
-- Data diff tools such as DVT show the importance of explicit keys for
+- generated artifacts should be versioned and use stable identifiers for
+  automation,
+- planned changes should be inspectable before execution,
+- validation and check results should stay structured,
+- data diff tools show the importance of explicit keys for
   source-target comparison.
-- OpenLineage shows a useful extensibility pattern through additive metadata,
-  but Recon does not need a lineage-facet model for compiler artifacts yet.
+- additive metadata is useful, but Recon does not need a lineage-style facet
+  model for compiler artifacts yet.
 
 Recon should adopt the artifact discipline without copying another project's
 domain model.
@@ -317,6 +318,11 @@ Every compiled check must include:
 - `rendering`,
 - `diagnostics`.
 
+`blocking_policy.on_prerequisite_failure: skipped` is the current
+compiled-artifact policy token. It is not the runtime check status. When a
+prerequisite fails, the runner/result layer must report the dependent check as
+`blocked` with `blocked_by` and a machine-readable reason code.
+
 ## Origin Metadata
 
 Every compiled check must record why it exists.
@@ -553,6 +559,10 @@ Example compiled check:
   diagnostics: []
 ```
 
+The `blocking_policy.on_prerequisite_failure: skipped` token above preserves the
+compiled artifact policy shape. It does not permit run results to represent
+failed prerequisites as skipped checks.
+
 Metric compilation must not depend on `grain.keys`.
 
 Ungrouped aggregate metrics use `aggregate` operations followed by
@@ -703,18 +713,3 @@ The compiler implementation gets explicit coding patterns and test boundaries.
 
 Future SQL rendering, adapters, and evidence can attach to typed plans without
 changing core reconciliation semantics.
-
-## References
-
-- dbt manifest artifact: `https://docs.getdbt.com/reference/artifacts/manifest-json`
-- dbt run results artifact: `https://docs.getdbt.com/reference/artifacts/run-results-json`
-- dbt adapter creation: `https://docs.getdbt.com/guides/adapter-creation`
-- SQLMesh plans: `https://sqlmesh.readthedocs.io/en/stable/concepts/plans/`
-- SQLMesh snapshots: `https://sqlmesh.readthedocs.io/en/stable/concepts/architecture/snapshots/`
-- Great Expectations validation result:
-  `https://docs.greatexpectations.io/docs/reference/api/core/expectationvalidationresult_class/`
-- Soda metrics and checks:
-  `https://docs.soda.io/soda-documentation/soda-v3/sodacl-reference/metrics-and-checks`
-- Google DVT:
-  `https://github.com/GoogleCloudPlatform/professional-services-data-validator`
-- OpenLineage object model: `https://openlineage.io/docs/spec/object-model/`

@@ -31,9 +31,10 @@ A modern Python version should be preferred for type hints, packaging, and maint
 
 ## Adapter packages
 
-Long-term, production adapters should be installed separately.
+Long-term, production adapters should be installed separately after the adapter
+API, shared test kit, package split, and compatibility gates are satisfied.
 
-Examples:
+Future illustrative package names:
 
 ```bash
 pip install recon-postgres
@@ -41,6 +42,9 @@ pip install recon-mysql
 pip install recon-snowflake
 pip install recon-bigquery
 ```
+
+These examples do not imply official external adapter packages are available
+today.
 
 Current local development extra:
 

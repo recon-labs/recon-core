@@ -40,6 +40,13 @@ DuckDB currently starts as an in-core local development adapter installed with
 `recon-core[duckdb]`. A separate `recon-duckdb` package should wait until the
 adapter API and shared adapter test kit stabilize.
 
+Official external adapter repositories are Post-MVP Milestone 29 work. They
+should wait for the adapter test-kit and package split milestone that proves
+adapter API, capability, rendering, execution, diagnostics, privacy, and
+compatibility behavior across repositories. Until that gate is satisfied, the
+in-core DuckDB adapter remains a local development adapter and `recon-duckdb`
+remains a future extraction candidate.
+
 Adapter packages should own:
 
 - connection,
@@ -55,6 +62,27 @@ typed check plans and comparison meaning; adapters render or execute those
 plans for a specific system.
 
 Adapter packages should declare their supported adapter API version.
+
+Adapter compatibility claims must be granular. An adapter may support current
+rendering without claiming stable execution, broad placement,
+materialization/staging, result/evidence sink writes, production result tables,
+or probabilistic key-summary behavior.
+
+Production result-table and evidence-sink support through adapters must wait
+for Post-MVP Milestone 25.5 result-table/sink design and Post-MVP Milestone 29
+adapter write/sink conformance. Source, target, or third-connection
+destinations are allowed only when explicitly configured and proven by adapter
+capability tests.
+
+Probabilistic key-diff support, including Bloom-filter-like summaries or other
+set sketches, must wait for Gate 4K and Post-MVP Milestone 29 adapter test-kit
+conformance for summary build, serialization, transport or storage, probing,
+reverse probing when needed, metrics, privacy, and cleanup.
+
+Experimental adapters can be useful for learning, but they must not claim
+stable execution compatibility, sink compatibility, table-sink compatibility,
+or probabilistic-summary compatibility until the relevant conformance gates are
+implemented and passing.
 
 ## Adapter test kit
 
@@ -116,9 +144,9 @@ Schema policy packages may provide common technical-column ignore rules.
 
 Examples:
 
-- DMS metadata columns,
-- Fivetran metadata columns,
-- Debezium metadata columns,
+- replication service metadata columns,
+- managed ingestion metadata columns,
+- change-event metadata columns,
 - ingestion audit columns.
 
 These should remain explicit. Installing a package should not silently ignore columns unless a user references the policy.
@@ -149,8 +177,8 @@ Possible categories:
 Future integrations:
 
 ```text
-recon-airflow
-recon-dagster
+recon-orchestrator
+recon-workflow-provider
 recon-github-action
 ```
 
@@ -198,7 +226,8 @@ Recommended order:
 3. stabilize parse/compile/run artifacts,
 4. stabilize adapter interface,
 5. create adapter test kit,
-6. split official adapters,
+6. split `recon-duckdb` and official adapters only after adapter conformance
+   gates are satisfied,
 7. create official check/policy packages,
 8. create Hub index,
 9. create orchestration integrations.

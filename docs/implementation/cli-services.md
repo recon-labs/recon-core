@@ -80,10 +80,10 @@ The implemented CLI entrypoint for adapter-aware compile is:
 recon compile --render-sql
 ```
 
-Milestone 6 rendering supports one adapter connection context per compile
-invocation. Source and target connection names may differ, but their adapter
-type and rendered connection config must match until explicit cross-connection
-or attached-database rendering is designed.
+Current adapter-aware rendering supports one adapter connection context per
+compile invocation. Source and target connection names may differ, but their
+adapter type and rendered connection config must match until explicit
+cross-connection or attached-database rendering is designed.
 
 Profile rendering must render only the selected target environment and the
 named connections referenced by selected contracts. Secrets and fully rendered
@@ -99,20 +99,35 @@ compiled-check rendering metadata.
 
 ## RunService
 
-Responsibilities:
+First check-engine boundary responsibilities:
 
-- ensure parse/compile are available or run them,
-- build execution plan,
-- run checks,
+- locate the project root,
+- load already compiled check artifacts from the generated target path,
+- invoke the check engine over compiled checks only,
+- map command-level outcomes and diagnostics to `ServiceResult`,
+- return a concise command message and exit category.
+
+The first check-engine boundary must not parse authored YAML, invoke
+`ParseService`, invoke `CompileService`, load runtime profiles, instantiate
+adapters, render SQL, execute queries, write `target/run_results.json`, write
+evidence, write reports, write failure details, write state, or write
+result/evidence sinks.
+
+Later runner and evidence phases may expand `RunService` responsibilities to:
+
+- parse and compile automatically when artifact freshness semantics are locked,
+- build execution plans,
+- run checks through supported adapter execution paths,
 - write run results,
 - write evidence,
-- return run summary and exit category.
+- return final run summaries and exit categories.
 
 Run-time profile loading follows the same selected-target and secret redaction
-rules as adapter-aware compile. `RunService` must also preserve the same
-unsupported-template and adapter diagnostic redaction behavior before execution.
-`RunService` must revalidate adapter API compatibility and required
-capabilities before execution.
+rules as adapter-aware compile once adapter execution is implemented. At that
+point, `RunService` must also preserve the same unsupported-template and adapter
+diagnostic redaction behavior before execution, and it must revalidate adapter
+API compatibility and required capabilities before execution. These execution
+responsibilities are not part of the first check-engine boundary.
 
 ## CLI options
 
@@ -132,9 +147,13 @@ Common options:
 Not all need to be implemented at first.
 
 `--select` and `--exclude` should not be implemented until selector syntax,
-named selectors, partial compile/run behavior, and run result metadata are
-designed. Selector handling should be service-level behavior backed by parsed
-manifest metadata, not ad hoc CLI file scanning.
+partial compile/run behavior, generated artifact cleanup, and run result
+metadata are designed. The first selector implementation should stay narrow:
+explicit contract and path scope for compile, SQL rendering, and run. Named
+selectors, check-level selection, tag/domain/package selectors, state/result
+selectors, and richer composition should wait for the later selector expansion.
+Selector handling should be service-level behavior backed by parsed manifest
+metadata, not ad hoc CLI file scanning.
 
 `--profiles-dir` and future profile/target override behavior should not expose
 secrets in diagnostics or generated artifacts. Missing environment variables in

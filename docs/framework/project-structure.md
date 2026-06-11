@@ -95,12 +95,13 @@ Future dependency file for Recon packages.
 
 ## `selectors.yml`
 
-Named selectors for running groups of contracts.
+Future named selectors for reusable selected scopes.
 
 This file is a future project resource. Its syntax and semantics are not locked
-yet. Before implementation, Recon should define how selectors match contracts,
-how `--select` and `--exclude` compose, and how partial compile/run artifacts
-record selected scope.
+yet. Minimal contract/path selectors should not require `selectors.yml`. Before
+named selector implementation, Recon should define how selector files match
+contracts and checks, how `--select` and `--exclude` compose, and how partial
+compile/run artifacts record selected scope.
 
 ## `connections/`
 
@@ -148,6 +149,26 @@ One contract per file and multiple contracts per file should both be supported.
 Parser support for multiple contract files and simple multi-contract YAML files
 does not imply selector support; selecting subsets for compile/run is a
 separate future CLI design.
+
+Configured contract paths are discovered recursively. Subfolders such as
+`contracts/customer/` and `contracts/orders/` are part of the normal project
+shape. The manifest records project-relative source paths for discovered files.
+
+Compiled contract and check artifacts are keyed by contract name, not by source
+folder:
+
+```text
+target/compiled_contracts/<contract_name>.yml
+target/compiled_checks/<contract_name>.yml
+```
+
+Because generated artifact filenames are contract-name based, contract names
+must be globally unique across configured contract paths and subfolders. A
+future `path:...` selector should use the manifest's project-relative source
+paths, not an independent filesystem scan. Exact file selection should be
+locked before directory-prefix selection. Selecting a multi-contract YAML file
+should select all contracts authored in that file unless a later selector design
+explicitly combines file selection with a narrower contract or check selector.
 
 ## `check_packs/`
 

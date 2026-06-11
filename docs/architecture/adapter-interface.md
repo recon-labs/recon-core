@@ -49,6 +49,14 @@ CompiledCheck
 This keeps comparison semantics consistent in core while isolating dialect
 behavior in adapters.
 
+The same boundary applies to future execution placement, materialization,
+result sinks, and probabilistic key-summary strategies. Core decides whether a
+check may run in the source system, target system, adapter-managed intermediate
+system, or bounded in-core comparison. Core also owns result semantics,
+evidence meaning, privacy classification, failure-detail bounds, and sink
+references. Adapters declare and implement system-specific mechanics; they do
+not decide reconciliation semantics.
+
 ## Long-term adapter packages
 
 Expected adapter packages:
@@ -68,14 +76,16 @@ recon-oracle
 
 DuckDB starts as the first local development adapter inside `recon-core`.
 External adapter packages, including a future `recon-duckdb`, should split only
-after the adapter API and shared adapter test kit are stable.
+after the adapter API and shared adapter test kit are stable. The package split
+and additional production adapters should wait for the adapter conformance gate
+so every adapter proves the same public boundary before it claims compatibility.
 
 The current DuckDB local development adapter is distributed through the
 optional `recon-core[duckdb]` extra while it remains in-core.
 
 ## Base interface
 
-The Milestone 6 API boundary separates base adapter behavior from SQL dialect
+The current API boundary separates base adapter behavior from SQL dialect
 rendering:
 
 ```python
@@ -158,6 +168,14 @@ Additional policy-dependent capabilities, such as limited regex replacement,
 should be added only with typed-plan payloads, adapter tests, and compatibility
 docs.
 
+Future capability families include execution placement, adapter-managed
+materialization or staging, result and evidence sink writes, and probabilistic
+key-summary operations. Those areas must stay capability-based and conservative:
+`unknown`, `unsupported`, `not_implemented`, malformed, or incompatible states
+do not satisfy required behavior. Exact capability names are not stable until
+the implementing phases update this document, the compatibility docs, and the
+shared adapter test kit together.
+
 Compile without an adapter may produce typed plans with
 `rendering.status: not_rendered`. Adapter-aware rendering must validate adapter
 API compatibility and required capabilities before writing SQL.
@@ -196,9 +214,9 @@ traceable to contract, check ID, rendering step or typed operation, side when
 applicable, and adapter type. When an adapter is known, compiled checks record
 that adapter in `rendering.adapter_type`.
 
-Milestone 6 adapter-aware rendering uses `not_rendered`, `rendered`,
-`blocked`, and `failed`. Earlier draft statuses `deferred` and `unsupported`
-are no longer emitted for SQL rendering metadata.
+Adapter-aware rendering uses `not_rendered`, `rendered`, `blocked`, and
+`failed`. Earlier draft statuses `deferred` and `unsupported` are no longer
+emitted for SQL rendering metadata.
 
 ## Metadata
 
@@ -257,7 +275,7 @@ Current DuckDB behavior renders SQL for existing typed plans only. It guards
 key/group and aggregate comparison SQL against unsafe dialect coercion and
 rejects boolean inputs for current `sum` metric rendering because DuckDB treats
 `sum(boolean)` as a true-value count. It also rejects `UHUGEINT` aggregate
-inputs until exact aggregate behavior for that type is proven. Milestone 6
+inputs until exact aggregate behavior for that type is proven. Current
 rendering also requires source and target DuckDB connections to resolve to the
 same rendered connection config; cross-file or cross-connection rendering
 remains future work. Connection lifecycle, metadata fetching, and check
@@ -272,9 +290,10 @@ evidence expose the distinction.
 
 ## Query endpoint boundary
 
-Milestone 6 is relation-only for executable adapter-aware behavior. Query
-endpoints can remain parseable, but adapter-aware rendering or execution must
-return a clear unsupported diagnostic for `source.query` or `target.query`.
+Current adapter-aware rendering is relation-backed only. Query endpoints can
+remain parseable, but adapter-aware rendering must return a clear unsupported
+diagnostic for `source.query` or `target.query`. Adapter execution remains
+future work.
 
 Executable query endpoints require a later design for SELECT-only validation,
 single-statement handling, wrapping, artifact visibility, and adapter
@@ -288,6 +307,20 @@ whether each comparison runs in the source system, target system,
 adapter-managed intermediate system, or bounded Python-side comparison.
 
 Unsupported SQL behavior must not silently fall back to Python.
+
+Placement-aware execution must also define materialization and movement rules.
+Recon should not move raw source or target rows into another context unless a
+gate-backed strategy, adapter capability, privacy rule, retention rule, and
+evidence/result representation exist for that movement. Large failure details
+should be bounded by default and represented through sink references only after
+the sink contract and adapter write conformance exist.
+
+Probabilistic key-diff strategies, including Bloom-filter-like summaries and
+other set sketches, are future placement-aware strategies. They must define
+false-positive semantics, partition or window scope, deterministic composite-key
+serialization, summary storage and cleanup, bidirectional probing when needed,
+and exact-confirmation behavior before failure rows are published. Adapters may
+only claim those capabilities after shared conformance tests cover each phase.
 
 ## Adapter test kit
 
@@ -312,6 +345,11 @@ A future adapter test kit should validate:
 - profile rendering behavior,
 - adapter diagnostic redaction,
 - safe non-empty adapter diagnostic messages.
+- placement capability validation,
+- staging and materialization capability validation,
+- result and evidence sink write conformance when sinks are implemented,
+- probabilistic key-summary build, serialization, probe, reverse-probe,
+  metrics, and cleanup conformance when probabilistic key-diff is implemented.
 
 It should also validate typed operation rendering. If core adds or changes a
 typed operation, shared adapter tests should fail until every affected adapter

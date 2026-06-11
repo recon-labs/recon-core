@@ -84,7 +84,7 @@ Example behavior:
 ```text
 FAIL duplicate_source_keys
 PASS duplicate_target_keys
-SKIP row_diff: source grain keys are not unique
+BLOCKED row_diff: source grain keys are not unique
 ```
 
 The default uniqueness mode should be required.

@@ -539,7 +539,8 @@ nulls:
       - "^\\s*$"
 ```
 
-This is important for pipelines where systems such as SQL Server, AWS DMS, file formats, and Snowflake may handle empty strings differently.
+This is important for pipelines where source systems, replication services, file
+formats, and warehouses may handle empty strings differently.
 
 String normalization defaults to no steps. Supported simple steps are `trim`,
 `collapse_whitespace`, `lower`, and `upper`. MVP also supports limited

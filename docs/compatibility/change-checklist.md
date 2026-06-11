@@ -63,6 +63,21 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked whether generated artifact cleanup, publish ordering, stale
       output removal, or partial-write behavior changed for any generated
       artifact surface.
+- [ ] Checked whether execution placement changed across operation execution
+      location, comparison location, materialization/staging policy, Python
+      fallback behavior, or unsupported-placement diagnostics.
+- [ ] Checked whether probabilistic key-diff, Bloom filters, set sketches,
+      false-positive-rate policy, hash/canonicalization, partition/window
+      scope, bidirectional probing, multi-phase lifecycle, intermediate
+      summary storage, sensitive summary handling, layered strategy selection,
+      or exact-confirmation behavior changed.
+- [ ] Checked whether result/evidence sink placement changed across sink mode,
+      source/target/third destination ownership, sink requiredness,
+      sink-write status, table schema/versioning, migration, idempotency,
+      retry, retention, partial-write behavior, or local-output optionality.
+- [ ] Checked whether privacy/redaction rules changed for terminal output,
+      logs, diagnostics, run results, evidence, reports, failure details,
+      result tables, state references, or adapter test-kit snapshots.
 - [ ] Checked whether render-sql requests that fail before adapter rendering
       still write accurate `rendering.status` metadata instead of implying
       rendering was not requested.
@@ -149,6 +164,22 @@ review. This checklist is a process guide; it is not a CI gate.
       runtime exception text before any adapter test-kit or external adapter
       repository claims execution, diagnostics, run-result, evidence, report,
       log, or snapshot compatibility.
+- [ ] Checked execution-placement conformance before any adapter, shared test
+      kit, or external repository claims source-side, target-side,
+      same-context, adapter-managed intermediate, external comparison-engine,
+      or Recon-local fallback compatibility.
+- [ ] Checked materialization/staging conformance before any adapter claims
+      temporary staging, extracts, loads, table-to-table copy, cleanup,
+      row/memory limits, or large-result movement compatibility.
+- [ ] Checked probabilistic key-diff conformance before any adapter claims
+      Bloom filter, set sketch, approximate key coverage, summary
+      serialization, summary probing, or suspected missing/extra key export
+      compatibility. Required review includes composite-key serialization,
+      bidirectional probing, partition/window scope, false-positive behavior,
+      intermediate summary storage, and exact-confirmation policy.
+- [ ] Checked result/evidence sink-write conformance before any adapter claims
+      table-create, migration, append, upsert, merge, transactional batch
+      write, metadata, or staging-for-sink compatibility.
 - [ ] Documented unsupported capability behavior when adapters are not required
       to implement a new operation.
 
@@ -157,6 +188,14 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated `docs/compatibility/compatibility-matrix.md` when version support,
       artifact versions, typed plan support, adapter API support, capability
       support, package support, or integration status changed.
+- [ ] Updated `docs/compatibility/compatibility-matrix.md` when execution
+      placement, comparison placement, materialization/staging, result/evidence
+      sink mode, result table schema, or adapter write/sink compatibility
+      changed.
+- [ ] Updated `docs/compatibility/compatibility-matrix.md` when probabilistic
+      key-diff, Bloom/sketch, approximate key coverage, or adapter
+      probabilistic-summary compatibility changed, including layered
+      row-count/exact/probabilistic strategy selection.
 - [ ] Added a new compatibility dimension when the change introduced one.
 
 ### Version constant impact

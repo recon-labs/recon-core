@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines Recon Labs’ intended multi-repo strategy.
+This document defines Recon Labs' intended multi-repo strategy.
 
 `recon-core` is the first repo and source of truth, but Recon is designed to become an ecosystem.
 
@@ -23,6 +23,7 @@ recon-core
 ### Adapter packages
 
 ```text
+recon-duckdb
 recon-postgres
 recon-snowflake
 recon-sqlserver
@@ -76,7 +77,19 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
 ## Rollout
 
 1. Start with `recon-core`.
-2. Split `recon-postgres`, `recon-snowflake`, and `recon-adapter-testkit` after typed check plans, adapter API versioning, and shared adapter tests stabilize. Shared adapter tests must include profile-rendering, including unsupported `{{ ... }}`, `{% ... %}`, and `{# ... #}` template-fragment rejection, diagnostic-redaction, adapter metadata, capability declaration, public/shared rendering helper checks that reject missing, malformed, exception-raising, or mismatched renderer `adapter_type` before rendering, and empty or malformed renderer output conformance, including sanitized adapter factory exceptions, sanitized adapter metadata exceptions, sanitized capability declaration exceptions, and short numeric rendered-scalar redaction cases such as `port: 12`, `12.0`, `+12`, and `1.2e1` across text fields, resource metadata, `rendering.adapter_type`, and numeric `line`/`column`, before any split repo claims compatibility.
+2. Split `recon-adapter-testkit`, `recon-duckdb`, and production adapter
+   packages after typed check plans, adapter API versioning, and shared adapter
+   tests stabilize. Shared adapter tests must include profile-rendering,
+   including unsupported `{{ ... }}`, `{% ... %}`, and `{# ... #}`
+   template-fragment rejection, diagnostic-redaction, adapter metadata,
+   capability declaration, public/shared rendering helper checks that reject
+   missing, malformed, exception-raising, or mismatched renderer `adapter_type`
+   before rendering, and empty or malformed renderer output conformance,
+   including sanitized adapter factory exceptions, sanitized adapter metadata
+   exceptions, sanitized capability declaration exceptions, and short numeric
+   rendered-scalar redaction cases such as `port: 12`, `12.0`, `+12`, and
+   `1.2e1` across text fields, resource metadata, `rendering.adapter_type`, and
+   numeric `line`/`column`, before any split repo claims compatibility.
    They must also include diagnostic-code redaction cases where unsafe config
    keys or rendered values are embedded in delimiter-separated or separatorless
    forms, such as `RC_PASSWORD_LEAK`, `RCPASSWORDLEAK`, `RCsuper-secretLEAK`,
@@ -89,9 +102,37 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
    API/renderer `adapter_type` binding before renderer invocation, and rendered
    SQL step `required_capabilities` enforcement before any test-kit or adapter
    repo claims compatibility.
-3. Add official check/policy packages.
-4. Add `recon-hub-index`.
-5. Add integrations such as `recon-airflow`.
+3. Add adapter conformance suites for each compatibility family before any
+   adapter repo claims that family:
+   - execution placement and comparison-engine behavior,
+   - materialization or staging behavior,
+   - result/evidence sink writes and production result tables,
+   - probabilistic key-summary build, serialization, probe, reverse-probe,
+     metrics, privacy, and cleanup.
+4. Add official check/policy packages.
+5. Add `recon-hub-index`.
+6. Add integrations such as `recon-orchestrator`.
+
+## Compatibility claim boundaries
+
+An adapter package can be useful before it is stable, but it must label its
+status accurately. Experimental adapters must not claim stable execution,
+placement, materialization, sink, result-table, or probabilistic-summary
+compatibility until the relevant shared conformance suite exists and passes.
+
+The `recon-duckdb` split follows the same rule as other adapters. It should not
+leave `recon-core` as an external package until the shared adapter API,
+packaging, conformance tests, and release process are stable enough for another
+repository to prove the same behavior.
+
+Result/evidence table sinks through a source, target, or third configured
+connection require explicit destination configuration and proven write/sink
+capabilities. Adapter availability alone must not imply result-table support.
+
+Probabilistic key-diff support, including Bloom-filter-like summaries and other
+set sketches, requires a separate strategy and test-kit conformance before any
+adapter claims support. Exact source-target equivalence remains the default
+claim unless the result and evidence wording explicitly says otherwise.
 
 ## Source of truth
 

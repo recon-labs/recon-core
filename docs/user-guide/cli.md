@@ -214,7 +214,12 @@ target/failures/
 reports/
 ```
 
-`run` should parse and compile automatically when needed.
+The first check-engine boundary should consume already compiled check artifacts
+and fail clearly when those artifacts are missing, invalid, or empty. It should
+not parse authored YAML or recompile contracts.
+
+Later runner phases may parse or compile automatically after artifact freshness
+semantics are locked.
 
 ## Exit codes
 
@@ -246,12 +251,22 @@ Hint: <fix when available>
 
 ## Selectors
 
-Future selector examples:
+Future illustrative selector examples by gated stage:
+
+Minimal contract/path selector examples:
 
 ```bash
-recon run --select tag:critical
-recon run --select contract:customer_revenue
-recon run --exclude tag:experimental
+recon compile --select "contract:customer_revenue"
+recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
+recon run --select "contract:customer_revenue"
+```
+
+Later gated selector examples:
+
+```bash
+recon run --select "selector:critical_reconciliations"
+recon run --select "check:customer_revenue.row_count"
+recon run --exclude "contract:experimental_*"
 ```
 
 Selectors are not implemented yet, and the exact selector syntax is not locked.
@@ -259,8 +274,26 @@ Before adding `--select`, `--exclude`, or `selectors.yml`, Recon needs a
 selector design covering syntax, manifest metadata, partial compile/run
 behavior, and run result semantics.
 
+Selector support should be introduced in stages. The first implementation should
+stay narrow around explicit contract/path scope for compile, SQL rendering, and
+run. Named selectors, check-level selectors, tag/domain/package selectors,
+state/result selectors, and richer composition remain later design work.
+Contract-only exclusion, including simple contract-name patterns such as
+`contract:experimental_*`, may be included in the first selector implementation
+only if the selector gate locks pattern syntax and select/exclude precedence;
+otherwise it remains part of richer selector expansion.
+
 Selectors should use parsed project metadata rather than scanning files
 independently from the parser.
+
+Future `path:...` selectors should match project-relative manifest paths such
+as `contracts/revenue/customer_revenue.yml`. Exact file-path selection should be
+defined before directory-prefix selection. Selecting a multi-contract YAML file
+should include all contracts in that file unless a later selector design
+explicitly combines file selection with a narrower contract or check selector.
+Metrics currently live inside contracts, so contract/path selectors select the
+metric-generated checks for the selected contracts; individual metric/check
+selection waits for later `check:...` support.
 
 ## Artifact directories
 

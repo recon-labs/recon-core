@@ -10,6 +10,8 @@ This specification follows:
 
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
 - `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`
+- `docs/decisions/adr-0021-execution-placement-and-comparison-engine-strategy.md`
+- `docs/decisions/adr-0022-evidence-privacy-failure-detail-and-result-sinks.md`
 
 ## Base adapter responsibilities
 
@@ -25,6 +27,11 @@ Adapters should implement:
 
 SQL-capable adapters should also implement a dialect renderer for typed check
 plan operations. Core defines the operations; adapters define dialect rendering.
+
+Adapters do not own reconciliation semantics, execution placement, evidence
+meaning, privacy classification, failure-detail bounds, or sink/result
+classification. They declare capabilities and perform approved mechanics after
+Core validates that a check is allowed to use those mechanics.
 
 ## Interface sketch
 
@@ -130,6 +137,23 @@ class AdapterCapabilities:
 capabilities. `versioned` support must be checked against adapter or engine
 version before rendering or execution.
 
+Future adapter capability families include:
+
+- execution in a resolved adapter context,
+- adapter-managed staging or materialization,
+- result and evidence sink writes,
+- portable hash or adapter-local hash behavior,
+- probabilistic key-summary build, merge, serialization, probe, reverse-probe,
+  metrics, and cleanup,
+- diagnostics and redaction behavior.
+
+The exact capability names for these families are intentionally unstabilized in
+this document. They become public adapter contract only when the implementing
+milestone updates the adapter API, typed-plan compatibility docs, public
+contract inventory, and shared adapter conformance tests together. Malformed,
+incompatible, `unknown`, `unsupported`, or `not_implemented` capability states
+must remain blockers.
+
 ## Adapter registry
 
 Adapters should register by connection type.
@@ -197,7 +221,8 @@ required-capability diagnostics instead of uncaught exceptions.
 Core check logic should define typed abstract operations.
 
 Adapters should provide dialect-specific SQL for the operations emitted by the
-compiler. Milestone 6 does not expand the typed operation catalog.
+compiler. The current adapter-aware rendering scope does not expand the typed
+operation catalog.
 For every check marked `rendered`, the renderer must return at least one SQL
 step. Empty renderer output is `RC_ADAPTER_RENDERED_SQL_EMPTY` and must be
 recorded as a rendering failure, not as `rendered` with empty `sql_paths`.
@@ -269,9 +294,9 @@ Rendered SQL belongs under:
 target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
-Milestone 6 adapter-aware rendering uses `not_rendered`, `rendered`,
-`blocked`, and `failed`. Earlier draft statuses `deferred` and `unsupported`
-are no longer emitted for SQL rendering metadata.
+Adapter-aware rendering uses `not_rendered`, `rendered`, `blocked`, and
+`failed`. Earlier draft statuses `deferred` and `unsupported` are no longer
+emitted for SQL rendering metadata.
 When an adapter is known, compiled checks also record `rendering.adapter_type`.
 
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
@@ -359,27 +384,65 @@ query text, relation names, row values, credentials, rendered connection
 details, or engine-specific private payloads and is not safe public output by
 default.
 
-For Milestone 6 DuckDB SQL rendering, source and target connection names may
+For current DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type
 and connection config. Distinct connection contexts are blocked until explicit
 cross-connection rendering or execution placement is designed.
 
 ## Query endpoints
 
-Milestone 6 is relation-only for executable adapter-aware behavior. Query
-endpoints may parse, but adapter-aware rendering or execution should fail with
-a clear unsupported diagnostic until query execution is designed.
+Current adapter-aware rendering is relation-backed only. Query endpoints may
+parse, but adapter-aware rendering should fail with a clear unsupported
+diagnostic until query execution is designed. Adapter execution remains future
+work.
 
 ## Execution placement
 
 The adapter interface does not by itself decide where comparisons execute.
-Milestone 7 is split so execution placement is assigned by executable surface:
-Milestone 7.2 defines row-count placement, Milestone 7.3 defines grain-key
-safety placement, and Milestone 7.4 defines aggregate metric placement. Each
-sub-milestone must define whether its comparisons run in source systems, target
-systems, adapter-managed intermediate systems, or bounded Python-side
-comparison. Unsupported SQL rendering or execution must not silently fall back
-to Python.
+Execution placement is assigned by executable surface: row-count placement,
+grain-key safety placement, and aggregate metric placement are separate
+decisions. Each execution phase must define whether its comparisons run in
+source systems, target systems, adapter-managed intermediate systems, or bounded
+Python-side comparison. Unsupported SQL rendering or execution must not silently
+fall back to Python.
+
+The first check-engine boundary may introduce internal dispatch and blocker
+metadata, but it must not add adapter execution, public placement syntax,
+materialization, generated run-result artifacts, evidence, state, result sinks,
+or probabilistic key-diff behavior.
+
+Future placement-aware execution must define movement and materialization
+rules before an adapter is allowed to move source or target rows into another
+context. Source pushdown, target pushdown, intermediate adapter execution, and
+bounded in-core comparison are separate strategies with separate capability,
+privacy, result, and evidence requirements.
+
+Production result/evidence sink writes require a sink contract before adapters
+can claim support. That contract must cover schema versioning, idempotency,
+retention, privacy/redaction, destination capability fit, write diagnostics,
+and bounded local result objects that reference large sink output rather than
+embedding it.
+
+Probabilistic key-diff strategies, including Bloom-filter-like summaries and
+other set sketches, require a separate strategy contract before adapters can
+claim support. That contract must cover exact vs probabilistic semantics,
+false-positive configuration, partition or window scope, deterministic
+composite-key serialization, bidirectional probing when equivalence requires
+both missing and extra coverage, intermediate summary storage and cleanup,
+privacy classification, and exact confirmation before publishing concrete
+failure rows.
+
+## Future adapter conformance gates
+
+External adapter packages should not claim production compatibility until the
+shared adapter test kit covers the relevant public boundary. The test kit must
+expand with each implemented family:
+
+- execution placement capability validation when execution is implemented,
+- staging and materialization conformance when staging is implemented,
+- result and evidence sink write conformance when sinks are implemented,
+- probabilistic key-summary lifecycle conformance when probabilistic key-diff
+  is implemented.
 
 ## Hashing
 
@@ -404,7 +467,8 @@ recon-oracle
 ```
 
 `recon-duckdb` is a future external package candidate after adapter API and
-shared adapter test-kit stability.
+shared adapter test-kit stability. Additional production adapter packages should
+also wait for the adapter conformance gate.
 
 ## Design principle
 

@@ -23,26 +23,51 @@ Decision:
 
 ### How should selectors and contract subset execution work?
 
-Open.
+Partially decided.
 
-Examples:
+MVP should reserve run-result and evidence scope metadata so future selected
+invocations do not require a public artifact redesign. Early post-MVP selector
+work should start with minimal contract/path selection for compile, SQL
+rendering, and run. Richer selectors remain open.
+
+Illustrative examples by gated stage:
+
+Minimal contract/path selector examples:
 
 ```bash
-recon run --select tag:critical
-recon run --select contract:customer_revenue
-recon run --exclude tag:experimental
+recon compile --select "contract:customer_revenue"
+recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
+recon run --select "contract:customer_revenue"
+```
+
+Later gated selector examples:
+
+```bash
+recon run --select "selector:critical_reconciliations"
+recon run --select "check:customer_revenue.row_count"
+recon run --exclude "contract:experimental_*"
 ```
 
 Preferred direction:
 
 - use parsed manifest metadata, not raw file scanning,
-- design selector syntax before implementation,
-- define named selector shape in `selectors.yml`,
-- define how `--select` and `--exclude` compose,
+- design the minimal contract/path selector syntax before implementation,
+- make `path:...` use project-relative manifest paths,
+- lock exact file-path selection before directory-prefix selection,
+- define that selecting a multi-contract YAML file selects all contracts in that
+  file unless later composition narrows it,
+- treat metric-generated checks as part of the selected contract until
+  check-level selectors are implemented,
+- define named selector shape in `selectors.yml` later,
+- define how `--select` and `--exclude` compose for the minimal subset before
+  adding richer composition; simple contract-name pattern exclusion such as
+  `contract:experimental_*` may be included in the earliest selector slice only
+  if pattern syntax and precedence are locked there,
 - record selected scope in compiled artifacts or run results when relevant,
 - fail clearly when selectors match nothing unless an explicit empty-selection
   mode is added,
-- resolve with a future ADR before dbt-like selectors or partial run behavior.
+- resolve with a future ADR before named selectors, transformation-style
+  selectors, state/result selectors, or rich partial run behavior.
 
 ### How much inheritance should contracts support?
 
@@ -211,7 +236,7 @@ Preferred direction:
 
 ## Tolerances and normalization
 
-### How should SQL Server empty string to Snowflake null be handled?
+### How should empty string to warehouse null be handled?
 
 Locked by ADR 0009:
 
@@ -312,7 +337,7 @@ Preferred direction:
 Preferred direction:
 
 - use a local/test-friendly adapter for development,
-- prioritize Postgres/Snowflake paths based on real use,
+- prioritize initial production adapter paths based on real use,
 - keep adapter interface stable before splitting many repos.
 
 ### When should adapter packages split from `recon-core`?
@@ -322,7 +347,7 @@ Preferred direction:
 - after the typed check-plan model, adapter API versioning, and shared adapter
   test kit are stable enough.
 
-### Should Recon use dbt-style macro dispatch for dialect support?
+### Should Recon use macro dispatch for dialect support?
 
 Decision:
 

@@ -16,6 +16,20 @@ Evidence writers should handle:
 - state references,
 - sample key references.
 
+Writers should distinguish local generated artifacts, result/evidence sinks,
+and state:
+
+- local artifact writers publish files under ignored paths such as `target/`
+  and `reports/`,
+- sink writers publish result or evidence records to explicit configured
+  destinations after execution,
+- state writers persist data that powers future runs, such as watermarks,
+  previous-failure keys, or persisted sample keys.
+
+Result/evidence sink placement is independent from execution placement. A check
+may execute in one context and later write results elsewhere, but the sink must
+not imply where the comparison ran.
+
 ## Writer boundaries
 
 Check implementations should return structured data and artifact requests.
@@ -23,6 +37,16 @@ Check implementations should return structured data and artifact requests.
 Evidence writers should handle file formats and paths.
 
 Avoid writing files directly from deep check logic unless the check is explicitly producing a generated SQL file through the artifact layer.
+
+Check logic should not write result tables, evidence tables, state files, or
+failure-detail files directly. It should return structured outcomes and bounded
+artifact or sink write requests for the appropriate writer layer.
+
+The first check-engine boundary defines no generated evidence writer behavior.
+A later run-result artifact phase owns local run-result artifacts. A later
+evidence phase owns basic local evidence, reports, and bounded failure details.
+Production table/result sinks belong to later result-store work after sink
+schema, write semantics, privacy, and adapter conformance are locked.
 
 ## Failure detail writer
 
@@ -39,6 +63,12 @@ Suggested path:
 ```text
 target/failures/{contract_name}__{check_name}.csv
 ```
+
+Large failure-detail movement, JSONL, streaming, pagination, chunking, external
+large-result stores, and writing large failure records through sink adapters are
+advanced evidence/result-store concerns unless a later split explicitly changes
+that boundary. Failure-detail writers should prefer bounded files and
+references over unbounded rows in memory or run-result artifacts.
 
 ## HTML report writer
 
@@ -59,6 +89,28 @@ The HTML report should summarize:
 - warnings and errors.
 
 A simple static HTML report is enough at first.
+
+Local HTML is an evidence writer, not a required proof side effect. Future
+policy may allow local HTML to be disabled when table-backed or external
+evidence is configured, unless a contract or run policy explicitly requires a
+human-readable report.
+
+## Result And Evidence Sink Writers
+
+Future table-backed sinks may target the source connection, target connection,
+or a third configured connection only when the sink destination is explicit and
+the adapter declares compatible write/sink capabilities. Recon must not infer
+sink destinations from available adapters.
+
+Future sink modes may include terminal-only, local artifacts, table sink, both,
+or disabled optional writers. Every configured sink must also define
+requiredness and write status so a failed evidence write is distinguishable
+from a failed reconciliation check.
+
+Production table sinks need a separate schema/versioning and write contract
+covering table creation policy, migration, append/upsert/merge behavior,
+idempotency, retries, partial-write handling, retention, privacy, and links
+back to local artifacts or state references.
 
 ## Terminal summary writer
 
@@ -92,6 +144,8 @@ Initial protections:
 - prefer summaries and artifact references over embedded values,
 - sanitize runtime adapter and database errors before public output,
 - clearly document generated evidence paths.
+- represent large or sensitive failure details with bounded samples and
+  artifact/sink references rather than embedding rows in run results.
 
 Future protections:
 
@@ -99,6 +153,12 @@ Future protections:
 - redaction,
 - hash-only keys,
 - sensitive column policies.
+
+Serialized probabilistic summaries, Bloom-filter-like summaries, set sketches,
+and intermediate probe outputs are sensitive or policy-controlled until a later
+strategy proves safer handling. Candidate missing or extra records from a
+probabilistic strategy must not be written as exact failure details or table
+rows unless exact confirmation is required and performed.
 
 ## Full versus sampled
 

@@ -39,12 +39,12 @@ Resource discovery should be catalog-driven rather than a set of ad hoc loops.
 The shared loader should remain the single source of truth for parse and
 compile.
 
-Milestone 4.6 introduces non-contract resource indexing as file metadata, not
-resource semantics. The shared loader discovers local check-pack,
-sample-policy, tolerance-policy, schema-policy, and macro files through a
-catalog, computes deterministic checksums, and includes those source files in
-the parsed-project file list. It continues to parse only contract resources
-until each non-contract resource schema is implemented.
+Non-contract resource indexing introduces file metadata, not resource semantics.
+The shared loader discovers local check-pack, sample-policy, tolerance-policy,
+schema-policy, and macro files through a catalog, computes deterministic
+checksums, and includes those source files in the parsed-project file list. It
+continues to parse only contract resources until each non-contract resource
+schema is implemented.
 
 The resource catalog controls missing path behavior separately for defaulted
 paths and authored paths. `required_by_default` controls missing default paths;
@@ -76,8 +76,8 @@ The manifest should contain:
 Future parser milestones may add policy summaries, check pack summaries,
 endpoint summaries, selectors, and richer resource graph metadata.
 
-For Milestone 4.6, non-contract local files appear only in the existing `files`
-map with the current file-record shape:
+For current non-contract source-file indexing, non-contract local files appear
+only in the existing `files` map with the current file-record shape:
 
 ```json
 {

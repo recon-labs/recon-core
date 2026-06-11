@@ -43,7 +43,12 @@ fail
 warn
 error
 skipped
+blocked
+not_executable
 ```
+
+`unsupported` and `not_yet_executable` are not check statuses. They are
+machine-readable reason-code concepts for `not_executable` check results.
 
 ## Error code categories
 
@@ -115,7 +120,7 @@ Resource loading diagnostics locked by ADR 0017:
 | `RC_PARSE_AMBIGUOUS_RESOURCE_FILE` | parse | error |
 | `RC_PARSE_DUPLICATE_RESOURCE_NAME` | parse | error |
 
-Milestone 4.6 source-file indexing should use
+Source-file indexing should use
 `RC_PARSE_RESOURCE_PATH_NOT_FOUND` for missing or non-directory required paths
 and explicitly configured optional paths. It should use
 `RC_PARSE_AMBIGUOUS_RESOURCE_FILE` when one source file is reachable through
@@ -235,7 +240,7 @@ RC_VALIDATE_INVALID_REGEX_NORMALIZATION
 RC_VALIDATE_TIMESTAMP_TIMEZONE_REQUIRED
 ```
 
-Milestone 5 should use these locked diagnostics for the validation rulebook:
+The validation rulebook should use these locked diagnostics:
 
 | Code | Timing | Severity |
 | --- | --- | --- |
@@ -304,7 +309,7 @@ RC_ADAPTER_METADATA_INVALID
 RC_ADAPTER_QUERY_FAILED
 ```
 
-Milestone 6 adapter-aware compile uses `RC_ADAPTER_*` diagnostics for adapter
+Adapter-aware compile uses `RC_ADAPTER_*` diagnostics for adapter
 type resolution, empty or malformed adapter factory results, malformed factory
 diagnostic payloads, adapter factory exceptions, adapter API compatibility,
 missing or invalid adapter API version declarations, capability declaration
@@ -390,20 +395,35 @@ from starting.
 
 ## Runtime diagnostics
 
-Examples:
+First check-engine result diagnostics use the runtime family because they are
+created while loading compiled check artifacts or preparing run-time check
+results. Locked codes:
 
-```text
-RC_RUNTIME_CHECK_ERROR
-RC_RUNTIME_CHECK_BLOCKED_BY_FAILED_PREREQUISITE
-RC_RUNTIME_COMPILED_ARTIFACT_WRITE_FAILED
-RC_RUNTIME_NULL_GRAIN_KEYS
-RC_RUNTIME_DUPLICATE_GRAIN_KEYS
-RC_RUNTIME_NULL_CDC_KEYS
-RC_RUNTIME_DUPLICATE_CDC_KEYS
-RC_RUNTIME_MANIFEST_WRITE_FAILED
-RC_RUNTIME_STATE_WRITE_FAILED
-RC_RUNTIME_EVIDENCE_WRITE_FAILED
-```
+| Code | Timing | Severity | Use for |
+| --- | --- | --- | --- |
+| `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND` | run | error | Expected compiled-check artifacts are missing. |
+| `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID` | run | error | A compiled-check artifact is unreadable, malformed, or incompatible with the current loader. |
+| `RC_RUNTIME_NO_COMPILED_CHECKS` | run | error | No compiled checks are available in the requested run scope. This must not be reported as `pass`. |
+| `RC_RUNTIME_CHECK_NOT_EXECUTABLE` | run | error | A compiled check is valid but cannot execute in the current check-engine surface. |
+| `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE` | run | error | The compiled check type has no internal dispatch handler. |
+| `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION` | run | error | The compiled typed operation has no runtime executor in the current check-engine surface. |
+| `RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT` | run | error | Required operation or comparison placement is not implemented or allowed. |
+| `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY` | run | error | Required staging, movement, or materialization policy is not implemented or allowed. |
+| `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, or is missing. |
+| `RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR` | run | error | An unexpected check-engine error occurred after sanitization. |
+
+Future runtime, state, evidence, and key-safety phases may add or retain
+additional runtime-family codes for check execution errors, key safety failures,
+artifact writes, state writes, and evidence writes when those behaviors are
+implemented. Those later-phase codes are not part of the first check-engine
+boundary until their owning phase locks semantics, compatibility docs, and test
+coverage.
+
+These diagnostics explain non-execution; they are not reconciliation mismatch
+evidence. They must preserve safe code, severity, message, resource context,
+path, and hint where available. They must not expose raw source/target values,
+query text, relation names, rendered profile values, credentials, raw database
+errors, raw tracebacks, or unredacted artifact contents.
 
 ## Message style
 
@@ -451,12 +471,12 @@ through diagnostic `message`, `hint`, `path`, resource metadata, line/column
 fields, terminal output, run results, evidence, reports, logs, or test snapshots
 unless the policy explicitly allows that output.
 
-For the Milestone 7 split, Milestone 7.1 owns check-engine diagnostics that do
-not require adapter execution, Milestone 7.2 owns runtime adapter diagnostics
-for row-count execution, Milestone 7.3 owns key-safety execution diagnostics,
-and Milestone 7.4 owns aggregate execution diagnostics. Run-result diagnostics
-remain Milestone 8, and evidence/report/failure-detail diagnostics remain
-Milestone 9 unless a later split explicitly changes those boundaries.
+For the check-engine split, the first check-engine boundary owns diagnostics
+that do not require adapter execution. Row-count execution owns runtime adapter
+diagnostics, grain-key safety execution owns key-safety diagnostics, and
+aggregate execution owns aggregate diagnostics. Run-result diagnostics and
+evidence/report/failure-detail diagnostics remain separate later surfaces unless
+a later split explicitly changes those boundaries.
 
 Do not pass raw low-level exception strings directly into public diagnostics
 when those exceptions can contain authored YAML snippets, rendered connection

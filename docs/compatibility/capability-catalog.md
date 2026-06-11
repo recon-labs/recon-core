@@ -19,6 +19,12 @@ Current state:
   relation-backed SQL rendering capability subset,
 - no external production adapter declares capabilities yet,
 - no adapter test kit validates capabilities yet.
+- ADR 0021 defines future execution placement and materialization/staging
+  capability needs, but those capability names are not implemented yet,
+- ADR 0022 defines future result/evidence sink-write capability needs, but
+  those capability names are not implemented yet.
+- Probabilistic key-diff and Bloom/sketch capabilities are future-only; no
+  adapter may claim them until semantics and conformance rows exist.
 
 ## Capability rules
 
@@ -31,9 +37,16 @@ Capabilities must be:
 - tested by the shared adapter test kit once it exists,
 - documented when their meaning changes.
 
+Core owns the semantic decision about whether an operation may execute
+side-locally, in one shared context, in Recon memory, in an adapter-managed
+intermediate engine, or in a future external comparison engine. Adapter
+capabilities can prove that the required mechanics exist; they do not let an
+adapter redefine the reconciliation strategy Core planned.
+
 An adapter must not claim a capability unless it implements and tests the
 behavior. This is especially important for hash behavior, timestamp behavior,
-null-safe equality, and semi-structured projections.
+null-safe equality, semi-structured projections, data movement, staging, and
+result/evidence sink writes.
 
 The future shared adapter test kit must include a SQL comparison conformance
 matrix before external adapter repositories or adapter packages are split. That
@@ -80,8 +93,9 @@ must validate support states before rendering or executing required operations.
 Malformed support-state values must become structured diagnostics instead of
 uncaught adapter errors.
 
-Milestone 6 uses only the capability subset required by currently emitted typed
-operations. It does not expand the typed operation catalog.
+Current adapter-aware rendering uses only the capability subset required by
+currently emitted typed operations. It does not expand the typed operation
+catalog.
 
 ## Draft capability names
 
@@ -112,15 +126,35 @@ adapter API is stable.
 | `semi_structured_projection` | Adapter can project semi-structured data into comparable fields. |
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
-In Milestone 6, executable adapter-aware behavior is relation-only. The
-`queries` capability is reserved for future executable query endpoint support
-and is not required by current relation-only checks.
+Current adapter-aware rendering is relation-backed only. The `queries`
+capability is reserved for future executable query endpoint support and is not
+required by current relation-backed rendering.
 
 Future tolerance or normalization execution may require additional granular
 capabilities after typed policy payloads are implemented. ADR 0009 locks
 limited regex replacement as an MVP policy surface, so the implementation phase
 must add a granular regex capability only when it also updates the code enum,
 adapter docs, and tests.
+
+## Future placement and sink capability families
+
+The following capability families are planned compatibility surfaces. They are
+not implemented capability constants today and must not be used by external
+adapters as compatibility claims until the implementing milestone adds code,
+tests, and adapter test-kit rows.
+
+| Family | Candidate capabilities | Meaning |
+| --- | --- | --- |
+| Execution placement | `side_local_execution`, `same_context_execution`, `bounded_result_fetch` | Adapter can execute the planned operation in the location Core selected and return only the bounded result shape Core allowed. |
+| Comparison placement | `same_context_comparison`, `external_comparison_engine` | Adapter or configured engine can compare source and target results in one approved context without adapter-owned semantic changes. |
+| Materialization and staging | `temporary_staging_for_comparison`, `relation_extract`, `relation_load`, `table_to_table_copy` | Adapter can move, stage, or load data or summaries only under an explicit materialization policy with cleanup, privacy, and limits. |
+| Probabilistic key coverage | `bloom_filter_build`, `bloom_filter_probe`, `bloom_filter_serialize`, `set_sketch_merge`, `probabilistic_key_diff` | Adapter can build, serialize, transfer, merge, store, or probe key-membership summaries only under an explicit false-positive, hash/canonicalization, composite-key serialization, bidirectional probing, partitioning, privacy, intermediate-summary, and evidence policy. |
+| Result/evidence table writes | `table_create`, `table_migrate`, `table_append`, `table_upsert`, `table_merge`, `transactional_batch_write`, `table_metadata`, `temporary_staging_for_sink` | Adapter can write production result/evidence sink records with explicit schema, versioning, migration, idempotency, retry, and partial-write behavior. |
+
+The final names may differ. The compatibility requirement is the same: unknown,
+unsupported, `not_implemented`, malformed, or incompatible states do not satisfy
+required execution, staging, comparison, probabilistic key-coverage, or
+sink-write behavior.
 
 ## Hash compatibility warning
 
@@ -141,12 +175,20 @@ Capability changes affect compatibility when they:
 - make a capability required for an existing check,
 - change diagnostics for unsupported capabilities,
 - change which typed operations require a capability.
+- change execution placement, comparison placement, materialization/staging, or
+  sink-write capability semantics.
+- add or change probabilistic key-diff, Bloom filter, set sketch,
+  false-positive-rate, hash/canonicalization, composite-key serialization,
+  bidirectional probing, partitioning, multi-phase lifecycle,
+  intermediate-summary storage, or exact-confirmation capability semantics.
 
 When a capability changes, update:
 
 - this document,
 - `docs/compatibility/typed-check-plan.md` when operation requirements change,
 - `docs/compatibility/adapter-api.md` when adapter declarations change,
+- `docs/compatibility/compatibility-matrix.md` when placement, staging, or sink
+  compatibility status changes,
 - adapter test-kit expectations once the test kit exists,
 - relevant ADRs when the change is durable.
 
@@ -157,3 +199,5 @@ When a capability changes, update:
 - `docs/implementation/adapter-interface-spec.md`
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
 - `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`
+- `docs/decisions/adr-0021-execution-placement-and-comparison-engine-strategy.md`
+- `docs/decisions/adr-0022-evidence-privacy-failure-detail-and-result-sinks.md`

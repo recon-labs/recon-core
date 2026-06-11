@@ -16,17 +16,13 @@ The design must cover:
 - query endpoint execution boundaries,
 - typed operation catalog expansion policy.
 
-dbt Core and dbt adapters provide the strongest mature reference for profile
-selection, adapter boundaries, adapter registration, generated artifacts, and
-shared adapter tests. Recon should borrow those boundaries, but not dbt-style
-macro dispatch as the primary comparison engine. Recon's public contract is a
-typed, inspectable reconciliation plan.
-
-DVT, Soda Core, Great Expectations, and Datafold data-diff provide useful
-references for source-target comparison workflows, datasource configuration,
-SQL datasource boundaries, and query-based comparison patterns. Their execution
-strategies are useful inputs, but Recon must preserve Core-owned comparison
-semantics and evidence-oriented artifacts.
+Adapter and validation design needs profile selection, adapter boundaries,
+adapter registration, generated artifacts, shared adapter tests, datasource
+configuration, SQL datasource boundaries, and query-based comparison patterns.
+Recon should use those boundaries, but not macro dispatch as the primary
+comparison engine. Recon's public contract is a typed, inspectable
+reconciliation plan with Core-owned comparison semantics and evidence-oriented
+artifacts.
 
 ## Decision
 
@@ -449,13 +445,3 @@ The implementation should not:
 - expand typed operation payloads,
 - make query endpoints executable,
 - add silent Python comparison fallback.
-
-## References
-
-- dbt adapter creation: `https://docs.getdbt.com/guides/adapter-creation`
-- dbt adapter object: `https://docs.getdbt.com/reference/dbt-jinja-functions/adapter`
-- dbt adapters: `https://github.com/dbt-labs/dbt-adapters`
-- DVT: `https://github.com/GoogleCloudPlatform/professional-services-data-validator`
-- Soda Core: `https://github.com/sodadata/soda-core`
-- Great Expectations: `https://github.com/great-expectations/great_expectations`
-- Datafold data-diff: `https://github.com/datafold/data-diff`

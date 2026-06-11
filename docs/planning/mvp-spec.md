@@ -45,7 +45,10 @@ Recommended early command:
 recon init
 ```
 
-`recon run` may parse and compile automatically when needed.
+The first check-engine boundary for `recon run` consumes already compiled check
+artifacts and fails clearly when those artifacts are missing, invalid, or empty.
+Later runner phases may parse or compile automatically after artifact freshness
+semantics are locked.
 
 ### Project config
 
@@ -234,21 +237,24 @@ target/compiled_sql/
 
 ### Run
 
-`recon run` should:
+`recon run` should progress in stages:
 
-- parse and compile if needed,
-- execute compiled checks,
-- write run results,
-- write failure details where configured,
+- first consume already compiled check artifacts and fail clearly when they are
+  missing, invalid, or empty,
+- execute compiled checks once each execution phase is implemented,
+- parse and compile automatically only after artifact freshness semantics are
+  locked,
+- write run results in the runner/result artifact phase,
+- write failure details where configured in the evidence phase,
 - return non-zero on error-severity failures.
 
-Required run artifact:
+Future run artifact:
 
 ```text
 target/run_results.json
 ```
 
-Recommended report:
+Future recommended report:
 
 ```text
 reports/*.html
@@ -264,8 +270,12 @@ Recommended strategy:
 - define typed check plans before adapter SQL rendering,
 - add adapter API versioning and capability declarations,
 - implement one lightweight SQL adapter for local/dev testing,
-- implement one practical adapter path first, likely Postgres or DuckDB for local repeatability,
-- keep Snowflake/Postgres production adapters as early follow-up packages or experimental modules.
+- keep DuckDB as the first practical in-core local adapter path for repeatable
+  development and tests,
+- defer official production adapter packages until the adapter package/test-kit
+  gates are satisfied. Experimental adapter work must not claim stable
+  execution, sink, result-table, or probabilistic-summary compatibility before
+  the relevant conformance gates exist and pass.
 
 The MVP should avoid making `recon-core` depend on every database driver.
 
@@ -305,7 +315,12 @@ The MVP should not include:
 - SCD2 support,
 - previous-failure state backend,
 - persisted random sampling,
+- `--select`, `--exclude`, `selectors.yml`, or partial compile/run execution,
 - advanced permissions/secrets management.
+
+The MVP run-result and evidence artifacts should still avoid assuming that
+every future invocation is whole-project. They may reserve safe selected-scope
+metadata or scope fields, but selector execution itself remains post-MVP.
 
 ## MVP example
 
@@ -362,7 +377,8 @@ The MVP is acceptable when:
 - row-level checks block on null or duplicate keys,
 - compiled artifacts are readable,
 - run results are machine-readable,
-- users can understand why each check passed, failed, warned, errored, or skipped,
+- users can understand why each check passed, failed, warned, errored, skipped,
+  was blocked, or was not executable,
 - documentation matches implementation behavior.
 
 After these criteria pass, Recon is eligible for a 0.1 release-readiness pass.

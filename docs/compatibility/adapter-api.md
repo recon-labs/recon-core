@@ -18,11 +18,16 @@ Current state:
 - no production adapter packages have been split from `recon-core`,
 - no external adapter API version has been released,
 - no shared adapter test kit exists yet,
-- ADR 0020 locks the first adapter/profile/rendering boundary for Milestone 6,
+- ADR 0020 locks the first adapter/profile/rendering boundary,
+- ADR 0021 locks execution placement and comparison-engine ownership,
+- ADR 0022 locks result/evidence sink placement, privacy, and write-status
+  ownership,
 - `ADAPTER_API_VERSION = "1"` exists in code as a pre-alpha adapter boundary,
 - the in-core DuckDB local development adapter renders current typed check
   plans to SQL,
-- adapter execution and metadata fetching are not implemented yet.
+- adapter execution, metadata fetching, materialization/staging,
+  probabilistic key-diff, and result/evidence sink writes are not implemented
+  yet.
 
 Adapter repositories such as `recon-postgres` and `recon-snowflake` should split
 only after typed check plans, adapter API versioning, and shared adapter tests
@@ -235,27 +240,27 @@ details, reports, logs, and test snapshots before compatibility is claimed. Raw
 low-level exception text is not a safe adapter diagnostic message unless it has
 been classified and sanitized under the source/target data privacy policy.
 
-## Milestone 6 Adapter/Profile Conformance Matrix
+## Adapter/Profile Rendering Conformance Matrix
 
 This is the required dimension-expanded conformance matrix for the current
 adapter-aware compile, profile, diagnostic-redaction, and SQL-rendering surface.
 Rows are acceptance/conformance rows, not illustrative examples; implementation
 coverage must exercise the listed variants or record the row as explicitly out of
-scope for the current milestone.
+scope for the current adapter-aware rendering surface.
 
 | Dimension | Required cases | Expected behavior | Test coverage | Docs/gate impact | Out-of-scope rationale |
 | --- | --- | --- | --- | --- | --- |
 | Profile selection and rendered connection config | Selected profile, selected target, referenced `legacy` and `warehouse` named connections, referenced `{{ env_var(...) }}` and bare `env_var(...)` fields, env-var defaults, missing referenced env vars, unsupported bare env-var expressions, embedded env-var calls, filters, Jinja statement/comment fragments such as `{% ... %}` and `{# ... #}`, unselected targets, and unreferenced connections. | Adapter-aware compile renders only selected/referenced connection config, fails missing or unsupported env-var/template syntax only for referenced config, never passes invalid template syntax through as literal config, and does not leak rendered values through diagnostics or generated artifacts. | Existing coverage in `tests/profiles/test_loader.py` and `tests/services/test_compile_service.py`. | Gates runtime profile loading, debug/profile validation commands, adapter execution, and shared adapter test-kit profile fixtures. | Runtime profile loading, profile debug commands, profile schema versioning, and external test-kit fixtures are future work. |
-| Adapter type routing | Literal non-empty `type`, missing or invalid `type`, Jinja expression/statement/comment `type`, bare `env_var(...)` `type`, unsupported template syntax, unknown adapter type, and factory-returned adapter metadata that differs from the literal profile `type`. | `type` remains a literal adapter routing key. Templated or env-var-derived `type` fails profile configuration before adapter factories/renderers run, writes no compiled SQL, and does not leak rendered env values. Unknown literal types fail adapter resolution with clear diagnostics. Resolved adapter `adapter_type` metadata must match the literal profile connection `type` before capability validation or renderer selection; mismatches fail with `RC_ADAPTER_TYPE_MISMATCH` and write no compiled SQL. | Existing coverage in `tests/profiles/test_loader.py` and `tests/services/test_compile_service.py`. | Gates external adapter packages and any runtime adapter resolution path; future adapter choices must use targets or named connections, not rendered `type`. | Environment-selected adapter package routing is intentionally out of scope for Milestone 6. |
-| Profile-backed diagnostic redaction by field | Adapter factory diagnostics, adapter API diagnostics, capability diagnostics, render-phase diagnostics, exception-derived diagnostics, unsafe config keys, rendered string values, rendered numeric values, case variants, simple derived forms, DSN fragments and parsed DSN components, `message`, `hint`, `path`, `resource_type`, `resource_name`, `line`, `column`, `rendering.adapter_type`, and future structured diagnostic fields. | Unsafe text/resource metadata is replaced with safe generic adapter diagnostics or safe rendering metadata while preserving severity and actionable context. Public output must not contain credentials, tokens, DSNs, DSN username/password/host/path/query components, rendered connection payloads, or simple transformations of those values. | Existing coverage in `tests/services/test_compile_service.py`; future field additions must add field-specific tests before exposing the field. | Gates check execution diagnostics, run results, evidence, logs, debug commands, adapter test-kit snapshots, and external adapter compatibility claims. | Source/target data privacy for runtime rows, query text, and database errors starts with Milestone 7.2 adapter execution; evidence and failure-detail privacy remains Milestone 9 unless pulled earlier by an explicit split. |
+| Adapter type routing | Literal non-empty `type`, missing or invalid `type`, Jinja expression/statement/comment `type`, bare `env_var(...)` `type`, unsupported template syntax, unknown adapter type, and factory-returned adapter metadata that differs from the literal profile `type`. | `type` remains a literal adapter routing key. Templated or env-var-derived `type` fails profile configuration before adapter factories/renderers run, writes no compiled SQL, and does not leak rendered env values. Unknown literal types fail adapter resolution with clear diagnostics. Resolved adapter `adapter_type` metadata must match the literal profile connection `type` before capability validation or renderer selection; mismatches fail with `RC_ADAPTER_TYPE_MISMATCH` and write no compiled SQL. | Existing coverage in `tests/profiles/test_loader.py` and `tests/services/test_compile_service.py`. | Gates external adapter packages and any runtime adapter resolution path; future adapter choices must use targets or named connections, not rendered `type`. | Environment-selected adapter package routing is intentionally out of scope for current adapter-aware rendering. |
+| Profile-backed diagnostic redaction by field | Adapter factory diagnostics, adapter API diagnostics, capability diagnostics, render-phase diagnostics, exception-derived diagnostics, unsafe config keys, rendered string values, rendered numeric values, case variants, simple derived forms, DSN fragments and parsed DSN components, `message`, `hint`, `path`, `resource_type`, `resource_name`, `line`, `column`, `rendering.adapter_type`, and future structured diagnostic fields. | Unsafe text/resource metadata is replaced with safe generic adapter diagnostics or safe rendering metadata while preserving severity and actionable context. Public output must not contain credentials, tokens, DSNs, DSN username/password/host/path/query components, rendered connection payloads, or simple transformations of those values. | Existing coverage in `tests/services/test_compile_service.py`; future field additions must add field-specific tests before exposing the field. | Gates check execution diagnostics, run results, evidence, logs, debug commands, adapter test-kit snapshots, and external adapter compatibility claims. | Source/target data privacy for runtime rows, query text, and database errors starts with the first adapter execution phase; evidence and failure-detail privacy remains in the evidence phase unless pulled earlier by an explicit split. |
 | Diagnostic-code redaction | Unsafe config-key code tokens such as `RC_PASSWORD_LEAK`, separatorless unsafe key embeddings such as `RCPASSWORDLEAK`, rendered-value embeddings such as `RCsuper-secretLEAK`, short numeric embeddings such as `RC12LEAK`, formatted numeric equivalents such as `12.0`, `+12`, and `1.2e1`, and incidental non-secret config-key substrings such as `RC_ADAPTER_CAPABILITY_UNSUPPORTED`. | Codes that expose unsafe keys or rendered profile values are replaced with `RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED`. Safe public adapter codes are preserved even when they contain common non-secret words such as `adapter`. | Existing coverage in `tests/services/test_compile_service.py`. | Gates adapter diagnostic compatibility, external adapter test-kit assertions, and any public diagnostic-code documentation. | Cryptographic detection of arbitrary transformed secrets is out of scope; adapters must not place secrets in codes. |
 | Adapter factory and resolution contract | Registered factory, unknown adapter type, empty factory result, malformed result, malformed diagnostic container, malformed diagnostic entries, invalid `Diagnostic` fields, factory exception, same-connection duplicate setup diagnostics, distinct source/target setup diagnostics, setup diagnostics alongside independent render diagnostics, and factory returns both adapter and diagnostics. | Factory resolution produces an adapter or structured diagnostics. Malformed or exception-raising factories fail with sanitized `RC_ADAPTER_RESOLUTION_FAILED`. Setup diagnostics block rendering, write no compiled SQL, de-duplicate repeated same-connection service diagnostics, preserve distinct connection diagnostics, and do not mask render diagnostics from otherwise resolvable contracts in the same compile invocation. | Existing coverage in `tests/adapters/test_registry.py` and `tests/services/test_compile_service.py`. | Gates external adapter package APIs, adapter test-kit fixtures, and execution-time adapter resolution. | Adapter lifecycle execution, connection pooling, and production adapter package distribution are future work. |
 | Adapter metadata, API version, and capabilities | Missing, empty, non-string, or exception-raising `adapter_type`; missing or incompatible `supported_adapter_api_version`; capability declaration exceptions; malformed support states; required-capability unsupported, not implemented, unknown, and versioned states. | Core fails before rendering/execution with sanitized structured diagnostics and never treats ambiguous adapter declarations as success. | Existing coverage in `tests/adapters/test_capabilities.py`, `tests/adapters/test_registry.py`, and `tests/services/test_compile_service.py`. | Gates adapter API version stability, capability catalog updates, and production adapter compatibility claims. | Stable external adapter API versioning and adapter package release policy are future gates. |
-| Public/shared renderer orchestration | Public or shared rendering helpers, test-kit harnesses, execution paths, or adapter repositories that accept both a resolved adapter and an explicit renderer; matching renderer `adapter_type`; missing, empty, non-string, exception-raising, or mismatched renderer `adapter_type`. | Core helper orchestration must fail before `render_plan()` when adapter API compatibility fails, the renderer type cannot be validated, or the renderer type does not match the resolved adapter type. The current Milestone 6 CLI path also selects the renderer by resolved adapter type before calling the lower helper. | Existing coverage in `tests/adapters/test_rendering.py` and service coverage proving renderer selection by resolved adapter type for the in-core DuckDB path. | Gates Milestone 7.2 or later if execution introduces renderer registries or shared rendering helpers, and gates `recon-adapter-testkit`, `recon-duckdb` extraction, third-party adapter repositories, and stable adapter API claims. | Third-party helper calls remain out of scope until the adapter API is stabilized, but exported Core helpers still enforce the invariant. |
-| Relation-only rendering boundary | Relation endpoints, query endpoints, same source/target adapter type, same source/target connection context, compile validation failures before rendering, and unsupported renderer for otherwise valid adapters. | Milestone 6 renders relation-backed typed plans only. Query endpoints and cross-context rendering fail clearly. Compile validation failures mark otherwise renderable checks `blocked` with `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and do not invoke adapter factories/renderers. Unsupported renderers fail with `RC_ADAPTER_CAPABILITY_UNSUPPORTED`. | Existing coverage in `tests/services/test_compile_service.py` and `tests/adapters/test_rendering.py`. | Gates Milestone 7.2 row-count execution, Milestone 7.3 grain-key execution, Milestone 7.4 aggregate execution, and any future query-endpoint rendering support. | Executable query endpoints, cross-adapter rendering, and Python fallback execution are out of scope. |
+| Public/shared renderer orchestration | Public or shared rendering helpers, test-kit harnesses, execution paths, or adapter repositories that accept both a resolved adapter and an explicit renderer; matching renderer `adapter_type`; missing, empty, non-string, exception-raising, or mismatched renderer `adapter_type`. | Core helper orchestration must fail before `render_plan()` when adapter API compatibility fails, the renderer type cannot be validated, or the renderer type does not match the resolved adapter type. The current CLI path also selects the renderer by resolved adapter type before calling the lower helper. | Existing coverage in `tests/adapters/test_rendering.py` and service coverage proving renderer selection by resolved adapter type for the in-core DuckDB path. | Gates later execution phases if execution introduces renderer registries or shared rendering helpers, and gates `recon-adapter-testkit`, `recon-duckdb` extraction, third-party adapter repositories, and stable adapter API claims. | Third-party helper calls remain out of scope until the adapter API is stabilized, but exported Core helpers still enforce the invariant. |
+| Relation-only rendering boundary | Relation endpoints, query endpoints, same source/target adapter type, same source/target connection context, compile validation failures before rendering, and unsupported renderer for otherwise valid adapters. | Current adapter-aware rendering renders relation-backed typed plans only. Query endpoints and cross-context rendering fail clearly. Compile validation failures mark otherwise renderable checks `blocked` with `RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS` and do not invoke adapter factories/renderers. Unsupported renderers fail with `RC_ADAPTER_CAPABILITY_UNSUPPORTED`. | Existing coverage in `tests/services/test_compile_service.py` and `tests/adapters/test_rendering.py`. | Gates row-count execution, grain-key execution, aggregate execution, and any future query-endpoint rendering support. | Executable query endpoints, cross-adapter rendering, and Python fallback execution are out of scope. |
 | SQL renderer output and generated artifacts | Current typed operations only, DuckDB renderer output, empty renderer output, exported empty compiled SQL writer requests, exported malformed compiled SQL writer requests, later empty or malformed rendered SQL batch requests, malformed non-empty renderer output, rendered-step `required_capabilities` declarations, invalid later rendered steps, unsafe step names, duplicate step names including case-insensitive output collisions, exact output paths that already exist as directories or other non-files, compiled SQL path safety, target-relative traceability, and failed-output cleanup. | Rendered checks write path-safe SQL artifacts and compiled-check traceability. Empty renderer output, empty writer requests, malformed output, unsupported rendered-step capabilities, and unsafe or non-file output targets fail before compiled SQL is published. Batched writers validate rendered-step shape and preflight the full output set before the first directory or file is created, so failed invocations do not leave misleading compiled SQL or partial compiled YAML from the same invocation. Future shared renderer orchestration and adapter test-kit compatibility must retain `RenderedSql.required_capabilities` enforcement before SQL, run results, evidence, or adapter test snapshots are published. | Existing coverage in `tests/adapters/test_duckdb_sql_renderer.py`, `tests/adapters/test_rendering.py`, `tests/artifacts/test_compiled_sql_writer.py`, and `tests/services/test_compile_service.py`; shared test-kit and external adapter compatibility must carry these cases into cross-repo conformance before compatibility is claimed. | Gates the Renderer Output And Artifact Publication Conformance Gate, generated artifact compatibility, future adapter test-kit renderer assertions, renderer registries, execution, evidence, and external adapter compatibility claims. | Expanding the typed operation catalog requires the typed operation catalog expansion gate. External adapter and shared test-kit compatibility remain future work. |
-| SQL comparison semantics for future adapter test kit | Null-safe equality, key-diff semantics, nullable grouped aggregate keys, no implicit type coercion, representative cross-type values, empty relation type mismatches, aggregate input and result type mismatches, boolean aggregate inputs, unsigned large integers, exact numeric aggregate preservation, empty aggregate result semantics, unsupported-capability behavior, and required adapter dependency installation in semantic CI. | A future shared test kit must make comparison semantics executable across adapters before external adapter compatibility is claimed. Unsupported or unsafe behavior must fail clearly rather than silently relying on dialect casts, fallback behavior, or optional-import skips in required conformance jobs. | Planned shared adapter test-kit coverage; current in-core DuckDB renderer tests cover the rendering subset and CI-gated executable DuckDB semantic cases through the optional DuckDB extra. | Gates `recon-adapter-testkit`, `recon-duckdb` package split, and production adapter compatibility claims. | Execution is staged through Milestone 7.2 row count, Milestone 7.3 grain-key checks, and Milestone 7.4 aggregates; Milestone 6 renders SQL and does not execute checks. |
-| External adapter/test-kit release boundary | Shared test-kit repository, `recon-duckdb` split, production adapter packages, adapter compatibility claims, runtime diagnostics, execution snapshots, and evidence/report compatibility. | No external adapter package or test-kit compatibility claim may ship until the relevant rows above are executable in shared conformance tests and source/target data privacy gates are satisfied for execution surfaces. | Planned; current coverage remains in `recon-core` tests until repositories split. | Gates adapter ecosystem release readiness and cross-repo compatibility docs. | External repositories, package version matrices, and release automation are post-Milestone 6 work. |
+| SQL comparison semantics for future adapter test kit | Null-safe equality, key-diff semantics, nullable grouped aggregate keys, no implicit type coercion, representative cross-type values, empty relation type mismatches, aggregate input and result type mismatches, boolean aggregate inputs, unsigned large integers, exact numeric aggregate preservation, empty aggregate result semantics, unsupported-capability behavior, and required adapter dependency installation in semantic CI. | A future shared test kit must make comparison semantics executable across adapters before external adapter compatibility is claimed. Unsupported or unsafe behavior must fail clearly rather than silently relying on dialect casts, fallback behavior, or optional-import skips in required conformance jobs. | Planned shared adapter test-kit coverage; current in-core DuckDB renderer tests cover the rendering subset and CI-gated executable DuckDB semantic cases through the optional DuckDB extra. | Gates `recon-adapter-testkit`, `recon-duckdb` package split, and production adapter compatibility claims. | Execution is staged through row count, grain-key checks, and aggregates; current adapter-aware rendering renders SQL and does not execute checks. |
+| External adapter/test-kit release boundary | Shared test-kit repository, `recon-duckdb` split, production adapter packages, adapter compatibility claims, runtime diagnostics, execution snapshots, and evidence/report compatibility. | No external adapter package or test-kit compatibility claim may ship until the relevant rows above are executable in shared conformance tests and source/target data privacy gates are satisfied for execution surfaces. | Planned; current coverage remains in `recon-core` tests until repositories split. | Gates adapter ecosystem release readiness and cross-repo compatibility docs. | External repositories, package version matrices, and release automation are future work. |
 
 ## Compatibility contract
 
@@ -310,10 +315,10 @@ compatibility and must validate that the renderer declares a non-empty
 exported `render_check_sql()` helper fails before `render_plan()` with
 `RC_ADAPTER_API_VERSION_UNSUPPORTED`,
 `RC_ADAPTER_RENDERER_METADATA_INVALID`, or
-`RC_ADAPTER_RENDERER_TYPE_MISMATCH` for those cases. The current Milestone 6
-compile path selects the renderer by resolved adapter type before calling
-lower-level rendering helpers; future test-kit harnesses, adapter repositories,
-or execution paths must not rely on caller discipline.
+`RC_ADAPTER_RENDERER_TYPE_MISMATCH` for those cases. The current compile path
+selects the renderer by resolved adapter type before calling lower-level
+rendering helpers; future test-kit harnesses, adapter repositories, or
+execution paths must not rely on caller discipline.
 
 The first adapter boundary separates:
 
@@ -323,8 +328,44 @@ SqlRenderer
 ```
 
 `BaseAdapter` owns connection lifecycle, metadata, execution, adapter metadata,
-and capability declarations. `SqlRenderer` owns dialect rendering for Core
-typed operations.
+capability declarations, and future approved write/staging mechanics.
+`SqlRenderer` owns dialect rendering for Core typed operations.
+
+## Execution, Placement, And Sink Compatibility
+
+Execution placement and sink placement are separate compatibility surfaces.
+
+For execution, Core owns the planned operation execution location, comparison
+location, and materialization/staging policy. Adapters may declare capabilities
+and perform approved mechanics, but they must not silently choose Python
+fallback, dialect-specific casts, inferred mappings, data movement, staging, or
+a different comparison engine than Core planned.
+
+Probabilistic key-diff strategies, including Bloom filters or other set
+sketches, are also Core-owned semantics. Future adapters may build, serialize,
+merge, or probe probabilistic summaries only after Recon defines false-positive
+policy, hash and key canonicalization, composite-key serialization,
+bidirectional A-to-B and B-to-A probing, partition/window scope, multi-phase
+build/transport/store/probe/compare/cleanup lifecycle, privacy classification
+for serialized summaries, intermediate summary/result storage, result/evidence
+wording, and whether suspected missing or extra records require exact
+confirmation before export. An adapter must not report a probabilistic hit as
+exact source-target equivalence.
+
+For result and evidence sinks, Core owns sink mode, destination requiredness,
+sink-write status, privacy classification, and the rule that sink placement
+does not imply where a check executed. Future adapters may write result or
+evidence tables only after explicit write/sink capabilities, schema/versioning,
+migration, idempotency, retry, retention, and partial-write behavior are
+defined and tested. A source, target, or third configured connection may be a
+sink destination only when the destination is explicit; adapter availability is
+not enough to infer a sink.
+
+External adapter packages, a future `recon-duckdb` split, or a shared adapter
+test kit must not claim compatibility for broad placement, comparison-engine,
+materialization/staging, probabilistic key-diff, Bloom/sketch, or table-sink
+behavior until the relevant capability names, conformance matrix rows, and
+privacy tests exist.
 
 ## Core-owned behavior
 
@@ -337,8 +378,12 @@ Recon Core owns:
 - check requirements and prerequisites,
 - capability requirements,
 - result and evidence models,
-- base adapter interfaces.
-- comparison execution-placement policy.
+- base adapter interfaces,
+- comparison execution-placement policy,
+- materialization and staging policy,
+- probabilistic key-diff semantics and evidence wording,
+- result/evidence sink placement, requiredness, write-status, and privacy
+  semantics.
 
 Adapters must not redefine reconciliation semantics.
 
@@ -355,6 +400,10 @@ Adapters own:
 - timestamp behavior,
 - hash behavior,
 - temporary object behavior,
+- bounded result fetching,
+- approved materialization and staging mechanics,
+- approved probabilistic summary mechanics,
+- approved result/evidence sink write mechanics,
 - capability declarations,
 - adapter-specific tests.
 
@@ -415,16 +464,15 @@ for future adapter execution, connection debug or profile validation commands,
 shared adapter test-kit work, and external adapter repositories.
 
 This is a hard gate for those surfaces. Before any future adapter execution
-milestone, profile/debug command, shared adapter test-kit repository, external
+phase, profile/debug command, shared adapter test-kit repository, external
 adapter package, or adapter repository claims compatibility, it must satisfy the
-Milestone 6 Adapter/Profile Conformance Matrix above and map every applicable
-row to tests in the implementing repository, the shared adapter test kit, or an
+Adapter/Profile Rendering Conformance Matrix above and map every applicable row
+to tests in the implementing repository, the shared adapter test kit, or an
 explicit out-of-scope rationale.
 
 The gate applies before:
 
-- Milestone 7.2 or later adapter execution loads rendered profiles or resolves
-  adapters for execution,
+- adapter execution loads rendered profiles or resolves adapters for execution,
 - profile inspection, connection debug, or profile validation commands expose
   rendered profile-backed diagnostics,
 - run results, evidence, reports, failure details, logs, or snapshots include
@@ -595,6 +643,10 @@ The following changes affect adapter API compatibility:
 | Changing adapter registry behavior | Compatibility-impacting. |
 | Changing profile selection, env-var rendering, or secret redaction rules | Compatibility-impacting. |
 | Changing compiled SQL path or rendering status semantics | Compatibility-impacting for artifacts and adapters. |
+| Changing execution placement, comparison placement, Python fallback, or materialization/staging semantics | Compatibility-impacting for typed plans, adapters, results, evidence, and test kits. |
+| Adding or changing probabilistic key-diff, Bloom/sketch, false-positive-rate, hash/canonicalization, composite-key serialization, bidirectional probing, partitioning, multi-phase lifecycle, intermediate summary storage, or exact-confirmation semantics | Compatibility-impacting for typed plans, adapters, results, evidence, failure details, and test kits. |
+| Adding required staging, execution, or sink-write adapter methods | Adapter API version change. |
+| Changing result/evidence sink mode, sink requiredness, sink-write status, destination ownership, table schema, migration, or partial-write behavior | Compatibility-impacting and may be breaking for result readers, adapters, and integrations. |
 | Moving an in-core adapter into an external package | Compatibility-impacting and requires migration guidance. |
 
 Before 1.0, breaking changes may still happen, but they must be documented and
@@ -616,3 +668,5 @@ After adapter packages exist, a breaking adapter API change should include:
 - `docs/decisions/adr-0012-adapter-and-package-ecosystem.md`
 - `docs/decisions/adr-0013-typed-check-plans-and-adapter-sql-rendering.md`
 - `docs/decisions/adr-0020-milestone-6-adapter-profile-and-sql-rendering-boundary.md`
+- `docs/decisions/adr-0021-execution-placement-and-comparison-engine-strategy.md`
+- `docs/decisions/adr-0022-evidence-privacy-failure-detail-and-result-sinks.md`

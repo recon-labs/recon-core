@@ -24,19 +24,18 @@ It does not yet implement resolved column metadata in compiled artifacts,
 all-column expansion, row-level value checks, column-level check eligibility,
 unused-column warnings, or adapter metadata column/type validation.
 
-dbt Core provides useful reference patterns:
+Column metadata design needs these properties:
 
 - schema YAML patches parsed nodes with column metadata,
 - column metadata is visible on manifest nodes,
-- data tests are explicit resources rather than being created by column
+- data checks are explicit resources rather than being created by column
   metadata alone,
 - model contracts compare declared columns and data types as explicit contract
   state.
 
-Great Expectations and Soda also support the principle that column-level checks
-name the columns they validate. Recon should use that explicitness, but stay
-focused on source-target equivalence rather than becoming a generic data
-quality framework.
+Column-level checks should name the columns they validate. Recon should use that
+explicitness, but stay focused on source-target equivalence rather than becoming
+a generic data quality framework.
 
 ## Decision
 

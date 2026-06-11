@@ -11,7 +11,10 @@ recon compile
   -> target/compiled_checks/
   -> target/compiled_sql/ when --render-sql succeeds
 
-recon run
+recon run, first check-engine boundary
+  -> command diagnostics and in-memory result objects only
+
+future runner/result and evidence phases
   -> target/run_results.json
   -> target/failures/
   -> reports/
@@ -70,10 +73,10 @@ artifacts with `rendering.status: not_rendered` for plain compile. With
 `--render-sql`, it writes adapter-rendered SQL for current DuckDB
 relation-backed typed plans and updates rendering metadata to `rendered`,
 `blocked`, or `failed`. When an adapter is known, that metadata includes
-`rendering.adapter_type`. Milestone 6 rendering requires source and target
-connections to resolve to the same adapter connection config, and resolved
-adapter `adapter_type` metadata must match the literal profile `type` before
-renderer selection; distinct configs are blocked rather than implicitly
+`rendering.adapter_type`. Current adapter-aware rendering requires source and
+target connections to resolve to the same adapter connection config, and
+resolved adapter `adapter_type` metadata must match the literal profile `type`
+before renderer selection; distinct configs are blocked rather than implicitly
 bridged. If any check produces a rendering diagnostic, compile writes no SQL
 files for that adapter-aware invocation and marks checks `blocked` or `failed`
 rather than leaving them `not_rendered`.
@@ -96,22 +99,28 @@ relevant resource kinds are parsed through that shared model.
 
 ## Run service
 
-The run service should:
+The first run service boundary should:
 
-- ensure parse/compile artifacts are available and fresh,
-- load typed check plans,
-- initialize adapters,
-- run typed check plans through adapters,
-- collect results,
-- write run artifacts,
-- write evidence,
-- return appropriate exit code.
+- load already compiled check artifacts,
+- route compiled checks through the check engine,
+- return command-level `ServiceResult` diagnostics and exit category,
+- keep reconciliation results separate from command plumbing,
+- avoid parsing authored YAML, compiling contracts, loading profiles,
+  initializing adapters, rendering SQL, executing queries, or writing generated
+  run/evidence outputs.
+
+Later runner phases may expand the run service to initialize adapters, run typed
+check plans through supported execution paths, collect results, write
+`target/run_results.json`, write evidence, and return final run summaries.
 
 ## Freshness of artifacts
 
-`recon run` may parse and compile automatically.
+`recon run` may parse and compile automatically after artifact freshness
+semantics are designed.
 
-A simple initial implementation can always parse and compile before running.
+The first check-engine boundary should not parse or compile automatically. It
+consumes compiled checks only and fails clearly when compiled-check artifacts are
+missing, invalid, or empty.
 
 A later implementation can use file hashes or timestamps to skip unchanged work.
 
@@ -160,10 +169,14 @@ Parse errors should be about invalid authored structure.
 
 Compile errors should be about invalid resolved behavior.
 
-Run errors should be about execution failure or check failure.
+Run errors should be about runtime preparation, execution failure, or check
+failure.
 
-Blocked checks should be represented as skipped check results with explicit
-prerequisite context, not as hidden omissions.
+Blocked checks should be represented as `blocked` check results with explicit
+prerequisite context, not as skipped checks or hidden omissions. Checks that are
+valid but cannot execute with the current engine, capability, placement,
+materialization policy, or implementation phase should be represented as
+`not_executable` with a machine-readable reason.
 
 Validation timing and diagnostic code ownership are defined in
 `docs/decisions/adr-0016-validation-timing-and-diagnostic-codes.md`.

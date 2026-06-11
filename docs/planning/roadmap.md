@@ -42,6 +42,10 @@ Core capabilities:
 - terminal summary,
 - basic evidence artifacts.
 
+MVP run results and evidence should reserve enough scope metadata to avoid
+assuming that every future invocation is whole-project. Selector execution is
+not part of the 0.1 release line.
+
 Contract capabilities:
 
 - relation-based source/target,
@@ -100,7 +104,8 @@ Capabilities:
 - basic HTML report,
 - `recon list` for manifest-backed resource discovery,
 - `recon clean` for safely removing generated artifacts,
-- selector design for tag/name selection,
+- artifact freshness and cleanup for generated outputs,
+- minimal contract/path selectors for compile, SQL rendering, and run,
 - improved error and warning model.
 
 Checks:
@@ -153,10 +158,11 @@ Capabilities:
 - watermarks,
 - previous failure retest,
 - persisted random samples,
-- richer result tables,
+- richer result table design, with production table writes gated by Post-MVP
+  Milestone 25.5 and adapter write/sink conformance in Post-MVP Milestone 29,
 - richer evidence reports,
 - `recon debug` for project, profile, adapter, and connection diagnostics,
-- Airflow-friendly CLI behavior,
+- orchestrator-friendly CLI behavior,
 - typed check-plan model stabilization,
 - adapter API versioning,
 - adapter interface stabilization,
@@ -166,8 +172,15 @@ Adapters:
 
 - stable typed check-plan model,
 - stable adapter interface and API versioning,
-- first official SQL adapters split or prepared for split,
-- adapter test kit planning.
+- first official SQL adapters prepared for split,
+- adapter test kit planning and conformance design,
+- `recon-duckdb` extraction deferred until the adapter package/test-kit gates
+  are satisfied,
+- official external adapter repositories deferred until Post-MVP Milestone 29,
+  the adapter test-kit and package split milestone that proves cross-repo
+  compatibility,
+- experimental adapters allowed only when they do not claim stable execution,
+  sink, result-table, or probabilistic-summary compatibility.
 
 Checks:
 
@@ -190,7 +203,7 @@ Capabilities:
 - early `recon deps`,
 - local check pack packages,
 - sample/tolerance/schema policy packages,
-- richer selectors,
+- richer selectors, including named selectors and check-level selection,
 - documentation generation command.
 
 Ecosystem:
@@ -221,7 +234,8 @@ Expected capabilities:
 - production-ready CLI,
 - stable evidence artifacts,
 - stable parse/compile/run flow,
-- multiple official adapters,
+- multiple official adapters after shared adapter conformance proves the
+  supported execution and sink surfaces,
 - package support,
 - strong documentation,
 - reliable test suite.
@@ -234,13 +248,15 @@ Possible later capabilities:
 - retry/resume commands after state and run result semantics stabilize,
 - Recon Hub,
 - GitHub Action,
-- Airflow provider/operator,
-- Dagster integration,
-- dbt integration patterns,
+- orchestrator provider/operator,
+- workflow orchestrator integration,
+- transformation framework integration patterns,
 - data catalog integrations,
 - issue/ticket integrations,
 - evidence vault,
 - approval/sign-off workflows,
+- probabilistic key-diff adapter support after Gate 4K and shared adapter
+  test-kit conformance in Post-MVP Milestone 29,
 - hosted service,
 - enterprise policy controls.
 

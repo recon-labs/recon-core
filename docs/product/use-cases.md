@@ -15,10 +15,10 @@ The most important phrase is:
 A company replicates operational data into a warehouse.
 
 ```text
-SQL Server
-  -> AWS DMS
-  -> Snowpipe
-  -> Snowflake Bronze
+source database
+  -> replication service
+  -> warehouse ingestion
+  -> landing layer
   -> Silver
   -> Gold
 ```
@@ -26,9 +26,9 @@ SQL Server
 or:
 
 ```text
-MongoDB
+operational collection
   -> CDC connector
-  -> BigQuery
+  -> analytics warehouse
 ```
 
 ### Problem
@@ -79,8 +79,8 @@ checks:
 A company moves from an old analytics platform to a new one.
 
 ```text
-Redshift + Spark
-  -> Snowflake + dbt/Snowpark
+legacy warehouse + batch processing
+  -> modern warehouse + transformation layer
 ```
 
 ### Problem
@@ -110,9 +110,9 @@ This is a **data warehouse migration with parallel-run validation**.
 A team rewrites a pipeline.
 
 ```text
-old Spark job output
+old batch job output
   vs
-new dbt model output
+new model output
 ```
 
 ### Problem
@@ -202,7 +202,8 @@ The company needs evidence that the new system produces equivalent or approved r
 
 ### Recon value
 
-Recon produces structured run results, failure details, and sign-off-ready reports.
+Recon is intended to produce structured run results, bounded failure details,
+and sign-off-ready reports as the runner and evidence phases are implemented.
 
 ## Use case 8: Source-to-target monitoring for critical domains
 

@@ -136,9 +136,12 @@ compiled SQL artifacts for current DuckDB relation-backed typed plans.
 
 Runs compiled checks.
 
-It may parse and compile automatically when generated artifacts are missing or stale.
+The first check-engine boundary should use already compiled checks and should
+not write generated run or evidence artifacts. Later runner/result and evidence
+phases may parse or compile automatically when artifact freshness semantics are
+locked.
 
-Expected outputs:
+Later runner/result and evidence phase outputs:
 
 ```text
 target/run_results.json
@@ -201,12 +204,22 @@ Detailed diagnostics belong in artifacts and reports.
 
 Selectors should be handled through parsed metadata.
 
-Future examples:
+Future illustrative examples by gated stage:
+
+Minimal contract/path selector examples:
 
 ```bash
-recon run --select tag:cdc
-recon run --select contract:customer_revenue
-recon run --exclude tag:experimental
+recon compile --select "contract:customer_revenue"
+recon compile --render-sql --select "path:contracts/revenue/customer_revenue.yml"
+recon run --select "contract:customer_revenue"
+```
+
+Later gated selector examples:
+
+```bash
+recon run --select "selector:critical_reconciliations"
+recon run --select "check:customer_revenue.row_count"
+recon run --exclude "contract:experimental_*"
 ```
 
 Selector logic should not require scanning files independently from the parser.
@@ -215,6 +228,20 @@ Selector syntax and semantics are not locked yet. Implementing `--select`,
 `--exclude`, named selectors, or partial compile/run behavior requires a future
 design decision covering selection precedence, empty matches, artifact
 freshness, and run result metadata.
+
+Selector support should be staged. The first implementation should focus on
+explicit contract/path scope for compile, SQL rendering, and run. Named
+selectors, check-level selectors, tag/domain/package selectors, state/result
+selectors, and richer composition should build on that later.
+Contract-only exclusion, including simple contract-name patterns such as
+`contract:experimental_*`, can be gated into the first selector implementation
+only if pattern syntax and select/exclude precedence are locked first.
+
+Future `path:...` selectors should resolve against project-relative manifest
+paths produced by resource discovery. Exact file-path matching should be
+defined before directory-prefix matching. If a selected file contains multiple
+contracts, the selector should include all contracts in that file unless a later
+composition rule narrows it explicitly.
 
 ## Design principle
 

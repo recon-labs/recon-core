@@ -11,9 +11,9 @@ Recon lets teams define source-target equivalence in code, run repeatable checks
 Data teams often need to prove that one dataset matches another:
 
 - operational source table versus warehouse replica,
-- MongoDB collection versus BigQuery table,
-- SQL Server source versus Snowflake target after DMS/Snowpipe,
-- old Redshift/Spark output versus new Snowflake output,
+- operational collection versus analytics table,
+- source database versus warehouse target after replication,
+- old warehouse or processing output versus new warehouse output,
 - old pipeline result versus refactored pipeline result,
 - Bronze versus Silver versus Gold layer,
 - old business metric versus new business metric.
@@ -48,9 +48,9 @@ Validate that source data replicated into a warehouse remains complete, fresh, a
 
 Examples:
 
-- SQL Server to Snowflake through AWS DMS and Snowpipe,
-- MongoDB to BigQuery,
-- Postgres to a warehouse through Debezium/Kafka.
+- source database to warehouse through replication and ingestion,
+- operational collection to analytics warehouse,
+- database change stream to warehouse table.
 
 ### Migration and parallel-run validation
 
@@ -58,8 +58,8 @@ Validate old output versus new output before cutover.
 
 Examples:
 
-- Redshift to Snowflake,
-- Spark pipelines rewritten as dbt or Snowpark,
+- legacy warehouse to modern warehouse,
+- legacy transformation pipelines rewritten on a new platform,
 - legacy reporting mart replaced by a governed warehouse model.
 
 ### Pipeline refactor validation
@@ -68,9 +68,9 @@ Validate that a rewritten pipeline produces equivalent output.
 
 Examples:
 
-- Spark job rewritten as SQL,
-- Python transform replaced by dbt model,
-- legacy Airflow task replaced by modern framework code.
+- batch job rewritten as SQL,
+- Python transform replaced by warehouse model,
+- legacy scheduler task replaced by modern framework code.
 
 ### Medallion layer reconciliation
 
@@ -112,7 +112,7 @@ Recon is not:
 
 - a generic data quality platform,
 - an ingestion or CDC movement tool,
-- a dbt replacement,
+- a warehouse transformation framework replacement,
 - a dashboarding product first,
 - an MDM or fuzzy entity resolution platform,
 - an automatic data repair tool,
@@ -184,7 +184,7 @@ Recon should feel:
 - debuggable,
 - safe by default,
 - easy to run locally,
-- easy to schedule in Airflow or CI later.
+- easy to schedule in an orchestrator or CI later.
 
 ## Functional requirements
 

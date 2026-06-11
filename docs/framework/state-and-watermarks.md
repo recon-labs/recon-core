@@ -10,7 +10,18 @@ State is essential for continuous CDC reconciliation, incremental validation, pr
 
 State is information persisted across Recon runs.
 
-Examples include last successful watermark, previous failed keys, sample keys, run history, check results, and evidence references.
+Examples include last successful watermark, previous failed keys, persisted
+sample keys, CDC offsets, and state references to prior runs.
+
+State is separate from evidence and result stores:
+
+- evidence explains a completed run,
+- result stores support review, reporting, and integrations,
+- state controls future run behavior.
+
+Current check-engine and execution phases must not write state. Local state,
+production result tables, and remote/database-backed state are separate future
+workstreams. Production result tables must not silently become state tables.
 
 ## Watermark
 
@@ -39,7 +50,7 @@ First-run behavior must be explicit.
 
 Options may include requiring a start watermark, running a full initial comparison, using a configured bootstrap window, or failing until configured.
 
-Recon should not silently start from “forever ago” unless configured.
+Recon should not silently start from "forever ago" unless configured.
 
 ## State update rule
 
@@ -83,11 +94,14 @@ Database state is useful for production.
 
 Possible tables:
 
-- `recon_runs`,
-- `recon_check_results`,
-- `recon_failure_details`,
 - `recon_sample_keys`,
 - `recon_watermarks`.
+
+Result tables such as `recon_runs`, `recon_check_results`, and
+`recon_failure_details` are result/evidence stores by default, not state. A
+future deployment may colocate result and state tables physically, but the
+schemas, retention rules, update rules, idempotency behavior, privacy policy,
+and adapter capabilities must remain separate.
 
 ## State vs evidence
 
@@ -95,16 +109,26 @@ Evidence is for reviewing a run.
 
 State is for powering future runs.
 
-A failure CSV is evidence. A previous-failure key table is state.
+A failure CSV is evidence. A previous-failure key table is state. A production
+`recon_check_results` table is a result store unless a later state-backend
+design explicitly gives it state semantics.
 
-## MVP recommendation
+Serialized probabilistic summaries, Bloom-filter-like summaries, set sketches,
+and intermediate probe outputs should not be treated as harmless state or
+evidence by default. Until a future strategy classifies them, they are sensitive
+or policy-controlled because they may reveal information about source or target
+key sets. If they are retained across runs, the state design must define scope,
+retention, cleanup, privacy, and exact/probabilistic result semantics.
+
+## Sequencing recommendation
 
 v0.1 can start with local generated artifacts and no stateful run behavior.
 
 v0.2 should keep state, watermark, previous-failure, and sample-key behavior at
-the design/gate level where needed. v0.3 / Post-MVP Milestone 25 should add
-local state for incremental windows, previous failures, persisted sample keys,
-and watermark advancement.
+the design/gate level where needed. Later local-state work should add local
+state for incremental windows, previous failures, persisted sample keys, and
+watermark advancement. Production result tables and remote/database state should
+remain separate future workstreams.
 
 ## Design principle
 

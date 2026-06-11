@@ -17,12 +17,12 @@ evidence. For example, a contract may compare rows by a business key while CDC
 delete propagation depends on the source primary key. Those are related but not
 identical assumptions.
 
-Mature tools support this separation in different ways:
+Implementation constraints support this separation in different ways:
 
-- dbt keeps tests explicit and records compiled/run artifacts.
-- Data diff tools require primary-key-like columns for row-level diffing, even
+- explicit tests and generated artifacts keep validation behavior auditable,
+- data diff tools require primary-key-like columns for row-level diffing, even
   when those columns are not formal database primary keys.
-- Data-quality tools model uniqueness as an explicit validation.
+- data quality tools model uniqueness as an explicit validation.
 - CDC systems expose update/delete behavior through physical or event identity.
 
 Recon should use those patterns without becoming a generic data-quality or CDC
@@ -246,13 +246,13 @@ Data-dependent key problems are check failures:
 - null CDC keys fail the corresponding CDC key safety check when required,
 - duplicate CDC keys fail the corresponding CDC key safety check when required.
 
-Dependent checks must be skipped when their prerequisites fail.
+Dependent checks must be blocked when their prerequisites fail.
 
-A skipped dependent check must include:
+A blocked dependent check must include:
 
-- status `skipped`,
+- status `blocked`,
 - `blocked_by`,
-- `skip_reason`,
+- a machine-readable reason code,
 - diagnostics or messages that identify the failed prerequisite,
 - evidence links when available.
 
@@ -328,7 +328,7 @@ Run results should show:
 - whether a check used `grain.keys`, `cdc.keys`, or no key identity,
 - prerequisite check results,
 - `blocked_by`,
-- `skip_reason`,
+- machine-readable blocked or skipped reason codes,
 - key null counts,
 - duplicate key counts,
 - bounded example keys when evidence configuration allows them.
@@ -353,15 +353,17 @@ RC_VALIDATE_CHECK_PACK_REQUIRES_GRAIN_KEYS
 RC_VALIDATE_INVALID_CDC_KEYS
 RC_VALIDATE_CDC_DELETE_MODE_REQUIRED
 RC_VALIDATE_CDC_ORDERING_REQUIRED
-RC_RUNTIME_CHECK_BLOCKED_BY_FAILED_PREREQUISITE
+RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE
 RC_RUNTIME_NULL_GRAIN_KEYS
 RC_RUNTIME_DUPLICATE_GRAIN_KEYS
 RC_RUNTIME_NULL_CDC_KEYS
 RC_RUNTIME_DUPLICATE_CDC_KEYS
 ```
 
-Diagnostic messages must identify the check, contract, required identity, and
-fix.
+`RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` is the generic dependent-check
+blocked diagnostic. Key-specific runtime diagnostics remain owned by the
+grain-key and CDC execution phases. Diagnostic messages must identify the check,
+contract, required identity, and fix.
 
 ## Testing Strategy
 
@@ -375,7 +377,7 @@ Implementation should include tests for:
 - null-key check failures,
 - duplicate-key check failures,
 - blocked row-level value checks,
-- result `blocked_by` and `skip_reason` serialization,
+- result `blocked_by` and machine-readable reason-code serialization,
 - compiled artifact identity and requirement metadata,
 - CDC delete-mode validation,
 - CDC key requirement validation.
@@ -432,16 +434,17 @@ without explicit change identity.
 
 ## Implementation Guidance
 
-Milestone 4 should include identity and requirement metadata in compiled check
-models even before every check type exists.
+The compiler foundation should include identity and requirement metadata in
+compiled check models even before every check type exists.
 
-Milestone 5 should implement validation for missing `grain.keys`, missing
-`cdc.keys`, strict `basic_equivalence`, CDC delete mode, and CDC ordering where
-the relevant checks are compiled.
+The validation rulebook should implement validation for missing `grain.keys`,
+missing `cdc.keys`, strict `basic_equivalence`, CDC delete mode, and CDC
+ordering where the relevant checks are compiled.
 
-Milestone 7.1 should implement prerequisite tracking and blocked check result
-representation. Milestone 7.3 should execute grain-key safety checks and prove
-that null or duplicate grain keys block dependent future row-level value checks.
+The first check-engine result boundary should implement prerequisite tracking
+and blocked check result representation. The grain-key safety execution phase
+should execute grain-key safety checks and prove that null or duplicate grain
+keys block dependent future row-level value checks.
 
 CDC check implementation should start with a small supported subset and keep
 unsupported CDC modes explicit in diagnostics and evidence.
@@ -451,13 +454,3 @@ unsupported CDC modes explicit in diagnostics and evidence.
 - ADR 0007: Grain Keys and Row-Level Uniqueness
 - ADR 0011: CDC Policy and Delete Modes
 - ADR 0013: Typed Check Plans and Adapter SQL Rendering
-- dbt data tests: https://docs.getdbt.com/reference/resource-properties/data-tests
-- dbt artifacts: https://docs.getdbt.com/reference/artifacts/manifest-json
-- dbt run results: https://docs.getdbt.com/reference/artifacts/run-results-json
-- Datafold Data Diff: https://docs.datafold.com/data-diff/how-datafold-diffs-data
-- Google Data Validation Tool: https://github.com/GoogleCloudPlatform/professional-services-data-validator
-- Soda reconciliation checks: https://docs.soda.io/sodacl-reference/recon
-- Great Expectations uniqueness: https://docs.greatexpectations.io/docs/reference/learn/data_quality_use_cases/uniqueness/
-- AWS DMS validation: https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Validating.html
-- AWS DMS PostgreSQL CDC limitations: https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html
-- Debezium PostgreSQL connector: https://debezium.io/documentation/reference/stable/connectors/postgresql.html

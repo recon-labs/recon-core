@@ -61,11 +61,15 @@ Future `recon deps` may use Hub metadata to install packages.
 
 ## Relationship to adapters
 
-Adapters may be listed in Hub but installed through Python packaging.
+Adapters may eventually be listed in Hub but installed through Python packaging
+after adapter package and compatibility gates are satisfied.
 
 ```bash
 pip install recon-snowflake
 ```
+
+This package name is illustrative and does not imply an official external
+adapter package is available today.
 
 ## Design principle
 

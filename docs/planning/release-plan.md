@@ -135,7 +135,7 @@ Included:
 - adapter API versioning,
 - adapter interface stabilization,
 - adapter compliance tests,
-- production-oriented result tables or clear design.
+- production-oriented result-table design or gated implementation.
 
 Release quality bar:
 
@@ -158,7 +158,8 @@ Required:
 - stable check result model,
 - strong documentation,
 - official examples,
-- at least two credible adapters,
+- at least two adapter paths with shared conformance coverage for the surfaces
+  they claim,
 - clear package ecosystem direction.
 
 ## Distribution
@@ -177,11 +178,14 @@ Current local development extra:
 pip install "recon-core[duckdb]"
 ```
 
-Long-term adapter packages:
+Future long-term adapter package shape:
 
 ```bash
 pip install recon-postgres recon-snowflake
 ```
+
+These names are illustrative until the adapter API, shared test kit, package
+split, and compatibility gates are satisfied.
 
 ## Pre-release channels
 

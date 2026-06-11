@@ -82,8 +82,8 @@ Compiled-check `rendering.sql_paths` stores paths relative to the configured
 compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql
 ```
 
-For Milestone 6 DuckDB rendering, source and target connection names may differ
-only if their selected profile entries resolve to the same adapter type and
+For current DuckDB rendering, source and target connection names may differ only
+if their selected profile entries resolve to the same adapter type and
 connection config. Resolved adapter `adapter_type` metadata must match each
 literal profile connection `type` before renderer selection. Distinct adapter
 connection contexts are blocked because the compiled SQL is rendered for one
@@ -679,7 +679,9 @@ Row-level value checks should include prerequisites and blocking policy:
 ```
 
 If a prerequisite fails at runtime, dependent row-level value checks should be
-skipped with `blocked_by` and `skip_reason` in run results.
+reported with result status `blocked`, `blocked_by`, and a machine-readable
+reason in run results. The current compiled-artifact policy token is not itself
+the run-result status.
 
 ## Compiled SQL
 

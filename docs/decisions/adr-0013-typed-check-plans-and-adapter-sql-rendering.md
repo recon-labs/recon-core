@@ -14,14 +14,11 @@ Recon also needs generated artifacts that explain:
 - which SQL or adapter operations will run,
 - which assumptions, capabilities, and validations apply.
 
-dbt Core is a mature open-source reference for adapter boundaries. dbt separates
-database-specific behavior into adapter packages, exposes adapter methods during
-compilation, supports adapter dispatch for database-specific macros, provides
-cross-database macro helpers, and maintains shared adapter tests.
-
-Recon should learn from dbt's adapter maturity, but Recon's domain is different.
-dbt compiles transformation SQL. Recon compiles reconciliation behavior that must
-be inspectable as evidence and safe across source-target systems.
+Adapter ecosystems need database-specific behavior to live in adapter packages,
+shared adapter tests, and clear compatibility boundaries for adapter authors.
+Recon's domain is different from transformation tooling: Recon compiles
+reconciliation behavior that must be inspectable as evidence and safe across
+source-target systems.
 
 ## Decision
 
@@ -132,16 +129,16 @@ Hash behavior must be conservative. An adapter must not claim portable hash
 compatibility unless cross-adapter behavior is intentionally implemented and
 tested.
 
-## Relationship to dbt
+## Relationship to Adapter-Based Tooling
 
-Recon will follow dbt's mature adapter boundary pattern:
+Recon will follow an adapter boundary pattern:
 
 - adapter packages are separate from the core framework over time,
 - adapters provide database-specific behavior,
 - shared adapter tests protect adapter compatibility,
 - adapter authors get a clear interface and test suite.
 
-Recon will not use dbt-style macro dispatch as the primary comparison engine.
+Recon will not use macro dispatch as the primary comparison engine.
 
 Macro dispatch is useful for SQL transformation frameworks, but Recon needs a
 typed, inspectable, evidence-oriented execution plan. Hidden SQL-generation
@@ -194,13 +191,13 @@ Rejected.
 This would fragment Recon's behavior and make checks inconsistent across
 systems. Core must define what reconciliation means.
 
-### Use dbt-style macro dispatch as the primary engine
+### Use macro dispatch as the primary engine
 
 Rejected as the primary contract.
 
-dbt-style dispatch is mature and useful, but Recon needs typed compiled plans
-and evidence artifacts that show exactly what will run. Macro dispatch can be an
-internal helper later, but it should not hide comparison semantics.
+Macro dispatch can be useful, but Recon needs typed compiled plans and evidence
+artifacts that show exactly what will run. Macro dispatch can be an internal
+helper later, but it should not hide comparison semantics.
 
 ### Use blind SQL transpilation as the primary portability layer
 
@@ -244,11 +241,3 @@ checks.
 
 Production adapter repositories such as `recon-snowflake` and `recon-postgres`
 should split only after the adapter API and shared tests are stable enough.
-
-## References
-
-- dbt adapter creation: `https://docs.getdbt.com/guides/adapter-creation`
-- dbt adapter object: `https://docs.getdbt.com/reference/dbt-jinja-functions/adapter`
-- dbt dispatch: `https://docs.getdbt.com/reference/dbt-jinja-functions/dispatch`
-- dbt cross-database macros: `https://docs.getdbt.com/reference/dbt-jinja-functions/cross-database-macros`
-- dbt adapters repository: `https://github.com/dbt-labs/dbt-adapters`
