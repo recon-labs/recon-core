@@ -96,6 +96,24 @@ def test_run_service_maps_engine_check_failure_to_check_failure_exit(
     assert result.diagnostics == ()
 
 
+def test_run_service_sanitizes_engine_boundary_exception(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+
+    result = RunService(start_path=tmp_path, engine=_RaisingEngine()).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run failed during check-engine evaluation."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR"
+    ]
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
+    )
+    assert "super-secret" not in diagnostic_text
+    assert "traceback" not in diagnostic_text.lower()
+
+
 def write_project(path: Path) -> None:
     (path / "recon_project.yml").write_text(
         """
@@ -156,6 +174,19 @@ class _FailingEngine:
             finished_at=finished_at,
             contract_results=(contract_result,),
         )
+
+
+class _RaisingEngine:
+    def run(
+        self,
+        artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+        *,
+        run_id: str,
+        started_at: str,
+        finished_at: str,
+        project_name: str | None = None,
+    ) -> RunResult:
+        raise RuntimeError("super-secret database error")
 
 
 def _compiled_checks_payload(

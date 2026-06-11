@@ -133,6 +133,19 @@ def test_loader_reports_wrong_artifact_type_and_version(tmp_path: Path) -> None:
     assert "artifact_version" in result.diagnostics[1].message
 
 
+def test_loader_rejects_boolean_artifact_version(tmp_path: Path) -> None:
+    payload = _compiled_checks_payload()
+    payload["artifact_version"] = True
+    _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert "artifact_version" in diagnostic.message
+
+
 def test_loader_reports_missing_required_fields(tmp_path: Path) -> None:
     payload = _compiled_checks_payload()
     del payload["contract"]

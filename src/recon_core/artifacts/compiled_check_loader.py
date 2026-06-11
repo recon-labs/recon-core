@@ -421,7 +421,7 @@ def _required_int(mapping: Mapping[str, object], key: str, path: str) -> int:
     if key not in mapping:
         raise _ArtifactShapeError(f"Compiled-check artifact is missing field {path}.")
     value = mapping[key]
-    if not isinstance(value, int):
+    if isinstance(value, bool) or not isinstance(value, int):
         raise _ArtifactShapeError(f"Compiled-check artifact field {path} must be an integer.")
     return value
 
@@ -430,7 +430,7 @@ def _optional_int(mapping: Mapping[str, object], key: str, path: str) -> int | N
     if key not in mapping or mapping[key] is None:
         return None
     value = mapping[key]
-    if not isinstance(value, int):
+    if isinstance(value, bool) or not isinstance(value, int):
         raise _ArtifactShapeError(f"Compiled-check artifact field {path} must be an integer.")
     return value
 

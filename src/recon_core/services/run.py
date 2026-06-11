@@ -12,8 +12,14 @@ from recon_core.artifacts import (
     CompiledCheckLoadResult,
     LoadedCompiledChecksArtifact,
 )
-from recon_core.check_engine import CheckEngine, ContractResult, RunResult, RunStatus
-from recon_core.diagnostics import Diagnostic
+from recon_core.check_engine import (
+    CHECK_ENGINE_INTERNAL_ERROR,
+    CheckEngine,
+    ContractResult,
+    RunResult,
+    RunStatus,
+)
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
 
@@ -59,13 +65,16 @@ class RunService:
             return _load_failure_result(load_result)
 
         started_at = _utc_timestamp()
-        run_result = (self.engine if self.engine is not None else CheckEngine()).run(
-            load_result.artifacts,
-            run_id=f"run-{uuid4().hex}",
-            started_at=started_at,
-            finished_at=_utc_timestamp(),
-            project_name=context.config.name,
-        )
+        try:
+            run_result = (self.engine if self.engine is not None else CheckEngine()).run(
+                load_result.artifacts,
+                run_id=f"run-{uuid4().hex}",
+                started_at=started_at,
+                finished_at=_utc_timestamp(),
+                project_name=context.config.name,
+            )
+        except Exception:
+            return _engine_failure_result()
         return _run_service_result(run_result)
 
 
@@ -77,6 +86,22 @@ def _load_failure_result(load_result: CompiledCheckLoadResult) -> ServiceResult:
         exit_category=ExitCategory.RUNTIME_ERROR,
         message=message,
         diagnostics=load_result.diagnostics,
+    )
+
+
+def _engine_failure_result() -> ServiceResult:
+    message = "Check engine internal error occurred before a trustworthy result was produced."
+    diagnostic = Diagnostic(
+        code=CHECK_ENGINE_INTERNAL_ERROR,
+        severity=DiagnosticSeverity.ERROR,
+        message=message,
+        resource_type="check_engine",
+        hint="Retry the command or inspect Recon Core logs if available.",
+    )
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message="Run failed during check-engine evaluation.",
+        diagnostics=(diagnostic,),
     )
 
 
