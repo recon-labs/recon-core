@@ -1,5 +1,6 @@
 """Check-engine orchestration for loaded compiled checks."""
 
+from dataclasses import dataclass
 from typing import Protocol
 
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledChecksArtifact
@@ -19,6 +20,13 @@ CHECK_ENGINE_INTERNAL_ERROR = "RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR"
 
 class _Dispatcher(Protocol):
     def dispatch(self, check: LoadedCompiledCheck) -> CheckResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _PrerequisiteBlocker:
+    check_id: str
+    reason: CheckReason
+    state: str
 
 
 class CheckEngine:
@@ -107,20 +115,20 @@ class CheckEngine:
         *,
         active_check_ids: frozenset[str],
     ) -> CheckResult | None:
+        blockers: list[_PrerequisiteBlocker] = []
         for prerequisite_id in check.prerequisites:
             prerequisite_result = check_results_by_id.get(prerequisite_id)
             if prerequisite_result is None:
                 prerequisite_check = checks_by_id.get(prerequisite_id)
                 if prerequisite_check is None:
-                    return _blocked_result(
-                        check,
-                        reason=CheckReason.PREREQUISITE_MISSING,
-                        blocked_by=prerequisite_id,
-                        message=(
-                            f"Check `{check.name}` did not run because prerequisite "
-                            f"`{prerequisite_id}` is missing."
-                        ),
+                    blockers.append(
+                        _PrerequisiteBlocker(
+                            check_id=prerequisite_id,
+                            reason=CheckReason.PREREQUISITE_MISSING,
+                            state="missing",
+                        )
                     )
+                    continue
                 if prerequisite_id in active_check_ids:
                     return _internal_error_result(check)
                 prerequisite_result = self._result_for_check(
@@ -130,25 +138,36 @@ class CheckEngine:
                     active_check_ids=active_check_ids,
                 )
             if prerequisite_result.status is CheckStatus.FAIL:
-                return _blocked_result(
-                    check,
-                    reason=CheckReason.PREREQUISITE_FAILED,
-                    blocked_by=prerequisite_id,
-                    message=(
-                        f"Check `{check.name}` did not run because prerequisite "
-                        f"`{prerequisite_id}` failed."
-                    ),
+                blockers.append(
+                    _PrerequisiteBlocker(
+                        check_id=prerequisite_id,
+                        reason=CheckReason.PREREQUISITE_FAILED,
+                        state="failed",
+                    )
                 )
             if prerequisite_result.status is CheckStatus.ERROR:
-                return _blocked_result(
-                    check,
-                    reason=CheckReason.PREREQUISITE_ERROR,
-                    blocked_by=prerequisite_id,
-                    message=(
-                        f"Check `{check.name}` did not run because prerequisite "
-                        f"`{prerequisite_id}` errored."
-                    ),
+                blockers.append(
+                    _PrerequisiteBlocker(
+                        check_id=prerequisite_id,
+                        reason=CheckReason.PREREQUISITE_ERROR,
+                        state="errored",
+                    )
                 )
+            if prerequisite_result.status is CheckStatus.BLOCKED:
+                blockers.append(
+                    _PrerequisiteBlocker(
+                        check_id=prerequisite_id,
+                        reason=_blocked_prerequisite_reason(prerequisite_result),
+                        state="blocked",
+                    )
+                )
+        if blockers:
+            return _blocked_result(
+                check,
+                reason=_dominant_blocker_reason(tuple(blockers)),
+                blocked_by=_unique_blocked_by(tuple(blockers)),
+                message=_blocked_message(check.name, tuple(blockers)),
+            )
         return None
 
 
@@ -173,7 +192,7 @@ def _blocked_result(
     check: LoadedCompiledCheck,
     *,
     reason: CheckReason,
-    blocked_by: str,
+    blocked_by: tuple[str, ...],
     message: str,
 ) -> CheckResult:
     diagnostic = Diagnostic(
@@ -194,9 +213,54 @@ def _blocked_result(
         reason_code=reason,
         identity=_identity_label(check),
         message=message,
-        blocked_by=(blocked_by,),
+        blocked_by=blocked_by,
         diagnostics=check.diagnostics + (diagnostic,),
     )
+
+
+def _blocked_prerequisite_reason(result: CheckResult) -> CheckReason:
+    if result.reason_code in {
+        CheckReason.PREREQUISITE_FAILED,
+        CheckReason.PREREQUISITE_ERROR,
+        CheckReason.PREREQUISITE_MISSING,
+    }:
+        return result.reason_code
+    return CheckReason.PREREQUISITE_ERROR
+
+
+def _dominant_blocker_reason(blockers: tuple[_PrerequisiteBlocker, ...]) -> CheckReason:
+    for reason in (
+        CheckReason.PREREQUISITE_ERROR,
+        CheckReason.PREREQUISITE_FAILED,
+        CheckReason.PREREQUISITE_MISSING,
+    ):
+        if any(blocker.reason is reason for blocker in blockers):
+            return reason
+    return CheckReason.PREREQUISITE_ERROR
+
+
+def _unique_blocked_by(blockers: tuple[_PrerequisiteBlocker, ...]) -> tuple[str, ...]:
+    blocked_by: list[str] = []
+    seen: set[str] = set()
+    for blocker in blockers:
+        if blocker.check_id in seen:
+            continue
+        seen.add(blocker.check_id)
+        blocked_by.append(blocker.check_id)
+    return tuple(blocked_by)
+
+
+def _blocked_message(check_name: str, blockers: tuple[_PrerequisiteBlocker, ...]) -> str:
+    unique_blockers = _unique_blocked_by(blockers)
+    if len(unique_blockers) == 1:
+        blocker = blockers[0]
+        return (
+            f"Check `{check_name}` did not run because prerequisite "
+            f"`{blocker.check_id}` {blocker.state}."
+        )
+
+    blocker_states = ", ".join(f"`{blocker.check_id}` {blocker.state}" for blocker in blockers)
+    return f"Check `{check_name}` did not run because prerequisites {blocker_states}."
 
 
 def _internal_error_result(check: LoadedCompiledCheck) -> CheckResult:

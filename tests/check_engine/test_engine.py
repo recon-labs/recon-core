@@ -157,6 +157,64 @@ def test_engine_blocks_check_when_later_prerequisite_errors(tmp_path: Path) -> N
     assert dependent_result.blocked_by == (prerequisite.id,)
 
 
+def test_engine_blocks_check_when_prerequisite_is_blocked(tmp_path: Path) -> None:
+    prerequisite = _check(
+        check_id="check.ecommerce_recon.customer_revenue.duplicate_source_keys",
+        name="duplicate_source_keys",
+        prerequisites=("check.ecommerce_recon.customer_revenue.null_source_keys",),
+    )
+    dependent = _check(
+        check_id="check.ecommerce_recon.customer_revenue.value_match",
+        name="value_match",
+        check_type="value_match",
+        prerequisites=(prerequisite.id,),
+    )
+    artifact = _artifact(tmp_path, checks=(dependent, prerequisite))
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+    )
+
+    dependent_result, prerequisite_result = result.contract_results[0].check_results
+    assert prerequisite_result.status is CheckStatus.BLOCKED
+    assert prerequisite_result.reason_code is CheckReason.PREREQUISITE_MISSING
+    assert dependent_result.status is CheckStatus.BLOCKED
+    assert dependent_result.reason_code is CheckReason.PREREQUISITE_MISSING
+    assert dependent_result.blocked_by == (prerequisite.id,)
+
+
+def test_engine_reports_multiple_missing_prerequisites_once(tmp_path: Path) -> None:
+    dependent = _check(
+        check_id="check.ecommerce_recon.customer_revenue.value_match",
+        name="value_match",
+        check_type="value_match",
+        prerequisites=(
+            "check.ecommerce_recon.customer_revenue.null_source_keys",
+            "check.ecommerce_recon.customer_revenue.duplicate_source_keys",
+            "check.ecommerce_recon.customer_revenue.null_source_keys",
+        ),
+    )
+    artifact = _artifact(tmp_path, checks=(dependent,))
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+    )
+
+    dependent_result = result.contract_results[0].check_results[0]
+    assert dependent_result.status is CheckStatus.BLOCKED
+    assert dependent_result.reason_code is CheckReason.PREREQUISITE_MISSING
+    assert dependent_result.blocked_by == (
+        "check.ecommerce_recon.customer_revenue.null_source_keys",
+        "check.ecommerce_recon.customer_revenue.duplicate_source_keys",
+    )
+
+
 def test_engine_sanitizes_unexpected_dispatch_error(tmp_path: Path) -> None:
     artifact = _artifact(tmp_path, checks=(_check(),))
 

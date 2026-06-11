@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 import yaml
 
 from recon_core.artifacts import CompiledCheckLoader, CompiledCheckWriter
@@ -183,6 +184,46 @@ def test_loader_reports_malformed_operation_payload(tmp_path: Path) -> None:
     diagnostic = result.diagnostics[0]
     assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
     assert "plan.operations[0].type" in diagnostic.message
+
+
+@pytest.mark.parametrize(
+    ("operations", "expected_message"),
+    [
+        ([{"type": "row_count"}], "plan.operations[0].side"),
+        ([{"type": "key_diff", "identity": {"kind": "grain", "keys": ["id"]}}], "direction"),
+        ([{"type": "key_diff", "direction": "source_minus_target"}], "identity"),
+        (
+            [{"type": "aggregate", "side": "source", "aggregate": "sum"}],
+            "plan.operations[0].column",
+        ),
+        (
+            [
+                {
+                    "type": "grouped_aggregate",
+                    "side": "source",
+                    "aggregate": "sum",
+                    "column": "revenue",
+                    "group_by": [],
+                }
+            ],
+            "plan.operations[0].group_by",
+        ),
+    ],
+)
+def test_loader_reports_malformed_known_operation_payloads(
+    tmp_path: Path,
+    operations: list[dict[str, object]],
+    expected_message: str,
+) -> None:
+    payload = _compiled_checks_payload(checks=[_compiled_check_payload(operations=operations)])
+    _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert expected_message in diagnostic.message
 
 
 def _compiled_checks_artifact() -> CompiledChecksArtifact:

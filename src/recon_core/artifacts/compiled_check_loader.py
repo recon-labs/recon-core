@@ -8,7 +8,12 @@ from typing import cast
 import yaml
 
 from recon_core.artifacts.compiled_check_writer import COMPILED_CHECKS_DIR_NAME
-from recon_core.compiler.models import COMPILED_ARTIFACT_VERSION
+from recon_core.compiler.models import (
+    COMPILED_ARTIFACT_VERSION,
+    KeyDiffDirection,
+    OperationSide,
+    OperationType,
+)
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 COMPILED_CHECK_ARTIFACT_NOT_FOUND = "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND"
@@ -270,8 +275,61 @@ def _parse_plan(plan: Mapping[str, object], *, path: str) -> LoadedCheckPlan:
 
 def _parse_operation(value: object, *, path: str) -> dict[str, object]:
     operation = _as_mapping(value, path)
-    _required_string(operation, "type", f"{path}.type")
+    operation_type = _required_string(operation, "type", f"{path}.type")
+    _validate_known_operation_shape(operation, operation_type=operation_type, path=path)
     return dict(operation)
+
+
+def _validate_known_operation_shape(
+    operation: Mapping[str, object],
+    *,
+    operation_type: str,
+    path: str,
+) -> None:
+    try:
+        typed_operation = OperationType(operation_type)
+    except ValueError:
+        return
+
+    if typed_operation in {
+        OperationType.ROW_COUNT,
+        OperationType.NULL_KEY,
+        OperationType.DUPLICATE_KEY,
+        OperationType.AGGREGATE,
+        OperationType.GROUPED_AGGREGATE,
+    }:
+        _required_enum_value(
+            operation,
+            "side",
+            f"{path}.side",
+            allowed_values={side.value for side in OperationSide},
+        )
+
+    if typed_operation is OperationType.KEY_DIFF:
+        _required_enum_value(
+            operation,
+            "direction",
+            f"{path}.direction",
+            allowed_values={direction.value for direction in KeyDiffDirection},
+        )
+
+    if typed_operation in {
+        OperationType.KEY_DIFF,
+        OperationType.NULL_KEY,
+        OperationType.DUPLICATE_KEY,
+    }:
+        _required_identity(operation, "identity", f"{path}.identity")
+
+    if typed_operation in {OperationType.AGGREGATE, OperationType.GROUPED_AGGREGATE}:
+        _required_string(operation, "aggregate", f"{path}.aggregate")
+        _required_string(operation, "column", f"{path}.column")
+
+    if typed_operation is OperationType.GROUPED_AGGREGATE:
+        group_by = _required_string_tuple(operation, "group_by", f"{path}.group_by")
+        if not group_by:
+            raise _ArtifactShapeError(
+                f"Compiled-check artifact field {path}.group_by must not be empty."
+            )
 
 
 def _parse_diagnostics(value: object, path: str) -> tuple[Diagnostic, ...]:
@@ -324,6 +382,30 @@ def _required_string(mapping: Mapping[str, object], key: str, path: str) -> str:
     if not isinstance(value, str) or not value:
         raise _ArtifactShapeError(f"Compiled-check artifact field {path} must be a string.")
     return value
+
+
+def _required_enum_value(
+    mapping: Mapping[str, object],
+    key: str,
+    path: str,
+    *,
+    allowed_values: set[str],
+) -> str:
+    value = _required_string(mapping, key, path)
+    if value not in allowed_values:
+        allowed = ", ".join(sorted(allowed_values))
+        raise _ArtifactShapeError(
+            f"Compiled-check artifact field {path} must be one of: {allowed}."
+        )
+    return value
+
+
+def _required_identity(mapping: Mapping[str, object], key: str, path: str) -> None:
+    identity = _required_mapping(mapping, key, path)
+    _required_string(identity, "kind", f"{path}.kind")
+    keys = _required_string_tuple(identity, "keys", f"{path}.keys")
+    if not keys:
+        raise _ArtifactShapeError(f"Compiled-check artifact field {path}.keys must not be empty.")
 
 
 def _optional_string(mapping: Mapping[str, object], key: str, path: str) -> str | None:

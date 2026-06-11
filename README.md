@@ -44,16 +44,16 @@ Implemented today:
 - DuckDB SQL rendering for currently emitted typed check plans,
 - compiled SQL artifacts under `target/compiled_sql/`,
 - structured service results and diagnostics,
-- CLI command registration for `run`.
+- first `recon run` check-engine boundary for already compiled checks.
 
 Not implemented yet:
 
-- `recon run`,
 - explicit authored checks beyond supported check-pack and metric compilation,
 - full sampling, tolerance, schema, and CDC policy engines,
 - adapter execution,
 - adapter metadata access,
-- check engine,
+- source or target data-check execution,
+- generated run-result artifacts,
 - evidence writers.
 
 The documentation in this repository defines the intended framework behavior.
