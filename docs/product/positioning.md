@@ -58,31 +58,31 @@ CDC-focused:
 
 ## Differentiation
 
-### Versus generic data quality
+### Dataset-Local Quality
 
 Generic DQ asks whether one dataset is healthy.
 
 Recon asks whether two datasets are equivalent.
 
-### Versus table diff tools
+### Table Diff Workflows
 
 Table diff tools compare data.
 
 Recon defines contracts, policies, reusable checks, evidence, and an open project structure.
 
-### Versus migration validation CLIs
+### Migration Validation
 
 Migration validation CLIs can compare systems.
 
 Recon aims to be a broader Reconciliation as Code framework for migrations, CDC, refactors, layers, packages, evidence, and community standards.
 
-### Versus transformation-framework tests
+### Warehouse-Side Assertions
 
 Transformation-framework tests are useful for warehouse-side assertions.
 
 Recon focuses on source-target and old-new equivalence across systems or outputs.
 
-### Versus CDC monitoring
+### CDC Pipeline Monitoring
 
 CDC monitoring tells whether ingestion is running.
 
