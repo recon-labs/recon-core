@@ -175,6 +175,7 @@ class CheckResult:
         self._validate_status_execution()
         self._validate_reason()
         self._validate_blockers()
+        self._validate_non_executed_explanation()
         self._validate_non_executed_payload()
 
     def to_dict(self) -> CheckResultDict:
@@ -225,6 +226,14 @@ class CheckResult:
             raise ValueError("blocked result requires blocked_by")
         if self.status is not CheckStatus.BLOCKED and self.blocked_by:
             raise ValueError("blocked_by is only valid for blocked results")
+
+    def _validate_non_executed_explanation(self) -> None:
+        if self.status not in _NON_EXECUTED_REASON_STATUSES:
+            return
+        if not self.message:
+            raise ValueError(f"{self.status.value} result requires a message")
+        if not self.diagnostics:
+            raise ValueError(f"{self.status.value} result requires diagnostics")
 
     def _validate_non_executed_payload(self) -> None:
         if self.executed:

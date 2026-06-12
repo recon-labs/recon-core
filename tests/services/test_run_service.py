@@ -47,6 +47,27 @@ def test_run_service_loads_compiled_checks_and_returns_not_executable_status(
     assert not (tmp_path / "state").exists()
 
 
+def test_run_service_does_not_mutate_preexisting_run_outputs(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    output_contents = {
+        tmp_path / "target" / "run_results.json": '{"status":"stale"}\n',
+        tmp_path / "target" / "failures" / "existing.csv": "id\n1\n",
+        tmp_path / "reports" / "existing.md": "# stale report\n",
+        tmp_path / "state" / "existing.json": '{"watermark":"stale"}\n',
+    }
+    for path, content in output_contents.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    for path, content in output_contents.items():
+        assert path.read_text(encoding="utf-8") == content
+
+
 def test_run_service_uses_compiled_artifacts_without_parsing_authored_contracts(
     tmp_path: Path,
 ) -> None:

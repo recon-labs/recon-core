@@ -302,6 +302,7 @@ class _RaisingDispatcher:
     def dispatch(self, check: LoadedCompiledCheck) -> CheckResult:
         if self.failing_check_id is None or check.id == self.failing_check_id:
             raise RuntimeError("super-secret database error")
+        message = "Check belongs to a later execution phase."
         return CheckResult(
             check_id=check.id,
             name=check.name,
@@ -310,6 +311,14 @@ class _RaisingDispatcher:
             status=CheckStatus.NOT_EXECUTABLE,
             executed=False,
             reason_code=CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE,
+            message=message,
+            diagnostics=(
+                Diagnostic(
+                    code="RC_RUNTIME_CHECK_NOT_EXECUTABLE",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=message,
+                ),
+            ),
         )
 
 

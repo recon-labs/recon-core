@@ -365,6 +365,10 @@ def test_loader_reports_malformed_known_operation_payloads(
             [{"type": "row_count", "side": "source", "unexpected": {"secret": "value"}}],
             "row_count operation does not allow: unexpected",
         ),
+        (
+            [{"type": "null_safe_equal", "left": "source_value"}],
+            "null_safe_equal operation does not allow: left",
+        ),
     ],
 )
 def test_loader_rejects_unexpected_known_operation_fields(

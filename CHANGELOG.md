@@ -56,10 +56,11 @@ This project follows semantic versioning once public package releases begin.
 - CI now runs DuckDB SQL renderer semantic tests in a required job that installs
   `.[dev,duckdb]`, preventing optional DuckDB execution coverage from being
   silently skipped.
-- `recon run` now rejects unsafe or malformed compiled-check artifacts and
+- `recon run` now rejects unsafe or malformed compiled-check artifacts, enforces
+  explanatory messages and diagnostics on non-executed check results, and
   preserves prerequisite blocking through the check-engine boundary, including
   symlinked artifact paths, non-string artifact mapping keys, empty typed
-  operation plans, fields not valid for known operation types, and
+  operation plans, fields not valid for known or reserved operation types, and
   non-executable prerequisites.
 - `recon compile`, compiled artifact writers, `CompiledSqlWriter`, and
   `recon compile --render-sql` now preflight artifact publication, reject unsafe

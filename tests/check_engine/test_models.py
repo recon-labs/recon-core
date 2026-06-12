@@ -13,6 +13,14 @@ from recon_core.check_engine import (
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 
+def _diagnostic(message: str) -> Diagnostic:
+    return Diagnostic(
+        code="RC_RUNTIME_CHECK_NOT_EXECUTABLE",
+        severity=DiagnosticSeverity.ERROR,
+        message=message,
+    )
+
+
 def test_status_and_reason_values_match_locked_taxonomy() -> None:
     assert [status.value for status in CheckStatus] == [
         "pass",
@@ -102,6 +110,7 @@ def test_check_result_serializes_non_executable_result_deterministically() -> No
 
 
 def test_blocked_result_serializes_blockers_and_matching_reason() -> None:
+    diagnostic = _diagnostic("Check did not run because a prerequisite failed.")
     result = CheckResult(
         check_id="check.ecommerce_recon.customer_revenue.value_match",
         name="value_match",
@@ -110,7 +119,9 @@ def test_blocked_result_serializes_blockers_and_matching_reason() -> None:
         status=CheckStatus.BLOCKED,
         executed=False,
         reason_code=CheckReason.PREREQUISITE_FAILED,
+        message="Check did not run because a prerequisite failed.",
         blocked_by=("check.ecommerce_recon.customer_revenue.duplicate_source_keys",),
+        diagnostics=(diagnostic,),
     )
 
     assert result.to_dict()["blocked_by"] == [
@@ -179,6 +190,58 @@ def test_check_result_rejects_invalid_status_reason_combinations(
         )
 
 
+@pytest.mark.parametrize(
+    ("status", "reason_code", "blocked_by", "message", "diagnostics", "expected_error"),
+    [
+        (
+            CheckStatus.BLOCKED,
+            CheckReason.PREREQUISITE_FAILED,
+            ("check.ecommerce_recon.customer_revenue.duplicate_source_keys",),
+            None,
+            (_diagnostic("Check did not run."),),
+            "blocked result requires a message",
+        ),
+        (
+            CheckStatus.NOT_EXECUTABLE,
+            CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE,
+            (),
+            "",
+            (_diagnostic("Check did not run."),),
+            "not_executable result requires a message",
+        ),
+        (
+            CheckStatus.SKIPPED,
+            CheckReason.SKIPPED_BY_POLICY,
+            (),
+            "Check was skipped by policy.",
+            (),
+            "skipped result requires diagnostics",
+        ),
+    ],
+)
+def test_non_executed_result_requires_message_and_diagnostics(
+    status: CheckStatus,
+    reason_code: CheckReason,
+    blocked_by: tuple[str, ...],
+    message: str | None,
+    diagnostics: tuple[Diagnostic, ...],
+    expected_error: str,
+) -> None:
+    with pytest.raises(ValueError, match=expected_error):
+        CheckResult(
+            check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+            name="row_count_diff",
+            check_type="row_count_diff",
+            contract_name="customer_revenue",
+            status=status,
+            executed=False,
+            reason_code=reason_code,
+            blocked_by=blocked_by,
+            message=message,
+            diagnostics=diagnostics,
+        )
+
+
 def test_non_executed_result_rejects_value_and_output_refs() -> None:
     with pytest.raises(ValueError, match="non-executed result cannot include value fields"):
         CheckResult(
@@ -189,6 +252,8 @@ def test_non_executed_result_rejects_value_and_output_refs() -> None:
             status=CheckStatus.NOT_EXECUTABLE,
             executed=False,
             reason_code=CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE,
+            message="Check belongs to a later execution phase.",
+            diagnostics=(_diagnostic("Check belongs to a later execution phase."),),
             source_value=12,
         )
 
@@ -201,6 +266,8 @@ def test_non_executed_result_rejects_value_and_output_refs() -> None:
             status=CheckStatus.NOT_EXECUTABLE,
             executed=False,
             reason_code=CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE,
+            message="Check belongs to a later execution phase.",
+            diagnostics=(_diagnostic("Check belongs to a later execution phase."),),
             artifact_refs=("target/run_results.json",),
         )
 
@@ -214,6 +281,8 @@ def test_contract_and_run_results_serialize_without_command_result_fields() -> N
         status=CheckStatus.NOT_EXECUTABLE,
         executed=False,
         reason_code=CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE,
+        message="Check belongs to a later execution phase.",
+        diagnostics=(_diagnostic("Check belongs to a later execution phase."),),
     )
     contract = ContractResult.from_check_results(
         contract_name="customer_revenue",

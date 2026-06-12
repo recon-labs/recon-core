@@ -371,10 +371,7 @@ def _reject_unexpected_known_operation_fields(
     *,
     path: str,
 ) -> None:
-    allowed_payload_fields = _OPERATION_ALLOWED_FIELDS.get(typed_operation)
-    if allowed_payload_fields is None:
-        return
-
+    allowed_payload_fields = _OPERATION_ALLOWED_FIELDS.get(typed_operation, frozenset())
     allowed_fields = (
         _OPERATION_BASE_FIELDS | allowed_payload_fields | _RESERVED_OPERATION_METADATA_FIELDS
     )

@@ -10,6 +10,7 @@ from recon_core.check_engine import (
     aggregate_check_status,
     aggregate_contract_status,
 )
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 
 def _result(status: CheckStatus, name: str) -> CheckResult:
@@ -23,6 +24,7 @@ def _result(status: CheckStatus, name: str) -> CheckResult:
             executed=True,
         )
     if status is CheckStatus.BLOCKED:
+        message = "Check did not run because a prerequisite failed."
         return CheckResult(
             check_id=f"check.ecommerce_recon.customer_revenue.{name}",
             name=name,
@@ -31,9 +33,12 @@ def _result(status: CheckStatus, name: str) -> CheckResult:
             status=status,
             executed=False,
             reason_code=CheckReason.PREREQUISITE_FAILED,
+            message=message,
             blocked_by=("check.ecommerce_recon.customer_revenue.duplicate_source_keys",),
+            diagnostics=(_diagnostic(message),),
         )
     if status is CheckStatus.NOT_EXECUTABLE:
+        message = "Check belongs to a later execution phase."
         return CheckResult(
             check_id=f"check.ecommerce_recon.customer_revenue.{name}",
             name=name,
@@ -42,8 +47,11 @@ def _result(status: CheckStatus, name: str) -> CheckResult:
             status=status,
             executed=False,
             reason_code=CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE,
+            message=message,
+            diagnostics=(_diagnostic(message),),
         )
     if status is CheckStatus.SKIPPED:
+        message = "Check was skipped by policy."
         return CheckResult(
             check_id=f"check.ecommerce_recon.customer_revenue.{name}",
             name=name,
@@ -52,6 +60,8 @@ def _result(status: CheckStatus, name: str) -> CheckResult:
             status=status,
             executed=False,
             reason_code=CheckReason.SKIPPED_BY_POLICY,
+            message=message,
+            diagnostics=(_diagnostic(message),),
         )
     return CheckResult(
         check_id=f"check.ecommerce_recon.customer_revenue.{name}",
@@ -132,3 +142,11 @@ def test_run_result_from_empty_contracts_is_no_checks() -> None:
 
     assert run.status is RunStatus.NO_CHECKS
     assert run.to_dict()["contract_results"] == []
+
+
+def _diagnostic(message: str) -> Diagnostic:
+    return Diagnostic(
+        code="RC_RUNTIME_CHECK_NOT_EXECUTABLE",
+        severity=DiagnosticSeverity.ERROR,
+        message=message,
+    )
