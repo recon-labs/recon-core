@@ -104,6 +104,40 @@ def test_run_service_reports_empty_compiled_check_scope(tmp_path: Path) -> None:
     ]
 
 
+def test_run_service_runs_valid_artifacts_when_another_artifact_has_empty_checks(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path, contract_name="valid_contract")
+    write_compiled_checks(
+        tmp_path,
+        contract_name="empty_contract",
+        checks=[],
+        diagnostics=[
+            {
+                "code": "RC_VALIDATE_NO_COMPILED_CHECKS",
+                "severity": "error",
+                "message": "Contract does not compile into any checks.",
+                "resource_type": "contract",
+                "resource_name": "empty_contract",
+                "path": "contracts/empty_contract.yml",
+                "line": None,
+                "column": None,
+                "hint": "Add a supported check pack or metric.",
+            }
+        ],
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_VALIDATE_NO_COMPILED_CHECKS",
+        "RC_RUNTIME_MISSING_ENGINE_CAPABILITY",
+    ]
+
+
 def test_run_service_maps_engine_check_failure_to_check_failure_exit(
     tmp_path: Path,
 ) -> None:
@@ -154,12 +188,21 @@ state-path: state
 def write_compiled_checks(
     path: Path,
     *,
+    contract_name: str = "customer_revenue",
     checks: list[dict[str, object]] | None = None,
+    diagnostics: list[dict[str, object]] | None = None,
 ) -> None:
-    artifact_path = path / "target" / "compiled_checks" / "customer_revenue.yml"
-    artifact_path.parent.mkdir(parents=True)
+    artifact_path = path / "target" / "compiled_checks" / f"{contract_name}.yml"
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
     artifact_path.write_text(
-        yaml.safe_dump(_compiled_checks_payload(checks=checks), sort_keys=False),
+        yaml.safe_dump(
+            _compiled_checks_payload(
+                contract_name=contract_name,
+                checks=checks,
+                diagnostics=diagnostics,
+            ),
+            sort_keys=False,
+        ),
         encoding="utf-8",
     )
 
@@ -212,7 +255,9 @@ class _RaisingEngine:
 
 def _compiled_checks_payload(
     *,
+    contract_name: str = "customer_revenue",
     checks: list[dict[str, object]] | None = None,
+    diagnostics: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
         "artifact_type": "compiled_checks",
@@ -222,12 +267,12 @@ def _compiled_checks_payload(
         "invocation_id": "01JTESTINVOCATION0000000000",
         "project": {"name": "ecommerce_recon", "version": "0.1.0"},
         "contract": {
-            "id": "contract.ecommerce_recon.customer_revenue",
-            "name": "customer_revenue",
-            "source_file": "contracts/customer_revenue.yml",
+            "id": f"contract.ecommerce_recon.{contract_name}",
+            "name": contract_name,
+            "source_file": f"contracts/{contract_name}.yml",
         },
         "checks": checks if checks is not None else [_compiled_check_payload()],
-        "diagnostics": [],
+        "diagnostics": diagnostics if diagnostics is not None else [],
     }
 
 

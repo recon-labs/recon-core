@@ -61,7 +61,8 @@ This project follows semantic versioning once public package releases begin.
   preserves prerequisite blocking through the check-engine boundary, including
   symlinked artifact paths, non-string artifact mapping keys, empty typed
   operation plans, fields not valid for known or reserved operation types, and
-  non-executable prerequisites.
+  non-executable prerequisites, while preserving valid artifacts when sibling
+  contracts compile to no checks.
 - `recon compile`, compiled artifact writers, `CompiledSqlWriter`, and
   `recon compile --render-sql` now preflight artifact publication, reject unsafe
   output paths, symlinks, non-files, case-insensitive collisions, path-like

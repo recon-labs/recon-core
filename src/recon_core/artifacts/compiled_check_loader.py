@@ -90,10 +90,6 @@ class _ArtifactShapeError(ValueError):
     """Internal shape validation error."""
 
 
-class _NoCompiledChecksError(ValueError):
-    """Internal empty compiled-check scope marker."""
-
-
 class CompiledCheckLoader:
     """Load compiled checks artifacts from a target directory."""
 
@@ -135,9 +131,16 @@ class CompiledCheckLoader:
             if artifact is not None:
                 artifacts.append(artifact)
 
+        if diagnostics:
+            return CompiledCheckLoadResult(diagnostics=tuple(diagnostics))
+        if not any(artifact.checks for artifact in artifacts):
+            empty_scope_path = artifacts[0].path if len(artifacts) == 1 else compiled_checks_dir
+            return CompiledCheckLoadResult(
+                diagnostics=(_no_compiled_checks_diagnostic(empty_scope_path),)
+            )
+
         return CompiledCheckLoadResult(
-            artifacts=tuple(artifacts) if not diagnostics else (),
-            diagnostics=tuple(diagnostics),
+            artifacts=tuple(artifacts),
         )
 
     def _load_artifact(
@@ -170,8 +173,6 @@ class CompiledCheckLoader:
                     "Compiled-check artifact could not be read.",
                 ),
             )
-        except _NoCompiledChecksError:
-            return None, (_no_compiled_checks_diagnostic(artifact_path),)
         except _ArtifactShapeError as error:
             return None, (_invalid_artifact_diagnostic(artifact_path, str(error)),)
 
@@ -258,9 +259,6 @@ def _parse_artifact(
     source_file = _required_string(contract, "source_file", "contract.source_file")
 
     raw_checks = _required_list(payload, "checks", "checks")
-    if not raw_checks:
-        raise _NoCompiledChecksError
-
     checks = tuple(
         _parse_check(
             check_payload,

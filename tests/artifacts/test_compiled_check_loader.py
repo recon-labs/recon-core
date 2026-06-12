@@ -278,6 +278,48 @@ def test_loader_reports_empty_checks_scope(tmp_path: Path) -> None:
     assert diagnostic.path == str(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml")
 
 
+def test_loader_keeps_valid_artifacts_when_another_artifact_has_empty_checks(
+    tmp_path: Path,
+) -> None:
+    empty_diagnostic: dict[str, object] = {
+        "code": "RC_VALIDATE_NO_COMPILED_CHECKS",
+        "severity": "error",
+        "message": "Contract does not compile into any checks.",
+        "resource_type": "contract",
+        "resource_name": "empty_contract",
+        "path": "contracts/empty_contract.yml",
+        "line": None,
+        "column": None,
+        "hint": "Add a supported check pack or metric.",
+    }
+    _write_payload(
+        tmp_path / "target" / "compiled_checks" / "empty_contract.yml",
+        _compiled_checks_payload(
+            contract_name="empty_contract",
+            checks=[],
+            diagnostics=[empty_diagnostic],
+        ),
+    )
+    _write_payload(
+        tmp_path / "target" / "compiled_checks" / "valid_contract.yml",
+        _compiled_checks_payload(contract_name="valid_contract"),
+    )
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert result.succeeded
+    assert result.diagnostics == ()
+    assert [artifact.contract_name for artifact in result.artifacts] == [
+        "empty_contract",
+        "valid_contract",
+    ]
+    assert result.artifacts[0].checks == ()
+    assert [diagnostic.code for diagnostic in result.artifacts[0].diagnostics] == [
+        "RC_VALIDATE_NO_COMPILED_CHECKS"
+    ]
+    assert len(result.artifacts[1].checks) == 1
+
+
 def test_loader_reports_duplicate_check_ids(tmp_path: Path) -> None:
     check = _compiled_check_payload()
     payload = _compiled_checks_payload(checks=[check, dict(check)])
@@ -508,6 +550,7 @@ def _compiled_checks_payload(
     *,
     contract_name: str = "customer_revenue",
     checks: list[dict[str, object]] | None = None,
+    diagnostics: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
         "artifact_type": "compiled_checks",
@@ -522,7 +565,7 @@ def _compiled_checks_payload(
             "source_file": f"contracts/{contract_name}.yml",
         },
         "checks": checks if checks is not None else [_compiled_check_payload()],
-        "diagnostics": [],
+        "diagnostics": diagnostics if diagnostics is not None else [],
     }
 
 
