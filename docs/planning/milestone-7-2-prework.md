@@ -354,6 +354,18 @@ Runtime diagnostics should prefer stable contract/check identity over physical
 relation names. Physical relation names remain policy-controlled and must not
 leak through adapter or database exception text.
 
+Omitted execution-debug detail is intentionally assigned to later debug
+surfaces, not to the default 7.2 runtime diagnostic path. Future
+`recon debug profile`, `recon debug connection`, `recon debug contract`, and
+`recon debug run --check ...` work must resolve the future CLI command gate,
+diagnostic output conformance, adapter/profile diagnostic conformance where
+adapter-backed, source/target privacy, and the relevant service-specific gates
+before exposing richer debug context. A local secure debug artifact must also
+resolve generated artifact lifecycle, path safety, retention, cleanup, and
+redaction rules before it can be written. Native database error text and
+rendered SQL disclosure belong to advanced opt-in secure debug/evidence artifact
+work, not to default Milestone 7.2 terminal/log output.
+
 ## Placement Constraint
 
 Milestone 7.2 locks row-count execution placement to same-context DuckDB
@@ -898,6 +910,10 @@ confidence validation that did run.
 | Row-level value comparison | Later row-level comparison work |
 | Sampling execution and persisted sample keys | Later sampling/state work |
 | CDC propagation execution | Later CDC work |
+| `recon debug profile`, `recon debug connection`, `recon debug contract`, and `recon debug run --check ...` | Post-MVP Milestone 28 split debug work |
+| Local secure debug artifact with retention, cleanup, path safety, and redaction rules | Post-MVP Milestone 28 split debug work |
+| Adapter debug snapshots and adapter test-kit debug conformance | Post-MVP Milestone 29 |
+| Native database error text or rendered SQL disclosure through explicit opt-in secure debug/evidence artifacts | Post-MVP Milestone 31 |
 | Result/evidence sinks and production result tables | Later sink/result-store work |
 | External adapter packages and shared adapter test kit | Later adapter ecosystem work |
 | Materialization, staging, intermediate engines, external comparison engines, and Python fallback policies | Later execution-placement work |

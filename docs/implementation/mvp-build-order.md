@@ -1686,18 +1686,53 @@ Build:
 
 - `recon list`,
 - `recon clean`,
-- `recon debug`,
+- `recon debug profile` for selected profile, target, environment-variable,
+  and connection-config shape diagnostics that do not open adapter connections,
+- `recon debug connection` for adapter resolution, dependency availability,
+  connection, metadata, and capability diagnostics with sanitized adapter and
+  database failure text,
+- `recon debug contract` for compiled contract/check linkage, relation endpoint
+  readiness, placement eligibility, and adapter capability eligibility before
+  execution,
+- `recon debug run --check ...` for safe structured context around one failed
+  run/check after the result model can identify selected run scope,
+- an explicitly opted-in local secure debug artifact for richer diagnostics
+  after artifact lifecycle, path safety, retention, cleanup, and redaction
+  rules are locked,
 - `recon build`,
 - documentation generation command,
 - retry/resume commands,
 - explicit `recon init` overwrite/force behavior,
 - documented behavior for `--vars`, `--quiet`, and richer `--debug` output.
 
+Deferred from this milestone:
+
+- public terminal/log output that prints raw SQL, rendered SQL, raw database
+  engine error text, tracebacks, credentials, DSN fragments, rendered profile
+  values, source/target query text, or raw row/value data,
+- opt-in native database error and rendered SQL disclosure, which belongs with
+  the advanced secure debug/evidence artifact work in Post-MVP Milestone 31
+  unless a later gate explicitly moves it earlier,
+- adapter test-kit debug snapshots, which belong with Post-MVP Milestone 29.
+
 Required gate:
 
 - resolve the future CLI commands and options gate in
   the applicable milestone design prework gate for the
   specific command or option being implemented,
+- resolve the debug commands and secure debug artifacts gate before adding any
+  `recon debug ...` command, richer `--debug` behavior, secure debug artifact,
+  native-error disclosure, rendered-SQL disclosure, or debug snapshot,
+- resolve diagnostic output message conformance before any debug command prints
+  diagnostics,
+- resolve adapter/profile diagnostic conformance before profile-backed adapter
+  resolution, connection checks, adapter metadata reads, adapter capability
+  reads, adapter query attempts, or adapter test-kit debug snapshots,
+- resolve source/target privacy before any debug command, log, artifact,
+  snapshot, or result view can expose source/target identifiers, query text,
+  relation names, counts, keys, values, database errors, or failure details,
+- resolve generated artifact lifecycle and cleanup before writing a local secure
+  debug artifact,
 - resolve the documentation generation command gate before adding docs
   generation behavior,
 - resolve the `recon init` overwrite/force safety gate before adding any
