@@ -36,6 +36,11 @@ from recon_core.adapters.rendering import (
     RenderedCheckSql,
     render_check_sql,
 )
+from recon_core.adapters.runtime_setup import (
+    ADAPTER_TYPE_MISMATCH,
+    RuntimeAdapterSetupResult,
+    prepare_runtime_adapter,
+)
 from recon_core.profiles import ConnectionConfig
 
 
@@ -59,6 +64,7 @@ __all__ = [
     "ADAPTER_RENDERED_SQL_EMPTY",
     "ADAPTER_RENDERER_METADATA_INVALID",
     "ADAPTER_RENDERER_TYPE_MISMATCH",
+    "ADAPTER_TYPE_MISMATCH",
     "ADAPTER_UNKNOWN_TYPE",
     "AdapterCapabilities",
     "AdapterFactory",
@@ -73,7 +79,9 @@ __all__ = [
     "RenderedSql",
     "RenderedCheckSql",
     "SqlRenderer",
+    "RuntimeAdapterSetupResult",
     "default_adapter_registry",
+    "prepare_runtime_adapter",
     "render_check_sql",
     "validate_adapter_api_compatibility",
     "validate_required_capabilities",
