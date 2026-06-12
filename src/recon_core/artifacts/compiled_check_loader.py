@@ -541,6 +541,8 @@ def _string_tuple(values: list[object], path: str) -> tuple[str, ...]:
 def _as_mapping(value: object, path: str) -> Mapping[str, object]:
     if not isinstance(value, dict):
         raise _ArtifactShapeError(f"Compiled-check artifact field {path} must be a mapping.")
+    if any(not isinstance(key, str) for key in value):
+        raise _ArtifactShapeError(f"Compiled-check artifact field {path} must use string keys.")
     return cast(Mapping[str, object], value)
 
 

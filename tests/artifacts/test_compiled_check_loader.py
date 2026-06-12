@@ -367,6 +367,24 @@ def test_loader_rejects_unexpected_known_operation_fields(
     assert "value" not in diagnostic.message
 
 
+def test_loader_rejects_non_string_operation_mapping_keys(tmp_path: Path) -> None:
+    payload = _compiled_checks_payload(
+        checks=[
+            _compiled_check_payload(operations=[{"type": "row_count", "side": "source", 1: "boom"}])
+        ]
+    )
+    _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert "plan.operations[0]" in diagnostic.message
+    assert "string keys" in diagnostic.message
+    assert "boom" not in diagnostic.message
+
+
 @pytest.mark.parametrize(
     "operation",
     [

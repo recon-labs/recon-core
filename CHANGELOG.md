@@ -97,6 +97,8 @@ This project follows semantic versioning once public package releases begin.
   not valid for their known operation type, while still preserving reserved
   placement and materialization metadata for explicit non-execution
   classification.
+- `recon run` now rejects compiled-check artifact mappings that use non-string
+  keys as malformed artifacts instead of surfacing loader exceptions.
 - `CompiledSqlWriter` and `recon compile --render-sql` now validate and
   preflight the full rendered SQL output set before writing any SQL files,
   preventing partial or misleading `target/compiled_sql/` output when rendered
