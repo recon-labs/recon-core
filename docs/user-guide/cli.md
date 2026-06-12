@@ -21,7 +21,8 @@ Current implementation status:
 - `recon compile` is implemented for the current compiler scope.
 - `recon compile --render-sql` is implemented for DuckDB relation endpoints
   and current typed check-plan operations.
-- `recon run` is registered but not implemented yet.
+- `recon run` is implemented as the first check-engine boundary for already
+  compiled checks. It does not execute source or target data checks yet.
 
 ## `recon init`
 
@@ -196,15 +197,40 @@ Current limitations:
   does not attach or bridge multiple DuckDB database files,
 - the in-core DuckDB adapter renders SQL but does not execute checks or fetch
   metadata yet,
-- execution, run results, and evidence reports are not implemented yet.
+- data-check execution, run results, and evidence reports are not implemented
+  yet.
 
 ## `recon run`
 
-Executes checks. This command is not implemented yet.
+Loads compiled checks and routes them through the first check-engine boundary.
+The current command reports explicit diagnostics for checks that cannot execute
+yet; it does not run source or target queries.
 
 ```bash
 recon run
 ```
+
+Current behavior:
+
+- loads project configuration and `target/compiled_checks/*.yml`,
+- fails with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND` when compiled-check
+  artifacts are missing,
+- fails with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID` when compiled-check
+  artifacts are malformed or incompatible,
+- fails with `RC_RUNTIME_NO_COMPILED_CHECKS` when the compiled-check scope is
+  empty,
+- returns `not_executable` check results with reason codes and diagnostics for
+  known later-phase checks, unsupported check types, unsupported typed
+  operations, missing required engine capabilities, unsupported execution
+  placement, or unsupported materialization policy,
+- returns `blocked` check results when prerequisites are missing, failed, or
+  errored,
+- does not parse authored contract YAML,
+- does not recompile contracts,
+- does not load runtime profiles,
+- does not initialize adapters,
+- does not render or execute SQL,
+- does not write generated outputs.
 
 Planned future output:
 
@@ -213,10 +239,6 @@ target/run_results.json
 target/failures/
 reports/
 ```
-
-The first check-engine boundary should consume already compiled check artifacts
-and fail clearly when those artifacts are missing, invalid, or empty. It should
-not parse authored YAML or recompile contracts.
 
 Later runner phases may parse or compile automatically after artifact freshness
 semantics are locked.

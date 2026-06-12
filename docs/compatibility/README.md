@@ -31,7 +31,8 @@ Current implementation status:
 | Adapter API | Implemented as a pre-alpha boundary with `ADAPTER_API_VERSION = "1"`; not stable for external adapter packages yet. |
 | Adapter capabilities | Support-state validation exists; the in-core DuckDB local adapter declares the current rendering subset. |
 | Renderer output and artifact publication | Implemented for current compiled SQL writer behavior; future shared renderer, adapter test-kit, adapter repo, execution, and generated-artifact surfaces are gated. |
-| Diagnostic output and exception sanitization | Current CLI failures print code and safe message; current project/resource YAML diagnostics suppress raw parser snippets. Future run, evidence, debug, adapter, and test-kit surfaces are gated. |
+| Diagnostic output and exception sanitization | Current CLI failures print code and safe message; current project/resource YAML diagnostics suppress raw parser snippets. Future generated run-result, evidence, debug, adapter, and test-kit surfaces are gated. |
+| Check-engine boundary and result model | Implemented as a pre-alpha in-memory boundary for already compiled checks; generated run-result artifacts, evidence, and data-check execution remain future work. |
 | External adapter repos | Planned, not split yet. |
 | Adapter test kit | Planned, not created yet. |
 | Run results and evidence | Planned, not implemented yet. |

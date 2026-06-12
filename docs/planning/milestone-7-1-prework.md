@@ -135,6 +135,7 @@ First-boundary reason codes:
 - `prerequisite_failed`,
 - `prerequisite_error`,
 - `prerequisite_missing`,
+- `prerequisite_not_executable`,
 - `unsupported_check_type`,
 - `unsupported_typed_operation`,
 - `missing_engine_capability`,
@@ -171,6 +172,7 @@ Milestone 7.1 owns these first-boundary runtime diagnostic codes:
 - `RC_RUNTIME_CHECK_NOT_EXECUTABLE`,
 - `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE`,
 - `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION`,
+- `RC_RUNTIME_MISSING_ENGINE_CAPABILITY`,
 - `RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT`,
 - `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY`,
 - `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE`,
@@ -244,12 +246,12 @@ complete.
 | --- | --- | --- | --- | --- | --- |
 | Service boundary and command/result separation | `recon run` service entry, command-level failure, in-memory run result creation. | `ServiceResult` owns CLI exit category and command diagnostics; reconciliation status lives in `RunResult`, `ContractResult`, and `CheckResult`. | Service tests for `RunService`; model tests proving `ServiceResult` is not reused as `CheckResult`. | Result-model docs and diagnostic output conformance gate. | Runner summary and stable run-result artifact belong to the future runner/result phase. |
 | In-memory result model shape | `RunResult`, `ContractResult`, `CheckResult`, diagnostic lists, empty artifact/sink refs. | Models serialize deterministically with status, reason code, `executed`, `blocked_by`, safe diagnostics, and empty output references. | Unit tests for model construction and dictionary serialization. | Public contract inventory tracks this as planned pre-alpha surface. | Stable `target/run_results.json` schema and version constant are not 7.1 scope. |
-| Status and reason taxonomy | `pass`, `fail`, `warn`, `error`, `skipped`, `blocked`, `not_executable`, aggregate `no_checks`, all first-boundary reason codes. | Statuses and reason codes match this prework; `unsupported` and `not_yet_executable` are not statuses. Empty compiled-check scope deterministically maps to aggregate `no_checks` plus command-level `RC_RUNTIME_NO_COMPILED_CHECKS`. Known later-phase operations use `not_implemented_in_current_phase`; unknown valid operation types use `unsupported_typed_operation`; malformed operation payloads are artifact-invalid diagnostics. | Enum/model tests for every status, reason, invalid combination, serialization value, empty-scope mapping, and later-phase versus unsupported-operation mapping. | Compatibility matrix and result-model docs. | Additional execution statuses require compatibility review in later phases. |
+| Status and reason taxonomy | `pass`, `fail`, `warn`, `error`, `skipped`, `blocked`, `not_executable`, aggregate `no_checks`, all first-boundary reason codes. | Statuses and reason codes match this prework; `unsupported` and `not_yet_executable` are not statuses. Empty compiled-check scope deterministically maps to aggregate `no_checks` plus command-level `RC_RUNTIME_NO_COMPILED_CHECKS`. Known later-phase operations use `not_implemented_in_current_phase`; unknown valid operation types use `unsupported_typed_operation`; declared unavailable engine capabilities use `missing_engine_capability`; malformed operation payloads, non-string artifact mapping keys, and empty operation lists are artifact-invalid diagnostics. | Enum/model tests for every status, reason, invalid combination, serialization value, empty-scope mapping, and later-phase versus unsupported-operation and missing-capability mapping. | Compatibility matrix and result-model docs. | Additional execution statuses require compatibility review in later phases. |
 | Aggregate status behavior | Empty scope, all blocked, all not executable, error plus other statuses, fail plus blocked, warning-only fixtures, all skipped, mixed pass plus skipped, all pass fixtures. | `no_checks` is not pass; empty compiled-check scope is a runtime failure for `RunService`; precedence for non-empty scopes is `error > fail > blocked > not_executable > warn > pass > skipped`, with `skipped` used only when every check in scope was intentionally skipped. Mixed statuses remain visible in counts/results. | Pure aggregation tests using in-memory fixtures. | Result-model docs. | Real pass/fail/warn from database execution belongs to later execution phases. |
 | Compiled-check loading boundary | Existing compiled-check artifact path, multiple contracts, source metadata, diagnostic-bearing compiled checks. | 7.1 consumes compiled artifacts or equivalent compiled fixtures only; it does not parse authored YAML or recompile contracts. | Service tests with temporary compiled artifacts and in-memory fixtures. | Parse/compile/run architecture and compiled artifact docs. | Artifact freshness, cache reuse, and selected-scope freshness are later work. |
-| Missing, empty, or malformed compiled artifacts | Missing compiled-check directory/file, empty check list, invalid YAML, wrong artifact version, missing required fields. | Produce non-pass runtime diagnostics with locked codes; never report source-target equivalence. | Service/loader tests for each artifact error and safe diagnostic. | Runtime diagnostics docs. | Compile-time validation of authored YAML remains parser/compiler scope. |
+| Missing, empty, unsafe, or malformed compiled artifacts | Missing compiled-check directory/file, empty check list, invalid YAML, symlinked artifact paths, wrong artifact version, missing required fields, empty typed operation lists. | Produce non-pass runtime diagnostics with locked codes; never report source-target equivalence. | Service/loader tests for each artifact error and safe diagnostic. | Runtime diagnostics docs. | Compile-time validation of authored YAML remains parser/compiler scope. |
 | Internal dispatch boundary | Known compiled check type assigned to a later phase, unknown check type, unsupported typed operation. | Dispatch is internal only; unsupported or later-phase checks produce `not_executable` with reason and diagnostics. | Dispatch tests for known-later, unknown, and unsupported operation cases. | Explicit authored checks/check registry gate. | Public authored `checks: [...]`, package checks, and user-extensible registries remain future scope. |
-| Prerequisite blocking | Prerequisite failed, errored, missing, duplicate `blocked_by`, multiple blockers. | Dependent check result is `blocked`, `executed=false`, includes `blocked_by`, reason code, and diagnostics. | Model/engine tests for `prerequisite_failed`, `prerequisite_error`, and `prerequisite_missing`. | ADR 0014 key semantics and check dependencies. | Executing grain-key safety checks that create prerequisite failures belongs to the grain-key safety phase. |
+| Prerequisite blocking | Prerequisite failed, errored, missing, not executable, duplicate `blocked_by`, multiple blockers. | Dependent check result is `blocked`, `executed=false`, includes `blocked_by`, reason code, and diagnostics. | Model/engine tests for `prerequisite_failed`, `prerequisite_error`, `prerequisite_missing`, and `prerequisite_not_executable`. | ADR 0014 key semantics and check dependencies. | Executing grain-key safety checks that create prerequisite failures belongs to the grain-key safety phase. |
 | Diagnostic preservation and sanitization | Code, severity, message, path, resource type/name, hint, unsafe raw exception text, unsafe source/target text. | Safe diagnostics preserve actionable fields; raw source/target values, query text, relation names, credentials, raw tracebacks, and database errors are not emitted. | Diagnostic tests for preserved safe fields and redaction/suppression cases. | Diagnostic output message conformance gate and source/target privacy gate. | Adapter/database runtime exception sanitization expands in adapter execution phases. |
 | No adapter, profile, or SQL execution | Adapter registry/factory, profile loader, SQL renderer, source/target query call, relation access. | None are invoked by 7.1; compiled checks remain non-executed unless supplied as already evaluated in-memory fixtures. | Negative tests with fakes/mocks that would fail if adapter/profile/renderer/query calls occur. | ADR 0021 placement boundary and adapter/profile gates. | Row-count, grain-key, and aggregate execution belong to later split phases. |
 | No generated outputs | `target/run_results.json`, reports, evidence, failure details, state files, result tables, sink writes, compiled SQL writes. | 7.1 writes none of these and records no path/table/object destination as written. | Temporary-directory tests proving no new files, state, reports, sink/table refs, or SQL output are produced. | Generated artifact lifecycle gate, ADR 0022 result/evidence boundary. | Local run-result artifact belongs to the runner/result phase; evidence/report output belongs to evidence phase. |
@@ -267,20 +269,23 @@ scope during implementation review.
 | --- | --- | --- |
 | Compiled-check artifact path is missing. | Command-level runtime failure with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND`; no run pass and no generated output. | Service test with missing target artifact. |
 | Compiled-check artifact exists but is unreadable or invalid YAML. | Runtime failure with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID`; unsafe parser text is not emitted. | Loader/service test with malformed file. |
+| Compiled-check directory path or artifact file contains a symlink. | Runtime failure with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID`; the loader must not follow the symlink or consume artifacts outside the requested target tree. | Loader tests for symlinked path components and symlinked artifact files. |
 | Compiled-check artifact has unsupported or wrong artifact version. | Runtime failure with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID`; no fallback parsing. | Loader/model test for version mismatch. |
-| Compiled-check artifact has zero checks. | Aggregate status is `no_checks`; `RunService` maps the empty scope to command-level runtime failure with `RC_RUNTIME_NO_COMPILED_CHECKS`; never `pass`. | Aggregation/service test for empty scope. |
+| Compiled-check run scope has zero checks. | Aggregate status is `no_checks`; `RunService` maps the empty scope to command-level runtime failure with `RC_RUNTIME_NO_COMPILED_CHECKS`; never `pass`. Empty artifacts from contracts that compile to no checks do not block valid sibling artifacts in the same run scope. | Aggregation/service tests for empty scope and mixed empty/valid artifact scope. |
 | Compiled check is missing required ID, name, type, or plan fields. | Runtime artifact-invalid diagnostic; no partial result that looks executable. | Loader validation test for each missing field group. |
 | Duplicate compiled check IDs appear in one run scope. | Runtime artifact-invalid diagnostic; dispatch does not choose one silently. | Loader validation test. |
 | Compiled check type is unknown. | Check result `not_executable`, reason `unsupported_check_type`, diagnostic `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE`. | Dispatch test. |
 | Compiled check has known type but operation belongs to later phase. | Check result `not_executable`, reason `not_implemented_in_current_phase`, diagnostic `RC_RUNTIME_CHECK_NOT_EXECUTABLE`. | Dispatch test using row-count/key/aggregate fixtures as appropriate. |
 | Compiled typed operation is validly shaped but unrecognized. | Check result `not_executable`, reason `unsupported_typed_operation`, diagnostic `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION`. | Dispatch test for valid unknown operation type. |
-| Compiled typed operation payload is malformed. | Runtime artifact-invalid diagnostic; dispatch does not run. | Loader validation test for malformed operation payload. |
-| Required engine capability is absent or unknown. | Check result `not_executable`, reason `missing_engine_capability`; no fallback execution. | Capability-fit test with no adapter invocation. |
+| Compiled artifact or typed operation payload is malformed, uses non-string artifact mapping keys, or contains fields not valid for its known operation type. | Runtime artifact-invalid diagnostic; dispatch does not run. | Loader validation test for malformed operation payload, root and nested non-string mapping keys, and unexpected known-operation fields. |
+| Compiled check plan has no typed operations. | Runtime artifact-invalid diagnostic; dispatch does not classify an empty no-op plan as later-phase behavior. | Loader validation test for empty `plan.operations`. |
+| Required engine capability is absent or unknown. | Check result `not_executable`, reason `missing_engine_capability`, diagnostic `RC_RUNTIME_MISSING_ENGINE_CAPABILITY`; no fallback execution. | Capability-fit test with no adapter invocation. |
 | Required execution placement is unsupported. | Check result `not_executable`, reason `unsupported_execution_placement`; no Python fallback. | Placement blocker test. |
 | Required materialization or staging policy appears. | Check result `not_executable`, reason `unsupported_materialization_policy`; no staging output. | Materialization blocker test. |
 | Prerequisite result failed. | Dependent result `blocked`, reason `prerequisite_failed`, `blocked_by` includes prerequisite ID. | Prerequisite model test. |
 | Prerequisite result errored. | Dependent result `blocked`, reason `prerequisite_error`, `blocked_by` includes prerequisite ID. | Prerequisite model test. |
 | Prerequisite result is missing from the run scope. | Dependent result `blocked`, reason `prerequisite_missing`; no dependency guessing. | Prerequisite model test. |
+| Prerequisite result is not executable. | Dependent result `blocked`, reason `prerequisite_not_executable`, `blocked_by` includes prerequisite ID. | Prerequisite model test. |
 | Compiled check carries diagnostics from compile. | Runtime result preserves safe diagnostic code, severity, message, path, resource context, and hint. | Diagnostic preservation test. |
 | Compiled check references rendered SQL paths from earlier compile output. | 7.1 may preserve references as inert metadata only; it must not open or execute SQL. | Negative file/renderer invocation test. |
 | A stale `target/run_results.json` already exists. | 7.1 neither updates nor deletes it; no claim that it wrote a result artifact. | Temp-dir test with preexisting file hash. |
@@ -335,12 +340,12 @@ failure rows, artifact refs, or sink refs.
 ### Scenario 5: Blocked Dependent Check
 
 Given a compiled dependent check requires a prerequisite check result.
-And the prerequisite failed, errored, or is missing.
+And the prerequisite failed, errored, is not executable, or is missing.
 When the check engine evaluates prerequisites.
 Then the dependent check result has status `blocked`.
 And `blocked_by` identifies the prerequisite.
-And the reason code is `prerequisite_failed`, `prerequisite_error`, or
-`prerequisite_missing`.
+And the reason code is `prerequisite_failed`, `prerequisite_error`,
+`prerequisite_not_executable`, or `prerequisite_missing`.
 And the dependent check is not executed.
 
 ### Scenario 6: Diagnostic Preservation
@@ -436,10 +441,10 @@ review.
 | Source/target privacy | 7.1 should avoid data exposure by construction because no queries run. | Security/privacy requirements and matrices require empty source/target values, safe diagnostics, and no relation names, query text, profile values, credentials, or raw tracebacks. | Tests must prove non-executed results cannot carry source/target values through messages, metadata, diagnostics, refs, or serialized fields. |
 | Public contract and changelog decision | 7.1 affects planned result/diagnostic surfaces but does not stabilize generated artifacts. | Public contract decision states no new YAML syntax, artifact version, adapter API change, selector claim, evidence schema, or sink/table schema. Changelog decision is not required for prework. | Implementation must update compatibility docs if status names, reason codes, diagnostic codes, CLI output, or serialized fields change from this prework. |
 
-Gate status for this prework: satisfied for 7.1 implementation planning.
-The exact future implementation file/test map and final prompt/docs drift
-check are recorded below in the Future Implementation Map and Implementation
-Readiness Report.
+Gate status for this prework: satisfied for 7.1 implementation and later
+maintenance. The implementation file/test map and final prompt/docs drift check
+are recorded below in the Implementation Map and Implementation Readiness
+Report.
 
 ## Phase-Exit Checklist
 
@@ -512,10 +517,10 @@ Use this checklist before considering Milestone 7.1 implementation complete.
   discovered conformance requirements, and whether the next 7.x phase is safe
   to start.
 
-## Future Implementation Map
+## Implementation Map
 
-This map is the implementation plan for Milestone 7.1 after the final drift
-check passes. It is not permission to implement before that check.
+This map records the implementation plan used for Milestone 7.1. Future changes
+to this boundary still require the relevant gates and compatibility updates.
 
 ### Source File Map
 
@@ -531,7 +536,7 @@ Expected source changes:
 | `src/recon_core/compiler/models.py` | Add strict compiled-artifact `from_dict` or parsing helpers only if the loader needs typed compiled models. | Do not change `to_dict` output, compiled artifact version, typed operation names, or typed operation payload semantics. |
 | `src/recon_core/check_engine/dispatch.py` | Add an internal dispatch table for already compiled check types. | Known later-phase compiled check types or typed operations return `not_executable` with reason `not_implemented_in_current_phase`. Unknown compiled check types return `unsupported_check_type`; valid unknown typed operations return `unsupported_typed_operation`. |
 | `src/recon_core/check_engine/engine.py` | Add the first `CheckEngine` orchestration over loaded compiled artifacts. | Evaluate prerequisites, preserve safe diagnostics, produce in-memory `RunResult`, and never execute adapters, render SQL, query data, or write outputs. |
-| `src/recon_core/services/run.py` | Replace the placeholder with a run service that loads project context, loads compiled checks, invokes the check engine, and maps the result to `ServiceResult`. | `RunService.execute()` should still return command-level `ServiceResult`. The reconciliation result is produced by the check engine and is not embedded in `ServiceResult` or written to disk. |
+| `src/recon_core/services/run.py` | Run service loads project context, loads compiled checks, invokes the check engine, and maps the result to `ServiceResult`. | `RunService.execute()` still returns command-level `ServiceResult`. The reconciliation result is produced by the check engine and is not embedded in `ServiceResult` or written to disk. |
 | `src/recon_core/cli/main.py` | Update only if needed for the new command-level message or exit mapping. | Do not add `--select`, profile, adapter, artifact, evidence, sink, or result-output options in 7.1. |
 | `src/recon_core/services/__init__.py` | Update only if new service-level types must be exported. | Prefer keeping check-engine internals exported from `recon_core.check_engine`, not service plumbing. |
 
@@ -549,7 +554,7 @@ Write tests before implementation in this order:
 | `tests/check_engine/test_aggregation.py` | Aggregate status precedence, `no_checks` non-pass behavior, mixed statuses, all blocked, all not executable, warning-only fixtures, all-skipped fixtures, mixed pass-plus-skipped fixtures, and all-pass in-memory fixtures. |
 | `tests/check_engine/test_loader.py` | Missing compiled-check directory/file, invalid YAML, wrong artifact type, wrong version, missing required fields, duplicate check IDs, empty check scope, safe diagnostics, and multi-contract artifact loading. |
 | `tests/check_engine/test_dispatch.py` | Unsupported compiled check type, valid unknown typed operation, malformed operation payload handoff to artifact-invalid diagnostics, later-phase row-count/key/aggregate operations with `not_implemented_in_current_phase`, missing capability, unsupported execution placement, unsupported materialization, and no public registry behavior. |
-| `tests/check_engine/test_engine.py` | Prerequisite blocking for failed, errored, and missing prerequisites; `blocked_by` ordering/deduplication; safe diagnostic preservation; sanitized internal engine error; and no source/target value population for non-executed results. |
+| `tests/check_engine/test_engine.py` | Prerequisite blocking for failed, errored, missing, and not-executable prerequisites; `blocked_by` ordering/deduplication; safe diagnostic preservation; sanitized internal engine error; and no source/target value population for non-executed results. |
 | `tests/services/test_run_service.py` | `RunService` loads compiled checks only, maps missing/invalid/empty inputs to command-level failures, returns no pass for non-execution, invokes no parse/compile/profile/adapter/renderer/query APIs, writes no generated outputs, and leaves stale output files untouched. |
 | `tests/cli/test_main.py` | Replace the run placeholder test with 7.1 command behavior: concise message, locked runtime diagnostics, correct exit code, and no run summary, artifact link, evidence link, selector behavior, or sink output. |
 | `tests/services/test_command_services.py` | Remove `RunService` from placeholder-stub expectations once `run` is implemented. Keep any other placeholder expectations intact. |
@@ -677,34 +682,31 @@ feat: add check engine result boundary
 
 Split Decision: Already Split / Follow Existing Split.
 
-Readiness status: ready for future Milestone 7.1 implementation planning. This
-means the prework artifact, public docs, ADRs, compatibility docs, gates,
+Readiness status: implementation complete for the first check-engine boundary.
+This means the prework artifact, public docs, ADRs, compatibility docs, gates,
 acceptance/conformance matrix, BDD scenarios, phase-exit checklist,
-implementation map, and current implementation state no longer have known
-design blockers for the 7.1 scope. It does not mean Milestone 7.1 is
-implemented.
+implementation map, and current implementation state have been reconciled with
+the implemented 7.1 scope.
 
 Final drift-check results:
 
 | Area checked | Result |
 | --- | --- |
-| Current implementation | `RunService` is still a structured placeholder, no `check_engine` package exists yet, and compiled-check artifact writers already exist. This matches the future implementation map. |
+| Current implementation | `RunService` loads compiled-check artifacts and routes them through the in-memory check-engine boundary. The `check_engine` package, compiled-check loader, result models, dispatcher, and engine orchestration exist. |
 | Build order and test plan | Milestone 7.1 remains the check-engine boundary/result-model slice. Testing-plan references point to this prework artifact for the final matrix, scenarios, gate proof, phase-exit checklist, and implementation map. |
 | Result, check-engine, and diagnostic docs | Statuses, aggregate statuses, reason codes, command/result separation, runtime diagnostic codes, and no-output behavior match this prework. |
-| Compatibility docs | The check-engine/result model is documented as a planned pre-alpha surface. No stable generated result artifact, result version, YAML syntax, adapter API, selector surface, evidence schema, sink schema, or table schema is claimed. |
+| Compatibility docs | The check-engine/result model is documented as an implemented pre-alpha in-memory boundary. No stable generated result artifact, result version, YAML syntax, adapter API, selector surface, evidence schema, sink schema, or table schema is claimed. |
 | Decision records | The implementation map stays within the typed check-plan boundary, key/prerequisite semantics, validation/diagnostic ownership, execution-placement strategy, and evidence/privacy/sink boundaries. |
 | Gate file assignments | Internal dispatch, placement blockers, generated artifact lifecycle, source/target privacy, evidence/sinks, large failure details, probabilistic key coverage, and selectors are all represented as either 7.1 constraints or future-gated work. |
 | Selector and selected-scope behavior | Selectors, partial compile/run, selected-scope artifacts, selected-scope run results, and selected-scope evidence remain out of 7.1 and are assigned to later selector/scoped-artifact work. |
 | Probabilistic key coverage | Bloom filters, set sketches, probabilistic summaries, candidate missing/extra rows, and exact-confirmation policy remain out of 7.1 and future-gated. |
 | Evidence, sinks, state, and result tables | 7.1 may reserve empty references only. Local result artifacts, evidence, reports, failure details, state, table sinks, external stores, and large-result movement remain later work. |
 | Public documentation hygiene | The public prework and testing-plan docs contain no mature-project research notes, external research links, or named comparison-source references. |
-| Changelog and migration | No changelog or migration entry is required for this prework. Future implementation should add a changelog entry if `recon run` changes from the current placeholder into user-visible compiled-check boundary behavior. |
+| Changelog and migration | The implementation changelog notes that `recon run` changed from a placeholder into user-visible compiled-check boundary behavior. |
 
-Implementation may start only when the user explicitly starts the implementation
-phase. The first implementation step should be the test-first sequence in the
-Future Implementation Map. During implementation, any behavior that differs
-from this prework must update the affected docs, compatibility references, and
-changelog decision before phase exit.
+Implementation has completed for the 7.1 scope. Future behavior that differs
+from this prework and implementation must update the affected docs,
+compatibility references, and changelog decision before phase exit.
 
 ## Compatibility Impact
 
@@ -786,22 +788,21 @@ Sink placement remains separate from execution placement.
 
 Milestone 7.1 is a pre-alpha public-surface planning and implementation unit.
 The check-engine service boundary, result status taxonomy, reason-code
-taxonomy, prerequisite/blocking representation, and diagnostics are planned
-public surfaces. The generated result artifact is not implemented or stabilized
-in this milestone.
+taxonomy, prerequisite/blocking representation, and diagnostics are implemented
+pre-alpha public surfaces. The generated result artifact is not implemented or
+stabilized in this milestone.
 
-Implementation must update compatibility docs if it changes any status name,
+Future changes must update compatibility docs if they change any status name,
 reason code, diagnostic code, command output, or serialized dictionary field
-from this prework.
+from this prework and implementation.
 
 ## Changelog Decision
 
-No changelog entry is required for this prework artifact.
+No changelog entry was required for this prework artifact by itself.
 
-During implementation, add a changelog entry only if user-visible behavior,
-public contract semantics, CLI behavior, generated artifact behavior,
-compatibility promises, release guidance, support ranges, or reconciliation
-outcomes change.
+The implementation changed user-visible `recon run` behavior from placeholder
+diagnostics to compiled-check boundary diagnostics, so the implementation
+changelog includes that entry.
 
 ## Definition Of Done
 
@@ -832,8 +833,8 @@ Milestone 7.1 is complete only when:
 - BDD workflow scenarios pass or are explicitly out of scope,
 - the phase-exit checklist passes.
 
-## Remaining Blockers Before Coding
+## Remaining Blockers
 
-No known prework blockers remain for Milestone 7.1. Coding still requires an
-explicit implementation-phase request and must begin from the test-first map in
-this artifact.
+No known Milestone 7.1 blockers remain after implementation. Future execution,
+generated run-result, evidence, selector, adapter/profile runtime, and sink
+work remains assigned to later gates and milestone slices.

@@ -455,7 +455,7 @@ Prework:
 
 Build:
 
-- check-engine service boundary behind the existing `recon run` placeholder,
+- check-engine service boundary behind `recon run`,
 - check result model and status taxonomy,
 - internal dispatch boundary for already compiled check types,
 - prerequisite/blocking result representation,

@@ -44,16 +44,16 @@ Implemented today:
 - DuckDB SQL rendering for currently emitted typed check plans,
 - compiled SQL artifacts under `target/compiled_sql/`,
 - structured service results and diagnostics,
-- CLI command registration for `run`.
+- first `recon run` check-engine boundary for already compiled checks.
 
 Not implemented yet:
 
-- `recon run`,
 - explicit authored checks beyond supported check-pack and metric compilation,
 - full sampling, tolerance, schema, and CDC policy engines,
 - adapter execution,
 - adapter metadata access,
-- check engine,
+- source or target data-check execution,
+- generated run-result artifacts,
 - evidence writers.
 
 The documentation in this repository defines the intended framework behavior.
@@ -141,8 +141,11 @@ the selected profile target, and writes DuckDB-rendered SQL under
 adapter and resolve to the same adapter connection config. If you use the
 generated profile example, set `RECON_DUCKDB_PATH` or edit
 `connections/profiles.yml` before running `recon compile --render-sql`.
-`recon run` is registered, but it currently returns a clear not-implemented
-diagnostic.
+`recon run` loads already compiled check artifacts and routes them through the
+first check-engine boundary. It reports missing, invalid, empty, unsupported,
+blocked, or not-executable compiled checks with structured runtime diagnostics.
+It does not execute source or target queries and does not write run-result,
+evidence, report, failure-detail, state, or sink artifacts yet.
 
 ## Core Idea
 
@@ -239,6 +242,10 @@ pack, compiles explicit `sum` metrics, and carries limited contract-level
 behavior such as authored checks, full sampling policy resolution, tolerance
 precedence, schema policy resolution, CDC validation, adapter checks, and
 row-level key non-null/uniqueness is still future work.
+
+Current `recon run` consumes `target/compiled_checks/` only. It does not parse
+authored YAML, recompile contracts, load runtime profiles, initialize adapters,
+render or execute SQL, or write generated run/evidence outputs.
 
 Current generated artifacts:
 
