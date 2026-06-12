@@ -31,6 +31,7 @@ def test_unknown_check_type_is_not_executable_with_unsupported_reason() -> None:
     assert result.status is CheckStatus.NOT_EXECUTABLE
     assert result.reason_code is CheckReason.UNSUPPORTED_CHECK_TYPE
     assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_CHECK_TYPE"
+    assert result.message is not None
     assert "future_value_match" in result.message
 
 
@@ -57,6 +58,7 @@ def test_unknown_typed_operation_is_not_executable_with_unsupported_reason() -> 
     assert result.status is CheckStatus.NOT_EXECUTABLE
     assert result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
     assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+    assert result.message is not None
     assert "future_operation" in result.message
 
 
@@ -81,6 +83,7 @@ def test_missing_required_engine_capability_is_explicit_non_execution() -> None:
     assert result.status is CheckStatus.NOT_EXECUTABLE
     assert result.reason_code is CheckReason.MISSING_ENGINE_CAPABILITY
     assert result.diagnostics[0].code == "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
+    assert result.message is not None
     assert "query_execution" in result.message
 
 

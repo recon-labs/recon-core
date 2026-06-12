@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, cast
+from typing import Any, Final, cast
 
 import yaml
 
@@ -30,6 +30,10 @@ _RESERVED_OPERATION_METADATA_FIELDS: Final[frozenset[str]] = frozenset(
         "materialization_policy",
     }
 )
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
+    """YAML safe loader that rejects duplicate mapping keys."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,8 +179,44 @@ class CompiledCheckLoader:
 
 
 def _read_yaml_mapping(path: Path) -> dict[str, object]:
-    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    loaded: object = yaml.load(path.read_text(encoding="utf-8"), Loader=_UniqueKeySafeLoader)
     return dict(_as_mapping(loaded, "artifact root"))
+
+
+def _construct_mapping_without_duplicate_keys(
+    loader: _UniqueKeySafeLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    loader.flatten_mapping(node)
+    mapping: dict[Any, Any] = {}
+
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            hash(key)
+        except TypeError as error:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"Unsupported YAML mapping key: {key}",
+                key_node.start_mark,
+            ) from error
+
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"Duplicate YAML key: {key}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+
+    return mapping
+
+
+_UniqueKeySafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_mapping_without_duplicate_keys,
+)
 
 
 def _symlinked_artifact_path_diagnostic(path: Path) -> Diagnostic | None:

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast
 
 import pytest
 import yaml
@@ -155,8 +156,54 @@ def test_loader_reports_invalid_yaml_without_raw_artifact_content(tmp_path: Path
     assert "super-secret" not in diagnostic.to_dict()["message"]
 
 
+def test_loader_rejects_duplicate_yaml_keys_in_compiled_artifact(tmp_path: Path) -> None:
+    artifact_path = tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
+    artifact_path.parent.mkdir(parents=True)
+    artifact_path.write_text(
+        """
+artifact_type: compiled_checks
+artifact_version: 1
+recon_version: 0.0.test
+generated_at: 2026-05-23T12:00:00Z
+invocation_id: 01JTESTINVOCATION0000000000
+project:
+  name: ecommerce_recon
+  version: 0.1.0
+contract:
+  id: contract.ecommerce_recon.customer_revenue
+  name: customer_revenue
+  source_file: contracts/customer_revenue.yml
+checks:
+  - id: check.ecommerce_recon.customer_revenue.row_count_diff
+    name: row_count_diff
+    type: row_count_diff
+    identity:
+      kind: none
+      keys: []
+    plan:
+      id: plan.ecommerce_recon.customer_revenue.row_count_diff
+      operations:
+        - type: row_count
+          type: future_operation
+      required_capabilities: []
+    prerequisites: []
+    diagnostics: []
+diagnostics: []
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    assert result.artifacts == ()
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert diagnostic.message == "Compiled-check artifact is invalid YAML."
+
+
 def test_loader_rejects_non_string_root_mapping_keys(tmp_path: Path) -> None:
-    payload: dict[object, object] = dict(_compiled_checks_payload())
+    payload = cast(dict[object, object], dict(_compiled_checks_payload()))
     payload[1] = "boom"
     artifact_path = tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
     artifact_path.parent.mkdir(parents=True)
@@ -389,11 +436,8 @@ def test_loader_rejects_unexpected_known_operation_fields(
 
 
 def test_loader_rejects_non_string_operation_mapping_keys(tmp_path: Path) -> None:
-    payload = _compiled_checks_payload(
-        checks=[
-            _compiled_check_payload(operations=[{"type": "row_count", "side": "source", 1: "boom"}])
-        ]
-    )
+    operation = cast(dict[str, object], {"type": "row_count", "side": "source", 1: "boom"})
+    payload = _compiled_checks_payload(checks=[_compiled_check_payload(operations=[operation])])
     _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
 
     result = CompiledCheckLoader().load(tmp_path / "target")
