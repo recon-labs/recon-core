@@ -97,6 +97,14 @@ Current adapter-aware rendering uses only the capability subset required by
 currently emitted typed operations. It does not expand the typed operation
 catalog.
 
+Production adapter capability claims also need native SQL optimization and
+dialect validation conformance. A capability declaration says an adapter can
+perform a behavior; it does not by itself prove that the generated SQL is
+bounded, dialect-valid, efficient, or semantically equivalent to Core's typed
+plan. Shared conformance must use typed operation payloads, adapter-native SQL
+snapshots, dialect validation where useful, and semantic execution tests before
+external adapters claim execution compatibility.
+
 ## Draft capability names
 
 These names are draft compatibility surfaces. They may change before the

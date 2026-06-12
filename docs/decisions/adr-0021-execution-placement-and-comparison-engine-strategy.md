@@ -187,6 +187,15 @@ aggregate empty-input behavior, unsupported capabilities, and dependency
 installation behavior. Adapter package discovery or metadata is not sufficient
 to claim execution compatibility.
 
+Future production adapter conformance must also prove native SQL optimization
+and dialect validation against the approved placement strategy. Adapter SQL
+should be rendered from typed operation payloads, not authored YAML strings or
+untyped raw SQL templates. SQL snapshots and dialect syntax validation can
+catch renderer regressions, but they are not correctness proof without semantic
+execution tests. Conformance must reject untyped `select *` comparison plans,
+naive full-row joins, unbounded row movement into Core, hidden Python fallback,
+implicit partition/window filtering, and blind SQL translation claims.
+
 ## Alternatives Considered
 
 ### Always compare in Python

@@ -79,6 +79,9 @@ External adapter packages, including a future `recon-duckdb`, should split only
 after the adapter API and shared adapter test kit are stable. The package split
 and additional production adapters should wait for the adapter conformance gate
 so every adapter proves the same public boundary before it claims compatibility.
+That conformance must include native SQL rendering snapshots, dialect validation
+where useful, and semantic execution tests; syntax validation alone is not proof
+that an adapter preserved Recon's comparison semantics.
 
 The current DuckDB local development adapter is distributed through the
 optional `recon-core[duckdb]` extra while it remains in-core.

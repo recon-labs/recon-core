@@ -440,6 +440,11 @@ Cross-cutting gate assignments:
 - Before Milestone 7.4 executes aggregate checks, the implementation must lock
   the aggregate placement strategy and prove unsupported pushdown does not fall
   back to in-memory or cross-engine comparison without an explicit design.
+- Production adapter compatibility claims for Milestone 7 execution behavior
+  remain future adapter test-kit work. The shared conformance must prove native
+  SQL optimization, dialect validation where useful, typed-operation rendering,
+  and semantic behavior before external adapters claim warehouse-scale
+  execution compatibility.
 - Milestone 8 may record placement, capability, artifact, and sink-reference
   metadata in local run results, but it must not write evidence/report artifacts,
   result tables, state, or external sinks.
@@ -1764,6 +1769,8 @@ Build:
 - adapter migration/version guidance,
 - adapter write/sink conformance for result and evidence sink capabilities,
 - probabilistic summary capability conformance for Bloom/sketch-like operations,
+- native SQL optimization and dialect validation conformance for production
+  warehouse adapters,
 - first official adapter package preparation.
 
 Required gate:
@@ -1865,6 +1872,14 @@ Required gate:
   partition/window scope, bidirectional summary build/probe/compare lifecycle,
   false-positive policy, intermediate summary cleanup/storage, and
   exact-confirmation requirements must be tested,
+- include native SQL optimization and dialect validation conformance before
+  production warehouse adapters claim execution compatibility: adapters must
+  render from typed operation payloads, not authored YAML strings; generated SQL
+  must avoid untyped `select *` comparison plans, naive full-row joins,
+  unbounded source/target row movement, hidden Python fallback, and implicit
+  partition/window filtering; shared tests must include adapter-native SQL
+  snapshots, optional dialect syntax validation, and semantic comparison
+  coverage for the capabilities the adapter claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the

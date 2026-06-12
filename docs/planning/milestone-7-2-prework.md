@@ -914,6 +914,7 @@ confidence validation that did run.
 | Local secure debug artifact with retention, cleanup, path safety, and redaction rules | Post-MVP Milestone 28 split debug work |
 | Adapter debug snapshots and adapter test-kit debug conformance | Post-MVP Milestone 29 |
 | Native database error text or rendered SQL disclosure through explicit opt-in secure debug/evidence artifacts | Post-MVP Milestone 31 |
+| Native SQL optimization and dialect validation conformance for production adapter execution claims | Post-MVP Milestone 29 |
 | Result/evidence sinks and production result tables | Later sink/result-store work |
 | External adapter packages and shared adapter test kit | Later adapter ecosystem work |
 | Materialization, staging, intermediate engines, external comparison engines, and Python fallback policies | Later execution-placement work |

@@ -168,7 +168,8 @@ Capabilities:
 - typed check-plan model stabilization,
 - adapter API versioning,
 - adapter interface stabilization,
-- adapter compliance tests.
+- adapter compliance tests, including native SQL optimization and dialect
+  validation conformance for production execution claims.
 
 Adapters:
 

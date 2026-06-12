@@ -83,6 +83,8 @@ Adapters own metadata access, capability declarations, dialect SQL rendering,
 and execution.
 
 Do not hide reconciliation behavior inside adapter-specific SQL or macro logic.
+Do not bypass typed plans with direct authored YAML-to-SQL compilation, untyped
+`select *` comparison plans, or syntax-only adapter compatibility claims.
 
 ## Make errors actionable
 

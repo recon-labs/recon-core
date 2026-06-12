@@ -222,7 +222,10 @@ Core check logic should define typed abstract operations.
 
 Adapters should provide dialect-specific SQL for the operations emitted by the
 compiler. The current adapter-aware rendering scope does not expand the typed
-operation catalog.
+operation catalog. Adapters must not compile authored YAML directly into raw
+execution SQL, and production execution compatibility must not rest on untyped
+`select *` comparison plans, naive full-row joins, unbounded row movement into
+Core, hidden Python fallback, or syntax validation alone.
 For every check marked `rendered`, the renderer must return at least one SQL
 step. Empty renderer output is `RC_ADAPTER_RENDERED_SQL_EMPTY` and must be
 recorded as a rendering failure, not as `rendered` with empty `sql_paths`.
@@ -443,6 +446,8 @@ expand with each implemented family:
 - result and evidence sink write conformance when sinks are implemented,
 - probabilistic key-summary lifecycle conformance when probabilistic key-diff
   is implemented.
+- native SQL optimization and dialect validation conformance before production
+  adapters claim execution compatibility.
 
 ## Hashing
 
