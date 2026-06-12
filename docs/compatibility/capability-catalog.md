@@ -97,6 +97,14 @@ Current adapter-aware rendering uses only the capability subset required by
 currently emitted typed operations. It does not expand the typed operation
 catalog.
 
+Production adapter capability claims also need native SQL optimization and
+dialect validation conformance. A capability declaration says an adapter can
+perform a behavior; it does not by itself prove that the generated SQL is
+bounded, dialect-valid, efficient, or semantically equivalent to Core's typed
+plan. Shared conformance must use typed operation payloads, adapter-native SQL
+snapshots, dialect validation where useful, and semantic execution tests before
+external adapters claim execution compatibility.
+
 ## Draft capability names
 
 These names are draft compatibility surfaces. They may change before the
@@ -129,6 +137,11 @@ adapter API is stable.
 Current adapter-aware rendering is relation-backed only. The `queries`
 capability is reserved for future executable query endpoint support and is not
 required by current relation-backed rendering.
+Relation-backed row-count execution may require `row_count` and `cte_support`
+without treating query endpoints as supported. Counting rows for authored query
+endpoints also requires the future `queries` capability design, query execution
+validation, and source/target privacy rules for query text before it can be
+implemented.
 
 Future tolerance or normalization execution may require additional granular
 capabilities after typed policy payloads are implemented. ADR 0009 locks

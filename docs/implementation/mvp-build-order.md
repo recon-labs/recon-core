@@ -423,7 +423,7 @@ Out of scope for Milestone 7:
 | Sub-milestone | Concrete implementation scope | Non-goals | High-risk surfaces touched | Required gates | Required ADRs or decisions | Required docs updates | Required acceptance/conformance matrix rows | Required BDD or workflow scenarios | Required tests | Public contract impact | Phase-exit review requirements | Blockers before coding |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Milestone 7.1 | Check-engine service boundary, check result model, status taxonomy, internal dispatch for already compiled check types, prerequisite/blocking representation, in-memory diagnostic/result serialization shape. | Adapter execution, profile-backed adapter lifecycle, `target/run_results.json`, evidence/report/failure-detail output, explicit authored `checks: [...]` support. | Check-engine boundary, result/status model, diagnostics, prerequisite/blocking semantics. | Diagnostic output message conformance gate; explicit authored checks and check registry gate if public registry behavior is introduced; generated artifact lifecycle remains out of scope. | ADR 0013 typed check-plan boundary; ADR 0014 key semantics and dependencies; result-model boundary that keeps generated run results in Milestone 8. | `docs/architecture/check-engine.md`, `docs/implementation/check-engine.md`, `docs/implementation/result-model.md`, `docs/implementation/errors-and-diagnostics.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`. | Check-engine boundary and result model; internal dispatch versus public check registry; public output and generated artifacts. | Compiled checks are loaded but adapter execution is still out of scope. | Result status serialization, reason-code serialization, prerequisite/blocking representation, diagnostic preservation, `not_executable` results for unsupported or not-yet-executable checks. | Planned check-engine/result public surface only; no stable generated result artifact or evidence schema. | Prove no adapter execution, source/target values, relation data, database errors, rendered profile values, run-result artifacts, evidence, reports, or failure details are emitted. | Current lightweight prework, Definition of Done, final 7.1 matrix rows, BDD scenario, test plan, prompt/docs drift check, and phase-exit checklist must be current. |
-| Milestone 7.2 | Runtime profile loading for referenced connections, adapter factory resolution and lifecycle for execution, same-context DuckDB relation-backed execution, row-count execution, sanitized adapter/runtime diagnostics. | Query endpoints, cross-adapter or cross-connection execution, key checks, aggregate execution, run-result artifacts, evidence, reports, failure details. | Adapter execution, profiles/secrets, diagnostics/redaction, SQL/rendered plan execution placement, source/target privacy, row-count result surface. | Adapter/Profile Diagnostic Conformance Gate; source/target data privacy gate; comparison execution placement strategy gate for row count; renderer binding gate if renderer registries or shared helpers are introduced. | ADR 0013 typed check-plan boundary; ADR 0020 adapter/profile and SQL rendering boundary; comparison placement decision for row count. | `docs/compatibility/adapter-api.md`, `docs/architecture/adapter-interface.md`, `docs/implementation/adapter-interface-spec.md`, `docs/implementation/errors-and-diagnostics.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`. | Adapter execution lifecycle; adapter/profile diagnostic privacy; row-count execution; public output and generated artifacts. | A relation-backed DuckDB row-count check passes, fails, or errors. | Row-count pass/fail/error, adapter lifecycle/setup failure, runtime diagnostic redaction, privacy assertions, negative tests for absent run/evidence artifacts. | Planned adapter execution and row-count public surface; no generated run-result or evidence schema. | Prove no raw rows are emitted, relation names/counts/errors follow privacy policy, no unsupported query/cross-adapter behavior appears, no run/evidence artifacts are written. | Adapter/profile diagnostic conformance, source/target privacy classification, row-count comparison placement, current prework, DoD, matrix rows, BDD scenario, test plan, and phase-exit checklist must be complete. |
+| Milestone 7.2 | Runtime compiled-contract loading, compiled-check to compiled-contract joining, runtime profile loading for referenced connections, adapter factory resolution and lifecycle for execution, same-context DuckDB relation-backed execution, row-count execution, sanitized adapter/runtime diagnostics. | Authored YAML parsing, recompilation, query endpoints, cross-adapter or cross-connection execution, key checks, aggregate execution, run-result artifacts, evidence, reports, failure details. | Adapter execution, profiles/secrets, diagnostics/redaction, SQL/rendered plan execution placement, source/target privacy, row-count result surface, runtime compiled-artifact loading. | Adapter/Profile Diagnostic Conformance Gate; source/target data privacy gate; comparison execution placement strategy gate for row count; renderer binding gate if renderer registries or shared helpers are introduced. | ADR 0013 typed check-plan boundary; ADR 0020 adapter/profile and SQL rendering boundary; comparison placement decision for row count. | `docs/compatibility/adapter-api.md`, `docs/architecture/adapter-interface.md`, `docs/implementation/adapter-interface-spec.md`, `docs/implementation/errors-and-diagnostics.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`. | Run boundary and compiled inputs; compiled-contract runtime loader; adapter execution lifecycle; adapter/profile diagnostic privacy; row-count execution; public output and generated artifacts. | A relation-backed DuckDB row-count check passes, fails, or errors. | Compiled-contract loader/join tests, row-count pass/fail/error, adapter lifecycle/setup failure, runtime diagnostic redaction, privacy assertions, negative tests for absent parser/compiler invocation and absent run/evidence artifacts. | Planned adapter execution and row-count public surface; no generated run-result or evidence schema. | Prove no authored YAML parsing or recompilation occurs, no raw rows are emitted, relation names/counts/errors follow privacy policy, no unsupported query/cross-adapter behavior appears, no run/evidence artifacts are written. | Adapter/profile diagnostic conformance, source/target privacy classification, row-count comparison placement, current prework, DoD, matrix rows, BDD scenario, test plan, and phase-exit checklist must be complete. |
 | Milestone 7.3 | Grain-key null checks, duplicate-key checks, missing-key checks, extra-key checks, prerequisite/blocking semantics for dependent future row-level value checks. | Row-level value comparison, inferred mappings, inferred grain keys, CDC key execution, sampling bypass of non-null or uniqueness requirements, raw key export. | Grain-key safety execution, key semantics, prerequisite/blocking results, source/target privacy, comparison placement, sampling safety. | Comparison execution placement strategy gate for key checks; source/target data privacy gate; key semantics gate; sampling safety rules. | ADR 0007 grain keys and row-level uniqueness; ADR 0014 key semantics and check dependencies; ADR 0013 typed check-plan boundary. | `docs/implementation/check-engine.md`, `docs/implementation/result-model.md`, `docs/implementation/errors-and-diagnostics.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`, key semantics docs if scope changes. | Grain-key null and duplicate checks; missing and extra key checks; dependent row-level check blocking; public output and generated artifacts. | Null, duplicate, missing, or extra grain-key checks run before dependent row-level value checks. | Source/target null-key cases, duplicate-key cases, missing/extra key cases, blocked dependent row-level value checks, no inferred grain or mapping behavior, negative tests for absent run/evidence artifacts. | Planned grain-key safety public surface; no row-level value comparison, CDC execution, raw key export, or evidence/failure-detail schema. | Prove sampling does not bypass key requirements, no raw keys/row values are exported without a later privacy/evidence policy, dependent value checks remain future scope, no evidence/failure artifacts are written. | Key-check comparison placement, privacy policy for key outputs, current prework, DoD, matrix rows, BDD scenario, test plan, and phase-exit checklist must be complete. |
 | Milestone 7.4 | Current ungrouped `sum_diff` execution, current grouped aggregate diff execution, numeric tolerance for supported numeric aggregate comparisons, empty aggregate semantics, aggregate type-mismatch behavior. | Timestamp or string tolerance execution, null-equivalence or normalization execution, schema policy execution, new metric catalog expansion, run-result/evidence output. | Aggregate execution, typed operation execution, numeric tolerance behavior, source/target privacy, comparison placement. | Comparison execution placement strategy gate for aggregates; typed operation catalog expansion re-check before any operation beyond current compiled subset; source/target data privacy gate. | ADR 0013 typed check-plan boundary; ADR 0009 tolerance/null/normalization policy boundary for numeric tolerance; ADR 0020 adapter SQL rendering boundary. | `docs/compatibility/typed-check-plan.md`, `docs/framework/tolerance-policies.md` if tolerance behavior changes, `docs/implementation/check-engine.md`, `docs/implementation/result-model.md`, `docs/compatibility/public-contract-inventory.md`, `docs/compatibility/compatibility-matrix.md`. | Aggregate metric execution; public output and generated artifacts. | Ungrouped and grouped `sum` metric checks compare aggregates with numeric tolerance. | Ungrouped/grouped sum pass/fail/error, numeric tolerance, empty aggregate semantics, aggregate input/result type mismatch, negative tests for absent run/evidence artifacts. | Planned aggregate metric execution surface for current `sum` plans only; no new metric catalog, timestamp/string tolerance, normalization, schema policy, run-result, or evidence schema. | Prove aggregate outputs follow privacy policy, no new metric/tolerance/schema behavior appears, and run-result/evidence/report output remains Milestone 8/9 scope. | Aggregate comparison placement, typed operation catalog re-check, source/target privacy classification for aggregate values/grouped keys, current prework, DoD, matrix rows, BDD scenario, test plan, and phase-exit checklist must be complete. |
 
@@ -440,6 +440,11 @@ Cross-cutting gate assignments:
 - Before Milestone 7.4 executes aggregate checks, the implementation must lock
   the aggregate placement strategy and prove unsupported pushdown does not fall
   back to in-memory or cross-engine comparison without an explicit design.
+- Production adapter compatibility claims for Milestone 7 execution behavior
+  remain future adapter test-kit work. The shared conformance must prove native
+  SQL optimization, dialect validation where useful, typed-operation rendering,
+  and semantic behavior before external adapters claim warehouse-scale
+  execution compatibility.
 - Milestone 8 may record placement, capability, artifact, and sink-reference
   metadata in local run results, but it must not write evidence/report artifacts,
   result tables, state, or external sinks.
@@ -503,6 +508,8 @@ Build:
 
 - profile loading for execution using the existing selected profile/target and
   referenced-connection rules,
+- runtime loading of matching compiled-contract artifacts and safe joins from
+  compiled checks to compiled contract metadata,
 - adapter factory resolution and lifecycle for run-time execution,
 - same-context DuckDB relation-backed execution only,
 - row count check execution,
@@ -511,6 +518,7 @@ Build:
 Non-goals:
 
 - no query endpoints,
+- no authored YAML parsing or recompilation,
 - no cross-adapter or cross-connection execution,
 - no key-diff, null-key, duplicate-key, or aggregate execution,
 - no failure-detail or evidence output.
@@ -555,6 +563,9 @@ Assigned gates and blockers:
 Required tests:
 
 - row count pass/fail/error cases,
+- missing, malformed, unsafe, incompatible, or mismatched compiled-contract
+  artifacts,
+- compiled-check to compiled-contract joins without parser/compiler invocation,
 - adapter lifecycle and setup failure cases,
 - adapter/profile diagnostics preserve safe actionable messages and suppress
   rendered profile values,
@@ -563,6 +574,8 @@ Required tests:
 Phase exit review:
 
 - row count execution emits no raw source/target rows,
+- runtime compiled-contract loading does not expose raw artifact contents and
+  does not reparse authored YAML or recompile contracts,
 - relation names, row counts, adapter errors, and database errors follow the
   resolved source/target privacy policy,
 - no `target/run_results.json`, evidence, report, or failure-detail artifacts are
@@ -1686,18 +1699,53 @@ Build:
 
 - `recon list`,
 - `recon clean`,
-- `recon debug`,
+- `recon debug profile` for selected profile, target, environment-variable,
+  and connection-config shape diagnostics that do not open adapter connections,
+- `recon debug connection` for adapter resolution, dependency availability,
+  connection, metadata, and capability diagnostics with sanitized adapter and
+  database failure text,
+- `recon debug contract` for compiled contract/check linkage, relation endpoint
+  readiness, placement eligibility, and adapter capability eligibility before
+  execution,
+- `recon debug run --check ...` for safe structured context around one failed
+  run/check after the result model can identify selected run scope,
+- an explicitly opted-in local secure debug artifact for richer diagnostics
+  after artifact lifecycle, path safety, retention, cleanup, and redaction
+  rules are locked,
 - `recon build`,
 - documentation generation command,
 - retry/resume commands,
 - explicit `recon init` overwrite/force behavior,
 - documented behavior for `--vars`, `--quiet`, and richer `--debug` output.
 
+Deferred from this milestone:
+
+- public terminal/log output that prints raw SQL, rendered SQL, raw database
+  engine error text, tracebacks, credentials, DSN fragments, rendered profile
+  values, source/target query text, or raw row/value data,
+- opt-in native database error and rendered SQL disclosure, which belongs with
+  the advanced secure debug/evidence artifact work in Post-MVP Milestone 31
+  unless a later gate explicitly moves it earlier,
+- adapter test-kit debug snapshots, which belong with Post-MVP Milestone 29.
+
 Required gate:
 
 - resolve the future CLI commands and options gate in
   the applicable milestone design prework gate for the
   specific command or option being implemented,
+- resolve the debug commands and secure debug artifacts gate before adding any
+  `recon debug ...` command, richer `--debug` behavior, secure debug artifact,
+  native-error disclosure, rendered-SQL disclosure, or debug snapshot,
+- resolve diagnostic output message conformance before any debug command prints
+  diagnostics,
+- resolve adapter/profile diagnostic conformance before profile-backed adapter
+  resolution, connection checks, adapter metadata reads, adapter capability
+  reads, adapter query attempts, or adapter test-kit debug snapshots,
+- resolve source/target privacy before any debug command, log, artifact,
+  snapshot, or result view can expose source/target identifiers, query text,
+  relation names, counts, keys, values, database errors, or failure details,
+- resolve generated artifact lifecycle and cleanup before writing a local secure
+  debug artifact,
 - resolve the documentation generation command gate before adding docs
   generation behavior,
 - resolve the `recon init` overwrite/force safety gate before adding any
@@ -1729,6 +1777,8 @@ Build:
 - adapter migration/version guidance,
 - adapter write/sink conformance for result and evidence sink capabilities,
 - probabilistic summary capability conformance for Bloom/sketch-like operations,
+- native SQL optimization and dialect validation conformance for production
+  warehouse adapters,
 - first official adapter package preparation.
 
 Required gate:
@@ -1830,6 +1880,14 @@ Required gate:
   partition/window scope, bidirectional summary build/probe/compare lifecycle,
   false-positive policy, intermediate summary cleanup/storage, and
   exact-confirmation requirements must be tested,
+- include native SQL optimization and dialect validation conformance before
+  production warehouse adapters claim execution compatibility: adapters must
+  render from typed operation payloads, not authored YAML strings; generated SQL
+  must avoid untyped `select *` comparison plans, naive full-row joins,
+  unbounded source/target row movement, hidden Python fallback, and implicit
+  partition/window filtering; shared tests must include adapter-native SQL
+  snapshots, optional dialect syntax validation, and semantic comparison
+  coverage for the capabilities the adapter claims,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the

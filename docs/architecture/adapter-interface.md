@@ -79,6 +79,9 @@ External adapter packages, including a future `recon-duckdb`, should split only
 after the adapter API and shared adapter test kit are stable. The package split
 and additional production adapters should wait for the adapter conformance gate
 so every adapter proves the same public boundary before it claims compatibility.
+That conformance must include native SQL rendering snapshots, dialect validation
+where useful, and semantic execution tests; syntax validation alone is not proof
+that an adapter preserved Recon's comparison semantics.
 
 The current DuckDB local development adapter is distributed through the
 optional `recon-core[duckdb]` extra while it remains in-core.
@@ -279,7 +282,10 @@ inputs until exact aggregate behavior for that type is proven. Current
 rendering also requires source and target DuckDB connections to resolve to the
 same rendered connection config; cross-file or cross-connection rendering
 remains future work. Connection lifecycle, metadata fetching, and check
-execution remain future work.
+execution remain future work. The first relation-backed execution phase must
+preserve the same-context DuckDB boundary and limit execution to explicitly
+assigned typed operations; query endpoints, cross-connection execution, broad
+metadata inspection, and connection pooling remain separate future surfaces.
 
 Future check execution and shared adapter conformance tests must explicitly
 define empty aggregate result semantics before aggregate comparison execution is
@@ -291,9 +297,9 @@ evidence expose the distinction.
 ## Query endpoint boundary
 
 Current adapter-aware rendering is relation-backed only. Query endpoints can
-remain parseable, but adapter-aware rendering must return a clear unsupported
-diagnostic for `source.query` or `target.query`. Adapter execution remains
-future work.
+remain parseable, but adapter-aware rendering and relation-backed execution
+phases must return a clear unsupported diagnostic for `source.query` or
+`target.query` until query execution is explicitly designed.
 
 Executable query endpoints require a later design for SELECT-only validation,
 single-statement handling, wrapping, artifact visibility, and adapter

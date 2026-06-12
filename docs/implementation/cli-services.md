@@ -116,6 +116,8 @@ result/evidence sinks.
 Later runner and evidence phases may expand `RunService` responsibilities to:
 
 - parse and compile automatically when artifact freshness semantics are locked,
+- load matching compiled-contract artifacts needed by executable compiled
+  checks,
 - build execution plans,
 - run checks through supported adapter execution paths,
 - write run results,

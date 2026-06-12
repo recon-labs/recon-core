@@ -4,7 +4,9 @@
 
 The check engine executes compiled checks and returns structured results.
 
-It should not parse authored YAML or resolve contract defaults. It receives compiled checks.
+It should not parse authored YAML or resolve contract defaults. It receives
+compiled checks and, when an execution stage needs contract metadata, matching
+compiled-contract artifacts produced by compile.
 
 It should execute typed check plans produced by core check planners. SQL
 dialect rendering belongs to adapters.
@@ -15,6 +17,7 @@ Primary inputs:
 
 ```text
 CompiledCheck
+CompiledContract metadata
 ExecutionContext
 AdapterRegistry
 StateBackend
@@ -36,6 +39,9 @@ Implementation is split across check-engine stages. The first boundary owns the
 check-engine boundary, status model, internal dispatch, and
 prerequisite/blocking representation. Later execution stages add row-count
 execution, grain-key safety execution, and current aggregate metric execution.
+The row-count execution stage must join each executable compiled check to its
+matching compiled-contract metadata before any profile, adapter, or query work
+starts.
 `target/run_results.json`, evidence reports, failure details, and evidence links
 remain separate later surfaces unless a later split explicitly changes those
 boundaries.

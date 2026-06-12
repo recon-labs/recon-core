@@ -168,6 +168,14 @@ review. This checklist is a process guide; it is not a CI gate.
       kit, or external repository claims source-side, target-side,
       same-context, adapter-managed intermediate, external comparison-engine,
       or Recon-local fallback compatibility.
+- [ ] Checked native SQL optimization and dialect validation conformance before
+      any adapter, shared test kit, or external repository claims production
+      execution compatibility. Required review includes typed-operation
+      rendering, adapter-native SQL snapshots, dialect validation where useful,
+      semantic execution tests, no direct YAML-to-SQL compilation, no untyped
+      `select *` comparison plans, no naive full-row joins, no unbounded row
+      movement into Core, no hidden Python fallback, and no implicit
+      partition/window filtering.
 - [ ] Checked materialization/staging conformance before any adapter claims
       temporary staging, extracts, loads, table-to-table copy, cleanup,
       row/memory limits, or large-result movement compatibility.
@@ -196,6 +204,9 @@ review. This checklist is a process guide; it is not a CI gate.
       key-diff, Bloom/sketch, approximate key coverage, or adapter
       probabilistic-summary compatibility changed, including layered
       row-count/exact/probabilistic strategy selection.
+- [ ] Updated `docs/compatibility/compatibility-matrix.md` when native SQL
+      optimization, dialect validation, or production adapter execution
+      conformance changed.
 - [ ] Added a new compatibility dimension when the change introduced one.
 
 ### Version constant impact

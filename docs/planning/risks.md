@@ -58,6 +58,8 @@ Mitigation:
 
 - use adapters,
 - require capability declarations,
+- require native SQL snapshots, dialect validation where useful, and semantic
+  adapter conformance before production execution claims,
 - avoid assuming portable hashes,
 - validate compatibility before execution when possible.
 

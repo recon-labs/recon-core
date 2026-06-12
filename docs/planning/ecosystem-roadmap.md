@@ -68,6 +68,13 @@ rendering without claiming stable execution, broad placement,
 materialization/staging, result/evidence sink writes, production result tables,
 or probabilistic key-summary behavior.
 
+Production adapter execution claims must also wait for native SQL optimization
+and dialect validation conformance. The shared adapter test kit should prove
+typed-operation rendering, adapter-native SQL snapshots, dialect validation
+where useful, semantic execution behavior, blocked unsupported placement, and
+privacy-safe diagnostics before an adapter is documented as production-ready for
+warehouse-scale execution.
+
 Production result-table and evidence-sink support through adapters must wait
 for Post-MVP Milestone 25.5 result-table/sink design and Post-MVP Milestone 29
 adapter write/sink conformance. Source, target, or third-connection
@@ -99,6 +106,8 @@ Purpose:
 - standardize capability tests,
 - test metadata behavior,
 - test SQL rendering for typed plan operations,
+- test native SQL optimization and dialect validation for claimed execution
+  capabilities,
 - help community adapter maintainers.
 
 Adapter test kit should appear after the typed check-plan and base adapter

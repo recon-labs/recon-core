@@ -161,12 +161,15 @@ Capabilities:
 - richer result table design, with production table writes gated by Post-MVP
   Milestone 25.5 and adapter write/sink conformance in Post-MVP Milestone 29,
 - richer evidence reports,
-- `recon debug` for project, profile, adapter, and connection diagnostics,
+- split `recon debug` surfaces for profile, connection, contract, and run/check
+  diagnostics, with any local secure debug artifact gated separately from
+  default terminal/log output,
 - orchestrator-friendly CLI behavior,
 - typed check-plan model stabilization,
 - adapter API versioning,
 - adapter interface stabilization,
-- adapter compliance tests.
+- adapter compliance tests, including native SQL optimization and dialect
+  validation conformance for production execution claims.
 
 Adapters:
 

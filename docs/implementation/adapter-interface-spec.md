@@ -222,7 +222,10 @@ Core check logic should define typed abstract operations.
 
 Adapters should provide dialect-specific SQL for the operations emitted by the
 compiler. The current adapter-aware rendering scope does not expand the typed
-operation catalog.
+operation catalog. Adapters must not compile authored YAML directly into raw
+execution SQL, and production execution compatibility must not rest on untyped
+`select *` comparison plans, naive full-row joins, unbounded row movement into
+Core, hidden Python fallback, or syntax validation alone.
 For every check marked `rendered`, the renderer must return at least one SQL
 step. Empty renderer output is `RC_ADAPTER_RENDERED_SQL_EMPTY` and must be
 recorded as a rendering failure, not as `rendered` with empty `sql_paths`.
@@ -386,15 +389,17 @@ default.
 
 For current DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type
-and connection config. Distinct connection contexts are blocked until explicit
+and connection config. The first relation-backed execution phase must preserve
+that same-context boundary and execute only explicitly assigned typed
+operations. Distinct connection contexts are blocked until explicit
 cross-connection rendering or execution placement is designed.
 
 ## Query endpoints
 
 Current adapter-aware rendering is relation-backed only. Query endpoints may
 parse, but adapter-aware rendering should fail with a clear unsupported
-diagnostic until query execution is designed. Adapter execution remains future
-work.
+diagnostic until query execution is designed. Relation-backed execution phases
+must keep query endpoints unsupported until that separate design is complete.
 
 ## Execution placement
 
@@ -443,6 +448,8 @@ expand with each implemented family:
 - result and evidence sink write conformance when sinks are implemented,
 - probabilistic key-summary lifecycle conformance when probabilistic key-diff
   is implemented.
+- native SQL optimization and dialect validation conformance before production
+  adapters claim execution compatibility.
 
 ## Hashing
 
