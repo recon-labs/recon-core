@@ -199,6 +199,7 @@ First-boundary reason codes:
 | `prerequisite_failed` | `blocked` | A prerequisite check executed and failed. |
 | `prerequisite_error` | `blocked` | A prerequisite check errored before producing a trustworthy result. |
 | `prerequisite_missing` | `blocked` | A required prerequisite result is absent. |
+| `prerequisite_not_executable` | `blocked` | A prerequisite check could not execute and therefore cannot satisfy the dependency. |
 | `unsupported_check_type` | `not_executable` | The compiled check type has no internal handler in the current check engine. |
 | `unsupported_typed_operation` | `not_executable` | The compiled check references a validly shaped typed operation the current runtime does not recognize or support. |
 | `missing_engine_capability` | `not_executable` | Required engine or adapter capability is unavailable or not declared. |

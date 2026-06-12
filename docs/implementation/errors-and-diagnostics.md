@@ -410,7 +410,7 @@ results. Locked codes:
 | `RC_RUNTIME_MISSING_ENGINE_CAPABILITY` | run | error | A compiled check requires an engine capability that is unavailable in the current check-engine boundary. |
 | `RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT` | run | error | Required operation or comparison placement is not implemented or allowed. |
 | `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY` | run | error | Required staging, movement, or materialization policy is not implemented or allowed. |
-| `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, or is missing. |
+| `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, was not executable, or is missing. |
 | `RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR` | run | error | An unexpected check-engine error occurred after sanitization. |
 
 Future runtime, state, evidence, and key-safety phases may add or retain

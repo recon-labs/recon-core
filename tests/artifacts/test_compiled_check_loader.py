@@ -155,6 +155,23 @@ def test_loader_reports_invalid_yaml_without_raw_artifact_content(tmp_path: Path
     assert "super-secret" not in diagnostic.to_dict()["message"]
 
 
+def test_loader_rejects_non_string_root_mapping_keys(tmp_path: Path) -> None:
+    payload: dict[object, object] = dict(_compiled_checks_payload())
+    payload[1] = "boom"
+    artifact_path = tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
+    artifact_path.parent.mkdir(parents=True)
+    artifact_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert "artifact root" in diagnostic.message
+    assert "string keys" in diagnostic.message
+    assert "boom" not in diagnostic.message
+
+
 def test_loader_reports_wrong_artifact_type_and_version(tmp_path: Path) -> None:
     payload = _compiled_checks_payload()
     payload["artifact_type"] = "compiled_contract"

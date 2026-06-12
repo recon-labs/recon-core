@@ -39,6 +39,7 @@ class CheckReason(StrEnum):
     PREREQUISITE_FAILED = "prerequisite_failed"
     PREREQUISITE_ERROR = "prerequisite_error"
     PREREQUISITE_MISSING = "prerequisite_missing"
+    PREREQUISITE_NOT_EXECUTABLE = "prerequisite_not_executable"
     UNSUPPORTED_CHECK_TYPE = "unsupported_check_type"
     UNSUPPORTED_TYPED_OPERATION = "unsupported_typed_operation"
     MISSING_ENGINE_CAPABILITY = "missing_engine_capability"
@@ -98,6 +99,7 @@ _REASON_REQUIRED_STATUS: dict[CheckReason, CheckStatus] = {
     CheckReason.PREREQUISITE_FAILED: CheckStatus.BLOCKED,
     CheckReason.PREREQUISITE_ERROR: CheckStatus.BLOCKED,
     CheckReason.PREREQUISITE_MISSING: CheckStatus.BLOCKED,
+    CheckReason.PREREQUISITE_NOT_EXECUTABLE: CheckStatus.BLOCKED,
     CheckReason.UNSUPPORTED_CHECK_TYPE: CheckStatus.NOT_EXECUTABLE,
     CheckReason.UNSUPPORTED_TYPED_OPERATION: CheckStatus.NOT_EXECUTABLE,
     CheckReason.MISSING_ENGINE_CAPABILITY: CheckStatus.NOT_EXECUTABLE,

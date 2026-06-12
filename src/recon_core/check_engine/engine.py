@@ -161,6 +161,14 @@ class CheckEngine:
                         state="blocked",
                     )
                 )
+            if prerequisite_result.status is CheckStatus.NOT_EXECUTABLE:
+                blockers.append(
+                    _PrerequisiteBlocker(
+                        check_id=prerequisite_id,
+                        reason=CheckReason.PREREQUISITE_NOT_EXECUTABLE,
+                        state="was not executable",
+                    )
+                )
         if blockers:
             return _blocked_result(
                 check,
@@ -223,6 +231,7 @@ def _blocked_prerequisite_reason(result: CheckResult) -> CheckReason:
         CheckReason.PREREQUISITE_FAILED,
         CheckReason.PREREQUISITE_ERROR,
         CheckReason.PREREQUISITE_MISSING,
+        CheckReason.PREREQUISITE_NOT_EXECUTABLE,
     }:
         return result.reason_code
     return CheckReason.PREREQUISITE_ERROR
@@ -232,6 +241,7 @@ def _dominant_blocker_reason(blockers: tuple[_PrerequisiteBlocker, ...]) -> Chec
     for reason in (
         CheckReason.PREREQUISITE_ERROR,
         CheckReason.PREREQUISITE_FAILED,
+        CheckReason.PREREQUISITE_NOT_EXECUTABLE,
         CheckReason.PREREQUISITE_MISSING,
     ):
         if any(blocker.reason is reason for blocker in blockers):

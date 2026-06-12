@@ -135,6 +135,7 @@ First-boundary reason codes:
 - `prerequisite_failed`,
 - `prerequisite_error`,
 - `prerequisite_missing`,
+- `prerequisite_not_executable`,
 - `unsupported_check_type`,
 - `unsupported_typed_operation`,
 - `missing_engine_capability`,
@@ -250,7 +251,7 @@ complete.
 | Compiled-check loading boundary | Existing compiled-check artifact path, multiple contracts, source metadata, diagnostic-bearing compiled checks. | 7.1 consumes compiled artifacts or equivalent compiled fixtures only; it does not parse authored YAML or recompile contracts. | Service tests with temporary compiled artifacts and in-memory fixtures. | Parse/compile/run architecture and compiled artifact docs. | Artifact freshness, cache reuse, and selected-scope freshness are later work. |
 | Missing, empty, unsafe, or malformed compiled artifacts | Missing compiled-check directory/file, empty check list, invalid YAML, symlinked artifact paths, wrong artifact version, missing required fields, empty typed operation lists. | Produce non-pass runtime diagnostics with locked codes; never report source-target equivalence. | Service/loader tests for each artifact error and safe diagnostic. | Runtime diagnostics docs. | Compile-time validation of authored YAML remains parser/compiler scope. |
 | Internal dispatch boundary | Known compiled check type assigned to a later phase, unknown check type, unsupported typed operation. | Dispatch is internal only; unsupported or later-phase checks produce `not_executable` with reason and diagnostics. | Dispatch tests for known-later, unknown, and unsupported operation cases. | Explicit authored checks/check registry gate. | Public authored `checks: [...]`, package checks, and user-extensible registries remain future scope. |
-| Prerequisite blocking | Prerequisite failed, errored, missing, duplicate `blocked_by`, multiple blockers. | Dependent check result is `blocked`, `executed=false`, includes `blocked_by`, reason code, and diagnostics. | Model/engine tests for `prerequisite_failed`, `prerequisite_error`, and `prerequisite_missing`. | ADR 0014 key semantics and check dependencies. | Executing grain-key safety checks that create prerequisite failures belongs to the grain-key safety phase. |
+| Prerequisite blocking | Prerequisite failed, errored, missing, not executable, duplicate `blocked_by`, multiple blockers. | Dependent check result is `blocked`, `executed=false`, includes `blocked_by`, reason code, and diagnostics. | Model/engine tests for `prerequisite_failed`, `prerequisite_error`, `prerequisite_missing`, and `prerequisite_not_executable`. | ADR 0014 key semantics and check dependencies. | Executing grain-key safety checks that create prerequisite failures belongs to the grain-key safety phase. |
 | Diagnostic preservation and sanitization | Code, severity, message, path, resource type/name, hint, unsafe raw exception text, unsafe source/target text. | Safe diagnostics preserve actionable fields; raw source/target values, query text, relation names, credentials, raw tracebacks, and database errors are not emitted. | Diagnostic tests for preserved safe fields and redaction/suppression cases. | Diagnostic output message conformance gate and source/target privacy gate. | Adapter/database runtime exception sanitization expands in adapter execution phases. |
 | No adapter, profile, or SQL execution | Adapter registry/factory, profile loader, SQL renderer, source/target query call, relation access. | None are invoked by 7.1; compiled checks remain non-executed unless supplied as already evaluated in-memory fixtures. | Negative tests with fakes/mocks that would fail if adapter/profile/renderer/query calls occur. | ADR 0021 placement boundary and adapter/profile gates. | Row-count, grain-key, and aggregate execution belong to later split phases. |
 | No generated outputs | `target/run_results.json`, reports, evidence, failure details, state files, result tables, sink writes, compiled SQL writes. | 7.1 writes none of these and records no path/table/object destination as written. | Temporary-directory tests proving no new files, state, reports, sink/table refs, or SQL output are produced. | Generated artifact lifecycle gate, ADR 0022 result/evidence boundary. | Local run-result artifact belongs to the runner/result phase; evidence/report output belongs to evidence phase. |
@@ -276,7 +277,7 @@ scope during implementation review.
 | Compiled check type is unknown. | Check result `not_executable`, reason `unsupported_check_type`, diagnostic `RC_RUNTIME_UNSUPPORTED_CHECK_TYPE`. | Dispatch test. |
 | Compiled check has known type but operation belongs to later phase. | Check result `not_executable`, reason `not_implemented_in_current_phase`, diagnostic `RC_RUNTIME_CHECK_NOT_EXECUTABLE`. | Dispatch test using row-count/key/aggregate fixtures as appropriate. |
 | Compiled typed operation is validly shaped but unrecognized. | Check result `not_executable`, reason `unsupported_typed_operation`, diagnostic `RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION`. | Dispatch test for valid unknown operation type. |
-| Compiled typed operation payload is malformed, uses non-string artifact mapping keys, or contains fields not valid for its known operation type. | Runtime artifact-invalid diagnostic; dispatch does not run. | Loader validation test for malformed operation payload, non-string mapping keys, and unexpected known-operation fields. |
+| Compiled artifact or typed operation payload is malformed, uses non-string artifact mapping keys, or contains fields not valid for its known operation type. | Runtime artifact-invalid diagnostic; dispatch does not run. | Loader validation test for malformed operation payload, root and nested non-string mapping keys, and unexpected known-operation fields. |
 | Compiled check plan has no typed operations. | Runtime artifact-invalid diagnostic; dispatch does not classify an empty no-op plan as later-phase behavior. | Loader validation test for empty `plan.operations`. |
 | Required engine capability is absent or unknown. | Check result `not_executable`, reason `missing_engine_capability`, diagnostic `RC_RUNTIME_MISSING_ENGINE_CAPABILITY`; no fallback execution. | Capability-fit test with no adapter invocation. |
 | Required execution placement is unsupported. | Check result `not_executable`, reason `unsupported_execution_placement`; no Python fallback. | Placement blocker test. |
@@ -284,6 +285,7 @@ scope during implementation review.
 | Prerequisite result failed. | Dependent result `blocked`, reason `prerequisite_failed`, `blocked_by` includes prerequisite ID. | Prerequisite model test. |
 | Prerequisite result errored. | Dependent result `blocked`, reason `prerequisite_error`, `blocked_by` includes prerequisite ID. | Prerequisite model test. |
 | Prerequisite result is missing from the run scope. | Dependent result `blocked`, reason `prerequisite_missing`; no dependency guessing. | Prerequisite model test. |
+| Prerequisite result is not executable. | Dependent result `blocked`, reason `prerequisite_not_executable`, `blocked_by` includes prerequisite ID. | Prerequisite model test. |
 | Compiled check carries diagnostics from compile. | Runtime result preserves safe diagnostic code, severity, message, path, resource context, and hint. | Diagnostic preservation test. |
 | Compiled check references rendered SQL paths from earlier compile output. | 7.1 may preserve references as inert metadata only; it must not open or execute SQL. | Negative file/renderer invocation test. |
 | A stale `target/run_results.json` already exists. | 7.1 neither updates nor deletes it; no claim that it wrote a result artifact. | Temp-dir test with preexisting file hash. |
@@ -338,12 +340,12 @@ failure rows, artifact refs, or sink refs.
 ### Scenario 5: Blocked Dependent Check
 
 Given a compiled dependent check requires a prerequisite check result.
-And the prerequisite failed, errored, or is missing.
+And the prerequisite failed, errored, is not executable, or is missing.
 When the check engine evaluates prerequisites.
 Then the dependent check result has status `blocked`.
 And `blocked_by` identifies the prerequisite.
-And the reason code is `prerequisite_failed`, `prerequisite_error`, or
-`prerequisite_missing`.
+And the reason code is `prerequisite_failed`, `prerequisite_error`,
+`prerequisite_not_executable`, or `prerequisite_missing`.
 And the dependent check is not executed.
 
 ### Scenario 6: Diagnostic Preservation
@@ -552,7 +554,7 @@ Write tests before implementation in this order:
 | `tests/check_engine/test_aggregation.py` | Aggregate status precedence, `no_checks` non-pass behavior, mixed statuses, all blocked, all not executable, warning-only fixtures, all-skipped fixtures, mixed pass-plus-skipped fixtures, and all-pass in-memory fixtures. |
 | `tests/check_engine/test_loader.py` | Missing compiled-check directory/file, invalid YAML, wrong artifact type, wrong version, missing required fields, duplicate check IDs, empty check scope, safe diagnostics, and multi-contract artifact loading. |
 | `tests/check_engine/test_dispatch.py` | Unsupported compiled check type, valid unknown typed operation, malformed operation payload handoff to artifact-invalid diagnostics, later-phase row-count/key/aggregate operations with `not_implemented_in_current_phase`, missing capability, unsupported execution placement, unsupported materialization, and no public registry behavior. |
-| `tests/check_engine/test_engine.py` | Prerequisite blocking for failed, errored, and missing prerequisites; `blocked_by` ordering/deduplication; safe diagnostic preservation; sanitized internal engine error; and no source/target value population for non-executed results. |
+| `tests/check_engine/test_engine.py` | Prerequisite blocking for failed, errored, missing, and not-executable prerequisites; `blocked_by` ordering/deduplication; safe diagnostic preservation; sanitized internal engine error; and no source/target value population for non-executed results. |
 | `tests/services/test_run_service.py` | `RunService` loads compiled checks only, maps missing/invalid/empty inputs to command-level failures, returns no pass for non-execution, invokes no parse/compile/profile/adapter/renderer/query APIs, writes no generated outputs, and leaves stale output files untouched. |
 | `tests/cli/test_main.py` | Replace the run placeholder test with 7.1 command behavior: concise message, locked runtime diagnostics, correct exit code, and no run summary, artifact link, evidence link, selector behavior, or sink output. |
 | `tests/services/test_command_services.py` | Remove `RunService` from placeholder-stub expectations once `run` is implemented. Keep any other placeholder expectations intact. |

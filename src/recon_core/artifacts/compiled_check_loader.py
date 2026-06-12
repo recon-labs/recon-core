@@ -176,9 +176,7 @@ class CompiledCheckLoader:
 
 def _read_yaml_mapping(path: Path) -> dict[str, object]:
     loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(loaded, dict):
-        raise _ArtifactShapeError("Compiled-check artifact root must be a mapping.")
-    return cast(dict[str, object], loaded)
+    return dict(_as_mapping(loaded, "artifact root"))
 
 
 def _symlinked_artifact_path_diagnostic(path: Path) -> Diagnostic | None:

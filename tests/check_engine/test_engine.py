@@ -186,6 +186,34 @@ def test_engine_blocks_check_when_prerequisite_is_blocked(tmp_path: Path) -> Non
     assert dependent_result.blocked_by == (prerequisite.id,)
 
 
+def test_engine_blocks_check_when_prerequisite_is_not_executable(tmp_path: Path) -> None:
+    prerequisite = _check(
+        check_id="check.ecommerce_recon.customer_revenue.duplicate_source_keys",
+        name="duplicate_source_keys",
+    )
+    dependent = _check(
+        check_id="check.ecommerce_recon.customer_revenue.value_match",
+        name="value_match",
+        check_type="value_match",
+        prerequisites=(prerequisite.id,),
+    )
+    artifact = _artifact(tmp_path, checks=(dependent, prerequisite))
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+    )
+
+    dependent_result, prerequisite_result = result.contract_results[0].check_results
+    assert prerequisite_result.status is CheckStatus.NOT_EXECUTABLE
+    assert prerequisite_result.reason_code is CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE
+    assert dependent_result.status is CheckStatus.BLOCKED
+    assert dependent_result.reason_code is CheckReason.PREREQUISITE_NOT_EXECUTABLE
+    assert dependent_result.blocked_by == (prerequisite.id,)
+
+
 def test_engine_reports_multiple_missing_prerequisites_once(tmp_path: Path) -> None:
     dependent = _check(
         check_id="check.ecommerce_recon.customer_revenue.value_match",

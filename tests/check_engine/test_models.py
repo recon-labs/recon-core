@@ -37,6 +37,7 @@ def test_status_and_reason_values_match_locked_taxonomy() -> None:
         "prerequisite_failed",
         "prerequisite_error",
         "prerequisite_missing",
+        "prerequisite_not_executable",
         "unsupported_check_type",
         "unsupported_typed_operation",
         "missing_engine_capability",
