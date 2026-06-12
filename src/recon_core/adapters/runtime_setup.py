@@ -4,6 +4,9 @@ from dataclasses import dataclass
 
 from recon_core.adapters.base import BaseAdapter
 from recon_core.adapters.capabilities import AdapterCapabilities, validate_required_capabilities
+from recon_core.adapters.diagnostic_redaction import (
+    sanitize_profile_backed_adapter_diagnostics,
+)
 from recon_core.adapters.duckdb import DuckDbAdapterFactory
 from recon_core.adapters.registry import (
     AdapterRegistry,
@@ -46,12 +49,22 @@ def prepare_runtime_adapter(
     resolved_registry = registry if registry is not None else _default_runtime_adapter_registry()
     resolution = resolved_registry.resolve(connection)
     if resolution.diagnostics or resolution.adapter is None:
-        return RuntimeAdapterSetupResult(diagnostics=resolution.diagnostics)
+        return RuntimeAdapterSetupResult(
+            diagnostics=_sanitize_runtime_diagnostics(
+                resolution.diagnostics,
+                connection=connection,
+            )
+        )
 
     adapter = resolution.adapter
     adapter_type_resolution = resolve_adapter_type(adapter)
     if adapter_type_resolution.diagnostics:
-        return RuntimeAdapterSetupResult(diagnostics=adapter_type_resolution.diagnostics)
+        return RuntimeAdapterSetupResult(
+            diagnostics=_sanitize_runtime_diagnostics(
+                adapter_type_resolution.diagnostics,
+                connection=connection,
+            )
+        )
 
     adapter_type = adapter_type_resolution.adapter_type
     assert adapter_type is not None
@@ -65,7 +78,10 @@ def prepare_runtime_adapter(
     if api_diagnostics:
         return RuntimeAdapterSetupResult(
             adapter_type=adapter_type,
-            diagnostics=api_diagnostics,
+            diagnostics=_sanitize_runtime_diagnostics(
+                api_diagnostics,
+                connection=connection,
+            ),
         )
 
     capabilities, capability_diagnostics = _adapter_capabilities(
@@ -75,7 +91,10 @@ def prepare_runtime_adapter(
     if capability_diagnostics:
         return RuntimeAdapterSetupResult(
             adapter_type=adapter_type,
-            diagnostics=capability_diagnostics,
+            diagnostics=_sanitize_runtime_diagnostics(
+                capability_diagnostics,
+                connection=connection,
+            ),
         )
     assert capabilities is not None
 
@@ -87,7 +106,10 @@ def prepare_runtime_adapter(
     if required_capability_diagnostics:
         return RuntimeAdapterSetupResult(
             adapter_type=adapter_type,
-            diagnostics=required_capability_diagnostics,
+            diagnostics=_sanitize_runtime_diagnostics(
+                required_capability_diagnostics,
+                connection=connection,
+            ),
         )
 
     return RuntimeAdapterSetupResult(
@@ -101,6 +123,17 @@ def _default_runtime_adapter_registry() -> AdapterRegistry:
     registry = AdapterRegistry()
     registry.register("duckdb", DuckDbAdapterFactory())
     return registry
+
+
+def _sanitize_runtime_diagnostics(
+    diagnostics: tuple[Diagnostic, ...],
+    *,
+    connection: ConnectionConfig,
+) -> tuple[Diagnostic, ...]:
+    return sanitize_profile_backed_adapter_diagnostics(
+        diagnostics,
+        connection=connection,
+    )
 
 
 def _adapter_capabilities(

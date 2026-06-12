@@ -12,7 +12,7 @@ from recon_core.adapters import (
     Relation,
     validate_adapter_api_compatibility,
 )
-from recon_core.diagnostics import Diagnostic
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 
 class CompatibleAdapter(BaseAdapter):
@@ -83,6 +83,43 @@ class NoneDiagnosticsWithAdapterFactory:
         return AdapterResolutionResult(
             adapter=CompatibleAdapter(connection=connection),
             diagnostics=cast(tuple[Diagnostic, ...], None),
+        )
+
+
+class AdapterWithDiagnosticsFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            adapter=CompatibleAdapter(connection=connection),
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"password={connection.config.get('password')}",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                ),
+            ),
+        )
+
+
+class LeakyResolutionDiagnosticsFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        password = str(connection.config.get("password"))
+        port = int(str(connection.config.get("port")))
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code=f"RC{password}LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Adapter setup leaked password={password} on port {port}.",
+                    resource_type=f"password={password}",
+                    resource_name=str(port),
+                    path=f"adapter://{port}/{password}",
+                    line=port,
+                    column=port,
+                    hint=f"Inspect password={password}.",
+                ),
+            ),
         )
 
 
@@ -216,6 +253,71 @@ def test_registry_reports_none_diagnostics_with_adapter() -> None:
         "RC_ADAPTER_RESOLUTION_FAILED"
     ]
     assert result.diagnostics[0].resource_name == "none_diagnostics"
+
+
+def test_registry_reports_adapter_with_diagnostics_result_as_invalid() -> None:
+    registry = AdapterRegistry()
+    registry.register("adapter_and_diagnostics", AdapterWithDiagnosticsFactory())
+
+    result = registry.resolve(
+        ConnectionConfig(
+            name="source",
+            type="adapter_and_diagnostics",
+            config={"password": "super-secret"},
+        )
+    )
+
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert result.diagnostics[0].resource_name == "adapter_and_diagnostics"
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
+
+
+def test_registry_sanitizes_adapter_resolution_diagnostics() -> None:
+    registry = AdapterRegistry()
+    registry.register("leaky", LeakyResolutionDiagnosticsFactory())
+
+    result = registry.resolve(
+        ConnectionConfig(
+            name="source",
+            type="leaky",
+            config={"password": "super-secret", "port": 12},
+        )
+    )
+
+    diagnostic = result.diagnostics[0]
+    public_text = "\n".join(
+        str(value)
+        for value in (
+            diagnostic.code,
+            diagnostic.message,
+            diagnostic.resource_type,
+            diagnostic.resource_name,
+            diagnostic.path,
+            diagnostic.line,
+            diagnostic.column,
+            diagnostic.hint,
+        )
+        if value is not None
+    )
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert diagnostic.code == "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED"
+    assert diagnostic.resource_type == "adapter"
+    assert diagnostic.resource_name == "leaky"
+    assert diagnostic.path is None
+    assert diagnostic.line is None
+    assert diagnostic.column is None
+    assert "super-secret" not in public_text
+    assert "password" not in public_text.casefold()
+    assert "\n12\n" not in f"\n{public_text}\n"
 
 
 def test_registry_sanitizes_adapter_factory_exceptions() -> None:

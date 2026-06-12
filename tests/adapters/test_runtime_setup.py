@@ -13,6 +13,7 @@ from recon_core.adapters import (
     Relation,
 )
 from recon_core.adapters.runtime_setup import prepare_runtime_adapter
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 
 class CompatibleAdapter(BaseAdapter):
@@ -77,6 +78,64 @@ class EmptyFactory:
         return AdapterResolutionResult()
 
 
+class AdapterWithDiagnosticsFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            adapter=CompatibleAdapter(connection=connection),
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_ADAPTER_LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"password={connection.config.get('password')}",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                ),
+            ),
+        )
+
+
+class LeakyDiagnosticsFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        database = str(connection.config.get("database"))
+        password = str(connection.config.get("password"))
+        port = int(str(connection.config.get("port")))
+        token = str(connection.config.get("token"))
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code=f"RC{password}LEAK",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=(
+                        f"Adapter failed with PASSWORD={password.casefold()} "
+                        f"database={database.upper()} token={token}."
+                    ),
+                    resource_type=f"PASSWORD={password.casefold()}",
+                    resource_name=f"endpoint-{port}",
+                    path=f"adapter://endpoint/{port}/{token}",
+                    line=port,
+                    column=port,
+                    hint=f"Inspect DSN {database}.",
+                ),
+            )
+        )
+
+
+class SafeDiagnosticsFactory:
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_ADAPTER_CAPABILITY_UNSUPPORTED",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Adapter does not support the required capability.",
+                    resource_type="adapter",
+                    resource_name=connection.type,
+                    hint="Use an adapter that supports this capability.",
+                ),
+            )
+        )
+
+
 def test_prepare_runtime_adapter_validates_without_connecting() -> None:
     registry = AdapterRegistry()
     registry.register("compatible", CompatibleAdapter)
@@ -123,6 +182,108 @@ def test_prepare_runtime_adapter_reports_invalid_factory_result() -> None:
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_RESOLUTION_FAILED"
     ]
+
+
+def test_prepare_runtime_adapter_rejects_adapter_plus_diagnostics_result() -> None:
+    registry = AdapterRegistry()
+    registry.register("leaky", AdapterWithDiagnosticsFactory())
+
+    result = prepare_runtime_adapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="leaky",
+            config={"password": "super-secret"},
+        ),
+        required_capabilities=("row_count",),
+        registry=registry,
+    )
+
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
+
+
+def test_prepare_runtime_adapter_sanitizes_factory_diagnostics() -> None:
+    registry = AdapterRegistry()
+    registry.register("leaky", LeakyDiagnosticsFactory())
+
+    result = prepare_runtime_adapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="leaky",
+            config={
+                "database": "duckdb://admin:super-secret@warehouse.local:12/app?token=abc123",
+                "password": "super-secret",
+                "port": 12,
+                "token": "abc123",
+            },
+        ),
+        required_capabilities=("row_count",),
+        registry=registry,
+    )
+
+    diagnostic = result.diagnostics[0]
+    public_text = "\n".join(
+        str(value)
+        for value in (
+            diagnostic.code,
+            diagnostic.message,
+            diagnostic.resource_type,
+            diagnostic.resource_name,
+            diagnostic.path,
+            diagnostic.line,
+            diagnostic.column,
+            diagnostic.hint,
+        )
+        if value is not None
+    )
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert diagnostic.code == "RC_ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED"
+    assert diagnostic.resource_type == "adapter"
+    assert diagnostic.resource_name == "leaky"
+    assert diagnostic.path is None
+    assert diagnostic.line is None
+    assert diagnostic.column is None
+    assert "adapter diagnostic text was suppressed" in diagnostic.message
+    assert "super-secret" not in public_text
+    assert "password" not in public_text.casefold()
+    assert "warehouse.local" not in public_text
+    assert "abc123" not in public_text
+    assert "duckdb://" not in public_text
+    assert "\n12\n" not in f"\n{public_text}\n"
+
+
+def test_prepare_runtime_adapter_preserves_safe_factory_diagnostic_code() -> None:
+    registry = AdapterRegistry()
+    registry.register("safe", SafeDiagnosticsFactory())
+
+    result = prepare_runtime_adapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="safe",
+            config={"password": "super-secret"},
+        ),
+        required_capabilities=("row_count",),
+        registry=registry,
+    )
+
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+
+    assert not result.succeeded
+    assert result.adapter is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
 
 
 def test_prepare_runtime_adapter_reports_adapter_type_mismatch() -> None:

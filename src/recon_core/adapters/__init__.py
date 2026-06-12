@@ -7,6 +7,7 @@ from recon_core.adapters.capabilities import (
     CapabilitySupport,
     validate_required_capabilities,
 )
+from recon_core.adapters.diagnostic_redaction import ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED
 from recon_core.adapters.duckdb import DuckDbAdapterFactory
 from recon_core.adapters.models import (
     ADAPTER_API_VERSION,
@@ -56,6 +57,7 @@ __all__ = [
     "ADAPTER_API_VERSION_UNSUPPORTED",
     "ADAPTER_CAPABILITY_DECLARATION_FAILED",
     "ADAPTER_CAPABILITY_UNSUPPORTED",
+    "ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED",
     "ADAPTER_METADATA_INVALID",
     "ADAPTER_RESOLUTION_FAILED",
     "ADAPTER_INVALID_RELATION",

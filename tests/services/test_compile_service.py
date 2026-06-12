@@ -202,7 +202,7 @@ def test_render_sql_compile_reports_missing_duckdb_optional_dependency(tmp_path:
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
-def test_render_sql_compile_preserves_factory_diagnostics_when_adapter_is_returned(
+def test_render_sql_compile_rejects_factory_result_with_adapter_and_diagnostics(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path, profile="local")
@@ -220,14 +220,16 @@ def test_render_sql_compile_preserves_factory_diagnostics_when_adapter_is_return
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.message == "SQL rendering adapter configuration failed."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_TEST_ADAPTER_WITH_DIAGNOSTIC",
-        "RC_TEST_ADAPTER_WITH_DIAGNOSTIC",
+        "RC_ADAPTER_RESOLUTION_FAILED",
+        "RC_ADAPTER_RESOLUTION_FAILED",
     ]
     _assert_distinct_connection_diagnostic_messages(
         result.diagnostics,
-        unscoped_message="Adapter factory returned an adapter with a setup diagnostic.",
+        unscoped_message=(
+            "Adapter factory for type `diagnostic_adapter` returned an invalid resolution result."
+        ),
     )
-    _assert_render_sql_blocked_artifact(tmp_path, "RC_TEST_ADAPTER_WITH_DIAGNOSTIC")
+    _assert_render_sql_blocked_artifact(tmp_path, "RC_ADAPTER_RESOLUTION_FAILED")
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
