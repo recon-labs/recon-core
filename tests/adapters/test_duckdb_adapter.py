@@ -1,8 +1,20 @@
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 
-from recon_core.adapters import CapabilitySupport, ConnectionConfig, Relation
-from recon_core.adapters.duckdb import DuckDbAdapterFactory, DuckDbSqlRenderer
+import pytest
+
+from recon_core.adapters import CapabilitySupport, ConnectionConfig, QueryResult, Relation
+from recon_core.adapters.duckdb import (
+    ADAPTER_CLOSE_FAILED,
+    ADAPTER_CONNECTION_FAILED,
+    ADAPTER_QUERY_FAILED,
+    AdapterLifecycleError,
+    DuckDbAdapter,
+    DuckDbAdapterFactory,
+    DuckDbSqlRenderer,
+)
+from recon_core.adapters.duckdb import adapter as duckdb_adapter_module
 
 
 def test_duckdb_optional_extra_is_declared() -> None:
@@ -39,6 +51,165 @@ def test_duckdb_factory_creates_adapter_when_dependency_is_available() -> None:
     assert result.adapter.capabilities().support_for("row_count") is CapabilitySupport.FULL
     assert result.adapter.capabilities().support_for("aggregate") is CapabilitySupport.FULL
     assert result.adapter.capabilities().support_for("key_diff") is CapabilitySupport.FULL
+
+
+def test_duckdb_adapter_connect_execute_and_close_use_rendered_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeCursor:
+        description = (("answer",), ("label",))
+
+        def fetchall(self) -> list[tuple[int, str]]:
+            return [(1, "ok")]
+
+    class FakeConnection:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+            self.closed = False
+
+        def execute(self, query: str) -> FakeCursor:
+            self.queries.append(query)
+            return FakeCursor()
+
+        def close(self) -> None:
+            self.closed = True
+
+    opened_connections: list[FakeConnection] = []
+    opened_databases: list[str] = []
+
+    def connect(database: str) -> FakeConnection:
+        opened_databases.append(database)
+        connection = FakeConnection()
+        opened_connections.append(connection)
+        return connection
+
+    monkeypatch.setattr(
+        duckdb_adapter_module,
+        "import_module",
+        lambda module_name: SimpleNamespace(connect=connect),
+    )
+    adapter = DuckDbAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"database": "local.duckdb"},
+        )
+    )
+
+    adapter.connect()
+    result = adapter.execute("select 1 as answer, 'ok' as label")
+    adapter.close()
+
+    assert opened_databases == ["local.duckdb"]
+    assert opened_connections[0].queries == ["select 1 as answer, 'ok' as label"]
+    assert opened_connections[0].closed
+    assert result == QueryResult(columns=("answer", "label"), rows=((1, "ok"),), row_count=1)
+
+
+def test_duckdb_adapter_connection_failure_is_sanitized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def connect(database: str) -> object:
+        raise RuntimeError(f"password=super-secret database={database}")
+
+    monkeypatch.setattr(
+        duckdb_adapter_module,
+        "import_module",
+        lambda module_name: SimpleNamespace(connect=connect),
+    )
+    adapter = DuckDbAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"database": "/tmp/private-super-secret.duckdb"},
+        )
+    )
+
+    with pytest.raises(AdapterLifecycleError) as exc_info:
+        adapter.connect()
+
+    diagnostic = exc_info.value.diagnostic
+    diagnostic_text = f"{diagnostic.message} {diagnostic.hint}"
+
+    assert diagnostic.code == ADAPTER_CONNECTION_FAILED
+    assert "RuntimeError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password=" not in diagnostic_text
+    assert "/tmp/private-super-secret.duckdb" not in diagnostic_text
+
+
+def test_duckdb_adapter_query_failure_is_sanitized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingConnection:
+        def execute(self, query: str) -> object:
+            raise RuntimeError(f"Binder Error near {query} with token super-secret")
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        duckdb_adapter_module,
+        "import_module",
+        lambda module_name: SimpleNamespace(connect=lambda database: FailingConnection()),
+    )
+    adapter = DuckDbAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"database": ":memory:", "password": "super-secret"},
+        )
+    )
+
+    adapter.connect()
+    with pytest.raises(AdapterLifecycleError) as exc_info:
+        adapter.execute("select 'super-secret' as token")
+
+    diagnostic = exc_info.value.diagnostic
+    diagnostic_text = f"{diagnostic.message} {diagnostic.hint}"
+
+    assert diagnostic.code == ADAPTER_QUERY_FAILED
+    assert "RuntimeError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
+    assert "select 'super-secret' as token" not in diagnostic_text
+    assert "Binder Error" not in diagnostic_text
+
+
+def test_duckdb_adapter_close_failure_is_sanitized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingCloseConnection:
+        def execute(self, query: str) -> object:
+            return SimpleNamespace(description=(), fetchall=lambda: [])
+
+        def close(self) -> None:
+            raise RuntimeError("close leaked super-secret")
+
+    monkeypatch.setattr(
+        duckdb_adapter_module,
+        "import_module",
+        lambda module_name: SimpleNamespace(connect=lambda database: FailingCloseConnection()),
+    )
+    adapter = DuckDbAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"database": ":memory:", "password": "super-secret"},
+        )
+    )
+
+    adapter.connect()
+    with pytest.raises(AdapterLifecycleError) as exc_info:
+        adapter.close()
+
+    diagnostic = exc_info.value.diagnostic
+    diagnostic_text = f"{diagnostic.message} {diagnostic.hint}"
+
+    assert diagnostic.code == ADAPTER_CLOSE_FAILED
+    assert "RuntimeError" in diagnostic_text
+    assert "super-secret" not in diagnostic_text
+    assert "password" not in diagnostic_text
 
 
 def test_duckdb_renderer_quotes_identifiers_and_relations_deterministically() -> None:
