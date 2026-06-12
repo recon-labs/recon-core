@@ -756,15 +756,15 @@ does not mean implementation has started.
 | Gate | 7.2 status | Proof in this prework |
 | --- | --- | --- |
 | Split decision | Satisfied for 7.2 prework. | Milestone 7 remains split and 7.2 owns only adapter lifecycle and row-count execution. |
-| High-risk milestone prework | Satisfied for Step 4; final coding still waits for Steps 5-8. | Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, required tests, matrix, scenarios, implementation map, DoD, and blocker report are documented here. |
+| High-risk milestone prework | Satisfied for 7.2 prework. | Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, required tests, matrix, scenarios, implementation map, DoD, blocker report, public-doc alignment, prompt drift cleanup, orphan/drift audit, and final validation are documented. |
 | Gate 4I: comparison execution placement | Satisfied for 7.2 prework. | Same-context DuckDB relation-backed pushdown is the only allowed row-count placement. Operation location, comparison location, and materialization policy are explicit. Unsupported query, cross-context, materialization, third-engine, and Python fallback paths are forbidden and mapped to tests. |
 | Gate 4J: profile rendering and adapter diagnostic redaction | Satisfied for 7.2 prework. | Runtime profile loading follows selected-profile/target and referenced-connection-only rules. Literal adapter type routing, factory validation, adapter metadata/API/capability checks, lifecycle diagnostics, and redaction requirements are documented and test-mapped. |
 | Gate 6: source/target privacy, evidence, and failure-detail policy | Satisfied for 7.2 prework. | Counts/diff are policy-controlled and only allowed in bounded in-memory check results. Sensitive rows, keys, values, query text, rendered SQL, DB errors, profile values, credentials, DSN fragments, raw exceptions, and tracebacks are excluded from public output. No generated result/evidence/failure/state/sink output is allowed. |
 | Adapter API compatibility | Satisfied for 7.2 prework. | Runtime validates adapter metadata, adapter type, API version, and capabilities before execution. No adapter API version change or external adapter compatibility claim is made. |
 | Generated artifact lifecycle | Satisfied for 7.2 prework. | 7.2 writes no `target/run_results.json`, evidence, reports, failure details, state, compiled SQL, result tables, or sinks. Stale generated outputs must not be mutated. |
 | Public contract compatibility | Satisfied for 7.2 prework. | The only planned behavior change is narrow in-memory row-count execution for supported compiled checks. Authored YAML, compiled artifact schemas, run-result schemas, evidence schemas, sink schemas, and adapter API versions remain unchanged unless later reviewed. |
-| Prompt/docs drift | Not complete until Steps 5-7. | This artifact is complete for Step 4, but existing docs and private prompts still need alignment and drift checks before coding. |
-| Phase-exit review | Not complete until Step 8. | The checklist is defined below; final validation belongs to Step 8. |
+| Prompt/docs drift | Satisfied for 7.2 prework. | Existing public docs are aligned, the companion Milestone 7 prompt is split-aware, the dedicated 7.2 prompt is present, and the orphan/drift audit found no stale direct umbrella implementation guidance. |
+| Phase-exit review | Satisfied for pre-implementation readiness. | Final validation confirmed the prework artifacts are consistent and implementation has not started. Future implementation still needs its own phase-exit review against the matrix before completion. |
 
 ## Phase-Exit Checklist
 
@@ -938,17 +938,10 @@ required tests, acceptance/conformance matrix, edge-case matrix, BDD scenarios,
 gate satisfaction proof, phase-exit checklist, implementation map, public
 contract decision, changelog decision, and Definition of Done.
 
-Implementation is not yet ready to start because the session still has required
-prework outside this artifact:
-
-- Step 5: align existing public docs with this artifact.
-- Step 6: fix companion prompt drift.
-- Step 7: run orphan and drift audit.
-- Step 8: run final validation and readiness report.
-
-No open design question remains inside the Step 4 artifact. Remaining work is
-publication alignment, prompt hygiene, orphan/drift verification, and final
-validation.
+Implementation prework is ready. Steps 5-8 completed public-doc alignment,
+companion prompt drift cleanup, orphan/drift verification, and final validation.
+No open design question remains in this prework session. Runtime/source/test
+implementation has not started.
 
 ## Definition Of Done
 
@@ -993,12 +986,7 @@ Milestone 7.2 implementation is complete only when:
 
 ## Remaining Blockers
 
-No Step 4 design blocker remains inside this artifact.
-
-Coding remains blocked until the rest of the prework session is complete:
-
-- Step 5 must align existing public docs with this artifact.
-- Step 6 must fix companion prompt drift.
-- Step 7 must prove there are no orphan umbrella Milestone 7 assignments or
-  stale public/private guidance.
-- Step 8 must run final validation and produce the final readiness report.
+No 7.2 prework blocker remains. Implementation should still start only when the
+user explicitly asks for Milestone 7.2 coding, and it must follow the
+test-first map, matrix coverage, privacy rules, and phase-exit review in this
+artifact.
