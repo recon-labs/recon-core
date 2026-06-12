@@ -2,10 +2,167 @@ from pathlib import Path
 
 import pytest
 
+from recon_core.artifacts import LoadedCompiledContractArtifact, LoadedCompiledEndpoint
 from recon_core.parser.contracts import AuthoredContract, AuthoredEndpoint
 from recon_core.parser.models import SourceLocation
-from recon_core.profiles import load_selected_profile
+from recon_core.profiles import (
+    load_selected_profile,
+    load_selected_profile_for_connection_names,
+    referenced_connection_names_from_compiled_contracts,
+)
 from recon_core.project import load_project_context
+
+
+def test_load_selected_profile_for_connection_names_renders_referenced_connections_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('LEGACY_DB') }}"
+          warehouse:
+            type: duckdb
+            database: "{{ env_var('WAREHOUSE_DB', 'default.duckdb') }}"
+          unused:
+            type: duckdb
+            database: "{{ env_var('UNUSED_DB') }}"
+""",
+    )
+    monkeypatch.setenv("LEGACY_DB", "legacy.duckdb")
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile_for_connection_names(
+        context_result.context,
+        referenced_connection_names=("legacy", "warehouse"),
+    )
+
+    assert result.succeeded
+    assert result.profile is not None
+    assert result.profile.name == "local"
+    assert result.profile.target_name == "dev"
+    assert set(result.profile.connections) == {"legacy", "warehouse"}
+    assert result.profile.connections["legacy"].config["database"] == "legacy.duckdb"
+    assert result.profile.connections["warehouse"].config["database"] == "default.duckdb"
+    assert result.diagnostics == ()
+
+
+def test_load_selected_profile_for_connection_names_reports_referenced_env_var_without_leak(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('LEGACY_DB') }}"
+          warehouse:
+            type: duckdb
+            database: "{{ env_var('WAREHOUSE_DB', 'safe-default.duckdb') }}"
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile_for_connection_names(
+        context_result.context,
+        referenced_connection_names=("legacy", "warehouse"),
+    )
+
+    assert not result.succeeded
+    assert result.profile is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_PROFILE_ENV_VAR_MISSING"
+    ]
+    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+    assert "LEGACY_DB" in diagnostic_text
+    assert "safe-default.duckdb" not in diagnostic_text
+    assert "WAREHOUSE_DB" not in diagnostic_text
+
+
+@pytest.mark.parametrize(
+    "connection_type",
+    [
+        pytest.param("\"{{ env_var('RECON_ADAPTER', 'duckdb') }}\"", id="jinja-env-var"),
+        pytest.param("env_var('RECON_ADAPTER', 'duckdb')", id="bare-env-var"),
+    ],
+)
+def test_load_selected_profile_for_connection_names_rejects_templated_type(
+    tmp_path: Path,
+    connection_type: str,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        f"""
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: {connection_type}
+            database: legacy.duckdb
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile_for_connection_names(
+        context_result.context,
+        referenced_connection_names=("legacy", "warehouse"),
+    )
+
+    assert result.profile is None
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_CONFIG"
+    ]
+    assert "Connection `legacy` field `type` must be a literal adapter type." in (
+        result.diagnostics[0].message
+    )
+
+
+def test_referenced_connection_names_from_compiled_contracts_uses_loaded_endpoints() -> None:
+    names = referenced_connection_names_from_compiled_contracts(
+        (
+            compiled_contract(
+                contract_name="customer_revenue",
+                source_connection="legacy",
+                target_connection="warehouse",
+            ),
+            compiled_contract(
+                contract_name="orders_revenue",
+                source_connection="legacy",
+                target_connection="analytics",
+            ),
+        )
+    )
+
+    assert names == ("analytics", "legacy", "warehouse")
 
 
 def test_load_selected_profile_renders_referenced_connections_only(
@@ -582,4 +739,28 @@ def contract(
         target=AuthoredEndpoint(connection=target_connection, relation="target_table"),
         source_location=SourceLocation(path="contracts/customer_revenue.yml"),
         checks={"use": ["recon_core.basic_equivalence"]},
+    )
+
+
+def compiled_contract(
+    *,
+    contract_name: str,
+    source_connection: str,
+    target_connection: str,
+) -> LoadedCompiledContractArtifact:
+    return LoadedCompiledContractArtifact(
+        path=Path("target") / "compiled_contracts" / f"{contract_name}.yml",
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contract_id=f"contract.ecommerce_recon.{contract_name}",
+        contract_name=contract_name,
+        source_file=f"contracts/{contract_name}.yml",
+        source=LoadedCompiledEndpoint(
+            connection=source_connection,
+            relation="qa.source_relation",
+        ),
+        target=LoadedCompiledEndpoint(
+            connection=target_connection,
+            relation="qa.target_relation",
+        ),
     )
