@@ -389,15 +389,17 @@ default.
 
 For current DuckDB SQL rendering, source and target connection names may
 differ only when their selected profile entries resolve to the same adapter type
-and connection config. Distinct connection contexts are blocked until explicit
+and connection config. The first relation-backed execution phase must preserve
+that same-context boundary and execute only explicitly assigned typed
+operations. Distinct connection contexts are blocked until explicit
 cross-connection rendering or execution placement is designed.
 
 ## Query endpoints
 
 Current adapter-aware rendering is relation-backed only. Query endpoints may
 parse, but adapter-aware rendering should fail with a clear unsupported
-diagnostic until query execution is designed. Adapter execution remains future
-work.
+diagnostic until query execution is designed. Relation-backed execution phases
+must keep query endpoints unsupported until that separate design is complete.
 
 ## Execution placement
 

@@ -12,6 +12,7 @@ The check engine receives:
 
 ```text
 CompiledCheck
+CompiledContract metadata
 ExecutionContext
 AdapterRegistry
 StateBackend
@@ -32,9 +33,11 @@ Diagnostics
 The check engine is introduced in split stages. The first boundary owns the
 result status model, internal dispatch, and prerequisite/blocking
 representation. Later execution phases add row count, grain-key safety, and
-current aggregate metric execution. Run-result artifacts, evidence reports,
-failure details, and evidence links remain separate later surfaces unless a
-future split explicitly changes those boundaries.
+current aggregate metric execution. Execution phases that need source/target
+metadata must consume compiled-contract artifacts rather than parsing authored
+YAML or recompiling contracts. Run-result artifacts, evidence reports, failure
+details, and evidence links remain separate later surfaces unless a future split
+explicitly changes those boundaries.
 
 The first check-engine boundary is not an execution phase. It may define
 internal dispatch and blocker metadata that later execution needs, but it must

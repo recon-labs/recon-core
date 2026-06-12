@@ -84,6 +84,12 @@ sink-reference, and exact/probabilistic classification fields. Those concepts
 are reserved for compatibility but are not stable serialized fields until their
 implementing phases write a public schema.
 
+Before a generated run-result artifact exists, executable row-count checks may
+populate bounded in-memory check results only according to the source/target
+privacy policy. Terminal output and diagnostics must not expose row counts,
+diffs, relation names, query text, adapter errors, database errors, or rendered
+profile values unless the owning privacy policy explicitly allows that surface.
+
 ## First-boundary metadata reservations
 
 The first check-engine boundary may keep future-compatible metadata in memory so

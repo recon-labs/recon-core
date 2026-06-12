@@ -75,6 +75,13 @@ artifacts for supported check-pack and metric behavior. With
 `recon compile --render-sql`, it also writes adapter-rendered DuckDB SQL for
 relation-backed contracts under `target/compiled_sql/`.
 
+Runtime execution consumes compiled artifacts as inputs. A compiled check that
+needs source/target metadata must be joined to its matching compiled contract
+artifact before profile loading, adapter resolution, or query execution starts.
+The runtime loader must reject missing, malformed, unsafe, incompatible, or
+mismatched compiled contract artifacts with runtime diagnostics; it must not
+parse authored YAML or recompile contracts as a fallback.
+
 Compiled-check `rendering.sql_paths` stores paths relative to the configured
 `target-path`, not absolute paths:
 
