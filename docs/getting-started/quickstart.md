@@ -12,7 +12,13 @@ Current pre-alpha status:
   current compiler scope.
 - `recon compile --render-sql` is implemented for DuckDB relation endpoints
   and the current typed check-plan operations.
-- `recon run` is not implemented yet.
+- `recon run` loads existing compiled-check artifacts and returns explicit
+  in-memory run/check statuses. It does not execute adapter-backed checks or
+  write generated result, evidence, report, failure-detail, or state artifacts
+  yet.
+- Adapter-backed execution is planned to start with relation-backed row-count
+  checks for source and target relations addressable from the same DuckDB
+  connection context.
 
 Install the DuckDB extra when you want to render SQL in this local workflow:
 
@@ -187,13 +193,20 @@ work.
 
 ## Run
 
-This command is planned but not implemented yet.
+Current `recon run` consumes compiled-check artifacts from
+`target/compiled_checks/` and reports explicit in-memory results. Checks that
+cannot execute in the current run boundary are reported as non-executable
+instead of looking like passing evidence.
 
 ```bash
 recon run
 ```
 
-Planned future output:
+Current `recon run` does not parse authored contracts, recompile contracts,
+open adapters, execute SQL, or write generated outputs.
+
+Future generated result and evidence outputs remain planned for later result
+and evidence work:
 
 ```text
 target/run_results.json
