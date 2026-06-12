@@ -819,7 +819,7 @@ code during this prework session.
 | `src/recon_core/adapters/duckdb/adapter.py` | Implement minimal connect/execute/close behavior needed for local same-context relation-backed row-count execution. | No cross-file attach/bridge unless already same context; no query endpoint execution; sanitize lifecycle failures. |
 | `src/recon_core/adapters/duckdb/__init__.py` | Export any new DuckDB adapter execution types if needed. | Keep adapter API version stable unless reviewed. |
 | `src/recon_core/cli/main.py` | Update only if command message/exit mapping must reflect row-count execution. | Do not add run-result, evidence, selector, profile debug, or sink CLI options in 7.2. |
-| `docs/implementation/errors-and-diagnostics.md` | Step 5 should add/align 7.2 diagnostic codes. | Public docs must remain Recon-native and contain no research attribution. |
+| `docs/implementation/errors-and-diagnostics.md` | Keep 7.2 runtime diagnostic codes aligned if implementation discovers a behavior change. | Public docs must remain Recon-native and contain no research attribution. |
 
 ### Test-First Map
 
@@ -931,8 +931,8 @@ feat: execute row-count checks through DuckDB adapter
 
 Split Decision: Already Split / Follow Existing Split.
 
-Readiness status after Step 4: the 7.2 prework artifact now contains the
-scope, non-goals, expected behavior, diagnostics, compatibility impact,
+Readiness status after final validation: the 7.2 prework artifact now contains
+the scope, non-goals, expected behavior, diagnostics, compatibility impact,
 privacy/security rules, placement constraints, evidence/sink/state constraints,
 required tests, acceptance/conformance matrix, edge-case matrix, BDD scenarios,
 gate satisfaction proof, phase-exit checklist, implementation map, public

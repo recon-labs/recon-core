@@ -17,6 +17,7 @@ Primary inputs:
 
 ```text
 CompiledCheck
+CompiledContract metadata
 ExecutionContext
 AdapterRegistry
 StateBackend
