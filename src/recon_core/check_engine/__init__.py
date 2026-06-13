@@ -19,6 +19,7 @@ from recon_core.check_engine.execution import (
     ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
     ROW_COUNT_RESULT_INVALID,
     execute_row_count_check,
+    is_supported_row_count_plan_shape,
 )
 from recon_core.check_engine.models import (
     CheckReason,
@@ -60,4 +61,5 @@ __all__ = [
     "aggregate_check_status",
     "aggregate_contract_status",
     "execute_row_count_check",
+    "is_supported_row_count_plan_shape",
 ]

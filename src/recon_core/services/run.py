@@ -31,6 +31,7 @@ from recon_core.check_engine import (
     ContractResult,
     RunResult,
     RunStatus,
+    is_supported_row_count_plan_shape,
 )
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import (
@@ -159,11 +160,6 @@ class RunService:
         return _run_service_result(run_result)
 
 
-_EXPECTED_ROW_COUNT_PLAN: tuple[dict[str, object], ...] = (
-    {"type": "row_count", "side": "source"},
-    {"type": "row_count", "side": "target"},
-    {"type": "compare_counts"},
-)
 _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES = ("row_count", "cte_support")
 
 
@@ -301,7 +297,7 @@ def _runtime_row_count_candidates(
             check
             for check in artifact.checks
             if check.check_type == "row_count_diff"
-            and check.plan.operations == _EXPECTED_ROW_COUNT_PLAN
+            and is_supported_row_count_plan_shape(check.plan.operations)
         )
         if not candidate_checks:
             continue

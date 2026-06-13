@@ -509,6 +509,47 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_executes_row_count_with_explicit_no_materialization_policy(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    operations = [
+        {"type": "row_count", "side": "source", "materialization_policy": "none"},
+        {"type": "row_count", "side": "target", "materialization_policy": "none"},
+        {"type": "compare_counts", "materialization_policy": "none"},
+    ]
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=operations)])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert result.diagnostics == ()
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 1
+    assert adapter.close_count == 1
+    assert len(adapter.queries) == 1
+    _assert_no_runtime_outputs(tmp_path)
+
+
 @pytest.mark.parametrize(
     ("operations", "diagnostic_code"),
     [

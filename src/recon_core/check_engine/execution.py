@@ -79,7 +79,7 @@ def execute_row_count_check(
             hint="Remove unsupported runtime placement or materialization metadata.",
         )
 
-    if check.plan.operations != _EXPECTED_ROW_COUNT_PLAN:
+    if not is_supported_row_count_plan_shape(check.plan.operations):
         return _not_executable_result(
             check,
             contract,
@@ -182,6 +182,39 @@ def execute_row_count_check(
         diff_value=diff,
         diagnostics=check.diagnostics + contract.diagnostics,
     )
+
+
+def is_supported_row_count_plan_shape(operations: tuple[dict[str, object], ...]) -> bool:
+    """Return whether operations match the 7.2 executable row-count plan shape."""
+    if len(operations) != len(_EXPECTED_ROW_COUNT_PLAN):
+        return False
+    return all(
+        _operation_matches_row_count_shape(operation, expected_operation)
+        for operation, expected_operation in zip(operations, _EXPECTED_ROW_COUNT_PLAN, strict=True)
+    )
+
+
+def _operation_matches_row_count_shape(
+    operation: Mapping[str, object],
+    expected_operation: Mapping[str, object],
+) -> bool:
+    for key, expected_value in expected_operation.items():
+        if operation.get(key) != expected_value:
+            return False
+    if any(
+        _has_reserved_value(operation.get(key))
+        for key in ("execution_placement", "comparison_location")
+    ):
+        return False
+    if _has_materialization_policy(operation.get("materialization_policy")):
+        return False
+
+    allowed_fields = set(expected_operation) | {
+        "execution_placement",
+        "comparison_location",
+        "materialization_policy",
+    }
+    return set(operation).issubset(allowed_fields)
 
 
 class _ReservedMetadataBlocker:

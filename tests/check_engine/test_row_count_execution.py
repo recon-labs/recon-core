@@ -72,6 +72,32 @@ def test_execute_row_count_check_fails_with_unequal_counts() -> None:
     assert len(adapter.queries) == 1
 
 
+def test_execute_row_count_check_allows_explicit_no_materialization_policy() -> None:
+    adapter = RecordingAdapter(
+        result=QueryResult(
+            columns=("source_row_count", "target_row_count", "row_count_diff"),
+            rows=((7, 7, 0),),
+            row_count=1,
+        )
+    )
+
+    result = execute_row_count_check(
+        _row_count_check(
+            operations=(
+                {"type": "row_count", "side": "source", "materialization_policy": "none"},
+                {"type": "row_count", "side": "target", "materialization_policy": "none"},
+                {"type": "compare_counts", "materialization_policy": "none"},
+            )
+        ),
+        _contract(),
+        adapter,
+    )
+
+    assert result.status is CheckStatus.PASS
+    assert result.executed
+    assert len(adapter.queries) == 1
+
+
 @pytest.mark.parametrize(
     "query_result",
     [
