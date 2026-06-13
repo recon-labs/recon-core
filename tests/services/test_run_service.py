@@ -412,6 +412,55 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_blocks_different_adapter_types_without_bridge_or_fallback(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+          replica:
+            type: warehouse_test
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(
+        tmp_path,
+        source_connection="warehouse",
+        target_connection="replica",
+    )
+    duckdb_factory = RecordingDuckDbFactory()
+    other_factory = RecordingWarehouseFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", duckdb_factory)
+    registry.register("warehouse_test", other_factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
+    ]
+    assert len(duckdb_factory.adapters) == 1
+    assert len(other_factory.adapters) == 1
+    assert duckdb_factory.adapters[0].connect_count == 0
+    assert other_factory.adapters[0].connect_count == 0
+    assert duckdb_factory.adapters[0].queries == []
+    assert other_factory.adapters[0].queries == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_executes_row_count_for_same_context_duckdb_aliases(
     tmp_path: Path,
 ) -> None:
@@ -1232,6 +1281,23 @@ class RecordingDuckDbFactory:
         return AdapterResolutionResult(adapter=adapter)
 
 
+class RecordingWarehouseFactory:
+    def __init__(self) -> None:
+        self.adapters: list[RecordingWarehouseAdapter] = []
+
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        adapter = RecordingWarehouseAdapter(
+            connection=connection,
+            result=None,
+            capabilities=None,
+            connect_error=None,
+            execute_error=None,
+            close_error=None,
+        )
+        self.adapters.append(adapter)
+        return AdapterResolutionResult(adapter=adapter)
+
+
 class RecordingDuckDbAdapter(BaseAdapter):
     adapter_type = "duckdb"
     adapter_version = "test"
@@ -1293,3 +1359,7 @@ class RecordingDuckDbAdapter(BaseAdapter):
 
     def capabilities(self) -> AdapterCapabilities:
         return self._capabilities
+
+
+class RecordingWarehouseAdapter(RecordingDuckDbAdapter):
+    adapter_type = "warehouse_test"
