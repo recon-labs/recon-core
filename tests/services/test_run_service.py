@@ -412,6 +412,54 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_executes_row_count_for_same_context_duckdb_aliases(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+          replica:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(
+        tmp_path,
+        source_connection="warehouse",
+        target_connection="replica",
+    )
+    factory = RecordingDuckDbFactory(
+        result=QueryResult(
+            columns=("source_row_count", "target_row_count", "row_count_diff"),
+            rows=((12, 12, 0),),
+            row_count=1,
+        )
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert result.diagnostics == ()
+    assert sum(adapter.connect_count for adapter in factory.adapters) == 1
+    assert sum(adapter.close_count for adapter in factory.adapters) == 1
+    assert sum(len(adapter.queries) for adapter in factory.adapters) == 1
+    _assert_no_runtime_outputs(tmp_path)
+
+
 @pytest.mark.parametrize(
     ("operations", "diagnostic_code"),
     [

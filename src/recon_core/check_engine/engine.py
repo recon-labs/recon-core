@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from recon_core.adapters import BaseAdapter, SqlRenderer
+from recon_core.adapters import BaseAdapter, ConnectionConfig, SqlRenderer
 from recon_core.artifacts import (
     LoadedCompiledCheck,
     LoadedCompiledChecksArtifact,
@@ -35,6 +35,7 @@ class CheckExecutionContext:
 
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact]
     adapters_by_connection: Mapping[str, BaseAdapter]
+    connections_by_name: Mapping[str, ConnectionConfig] = field(default_factory=dict)
     renderers_by_adapter_type: Mapping[str, SqlRenderer] = field(default_factory=dict)
 
 
@@ -241,7 +242,13 @@ def _row_count_execution_result_if_available(
         return None
 
     renderer = _renderer_for_adapter(adapter, execution_context)
-    return execute_row_count_check(check, contract, adapter, renderer=renderer)
+    return execute_row_count_check(
+        check,
+        contract,
+        adapter,
+        renderer=renderer,
+        connections_by_name=execution_context.connections_by_name,
+    )
 
 
 def _renderer_for_adapter(

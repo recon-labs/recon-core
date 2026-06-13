@@ -109,6 +109,60 @@ def test_engine_executes_row_count_when_execution_context_is_present(tmp_path: P
     assert len(adapter.queries) == 1
 
 
+def test_engine_executes_row_count_when_connection_aliases_share_context(
+    tmp_path: Path,
+) -> None:
+    check = _check(
+        operations=_row_count_operations(),
+        required_capabilities=("row_count",),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+    contract = _compiled_contract(
+        tmp_path,
+        source_connection="warehouse",
+        target_connection="replica",
+    )
+    source_connection = ConnectionConfig(
+        name="warehouse",
+        type="duckdb",
+        config={"database": "warehouse.duckdb"},
+    )
+    target_connection = ConnectionConfig(
+        name="replica",
+        type="duckdb",
+        config={"database": "warehouse.duckdb"},
+    )
+    adapter = _RecordingDuckDbAdapter(
+        connection=source_connection,
+        result=QueryResult(
+            columns=("source_row_count", "target_row_count", "row_count_diff"),
+            rows=((8, 8, 0),),
+            row_count=1,
+        ),
+    )
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+            connections_by_name={
+                source_connection.name: source_connection,
+                target_connection.name: target_connection,
+            },
+        ),
+    )
+
+    check_result = result.contract_results[0].check_results[0]
+    assert result.status is RunStatus.PASS
+    assert check_result.status is CheckStatus.PASS
+    assert check_result.executed
+    assert len(adapter.queries) == 1
+
+
 def test_engine_mixes_executable_row_count_and_later_phase_checks(tmp_path: Path) -> None:
     row_count = _check(
         operations=_row_count_operations(),
@@ -572,7 +626,12 @@ def _row_count_operations() -> tuple[dict[str, object], ...]:
     )
 
 
-def _compiled_contract(tmp_path: Path) -> LoadedCompiledContractArtifact:
+def _compiled_contract(
+    tmp_path: Path,
+    *,
+    source_connection: str = "warehouse",
+    target_connection: str = "warehouse",
+) -> LoadedCompiledContractArtifact:
     return LoadedCompiledContractArtifact(
         path=tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml",
         project_name="ecommerce_recon",
@@ -581,11 +640,11 @@ def _compiled_contract(tmp_path: Path) -> LoadedCompiledContractArtifact:
         contract_name="customer_revenue",
         source_file="contracts/customer_revenue.yml",
         source=LoadedCompiledEndpoint(
-            connection="warehouse",
+            connection=source_connection,
             relation="qa.source_customers",
         ),
         target=LoadedCompiledEndpoint(
-            connection="warehouse",
+            connection=target_connection,
             relation="qa.target_customers",
         ),
     )
@@ -599,9 +658,10 @@ class _RecordingDuckDbAdapter(BaseAdapter):
     def __init__(
         self,
         *,
+        connection: ConnectionConfig | None = None,
         result: QueryResult | None = None,
     ) -> None:
-        super().__init__(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+        super().__init__(connection=connection or ConnectionConfig(name="warehouse", type="duckdb"))
         self.result = result or QueryResult(
             columns=("source_row_count", "target_row_count", "row_count_diff"),
             rows=((1, 1, 0),),

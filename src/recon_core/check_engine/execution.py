@@ -1,5 +1,6 @@
 """Execution helpers for the first row-count runtime boundary."""
 
+import re
 from collections.abc import Mapping
 from numbers import Integral
 from typing import Any
@@ -10,10 +11,12 @@ from recon_core.adapters import (
     ADAPTER_QUERY_ENDPOINT_UNSUPPORTED,
     ADAPTER_RENDERED_SQL_EMPTY,
     BaseAdapter,
+    ConnectionConfig,
     QueryResult,
     Relation,
     SqlRenderer,
 )
+from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
 from recon_core.adapters.duckdb import ADAPTER_QUERY_FAILED, DuckDbSqlRenderer
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
 from recon_core.check_engine.dispatch import (
@@ -35,6 +38,15 @@ _EXPECTED_ROW_COUNT_PLAN: tuple[dict[str, object], ...] = (
 )
 _EXPECTED_RESULT_COLUMNS = ("source_row_count", "target_row_count", "row_count_diff")
 _EMPTY_MATERIALIZATION_POLICY_VALUES = {"none", "not_applicable"}
+_UNSAFE_QUERY_TEXT_PATTERN = re.compile(
+    r"\bselect\s+|\bwith\s+|\bfrom\s+|\bwhere\s+|\bjoin\s+|\bcount\s*\(",
+    re.IGNORECASE,
+)
+_UNSAFE_DATABASE_ERROR_PATTERN = re.compile(
+    r"\b(?:catalog|binder|parser|syntax|transaction|connection|io)\s+error\b|"
+    r"\b(?:sql|operational|programming)error\b|traceback",
+    re.IGNORECASE,
+)
 
 
 def execute_row_count_check(
@@ -43,6 +55,7 @@ def execute_row_count_check(
     adapter: BaseAdapter,
     *,
     renderer: SqlRenderer | None = None,
+    connections_by_name: Mapping[str, ConnectionConfig] | None = None,
 ) -> CheckResult:
     """Execute one loaded row-count check against an already prepared adapter."""
     if check.check_type != "row_count_diff":
@@ -79,7 +92,12 @@ def execute_row_count_check(
     if contract.source.query is not None or contract.target.query is not None:
         return _query_endpoint_not_executable_result(check, contract)
 
-    context_blocker = _context_blocker(check, contract, adapter)
+    context_blocker = _context_blocker(
+        check,
+        contract,
+        adapter,
+        connections_by_name=connections_by_name,
+    )
     if context_blocker is not None:
         return context_blocker
 
@@ -126,7 +144,11 @@ def execute_row_count_check(
     try:
         query_result = adapter.execute(rendered_query)
     except Exception as exc:
-        diagnostic = _adapter_exception_diagnostic(exc)
+        diagnostic = _adapter_exception_diagnostic(
+            exc,
+            connection=adapter.connection,
+            contract=contract,
+        )
         return _error_result(
             check,
             contract,
@@ -214,10 +236,24 @@ def _context_blocker(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
     adapter: BaseAdapter,
+    *,
+    connections_by_name: Mapping[str, ConnectionConfig] | None = None,
 ) -> CheckResult | None:
-    if contract.source.connection != contract.target.connection:
+    if contract.source.connection == contract.target.connection:
+        if adapter.connection.name != contract.source.connection:
+            return _connection_context_not_executable_result(check, contract)
+        return None
+
+    if connections_by_name is None:
         return _connection_context_not_executable_result(check, contract)
-    if adapter.connection.name != contract.source.connection:
+
+    source_connection = connections_by_name.get(contract.source.connection)
+    target_connection = connections_by_name.get(contract.target.connection)
+    if source_connection is None or target_connection is None:
+        return _connection_context_not_executable_result(check, contract)
+    if not _same_connection_context(source_connection, target_connection):
+        return _connection_context_not_executable_result(check, contract)
+    if not _same_connection_context(adapter.connection, source_connection):
         return _connection_context_not_executable_result(check, contract)
     return None
 
@@ -354,15 +390,50 @@ def _invalid_result_diagnostic(message: str) -> Diagnostic:
     )
 
 
-def _adapter_exception_diagnostic(exc: Exception) -> Diagnostic:
+def _adapter_exception_diagnostic(
+    exc: Exception,
+    *,
+    connection: ConnectionConfig,
+    contract: LoadedCompiledContractArtifact,
+) -> Diagnostic:
     diagnostic = getattr(exc, "diagnostic", None)
     if isinstance(diagnostic, Diagnostic):
-        return diagnostic
+        if (
+            _is_known_sanitized_adapter_query_diagnostic(diagnostic)
+            and not _diagnostic_mentions_runtime_sensitive_text(
+                diagnostic,
+                contract=contract,
+            )
+            and not _diagnostic_mentions_connection_config_values(
+                diagnostic,
+                connection=connection,
+            )
+        ):
+            return diagnostic
+        sanitized = sanitize_profile_backed_adapter_diagnostics(
+            (diagnostic,),
+            connection=connection,
+        )[0]
+        if sanitized != diagnostic or _diagnostic_mentions_runtime_sensitive_text(
+            sanitized,
+            contract=contract,
+        ):
+            return _fallback_adapter_query_diagnostic(exc, connection=connection)
+        return sanitized
+    return _fallback_adapter_query_diagnostic(exc, connection=connection)
+
+
+def _fallback_adapter_query_diagnostic(
+    exc: Exception,
+    *,
+    connection: ConnectionConfig,
+) -> Diagnostic:
     return Diagnostic(
         code=ADAPTER_QUERY_FAILED,
         severity=DiagnosticSeverity.ERROR,
         message="Adapter query execution failed.",
         resource_type="adapter",
+        resource_name=connection.type,
         hint=_exception_hint("Adapter", exc),
     )
 
@@ -490,6 +561,10 @@ def _strict_int(value: Any) -> int | None:
     return int(value)
 
 
+def _same_connection_context(left: ConnectionConfig, right: ConnectionConfig) -> bool:
+    return left.type == right.type and left.config == right.config
+
+
 def _safe_string_attribute(instance: object, attribute_name: str) -> str | None:
     try:
         value = getattr(instance, attribute_name)
@@ -503,3 +578,120 @@ def _exception_hint(prefix: str, exc: Exception) -> str:
         f"{prefix} raised {type(exc).__name__}. Raw adapter, SQL, database error, "
         "and rendered profile text were suppressed."
     )
+
+
+def _diagnostic_mentions_runtime_sensitive_text(
+    diagnostic: Diagnostic,
+    *,
+    contract: LoadedCompiledContractArtifact,
+) -> bool:
+    diagnostic_text = "\n".join(_diagnostic_text_values(diagnostic))
+    if _UNSAFE_QUERY_TEXT_PATTERN.search(diagnostic_text):
+        return True
+    if _UNSAFE_DATABASE_ERROR_PATTERN.search(diagnostic_text):
+        return True
+
+    folded_text = diagnostic_text.casefold()
+    return any(token.casefold() in folded_text for token in _contract_sensitive_tokens(contract))
+
+
+def _is_known_sanitized_adapter_query_diagnostic(diagnostic: Diagnostic) -> bool:
+    return (
+        diagnostic.code == ADAPTER_QUERY_FAILED
+        and diagnostic.resource_type == "adapter"
+        and diagnostic.message.endswith("query execution failed.")
+        and diagnostic.hint is not None
+        and "suppressed" in diagnostic.hint.casefold()
+    )
+
+
+def _diagnostic_mentions_connection_config_values(
+    diagnostic: Diagnostic,
+    *,
+    connection: ConnectionConfig,
+) -> bool:
+    diagnostic_text = "\n".join(_diagnostic_text_values(diagnostic)).casefold()
+    return any(
+        token.casefold() in diagnostic_text
+        for token in _connection_config_value_tokens(
+            connection.config,
+            adapter_type=connection.type,
+        )
+    )
+
+
+def _diagnostic_text_values(diagnostic: Diagnostic) -> tuple[str, ...]:
+    return tuple(
+        str(value)
+        for value in (
+            diagnostic.code,
+            diagnostic.message,
+            diagnostic.resource_type,
+            diagnostic.resource_name,
+            diagnostic.path,
+            diagnostic.line,
+            diagnostic.column,
+            diagnostic.hint,
+        )
+        if value is not None
+    )
+
+
+def _contract_sensitive_tokens(
+    contract: LoadedCompiledContractArtifact,
+) -> frozenset[str]:
+    tokens: set[str] = set()
+    for endpoint in (contract.source, contract.target):
+        tokens.add(endpoint.connection)
+        if endpoint.relation is not None:
+            tokens.add(endpoint.relation)
+            tokens.update(part for part in endpoint.relation.split(".") if len(part) >= 4)
+        if endpoint.query is not None:
+            tokens.add(endpoint.query)
+    return frozenset(token for token in tokens if token)
+
+
+def _connection_config_value_tokens(
+    value: object,
+    *,
+    adapter_type: str,
+) -> frozenset[str]:
+    tokens: set[str] = set()
+    _collect_connection_config_value_tokens(value, adapter_type=adapter_type, tokens=tokens)
+    return frozenset(tokens)
+
+
+def _collect_connection_config_value_tokens(
+    value: object,
+    *,
+    adapter_type: str,
+    tokens: set[str],
+) -> None:
+    if isinstance(value, Mapping):
+        for nested_value in value.values():
+            _collect_connection_config_value_tokens(
+                nested_value,
+                adapter_type=adapter_type,
+                tokens=tokens,
+            )
+        return
+
+    if isinstance(value, str):
+        if value and value.casefold() != adapter_type.casefold():
+            tokens.add(value)
+        for token in re.split(r"[^A-Za-z0-9_.+-]+", value):
+            if len(token) >= 3 and token.casefold() != adapter_type.casefold():
+                tokens.add(token)
+        return
+
+    if isinstance(value, list | tuple):
+        for item in value:
+            _collect_connection_config_value_tokens(
+                item,
+                adapter_type=adapter_type,
+                tokens=tokens,
+            )
+        return
+
+    if value is not None and not isinstance(value, bool):
+        tokens.add(str(value))

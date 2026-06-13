@@ -145,6 +145,70 @@ def test_execute_row_count_check_preserves_sanitized_adapter_query_error() -> No
     assert "select" not in _diagnostic_text(result.diagnostics).lower()
 
 
+def test_execute_row_count_check_suppresses_leaky_adapter_query_diagnostic() -> None:
+    adapter = RecordingAdapter(
+        connection=ConnectionConfig(
+            name="warehouse",
+            type="duckdb",
+            config={"database": "warehouse.duckdb", "password": "super-secret"},
+        ),
+        error=AdapterLifecycleError(
+            Diagnostic(
+                code="RC_CUSTOM_QUERY_FAILED",
+                severity=DiagnosticSeverity.ERROR,
+                message=(
+                    "select count(*) from qa.source_customers failed with "
+                    "Catalog Error: missing qa.target_customers"
+                ),
+                resource_type="adapter",
+                resource_name="qa.target_customers",
+                path="duckdb://warehouse.duckdb",
+                hint="password=super-secret",
+            )
+        ),
+    )
+
+    result = execute_row_count_check(_row_count_check(), _contract(), adapter)
+
+    diagnostic_text = _diagnostic_text(result.diagnostics)
+
+    assert result.status is CheckStatus.ERROR
+    assert result.diagnostics[0].code == ADAPTER_QUERY_FAILED
+    assert "super-secret" not in diagnostic_text
+    assert "warehouse.duckdb" not in diagnostic_text
+    assert "select" not in diagnostic_text.lower()
+    assert "Catalog Error" not in diagnostic_text
+    assert "source_customers" not in diagnostic_text
+    assert "target_customers" not in diagnostic_text
+
+
+def test_execute_row_count_check_allows_same_context_connection_aliases() -> None:
+    connection = ConnectionConfig(
+        name="warehouse",
+        type="duckdb",
+        config={"database": "warehouse.duckdb"},
+    )
+    adapter = RecordingAdapter(connection=connection)
+
+    result = execute_row_count_check(
+        _row_count_check(),
+        _contract(source_connection="warehouse", target_connection="replica"),
+        adapter,
+        connections_by_name={
+            "warehouse": connection,
+            "replica": ConnectionConfig(
+                name="replica",
+                type="duckdb",
+                config={"database": "warehouse.duckdb"},
+            ),
+        },
+    )
+
+    assert result.status is CheckStatus.PASS
+    assert result.executed
+    assert len(adapter.queries) == 1
+
+
 def test_execute_row_count_check_blocks_other_check_types_before_adapter_execution() -> None:
     adapter = RecordingAdapter()
 
@@ -270,10 +334,11 @@ class RecordingAdapter(BaseAdapter):
     def __init__(
         self,
         *,
+        connection: ConnectionConfig | None = None,
         result: QueryResult | None = None,
         error: Exception | None = None,
     ) -> None:
-        super().__init__(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+        super().__init__(connection=connection or ConnectionConfig(name="warehouse", type="duckdb"))
         self.result = result or QueryResult(
             columns=("source_row_count", "target_row_count", "row_count_diff"),
             rows=((1, 1, 0),),

@@ -239,6 +239,7 @@ def _prepare_runtime_execution_dependencies(
         execution_context=CheckExecutionContext(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
+            connections_by_name=profile_result.profile.connections,
         ),
         opened_adapters=open_result.opened_adapters,
     )
@@ -257,7 +258,11 @@ def _open_runtime_adapters(
     adapters_by_connection: Mapping[str, BaseAdapter],
     connections_by_name: Mapping[str, ConnectionConfig],
 ) -> _AdapterOpenResult:
-    connection_names = _connection_names_to_open(row_count_candidates, contracts_by_name)
+    connection_names = _connection_names_to_open(
+        row_count_candidates,
+        contracts_by_name,
+        connections_by_name,
+    )
     opened_adapters: list[_OpenedAdapter] = []
     diagnostics: list[Diagnostic] = []
 
@@ -341,20 +346,29 @@ def _required_capabilities_by_connection(
 def _connection_names_to_open(
     row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+    connections_by_name: Mapping[str, ConnectionConfig],
 ) -> tuple[str, ...]:
     connection_names: set[str] = set()
     for artifact in row_count_candidates:
         contract = contracts_by_name.get(artifact.contract_name)
         if contract is None:
             continue
-        if contract.source.connection != contract.target.connection:
-            continue
         if contract.source.relation is None or contract.target.relation is None:
             continue
         if contract.source.query is not None or contract.target.query is not None:
             continue
+        source_connection = connections_by_name.get(contract.source.connection)
+        target_connection = connections_by_name.get(contract.target.connection)
+        if source_connection is None or target_connection is None:
+            continue
+        if not _same_connection_context(source_connection, target_connection):
+            continue
         connection_names.add(contract.source.connection)
     return tuple(sorted(connection_names))
+
+
+def _same_connection_context(left: ConnectionConfig, right: ConnectionConfig) -> bool:
+    return left.type == right.type and left.config == right.config
 
 
 def _load_failure_result(load_result: CompiledCheckLoadResult) -> ServiceResult:
