@@ -97,7 +97,14 @@ class CompiledContractLoader:
             if check_artifact.contract_name in seen_contract_names:
                 continue
             seen_contract_names.add(check_artifact.contract_name)
-            artifact_path = compiled_contracts_dir / f"{check_artifact.contract_name}.yml"
+            artifact_path, reference_diagnostic = _referenced_compiled_contract_artifact_path(
+                compiled_contracts_dir,
+                check_artifact,
+            )
+            if reference_diagnostic is not None:
+                diagnostics.append(reference_diagnostic)
+                continue
+            assert artifact_path is not None
             if not artifact_path.exists():
                 diagnostics.append(_missing_artifacts_diagnostic(artifact_path))
                 continue
@@ -190,6 +197,27 @@ def _compiled_contracts_directory_diagnostic(path: Path) -> Diagnostic | None:
             "Compiled-contract artifact path is not a real directory.",
         )
     return None
+
+
+def _referenced_compiled_contract_artifact_path(
+    compiled_contracts_dir: Path,
+    check_artifact: LoadedCompiledChecksArtifact,
+) -> tuple[Path | None, Diagnostic | None]:
+    if not _is_safe_artifact_name_stem(check_artifact.contract_name):
+        return None, _invalid_artifact_diagnostic(
+            check_artifact.path,
+            "Compiled-check artifact contains an unsafe compiled contract reference.",
+        )
+    return compiled_contracts_dir / f"{check_artifact.contract_name}.yml", None
+
+
+def _is_safe_artifact_name_stem(value: str) -> bool:
+    return (
+        value not in {".", ".."}
+        and not Path(value).is_absolute()
+        and "/" not in value
+        and "\\" not in value
+    )
 
 
 def _read_yaml_mapping(path: Path) -> dict[str, object]:

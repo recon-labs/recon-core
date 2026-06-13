@@ -164,6 +164,7 @@ _EXPECTED_ROW_COUNT_PLAN: tuple[dict[str, object], ...] = (
     {"type": "row_count", "side": "target"},
     {"type": "compare_counts"},
 )
+_ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES = ("row_count", "cte_support")
 
 
 def _prepare_runtime_execution_dependencies(
@@ -331,7 +332,9 @@ def _required_capabilities_by_connection(
         if contract is None:
             continue
         for check in artifact.checks:
-            required_capabilities = tuple(check.plan.required_capabilities) + ("cte_support",)
+            required_capabilities = (
+                tuple(check.plan.required_capabilities) + _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES
+            )
             for connection_name in (contract.source.connection, contract.target.connection):
                 capabilities = capabilities_by_connection.setdefault(connection_name, [])
                 for capability in required_capabilities:

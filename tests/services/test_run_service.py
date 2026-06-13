@@ -701,6 +701,48 @@ profiles:
     assert adapter.queries == []
 
 
+def test_run_service_requires_row_count_capability_even_if_compiled_artifact_omits_it(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(
+        tmp_path,
+        checks=[_compiled_check_payload(operations=row_count_plan(), required_capabilities=[])],
+    )
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory(
+        capabilities=AdapterCapabilities({"cte_support": CapabilitySupport.FULL})
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "Run adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert "row_count" in result.diagnostics[0].message
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 0
+    assert adapter.queries == []
+
+
 def test_run_service_reports_connect_failure_without_engine_execution(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_profiles(

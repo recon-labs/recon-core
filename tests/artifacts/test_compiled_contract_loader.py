@@ -381,6 +381,25 @@ def test_loader_rejects_compiled_check_contract_reference_mismatch(tmp_path: Pat
     assert "does not match" in diagnostic.message
 
 
+def test_loader_rejects_unsafe_compiled_check_contract_reference(tmp_path: Path) -> None:
+    payload = _compiled_contract_payload(contract_name="../escaped_contract")
+    _write_payload(tmp_path / "target" / "escaped_contract.yml", payload)
+    (tmp_path / "target" / "compiled_contracts").mkdir(parents=True)
+
+    result = CompiledContractLoader().load_for_compiled_checks(
+        tmp_path / "target",
+        (_loaded_check_artifact(contract_name="../escaped_contract"),),
+    )
+
+    assert not result.succeeded
+    assert result.artifacts == ()
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CONTRACT_ARTIFACT_INVALID"
+    assert diagnostic.path == str(Path("target") / "compiled_checks" / "../escaped_contract.yml")
+    assert "unsafe compiled contract reference" in diagnostic.message
+    assert "../escaped_contract" not in diagnostic.message
+
+
 def _compiled_contract_artifact(
     contract_name: str = "customer_revenue",
 ) -> CompiledContractArtifact:
