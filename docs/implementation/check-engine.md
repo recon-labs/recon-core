@@ -37,11 +37,12 @@ Diagnostics
 
 Implementation is split across check-engine stages. The first boundary owns the
 check-engine boundary, status model, internal dispatch, and
-prerequisite/blocking representation. Later execution stages add row-count
-execution, grain-key safety execution, and current aggregate metric execution.
-The row-count execution stage must join each executable compiled check to its
-matching compiled-contract metadata before any profile, adapter, or query work
-starts.
+prerequisite/blocking representation. The current row-count execution stage
+adds relation-backed same-context DuckDB execution for the supported
+`row_count_diff` typed-plan shape. Later execution stages add grain-key safety
+execution and current aggregate metric execution. The row-count execution stage
+must join each executable compiled check to its matching compiled-contract
+metadata before any profile, adapter, or query work starts.
 `target/run_results.json`, evidence reports, failure details, and evidence links
 remain separate later surfaces unless a later split explicitly changes those
 boundaries.

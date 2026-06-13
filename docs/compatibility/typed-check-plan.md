@@ -158,8 +158,10 @@ Adapters must not hide new reconciliation behavior in dialect-specific rendering
 
 ## Rendering and execution placement
 
-Current adapter-aware rendering renders typed operations to SQL through adapters
-but does not execute checks.
+Current adapter-aware rendering renders typed operations to SQL through
+adapters. Current run execution consumes compiled typed plans only for
+relation-backed same-context DuckDB `row_count_diff`; other typed-plan
+execution surfaces remain blocked or not executable.
 
 Execution is split by executable surface. Row-count typed-plan execution,
 grain-key safety typed-plan execution, and current aggregate metric typed-plan
@@ -184,10 +186,10 @@ When an adapter has been resolved, compiled-check rendering metadata also
 records `rendering.adapter_type` so rendered, blocked, or failed SQL rendering
 state remains traceable to the adapter dialect.
 
-Before typed plans execute, Recon must define comparison placement for each
-operation: source system, target system, adapter-managed intermediate system,
-or bounded Python-side comparison. Unsupported SQL behavior must not silently
-fall back to Python.
+Before each additional typed-plan execution surface, Recon must define
+comparison placement for each operation: source system, target system,
+adapter-managed intermediate system, or bounded Python-side comparison.
+Unsupported SQL behavior must not silently fall back to Python.
 
 Placement is a Core decision, not an adapter decision. Adapters declare
 capabilities for mechanics such as rendering, execution, metadata reads,
