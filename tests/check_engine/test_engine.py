@@ -1,10 +1,27 @@
 from pathlib import Path
 
-from recon_core.artifacts import LoadedCheckPlan, LoadedCompiledCheck, LoadedCompiledChecksArtifact
+from recon_core.adapters import (
+    ADAPTER_API_VERSION,
+    AdapterCapabilities,
+    BaseAdapter,
+    CapabilitySupport,
+    ColumnMetadata,
+    ConnectionConfig,
+    QueryResult,
+    Relation,
+)
+from recon_core.artifacts import (
+    LoadedCheckPlan,
+    LoadedCompiledCheck,
+    LoadedCompiledChecksArtifact,
+    LoadedCompiledContractArtifact,
+    LoadedCompiledEndpoint,
+)
 from recon_core.check_engine import (
     BLOCKED_BY_PREREQUISITE,
     CHECK_ENGINE_INTERNAL_ERROR,
     CheckEngine,
+    CheckExecutionContext,
     CheckReason,
     CheckResult,
     CheckStatus,
@@ -43,6 +60,180 @@ def test_engine_assembles_run_and_contract_results_without_execution(tmp_path: P
     assert check.target_value is None
     assert check.artifact_refs == ()
     assert check.sink_refs == ()
+
+
+def test_engine_executes_row_count_when_execution_context_is_present(tmp_path: Path) -> None:
+    check = _check(
+        operations=_row_count_operations(),
+        required_capabilities=("row_count",),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+    contract = _compiled_contract(tmp_path)
+    adapter = _RecordingDuckDbAdapter(
+        result=QueryResult(
+            columns=("source_row_count", "target_row_count", "row_count_diff"),
+            rows=((8, 8, 0),),
+            row_count=1,
+        )
+    )
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+        ),
+    )
+
+    assert result.status is RunStatus.PASS
+    assert result.artifact_refs == ()
+    assert result.sink_refs == ()
+    assert result.diagnostics == ()
+
+    contract_result = result.contract_results[0]
+    assert contract_result.status is RunStatus.PASS
+
+    check_result = contract_result.check_results[0]
+    assert check_result.status is CheckStatus.PASS
+    assert check_result.executed
+    assert check_result.reason_code is None
+    assert check_result.source_value == 8
+    assert check_result.target_value == 8
+    assert check_result.diff_value == 0
+    assert check_result.artifact_refs == ()
+    assert check_result.sink_refs == ()
+    assert check_result.diagnostics == ()
+    assert len(adapter.queries) == 1
+
+
+def test_engine_mixes_executable_row_count_and_later_phase_checks(tmp_path: Path) -> None:
+    row_count = _check(
+        operations=_row_count_operations(),
+        required_capabilities=("row_count",),
+    )
+    missing_keys = _check(
+        check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+        name="missing_keys",
+        check_type="missing_keys",
+        operations=({"type": "key_diff", "direction": "source_minus_target"},),
+    )
+    artifact = _artifact(tmp_path, checks=(row_count, missing_keys))
+    contract = _compiled_contract(tmp_path)
+    adapter = _RecordingDuckDbAdapter(
+        result=QueryResult(
+            columns=("source_row_count", "target_row_count", "row_count_diff"),
+            rows=((4, 4, 0),),
+            row_count=1,
+        )
+    )
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+        ),
+    )
+
+    row_count_result, missing_keys_result = result.contract_results[0].check_results
+    assert result.status is RunStatus.NOT_EXECUTABLE
+    assert row_count_result.status is CheckStatus.PASS
+    assert row_count_result.executed
+    assert missing_keys_result.status is CheckStatus.NOT_EXECUTABLE
+    assert not missing_keys_result.executed
+    assert missing_keys_result.reason_code is CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE
+    assert len(adapter.queries) == 1
+
+
+def test_engine_blocks_dependent_check_when_row_count_prerequisite_fails(
+    tmp_path: Path,
+) -> None:
+    row_count = _check(
+        operations=_row_count_operations(),
+        required_capabilities=("row_count",),
+    )
+    dependent = _check(
+        check_id="check.ecommerce_recon.customer_revenue.value_match",
+        name="value_match",
+        check_type="value_match",
+        prerequisites=(row_count.id,),
+    )
+    artifact = _artifact(tmp_path, checks=(dependent, row_count))
+    contract = _compiled_contract(tmp_path)
+    adapter = _RecordingDuckDbAdapter(
+        result=QueryResult(
+            columns=("source_row_count", "target_row_count", "row_count_diff"),
+            rows=((7, 9, -2),),
+            row_count=1,
+        )
+    )
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+        ),
+    )
+
+    dependent_result, row_count_result = result.contract_results[0].check_results
+    assert result.status is RunStatus.FAIL
+    assert row_count_result.status is CheckStatus.FAIL
+    assert row_count_result.executed
+    assert row_count_result.source_value == 7
+    assert row_count_result.target_value == 9
+    assert row_count_result.diff_value == -2
+    assert dependent_result.status is CheckStatus.BLOCKED
+    assert dependent_result.reason_code is CheckReason.PREREQUISITE_FAILED
+    assert dependent_result.blocked_by == (row_count.id,)
+    assert len(adapter.queries) == 1
+
+
+def test_engine_preserves_row_count_hard_blockers_before_adapter_execution(
+    tmp_path: Path,
+) -> None:
+    check = _check(
+        operations=(
+            {
+                "type": "row_count",
+                "side": "source",
+                "execution_placement": "source",
+            },
+            {"type": "row_count", "side": "target"},
+            {"type": "compare_counts"},
+        ),
+        required_capabilities=("row_count",),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+    contract = _compiled_contract(tmp_path)
+    adapter = _RecordingDuckDbAdapter()
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+        ),
+    )
+
+    check_result = result.contract_results[0].check_results[0]
+    assert check_result.status is CheckStatus.NOT_EXECUTABLE
+    assert not check_result.executed
+    assert check_result.reason_code is CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT
+    assert check_result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT"
+    assert adapter.queries == []
 
 
 def test_engine_preserves_artifact_and_check_diagnostics(tmp_path: Path) -> None:
@@ -347,6 +538,8 @@ def _check(
     check_type: str = "row_count_diff",
     prerequisites: tuple[str, ...] = (),
     diagnostics: tuple[Diagnostic, ...] = (),
+    operations: tuple[dict[str, object], ...] | None = None,
+    required_capabilities: tuple[str, ...] = (),
 ) -> LoadedCompiledCheck:
     return LoadedCompiledCheck(
         id=check_id,
@@ -355,8 +548,10 @@ def _check(
         contract_name="customer_revenue",
         plan=LoadedCheckPlan(
             id=f"plan.ecommerce_recon.customer_revenue.{name}",
-            operations=({"type": "row_count", "side": "source"},),
-            required_capabilities=(),
+            operations=operations
+            if operations is not None
+            else ({"type": "row_count", "side": "source"},),
+            required_capabilities=required_capabilities,
         ),
         prerequisites=prerequisites,
         diagnostics=diagnostics,
@@ -367,3 +562,75 @@ def _check(
             }
         },
     )
+
+
+def _row_count_operations() -> tuple[dict[str, object], ...]:
+    return (
+        {"type": "row_count", "side": "source"},
+        {"type": "row_count", "side": "target"},
+        {"type": "compare_counts"},
+    )
+
+
+def _compiled_contract(tmp_path: Path) -> LoadedCompiledContractArtifact:
+    return LoadedCompiledContractArtifact(
+        path=tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml",
+        project_name="ecommerce_recon",
+        project_version="0.1.0",
+        contract_id="contract.ecommerce_recon.customer_revenue",
+        contract_name="customer_revenue",
+        source_file="contracts/customer_revenue.yml",
+        source=LoadedCompiledEndpoint(
+            connection="warehouse",
+            relation="qa.source_customers",
+        ),
+        target=LoadedCompiledEndpoint(
+            connection="warehouse",
+            relation="qa.target_customers",
+        ),
+    )
+
+
+class _RecordingDuckDbAdapter(BaseAdapter):
+    adapter_type = "duckdb"
+    adapter_version = "test"
+    supported_adapter_api_version = ADAPTER_API_VERSION
+
+    def __init__(
+        self,
+        *,
+        result: QueryResult | None = None,
+    ) -> None:
+        super().__init__(connection=ConnectionConfig(name="warehouse", type="duckdb"))
+        self.result = result or QueryResult(
+            columns=("source_row_count", "target_row_count", "row_count_diff"),
+            rows=((1, 1, 0),),
+            row_count=1,
+        )
+        self.queries: list[str] = []
+
+    def connect(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def execute(self, query: str) -> QueryResult:
+        self.queries.append(query)
+        return self.result
+
+    def relation_exists(self, relation: Relation) -> bool:
+        return False
+
+    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
+        return ()
+
+    def capabilities(self) -> AdapterCapabilities:
+        return AdapterCapabilities(
+            {
+                "relations": CapabilitySupport.FULL,
+                "queries": CapabilitySupport.UNSUPPORTED,
+                "cte_support": CapabilitySupport.FULL,
+                "row_count": CapabilitySupport.FULL,
+            }
+        )

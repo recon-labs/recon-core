@@ -1,10 +1,17 @@
 """Check-engine orchestration for loaded compiled checks."""
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Protocol
 
-from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledChecksArtifact
+from recon_core.adapters import BaseAdapter, SqlRenderer
+from recon_core.artifacts import (
+    LoadedCompiledCheck,
+    LoadedCompiledChecksArtifact,
+    LoadedCompiledContractArtifact,
+)
 from recon_core.check_engine.dispatch import CheckDispatcher
+from recon_core.check_engine.execution import execute_row_count_check
 from recon_core.check_engine.models import (
     CheckReason,
     CheckResult,
@@ -23,6 +30,15 @@ class _Dispatcher(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class CheckExecutionContext:
+    """Prepared runtime dependencies that allow supported checks to execute."""
+
+    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact]
+    adapters_by_connection: Mapping[str, BaseAdapter]
+    renderers_by_adapter_type: Mapping[str, SqlRenderer] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
 class _PrerequisiteBlocker:
     check_id: str
     reason: CheckReason
@@ -30,7 +46,7 @@ class _PrerequisiteBlocker:
 
 
 class CheckEngine:
-    """Build in-memory run results from loaded compiled checks without execution."""
+    """Build in-memory run results from loaded compiled checks."""
 
     def __init__(self, dispatcher: _Dispatcher | None = None) -> None:
         self._dispatcher = dispatcher if dispatcher is not None else CheckDispatcher()
@@ -43,6 +59,7 @@ class CheckEngine:
         started_at: str,
         finished_at: str,
         project_name: str | None = None,
+        execution_context: CheckExecutionContext | None = None,
     ) -> RunResult:
         resolved_project_name = _project_name(artifacts, project_name)
         checks_by_id = _index_checks(artifacts)
@@ -58,6 +75,7 @@ class CheckEngine:
                     check_results_by_id,
                     checks_by_id,
                     active_check_ids=frozenset(),
+                    execution_context=execution_context,
                 )
                 for check in artifact.checks
             )
@@ -84,6 +102,7 @@ class CheckEngine:
         check_results_by_id: dict[str, CheckResult],
         checks_by_id: dict[str, LoadedCompiledCheck],
         active_check_ids: frozenset[str],
+        execution_context: CheckExecutionContext | None,
     ) -> CheckResult:
         existing_result = check_results_by_id.get(check.id)
         if existing_result is not None:
@@ -94,13 +113,22 @@ class CheckEngine:
             check_results_by_id,
             checks_by_id,
             active_check_ids=active_check_ids | {check.id},
+            execution_context=execution_context,
         )
         if blocked_result is not None:
             check_results_by_id[check.id] = blocked_result
             return blocked_result
 
         try:
-            result = self._dispatcher.dispatch(check)
+            dispatch_result = self._dispatcher.dispatch(check)
+            result = (
+                _row_count_execution_result_if_available(
+                    check,
+                    dispatch_result,
+                    execution_context,
+                )
+                or dispatch_result
+            )
         except Exception:
             result = _internal_error_result(check)
 
@@ -114,6 +142,7 @@ class CheckEngine:
         checks_by_id: dict[str, LoadedCompiledCheck],
         *,
         active_check_ids: frozenset[str],
+        execution_context: CheckExecutionContext | None,
     ) -> CheckResult | None:
         blockers: list[_PrerequisiteBlocker] = []
         for prerequisite_id in check.prerequisites:
@@ -136,6 +165,7 @@ class CheckEngine:
                     check_results_by_id,
                     checks_by_id,
                     active_check_ids=active_check_ids,
+                    execution_context=execution_context,
                 )
             if prerequisite_result.status is CheckStatus.FAIL:
                 blockers.append(
@@ -177,6 +207,51 @@ class CheckEngine:
                 message=_blocked_message(check.name, tuple(blockers)),
             )
         return None
+
+
+_DISPATCH_HARD_BLOCKING_REASONS = frozenset(
+    {
+        CheckReason.UNSUPPORTED_CHECK_TYPE,
+        CheckReason.UNSUPPORTED_TYPED_OPERATION,
+        CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT,
+        CheckReason.UNSUPPORTED_MATERIALIZATION_POLICY,
+    }
+)
+
+
+def _row_count_execution_result_if_available(
+    check: LoadedCompiledCheck,
+    dispatch_result: CheckResult,
+    execution_context: CheckExecutionContext | None,
+) -> CheckResult | None:
+    if execution_context is None:
+        return None
+    if check.check_type != "row_count_diff":
+        return None
+    if dispatch_result.status is not CheckStatus.NOT_EXECUTABLE:
+        return None
+    if dispatch_result.reason_code in _DISPATCH_HARD_BLOCKING_REASONS:
+        return None
+
+    contract = execution_context.contracts_by_name.get(check.contract_name)
+    if contract is None:
+        return None
+    adapter = execution_context.adapters_by_connection.get(contract.source.connection)
+    if adapter is None:
+        return None
+
+    renderer = _renderer_for_adapter(adapter, execution_context)
+    return execute_row_count_check(check, contract, adapter, renderer=renderer)
+
+
+def _renderer_for_adapter(
+    adapter: BaseAdapter,
+    execution_context: CheckExecutionContext,
+) -> SqlRenderer | None:
+    adapter_type = _safe_string_attribute(adapter, "adapter_type")
+    if adapter_type is None:
+        return None
+    return execution_context.renderers_by_adapter_type.get(adapter_type)
 
 
 def _index_checks(
@@ -304,3 +379,11 @@ def _identity_label(check: LoadedCompiledCheck) -> str | None:
         return None
     kind = identity.get("kind")
     return kind if isinstance(kind, str) else None
+
+
+def _safe_string_attribute(instance: object, attribute_name: str) -> str | None:
+    try:
+        value = getattr(instance, attribute_name)
+    except Exception:
+        return None
+    return value if isinstance(value, str) and value else None

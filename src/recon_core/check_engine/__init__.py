@@ -13,6 +13,7 @@ from recon_core.check_engine.engine import (
     BLOCKED_BY_PREREQUISITE,
     CHECK_ENGINE_INTERNAL_ERROR,
     CheckEngine,
+    CheckExecutionContext,
 )
 from recon_core.check_engine.execution import (
     ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
@@ -39,6 +40,7 @@ __all__ = [
     "CHECK_NOT_EXECUTABLE",
     "CHECK_ENGINE_INTERNAL_ERROR",
     "CheckEngine",
+    "CheckExecutionContext",
     "CheckReason",
     "CheckDispatcher",
     "CheckResult",
