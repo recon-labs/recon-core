@@ -1,5 +1,9 @@
+import importlib
+import os
 from pathlib import Path
+from typing import Any
 
+import pytest
 import yaml
 
 from recon_core.adapters import (
@@ -239,6 +243,82 @@ profiles:
     assert not (tmp_path / "target" / "run_results.json").exists()
     assert not (tmp_path / "reports").exists()
     assert not (tmp_path / "state").exists()
+
+
+def test_run_service_executes_row_count_with_actual_duckdb_relations_pass(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_row_count_tables(
+        duckdb,
+        database,
+        source_rows=((1,), (2,), (3,)),
+        target_rows=((10,), (20,), (30,)),
+    )
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert result.diagnostics == ()
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_executes_row_count_with_actual_duckdb_relations_fail(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_row_count_tables(
+        duckdb,
+        database,
+        source_rows=((1,), (2,)),
+        target_rows=((10,), (20,), (30,)),
+    )
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.CHECK_FAILURE
+    assert result.message == "Run completed with failing checks."
+    assert result.diagnostics == ()
+    public_text = _service_result_text(result)
+    assert "2" not in public_text
+    assert "3" not in public_text
+    assert "-1" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_sanitizes_actual_duckdb_execution_failure(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_row_count_tables(
+        duckdb,
+        database,
+        source_rows=((1,),),
+        target_rows=(),
+        create_target=False,
+    )
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run failed during check-engine evaluation."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_QUERY_FAILED]
+    public_text = _service_result_text(result)
+    assert "DuckDB query execution failed." in public_text
+    assert "target_customers" not in public_text
+    assert "source_customers" not in public_text
+    assert "select" not in public_text.lower()
+    assert "count" not in public_text.lower()
+    assert "Catalog Error" not in public_text
+    assert str(database) not in public_text
+    _assert_no_runtime_outputs(tmp_path)
 
 
 def test_run_service_reports_missing_compiled_contract_before_profile_or_adapter_work(
@@ -485,6 +565,35 @@ def write_profiles(path: Path, content: str) -> None:
     profiles_path.write_text(content.lstrip(), encoding="utf-8")
 
 
+def write_duckdb_row_count_run_inputs(path: Path, database: Path) -> None:
+    write_project(path, profile="local")
+    write_profiles(
+        path,
+        yaml.safe_dump(
+            {
+                "profiles": {
+                    "local": {
+                        "target": "dev",
+                        "outputs": {
+                            "dev": {
+                                "connections": {
+                                    "warehouse": {
+                                        "type": "duckdb",
+                                        "database": str(database),
+                                    }
+                                }
+                            }
+                        },
+                    }
+                }
+            },
+            sort_keys=False,
+        ),
+    )
+    write_compiled_checks(path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(path)
+
+
 def write_compiled_checks(
     path: Path,
     *,
@@ -679,6 +788,73 @@ def row_count_plan() -> list[dict[str, object]]:
         {"type": "row_count", "side": "target"},
         {"type": "compare_counts"},
     ]
+
+
+def _duckdb_module() -> Any:
+    if os.environ.get("RECON_REQUIRE_DUCKDB_TESTS") == "1":
+        try:
+            return importlib.import_module("duckdb")
+        except ImportError:
+            pytest.fail(
+                "DuckDB run-service execution tests are required in this environment. "
+                "Install with `.[dev,duckdb]`.",
+                pytrace=False,
+            )
+
+    return pytest.importorskip("duckdb")
+
+
+def _write_duckdb_row_count_tables(
+    duckdb: Any,
+    database: Path,
+    *,
+    source_rows: tuple[tuple[int], ...],
+    target_rows: tuple[tuple[int], ...],
+    create_target: bool = True,
+) -> None:
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute("create schema qa")
+        connection.execute("create table qa.source_customers(id integer)")
+        if source_rows:
+            connection.executemany("insert into qa.source_customers values (?)", source_rows)
+        if create_target:
+            connection.execute("create table qa.target_customers(id integer)")
+            if target_rows:
+                connection.executemany("insert into qa.target_customers values (?)", target_rows)
+    finally:
+        connection.close()
+
+
+def _assert_no_runtime_outputs(path: Path) -> None:
+    assert not (path / "target" / "run_results.json").exists()
+    assert not (path / "target" / "failures").exists()
+    assert not (path / "target" / "compiled_sql").exists()
+    assert not (path / "reports").exists()
+    assert not (path / "state").exists()
+
+
+def _service_result_text(result: object) -> str:
+    fields: list[str] = []
+    message = getattr(result, "message", None)
+    if message is not None:
+        fields.append(str(message))
+    for diagnostic in getattr(result, "diagnostics", ()):
+        fields.extend(
+            str(value)
+            for value in (
+                diagnostic.code,
+                diagnostic.message,
+                diagnostic.hint,
+                diagnostic.resource_type,
+                diagnostic.resource_name,
+                diagnostic.path,
+                diagnostic.line,
+                diagnostic.column,
+            )
+            if value is not None
+        )
+    return "\n".join(fields)
 
 
 class RecordingDuckDbFactory:
