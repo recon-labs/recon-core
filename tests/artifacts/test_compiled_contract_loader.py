@@ -175,6 +175,30 @@ def test_loader_rejects_symlinked_compiled_contract_artifact_file(
     assert "symlink" in diagnostic.message
 
 
+def test_loader_rejects_dangling_symlinked_referenced_compiled_contract_artifact(
+    tmp_path: Path,
+) -> None:
+    compiled_contracts_dir = tmp_path / "target" / "compiled_contracts"
+    compiled_contracts_dir.mkdir(parents=True)
+    artifact_path = compiled_contracts_dir / "customer_revenue.yml"
+    try:
+        artifact_path.symlink_to(tmp_path / "missing" / "customer_revenue.yml")
+    except OSError:
+        pytest.skip("Filesystem does not support file symlinks.")
+
+    result = CompiledContractLoader().load_for_compiled_checks(
+        tmp_path / "target",
+        (_loaded_check_artifact(),),
+    )
+
+    assert not result.succeeded
+    assert result.artifacts == ()
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CONTRACT_ARTIFACT_INVALID"
+    assert diagnostic.path == str(artifact_path)
+    assert "symlink" in diagnostic.message
+
+
 def test_loader_reports_invalid_yaml_without_raw_artifact_content(tmp_path: Path) -> None:
     artifact_path = tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml"
     artifact_path.parent.mkdir(parents=True)

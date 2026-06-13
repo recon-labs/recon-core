@@ -105,6 +105,10 @@ class CompiledContractLoader:
                 diagnostics.append(reference_diagnostic)
                 continue
             assert artifact_path is not None
+            path_diagnostic = _symlinked_artifact_path_diagnostic(artifact_path)
+            if path_diagnostic is not None:
+                diagnostics.append(path_diagnostic)
+                continue
             if not artifact_path.exists():
                 diagnostics.append(_missing_artifacts_diagnostic(artifact_path))
                 continue
