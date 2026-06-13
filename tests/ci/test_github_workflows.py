@@ -10,3 +10,4 @@ def test_ci_gates_duckdb_semantics() -> None:
     assert 'RECON_REQUIRE_DUCKDB_TESTS: "1"' in workflow
     assert "pytest tests/adapters/test_duckdb_sql_renderer.py" in workflow
     assert "tests/services/test_run_service.py" in workflow
+    assert "tests/cli/test_main.py" in workflow

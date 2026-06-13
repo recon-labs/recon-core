@@ -88,4 +88,4 @@ jobs:
         env:
           RECON_REQUIRE_DUCKDB_TESTS: "1"
         run: |
-          pytest tests/adapters/test_duckdb_sql_renderer.py tests/services/test_run_service.py
+          pytest tests/adapters/test_duckdb_sql_renderer.py tests/services/test_run_service.py tests/cli/test_main.py

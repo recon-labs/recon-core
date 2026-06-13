@@ -321,6 +321,242 @@ def test_run_service_sanitizes_actual_duckdb_execution_failure(
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_blocks_query_endpoints_before_adapter_execution(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(
+        tmp_path,
+        source_relation=None,
+        source_query="select * from source_customers where ssn = 'secret-ssn'",
+    )
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
+    ]
+    public_text = _service_result_text(result)
+    assert "secret-ssn" not in public_text
+    assert "select * from source_customers" not in public_text
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 0
+    assert adapter.queries == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_blocks_cross_context_duckdb_execution_without_bridge_or_fallback(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: source.duckdb
+          replica:
+            type: duckdb
+            database: target.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(
+        tmp_path,
+        source_connection="warehouse",
+        target_connection="replica",
+    )
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
+    ]
+    public_text = _service_result_text(result)
+    assert "source.duckdb" not in public_text
+    assert "target.duckdb" not in public_text
+    assert len(factory.adapters) == 2
+    assert [adapter.connect_count for adapter in factory.adapters] == [0, 0]
+    assert [adapter.queries for adapter in factory.adapters] == [[], []]
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("operations", "diagnostic_code"),
+    [
+        (
+            [
+                {"type": "row_count", "side": "source", "execution_placement": "source"},
+                {"type": "row_count", "side": "target"},
+                {"type": "compare_counts"},
+            ],
+            "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT",
+        ),
+        (
+            [
+                {
+                    "type": "row_count",
+                    "side": "source",
+                    "materialization_policy": "temporary_table",
+                },
+                {"type": "row_count", "side": "target"},
+                {"type": "compare_counts"},
+            ],
+            "RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY",
+        ),
+    ],
+)
+def test_run_service_blocks_unsupported_placement_or_materialization_before_adapter_setup(
+    tmp_path: Path,
+    operations: list[dict[str, object]],
+    diagnostic_code: str,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=operations)])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [diagnostic_code]
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_executes_valid_row_count_but_leaves_later_phase_checks_non_executable(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(operations=row_count_plan()),
+            _compiled_check_payload(
+                check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+                name="missing_keys",
+                check_type="missing_keys",
+                operations=[
+                    {
+                        "type": "key_diff",
+                        "direction": "source_minus_target",
+                        "identity": {"kind": "grain", "keys": ["customer_id"]},
+                    }
+                ],
+                required_capabilities=[],
+            ),
+        ],
+    )
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_CHECK_NOT_EXECUTABLE"
+    ]
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 1
+    assert adapter.close_count == 1
+    assert len(adapter.queries) == 1
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_does_not_mutate_stale_outputs_during_executable_row_count(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(tmp_path)
+    output_contents = {
+        tmp_path / "target" / "run_results.json": '{"status":"stale"}\n',
+        tmp_path / "target" / "failures" / "existing.csv": "id\n1\n",
+        tmp_path / "target" / "compiled_sql" / "existing.sql": "select 1;\n",
+        tmp_path / "reports" / "existing.md": "# stale report\n",
+        tmp_path / "state" / "existing.json": '{"watermark":"stale"}\n',
+    }
+    for path, content in output_contents.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert result.diagnostics == ()
+    for path, content in output_contents.items():
+        assert path.read_text(encoding="utf-8") == content
+
+
 def test_run_service_reports_missing_compiled_contract_before_profile_or_adapter_work(
     tmp_path: Path,
 ) -> None:
@@ -622,8 +858,10 @@ def write_compiled_contract(
     contract_name: str = "customer_revenue",
     source_connection: str = "warehouse",
     target_connection: str = "warehouse",
-    source_relation: str = "qa.source_customers",
-    target_relation: str = "qa.target_customers",
+    source_relation: str | None = "qa.source_customers",
+    target_relation: str | None = "qa.target_customers",
+    source_query: str | None = None,
+    target_query: str | None = None,
 ) -> None:
     artifact_path = path / "target" / "compiled_contracts" / f"{contract_name}.yml"
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
@@ -635,6 +873,8 @@ def write_compiled_contract(
                 target_connection=target_connection,
                 source_relation=source_relation,
                 target_relation=target_relation,
+                source_query=source_query,
+                target_query=target_query,
             ),
             sort_keys=False,
         ),
@@ -715,6 +955,9 @@ def _compiled_checks_payload(
 
 def _compiled_check_payload(
     *,
+    check_id: str = "check.ecommerce_recon.customer_revenue.row_count_diff",
+    name: str = "row_count_diff",
+    check_type: str = "row_count_diff",
     operations: list[dict[str, object]] | None = None,
     required_capabilities: list[str] | None = None,
 ) -> dict[str, object]:
@@ -722,9 +965,9 @@ def _compiled_check_payload(
         required_capabilities if required_capabilities is not None else ["row_count"]
     )
     return {
-        "id": "check.ecommerce_recon.customer_revenue.row_count_diff",
-        "name": "row_count_diff",
-        "type": "row_count_diff",
+        "id": check_id,
+        "name": name,
+        "type": check_type,
         "origin": {"kind": "check_pack", "name": "recon_core.basic_equivalence"},
         "identity": {"kind": "none", "keys": []},
         "requirements": {
@@ -741,7 +984,7 @@ def _compiled_check_payload(
         "prerequisites": [],
         "blocking_policy": {"on_prerequisite_failure": "skipped"},
         "plan": {
-            "id": "plan.ecommerce_recon.customer_revenue.row_count_diff",
+            "id": f"plan.ecommerce_recon.customer_revenue.{name}",
             "operations": operations
             if operations is not None
             else [{"type": "row_count", "side": "source"}],
@@ -757,9 +1000,21 @@ def _compiled_contract_payload(
     contract_name: str,
     source_connection: str,
     target_connection: str,
-    source_relation: str,
-    target_relation: str,
+    source_relation: str | None,
+    target_relation: str | None,
+    source_query: str | None = None,
+    target_query: str | None = None,
 ) -> dict[str, object]:
+    source: dict[str, object] = {"connection": source_connection}
+    if source_relation is not None:
+        source["relation"] = source_relation
+    if source_query is not None:
+        source["query"] = source_query
+    target: dict[str, object] = {"connection": target_connection}
+    if target_relation is not None:
+        target["relation"] = target_relation
+    if target_query is not None:
+        target["query"] = target_query
     return {
         "artifact_type": "compiled_contract",
         "artifact_version": 1,
@@ -773,8 +1028,8 @@ def _compiled_contract_payload(
             "source_file": f"contracts/{contract_name}.yml",
         },
         "identity": {"grain": {"keys": []}, "cdc": {"keys": []}},
-        "source": {"connection": source_connection, "relation": source_relation},
-        "target": {"connection": target_connection, "relation": target_relation},
+        "source": source,
+        "target": target,
         "columns": [],
         "metrics": [],
         "checks": [],
