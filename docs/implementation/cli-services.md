@@ -99,37 +99,43 @@ compiled-check rendering metadata.
 
 ## RunService
 
-First check-engine boundary responsibilities:
+Current run-service responsibilities:
 
 - locate the project root,
 - load already compiled check artifacts from the generated target path,
+- load matching compiled-contract artifacts for runtime metadata,
+- prepare runtime profile and adapter dependencies only for executable
+  relation-backed row-count candidates,
+- open supported adapter connections after profile, adapter, API, and capability
+  checks pass,
 - invoke the check engine over compiled checks only,
+- close adapter connections opened by the run,
 - map command-level outcomes and diagnostics to `ServiceResult`,
 - return a concise command message and exit category.
 
-The first check-engine boundary must not parse authored YAML, invoke
-`ParseService`, invoke `CompileService`, load runtime profiles, instantiate
-adapters, render SQL, execute queries, write `target/run_results.json`, write
-evidence, write reports, write failure details, write state, or write
-result/evidence sinks.
+The run service must not parse authored YAML, invoke `ParseService`, invoke
+`CompileService`, write `target/run_results.json`, write evidence, write
+reports, write failure details, write state, or write result/evidence sinks.
+Adapter-backed execution is limited to exact same-context relation-backed
+row-count checks and bounded in-memory results. Later-phase checks remain
+structured `not_executable` results.
 
 Later runner and evidence phases may expand `RunService` responsibilities to:
 
 - parse and compile automatically when artifact freshness semantics are locked,
-- load matching compiled-contract artifacts needed by executable compiled
-  checks,
 - build execution plans,
-- run checks through supported adapter execution paths,
+- run additional checks through supported adapter execution paths,
 - write run results,
 - write evidence,
 - return final run summaries and exit categories.
 
-Run-time profile loading follows the same selected-target and secret redaction
-rules as adapter-aware compile once adapter execution is implemented. At that
-point, `RunService` must also preserve the same unsupported-template and adapter
-diagnostic redaction behavior before execution, and it must revalidate adapter
-API compatibility and required capabilities before execution. These execution
-responsibilities are not part of the first check-engine boundary.
+Run-time profile loading follows the same selected-target, referenced-connection,
+literal adapter type, unsupported-template, and secret-redaction rules as
+adapter-aware compile. `RunService` must revalidate adapter metadata, adapter
+API compatibility, and required capabilities before opening a connection.
+Adapter lifecycle, query, and close diagnostics must be sanitized and must not
+expose rendered profile values, relation names, query text, rendered SQL,
+database errors, credentials, or raw adapter exception text.
 
 ## CLI options
 

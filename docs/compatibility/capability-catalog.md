@@ -16,7 +16,7 @@ Current state:
 - capability names are documented in framework, architecture, and ADR docs,
 - capability constants and support-state validation exist in code,
 - the in-core DuckDB local development adapter declares the current
-  relation-backed SQL rendering capability subset,
+  relation-backed SQL rendering and row-count execution capability subset,
 - no external production adapter declares capabilities yet,
 - no adapter test kit validates capabilities yet.
 - ADR 0021 defines future execution placement and materialization/staging
@@ -93,9 +93,9 @@ must validate support states before rendering or executing required operations.
 Malformed support-state values must become structured diagnostics instead of
 uncaught adapter errors.
 
-Current adapter-aware rendering uses only the capability subset required by
-currently emitted typed operations. It does not expand the typed operation
-catalog.
+Current adapter-aware rendering and row-count execution use only the capability
+subset required by currently emitted typed operations. They do not expand the
+typed operation catalog.
 
 Production adapter capability claims also need native SQL optimization and
 dialect validation conformance. A capability declaration says an adapter can
@@ -134,10 +134,10 @@ adapter API is stable.
 | `semi_structured_projection` | Adapter can project semi-structured data into comparable fields. |
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
-Current adapter-aware rendering is relation-backed only. The `queries`
-capability is reserved for future executable query endpoint support and is not
-required by current relation-backed rendering.
-Relation-backed row-count execution may require `row_count` and `cte_support`
+Current adapter-aware rendering and row-count execution are relation-backed
+only. The `queries` capability is reserved for future executable query endpoint
+support and is not required by current relation-backed rendering or execution.
+Relation-backed row-count execution requires `row_count` and `cte_support`
 without treating query endpoints as supported. Counting rows for authored query
 endpoints also requires the future `queries` capability design, query execution
 validation, and source/target privacy rules for query text before it can be

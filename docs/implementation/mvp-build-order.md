@@ -311,9 +311,10 @@ Current status:
 
 - implemented through adapter-aware compile and SQL rendering,
 - DuckDB remains in-core behind `recon-core[duckdb]`,
-- current DuckDB support renders SQL for existing typed plans only,
-- connection lifecycle, metadata fetches, row-count query execution, check
-  execution, run results, and evidence remain future milestones.
+- current DuckDB support renders SQL for existing typed plans and executes the
+  relation-backed same-context row-count path,
+- metadata fetches, broader check execution, run results, and evidence remain
+  future milestones.
 
 Required gates:
 

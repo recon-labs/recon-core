@@ -12,7 +12,11 @@ Current pre-alpha status:
   current compiler scope.
 - `recon compile --render-sql` is implemented for DuckDB relation endpoints
   and the current typed check-plan operations.
-- `recon run` is not implemented yet.
+- `recon run` loads existing compiled-check artifacts and returns explicit
+  in-memory run/check statuses. It can execute relation-backed same-context
+  DuckDB `row_count_diff` checks when matching compiled-contract artifacts and
+  runtime profiles are available. It does not write generated result, evidence,
+  report, failure-detail, or state artifacts yet.
 
 Install the DuckDB extra when you want to render SQL in this local workflow:
 
@@ -75,8 +79,9 @@ profiles:
 Do not commit real profiles.
 
 The generated example profile uses `RECON_DUCKDB_PATH` for both named DuckDB
-connections. Before running adapter-aware SQL rendering with that example, set
-it to the same local DuckDB file path:
+connections. Before running adapter-aware SQL rendering or the current
+relation-backed row-count execution path with that example, set it to the same
+local DuckDB file path:
 
 ```bash
 export RECON_DUCKDB_PATH=local.duckdb
@@ -182,18 +187,28 @@ Current compile behavior expands `recon_core.basic_equivalence` and explicit
 `sum` metrics into typed check plans. With `--render-sql`, Recon loads
 `connections/profiles.yml`, validates the adapter boundary, and writes
 DuckDB-rendered SQL for relation-backed source and target endpoints. Explicit
-authored checks, adapter execution, run results, and evidence are still future
-work.
+authored checks, broader adapter execution, run results, and evidence are still
+future work.
 
 ## Run
 
-This command is planned but not implemented yet.
+Current `recon run` consumes compiled-check artifacts from
+`target/compiled_checks/`, joins them to matching compiled-contract metadata,
+and reports explicit in-memory results. Relation-backed same-context DuckDB
+`row_count_diff` checks can execute; checks that cannot execute in the current
+run boundary are reported as non-executable instead of looking like passing
+evidence.
 
 ```bash
 recon run
 ```
 
-Planned future output:
+Current `recon run` does not parse authored contracts or recompile contracts. It
+opens adapters and executes SQL only for the supported same-context DuckDB
+row-count path. It does not write generated outputs.
+
+Future generated result and evidence outputs remain planned for later result
+and evidence work:
 
 ```text
 target/run_results.json

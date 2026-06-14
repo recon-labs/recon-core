@@ -37,11 +37,12 @@ Diagnostics
 
 Implementation is split across check-engine stages. The first boundary owns the
 check-engine boundary, status model, internal dispatch, and
-prerequisite/blocking representation. Later execution stages add row-count
-execution, grain-key safety execution, and current aggregate metric execution.
-The row-count execution stage must join each executable compiled check to its
-matching compiled-contract metadata before any profile, adapter, or query work
-starts.
+prerequisite/blocking representation. The current row-count execution stage
+adds relation-backed same-context DuckDB execution for the supported
+`row_count_diff` typed-plan shape. Later execution stages add grain-key safety
+execution and current aggregate metric execution. The row-count execution stage
+must join each executable compiled check to its matching compiled-contract
+metadata before any profile, adapter, or query work starts.
 `target/run_results.json`, evidence reports, failure details, and evidence links
 remain separate later surfaces unless a later split explicitly changes those
 boundaries.
@@ -221,15 +222,29 @@ boundary maps that aggregate outcome to command-level runtime failure with
 
 ## Run service boundary
 
-The first `recon run` implementation should use already compiled check
-artifacts as input. It should not parse authored YAML, recompile contracts,
-load runtime profiles, open adapters, render SQL, execute queries, write
+The `recon run` service uses already compiled check artifacts as input and joins
+them to matching compiled-contract artifacts before any runtime profile or
+adapter work. It should not parse authored YAML, recompile contracts, write
 generated files, or run selector/subset logic.
+
+For relation-backed row-count candidates that match the supported typed plan
+shape, the service may load the selected profile and referenced profile
+connections, validate adapter metadata/API/capabilities, open the supported
+adapter connection, and pass an explicit execution context to the check engine.
+The service must close adapters it opened. It must not open adapters for checks
+that are not in the supported row-count execution shape, and later-phase key or
+aggregate checks must remain `not_executable`.
 
 Missing compiled-check artifacts, malformed compiled-check artifacts, and empty
 compiled-check scopes are runtime diagnostics, not successful runs. They should
 produce command-level failure through `ServiceResult` and should not claim
 source-target equivalence.
+
+Missing, malformed, or mismatched compiled-contract artifacts are runtime
+diagnostics and must block before profile loading or adapter resolution.
+Profile, adapter setup, adapter lifecycle, SQL execution, and cleanup failures
+must produce sanitized diagnostics. No generated run-result, evidence, report,
+failure-detail, state, or sink output is written by this execution boundary.
 
 Command-level `ServiceResult` remains separate from `RunResult`. The CLI may
 render a concise message and safe diagnostics, but final run summaries,

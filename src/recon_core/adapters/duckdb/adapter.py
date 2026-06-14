@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from dataclasses import replace
+from importlib import import_module
 from importlib.util import find_spec
 from typing import Any
 
@@ -20,6 +21,17 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
 
 ADAPTER_DEPENDENCY_MISSING = "RC_ADAPTER_DEPENDENCY_MISSING"
+ADAPTER_CONNECTION_FAILED = "RC_ADAPTER_CONNECTION_FAILED"
+ADAPTER_QUERY_FAILED = "RC_ADAPTER_QUERY_FAILED"
+ADAPTER_CLOSE_FAILED = "RC_ADAPTER_CLOSE_FAILED"
+
+
+class AdapterLifecycleError(RuntimeError):
+    """Raised when adapter lifecycle or query execution fails with a safe diagnostic."""
+
+    def __init__(self, diagnostic: Diagnostic) -> None:
+        super().__init__(diagnostic.message)
+        self.diagnostic = diagnostic
 
 
 class DuckDbAdapter(BaseAdapter):
@@ -29,14 +41,71 @@ class DuckDbAdapter(BaseAdapter):
     adapter_version = get_version()
     supported_adapter_api_version = ADAPTER_API_VERSION
 
+    def __init__(self, *, connection: ConnectionConfig) -> None:
+        super().__init__(connection=connection)
+        self._connection: Any | None = None
+
     def connect(self) -> None:
-        raise NotImplementedError("DuckDB connection lifecycle is implemented in a later phase.")
+        if self._connection is not None:
+            return
+        database = self.connection.config.get("database", ":memory:")
+        try:
+            duckdb = import_module("duckdb")
+            self._connection = duckdb.connect(database)
+        except Exception as exc:
+            raise AdapterLifecycleError(
+                _adapter_lifecycle_diagnostic(
+                    code=ADAPTER_CONNECTION_FAILED,
+                    message="DuckDB adapter connection failed.",
+                    exc=exc,
+                )
+            ) from None
 
     def close(self) -> None:
-        raise NotImplementedError("DuckDB connection lifecycle is implemented in a later phase.")
+        if self._connection is None:
+            return
+        connection = self._connection
+        try:
+            connection.close()
+        except Exception as exc:
+            raise AdapterLifecycleError(
+                _adapter_lifecycle_diagnostic(
+                    code=ADAPTER_CLOSE_FAILED,
+                    message="DuckDB adapter close failed.",
+                    exc=exc,
+                )
+            ) from None
+        finally:
+            self._connection = None
 
     def execute(self, query: str) -> QueryResult:
-        raise NotImplementedError("DuckDB query execution is implemented in a later phase.")
+        if self._connection is None:
+            raise AdapterLifecycleError(
+                Diagnostic(
+                    code=ADAPTER_CONNECTION_FAILED,
+                    severity=DiagnosticSeverity.ERROR,
+                    message="DuckDB adapter is not connected.",
+                    resource_type="adapter",
+                    resource_name=self.adapter_type,
+                    hint="Call adapter.connect() before executing a query.",
+                )
+            )
+        try:
+            cursor = self._connection.execute(query)
+            description = getattr(cursor, "description", None) or ()
+            columns = tuple(str(column[0]) for column in description)
+            rows = tuple(tuple(row) for row in cursor.fetchall())
+            return QueryResult(columns=columns, rows=rows, row_count=len(rows))
+        except AdapterLifecycleError:
+            raise
+        except Exception as exc:
+            raise AdapterLifecycleError(
+                _adapter_lifecycle_diagnostic(
+                    code=ADAPTER_QUERY_FAILED,
+                    message="DuckDB query execution failed.",
+                    exc=exc,
+                )
+            ) from None
 
     def relation_exists(self, relation: Relation) -> bool:
         raise NotImplementedError("DuckDB metadata access is implemented in a later phase.")
@@ -675,6 +744,25 @@ def _render_type_check_select(*, predicate: str, error_message: str) -> str:
 
 def _duckdb_dependency_available() -> bool:
     return find_spec("duckdb") is not None
+
+
+def _adapter_lifecycle_diagnostic(
+    *,
+    code: str,
+    message: str,
+    exc: Exception,
+) -> Diagnostic:
+    return Diagnostic(
+        code=code,
+        severity=DiagnosticSeverity.ERROR,
+        message=message,
+        resource_type="adapter",
+        resource_name="duckdb",
+        hint=(
+            f"DuckDB raised {type(exc).__name__}. Raw adapter, SQL, database error, "
+            "and rendered profile text were suppressed."
+        ),
+    )
 
 
 def _sql_string_literal(value: str) -> str:

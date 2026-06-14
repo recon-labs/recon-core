@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 from recon_core.adapters.base import BaseAdapter
+from recon_core.adapters.diagnostic_redaction import (
+    sanitize_profile_backed_adapter_diagnostics,
+)
 from recon_core.adapters.models import (
     ADAPTER_API_VERSION,
     AdapterResolutionResult,
@@ -90,6 +93,15 @@ class AdapterRegistry:
             return _invalid_resolution_result(connection)
         if result.adapter is not None and not isinstance(result.adapter, BaseAdapter):
             return _invalid_resolution_result(connection)
+        if result.adapter is not None and result.diagnostics:
+            return _invalid_resolution_result(connection)
+        if result.diagnostics:
+            return AdapterResolutionResult(
+                diagnostics=sanitize_profile_backed_adapter_diagnostics(
+                    result.diagnostics,
+                    connection=connection,
+                ),
+            )
 
         return result
 

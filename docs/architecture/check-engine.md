@@ -152,10 +152,13 @@ exit category and top-level message belong to command plumbing. `RunResult`,
 `ContractResult`, and `CheckResult` carry reconciliation status, reason codes,
 diagnostics, and future artifact or sink references.
 
-The first run boundary may load already compiled checks and route them through
-internal dispatch. It must not parse authored YAML, compile contracts, load
-runtime profiles, execute adapters, render SQL, query source or target systems,
-write generated artifacts, emit evidence, mutate state, write sinks, produce
+The first non-executing run boundary may load already compiled checks and route
+them through internal dispatch. The current row-count execution boundary may
+also load matching compiled-contract metadata, selected runtime profiles,
+referenced connections, and supported adapters for relation-backed same-context
+DuckDB `row_count_diff` checks. It must still not parse authored YAML, compile
+contracts, execute query endpoints, execute key/aggregate/value checks, write
+generated artifacts, emit evidence, mutate state, write sinks, produce
 probabilistic summaries, or execute selector/subset scopes.
 
 ## Adapter capability fit

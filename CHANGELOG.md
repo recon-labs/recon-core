@@ -25,11 +25,13 @@ This project follows semantic versioning once public package releases begin.
   validation, `ADAPTER_API_VERSION = "1"`, adapter registry and capability
   models, SQL renderer interfaces, the optional in-core DuckDB adapter, DuckDB
   rendering for current typed operations, and compiled SQL artifact output.
-- First `recon run` check-engine boundary for already compiled checks, with
-  in-memory run/contract/check results, runtime diagnostics for missing,
-  invalid, empty, unsupported, blocked, and not-executable compiled-check
-  inputs, and no run-result, evidence, report, failure-detail, state, or sink
-  artifact writes.
+- First `recon run` check-engine boundary for already compiled checks, including
+  matching compiled-contract loading, runtime profile and adapter setup for
+  relation-backed same-context DuckDB `row_count_diff` checks, in-memory
+  run/contract/check results, runtime diagnostics for missing, invalid, empty,
+  unsupported, blocked, not-executable, profile, adapter, lifecycle, and
+  execution inputs, and no run-result, evidence, report, failure-detail, state,
+  or sink artifact writes.
 
 ### Changed
 

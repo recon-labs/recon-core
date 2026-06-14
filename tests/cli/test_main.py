@@ -1,5 +1,8 @@
+import importlib
 import json
+import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -142,6 +145,36 @@ def test_compile_command_writes_compiled_artifacts_for_project() -> None:
             "duplicate_target_keys",
             "total_revenue",
         ]
+
+
+def test_run_command_duckdb_check_failure_does_not_print_private_counts_or_relations() -> None:
+    duckdb = _duckdb_module()
+    runner = CliRunner()
+
+    with runner.isolated_filesystem():
+        database = Path("warehouse.duckdb").resolve()
+        _write_duckdb_row_count_tables(
+            duckdb,
+            database,
+            source_rows=((1,), (2,)),
+            target_rows=((10,), (20,), (30,)),
+        )
+        _write_project(profile="local")
+        _write_profiles_for_duckdb(database)
+        _write_compiled_row_count_artifacts()
+
+        result = runner.invoke(main, ["run"])
+
+    assert result.exit_code == 1
+    assert "Error: Run completed with failing checks." in result.output
+    assert "2" not in result.output
+    assert "3" not in result.output
+    assert "-1" not in result.output
+    assert "source_customers" not in result.output
+    assert "target_customers" not in result.output
+    assert "row_count" not in result.output
+    assert "select" not in result.output.lower()
+    assert "warehouse.duckdb" not in result.output
 
 
 def test_compile_render_sql_prints_diagnostic_message_for_profile_errors() -> None:
@@ -359,6 +392,154 @@ profiles:
 """.lstrip(),
         encoding="utf-8",
     )
+
+
+def _write_profiles_for_duckdb(database: Path) -> None:
+    profiles_path = Path("connections/profiles.yml")
+    profiles_path.parent.mkdir()
+    profiles_path.write_text(
+        yaml.safe_dump(
+            {
+                "profiles": {
+                    "local": {
+                        "target": "dev",
+                        "outputs": {
+                            "dev": {
+                                "connections": {
+                                    "warehouse": {
+                                        "type": "duckdb",
+                                        "database": str(database),
+                                    }
+                                }
+                            }
+                        },
+                    }
+                }
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_compiled_row_count_artifacts() -> None:
+    checks_path = Path("target/compiled_checks/customer_revenue.yml")
+    checks_path.parent.mkdir(parents=True, exist_ok=True)
+    checks_path.write_text(
+        yaml.safe_dump(_compiled_row_count_checks_payload(), sort_keys=False),
+        encoding="utf-8",
+    )
+    contract_path = Path("target/compiled_contracts/customer_revenue.yml")
+    contract_path.parent.mkdir(parents=True, exist_ok=True)
+    contract_path.write_text(
+        yaml.safe_dump(_compiled_row_count_contract_payload(), sort_keys=False),
+        encoding="utf-8",
+    )
+
+
+def _compiled_row_count_checks_payload() -> dict[str, object]:
+    return {
+        "artifact_type": "compiled_checks",
+        "artifact_version": 1,
+        "recon_version": "0.0.test",
+        "generated_at": "2026-05-23T12:00:00Z",
+        "invocation_id": "01JTESTINVOCATION0000000000",
+        "project": {"name": "ecommerce_recon", "version": "0.1.0"},
+        "contract": {
+            "id": "contract.ecommerce_recon.customer_revenue",
+            "name": "customer_revenue",
+            "source_file": "contracts/customer_revenue.yml",
+        },
+        "checks": [
+            {
+                "id": "check.ecommerce_recon.customer_revenue.row_count_diff",
+                "name": "row_count_diff",
+                "type": "row_count_diff",
+                "origin": {"kind": "check_pack", "name": "recon_core.basic_equivalence"},
+                "identity": {"kind": "none", "keys": []},
+                "requirements": {
+                    "requires_grain_keys": False,
+                    "requires_non_null_grain": False,
+                    "requires_unique_grain": False,
+                    "requires_cdc_keys": False,
+                    "required_columns": [],
+                    "required_metrics": [],
+                    "required_capabilities": ["row_count"],
+                },
+                "sampling": {"mode": "full"},
+                "tolerance": None,
+                "prerequisites": [],
+                "blocking_policy": {"on_prerequisite_failure": "skipped"},
+                "plan": {
+                    "id": "plan.ecommerce_recon.customer_revenue.row_count_diff",
+                    "operations": [
+                        {"type": "row_count", "side": "source"},
+                        {"type": "row_count", "side": "target"},
+                        {"type": "compare_counts"},
+                    ],
+                    "required_capabilities": ["row_count"],
+                },
+                "rendering": {"status": "not_rendered", "sql_paths": []},
+                "diagnostics": [],
+            }
+        ],
+        "diagnostics": [],
+    }
+
+
+def _compiled_row_count_contract_payload() -> dict[str, object]:
+    return {
+        "artifact_type": "compiled_contract",
+        "artifact_version": 1,
+        "recon_version": "0.0.test",
+        "generated_at": "2026-05-23T12:00:00Z",
+        "invocation_id": "01JTESTINVOCATION0000000000",
+        "project": {"name": "ecommerce_recon", "version": "0.1.0"},
+        "contract": {
+            "id": "contract.ecommerce_recon.customer_revenue",
+            "name": "customer_revenue",
+            "source_file": "contracts/customer_revenue.yml",
+        },
+        "identity": {"grain": {"keys": []}, "cdc": {"keys": []}},
+        "source": {"connection": "warehouse", "relation": "qa.source_customers"},
+        "target": {"connection": "warehouse", "relation": "qa.target_customers"},
+        "columns": [],
+        "metrics": [],
+        "checks": [],
+        "diagnostics": [],
+    }
+
+
+def _duckdb_module() -> Any:
+    if os.environ.get("RECON_REQUIRE_DUCKDB_TESTS") == "1":
+        try:
+            return importlib.import_module("duckdb")
+        except ImportError:
+            pytest.fail(
+                "DuckDB CLI run tests are required in this environment. "
+                "Install with `.[dev,duckdb]`.",
+                pytrace=False,
+            )
+
+    return pytest.importorskip("duckdb")
+
+
+def _write_duckdb_row_count_tables(
+    duckdb: Any,
+    database: Path,
+    *,
+    source_rows: tuple[tuple[int], ...],
+    target_rows: tuple[tuple[int], ...],
+) -> None:
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute("create schema qa")
+        connection.execute("create table qa.source_customers(id integer)")
+        connection.executemany("insert into qa.source_customers values (?)", source_rows)
+        connection.execute("create table qa.target_customers(id integer)")
+        connection.executemany("insert into qa.target_customers values (?)", target_rows)
+    finally:
+        connection.close()
 
 
 def _project_path() -> Path:

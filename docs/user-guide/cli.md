@@ -22,7 +22,9 @@ Current implementation status:
 - `recon compile --render-sql` is implemented for DuckDB relation endpoints
   and current typed check-plan operations.
 - `recon run` is implemented as the first check-engine boundary for already
-  compiled checks. It does not execute source or target data checks yet.
+  compiled checks. It executes relation-backed same-context DuckDB
+  `row_count_diff` checks and reports other current or later-phase checks as
+  blocked or not executable.
 
 ## `recon init`
 
@@ -195,16 +197,17 @@ Current limitations:
   endpoints return clear unsupported diagnostics for `--render-sql`,
 - DuckDB `--render-sql` currently targets one adapter connection context and
   does not attach or bridge multiple DuckDB database files,
-- the in-core DuckDB adapter renders SQL but does not execute checks or fetch
-  metadata yet,
-- data-check execution, run results, and evidence reports are not implemented
-  yet.
+- the in-core DuckDB adapter renders SQL and supports current same-context
+  relation-backed row-count execution, but does not fetch metadata yet,
+- query endpoint execution, key checks, aggregate checks, row-level value
+  checks, run results, and evidence reports are not implemented yet.
 
 ## `recon run`
 
-Loads compiled checks and routes them through the first check-engine boundary.
-The current command reports explicit diagnostics for checks that cannot execute
-yet; it does not run source or target queries.
+Loads compiled checks and routes them through the check-engine boundary. The
+current command executes supported relation-backed same-context DuckDB
+`row_count_diff` checks and reports explicit diagnostics for checks that cannot
+execute yet.
 
 ```bash
 recon run
@@ -212,7 +215,8 @@ recon run
 
 Current behavior:
 
-- loads project configuration and `target/compiled_checks/*.yml`,
+- loads project configuration, `target/compiled_checks/*.yml`, and matching
+  `target/compiled_contracts/*.yml` metadata,
 - fails with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_NOT_FOUND` when compiled-check
   artifacts are missing,
 - fails with `RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID` when compiled-check
@@ -225,11 +229,14 @@ Current behavior:
   placement, or unsupported materialization policy,
 - returns `blocked` check results when prerequisites are missing, failed, or
   errored,
+- loads runtime profiles and initializes adapters only for the supported
+  same-context DuckDB row-count execution shape,
+- executes the final DuckDB row-count comparison query for supported
+  relation-backed `row_count_diff` checks,
 - does not parse authored contract YAML,
 - does not recompile contracts,
-- does not load runtime profiles,
-- does not initialize adapters,
-- does not render or execute SQL,
+- does not execute query endpoints, cross-context checks, key checks, aggregate
+  checks, or row-level value checks,
 - does not write generated outputs.
 
 Planned future output:
