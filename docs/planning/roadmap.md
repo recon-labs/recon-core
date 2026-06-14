@@ -263,6 +263,20 @@ Possible later capabilities:
 - hosted service,
 - enterprise policy controls.
 
+Future milestone anchors:
+
+| Milestone | Capability anchor | Public roadmap intent |
+| --- | --- | --- |
+| M10.7 | User-facing agent onboarding pack and installer | Provide one canonical Recon agent instruction pack for users' own projects, with generated wrappers and safe install/update behavior. |
+| M12.5 | Metadata discovery, data profiling, contract suggestions, and relation scope selection | Add scoped metadata inspection, bounded profiling, and advisory suggestions without accepting inferred contracts automatically. |
+| M25.6 | Historical profiles, drift, and statistical baseline checks | Add explicit history-backed baseline and drift checks without silent adaptive tolerance mutation. |
+| M25.7 | Quality rollups, ownership, and SLA scorecards | Add transparent scorecards that remain drillable to detailed results and evidence. |
+| M32.1 | Lineage and observability event export | Export safe Recon metadata to external event, lineage, observability, catalog, or orchestration systems. |
+| M32.2 | Optional local Recon MCP server and agent tool interface | Expose a local, safe-by-default tool interface around stable Recon APIs. |
+| M32.5 | Workflow actions and remediation integrations | Add approval-first webhooks, tickets, notifications, and remediation hooks after result/evidence boundaries are stable. |
+| M42 | Semantic and AI-assisted comparison packages | Add optional non-default semantic or model-assisted comparison packages without presenting similarity as exact reconciliation. |
+| M42.5 | Optional Recon AI assistant package | Add an optional bring-your-own-model advisory assistant outside `recon-core` default behavior. |
+
 ## Things to avoid
 
 Avoid building too early:

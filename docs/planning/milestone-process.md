@@ -66,6 +66,33 @@ integrations, adapter test kits, cross-repo compatibility, source-target mapping
 schema policies, tolerance/null/normalization execution, hashing, timestamps,
 query endpoints, and macro-assisted behavior.
 
+## Research Before Lock
+
+Before locking a future gate or future milestone prework for implementation,
+perform a milestone-specific research pass. The research should cover mature
+open-source tools and patterns, available integration tools, relevant
+warehouse, orchestrator, catalog, cloud-native, standard, specification, or
+protocol surfaces, and current engineering pain points when those inputs are
+relevant to the milestone.
+
+Convert the research into Recon-native decisions before coding:
+
+- scope,
+- non-goals,
+- gate requirements,
+- milestone mapping,
+- acceptance/conformance matrix rows,
+- tests,
+- ADR and docs impact,
+- compatibility impact,
+- security and privacy impact,
+- future integration notes.
+
+Detailed source attribution, source links, comparison tables, named
+borrow/avoid notes, vendor-specific rationale, and source-specific research
+summaries belong in the private companion repository. Public durable docs should
+state the final Recon decisions in Recon-native terms.
+
 ## Test planning
 
 Tests must be derived from the milestone prework. For high-risk work, tests must

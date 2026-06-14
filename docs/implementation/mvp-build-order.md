@@ -799,6 +799,44 @@ Before starting a post-MVP milestone, reconcile the requested capability with
 `docs/planning/roadmap.md` and update this build-order document if a capability
 must be pulled earlier, delayed, or split.
 
+Future gate priority order:
+
+1. Gate 5G with Post-MVP Milestone 10.7 for the user-facing agent onboarding
+   pack and installer.
+2. Gate 4L before future execution phases grow beyond row count.
+3. Gate 3L and Gate 3M with Post-MVP Milestone 12.5 for discovery, profiling,
+   suggestion, relation scope, and candidate lifecycle behavior.
+4. Gate 4M before selectors, sampling, state, CDC, or filters affect execution
+   scope.
+5. Gate 4N with Post-MVP Milestone 25.6 after state/history exists.
+6. Gate 6E with Post-MVP Milestone 25.7 after result, evidence, and history
+   foundations exist.
+7. Gate 6F with Post-MVP Milestone 32.1 after artifact metadata is stable.
+8. Gate 5H with Post-MVP Milestone 32.2 after CLI and Python command surfaces
+   are stable.
+9. Gate 6D with Post-MVP Milestone 32.5 after evidence, result, and
+   integration boundaries exist.
+10. Gate 9A with Post-MVP Milestone 42, then Gate 9 with Post-MVP Milestone
+    42.5, as optional non-default AI and semantic package work.
+
+Future gate-to-milestone mapping summary:
+
+| Gate | Primary milestone | Also applies to |
+| --- | --- | --- |
+| Gate 3L | Post-MVP Milestone 12.5 | Any discovery/profile/suggest, metadata, profiling, or relation-scope feature |
+| Gate 3M | Post-MVP Milestone 12.5 | Post-MVP Milestones 25.6, 42, 42.5, and any generated tests |
+| Gate 3A amendment | Post-MVP Milestone 11 | Post-MVP Milestone 12.5 and Milestone 7.4 aggregate suggestion/execution boundaries |
+| Gate 4L | Cross-cutting | Milestones 7.3, 7.4, 8, 9, Post-MVP Milestones 10.6, 12.5, 18, 21, 24, 25, 25.5, 29, and 31 |
+| Gate 4M | Post-MVP Milestones 24/25/26 area | Post-MVP Milestones 10.6, 24, 25, 26, 27, and 27.5 |
+| Gate 4N | Post-MVP Milestone 25.6 | Post-MVP Milestone 25.7, Post-MVP Milestone 31, and any adaptive threshold or drift feature |
+| Gate 5G | Post-MVP Milestone 10.7 | Post-MVP Milestones 12.5, 32.2, 32.5, 42, and 42.5 |
+| Gate 5H | Post-MVP Milestone 32.2 | Post-MVP Milestones 32.5, 42, and 42.5 |
+| Gate 6D | Post-MVP Milestone 32.5 | Post-MVP Milestones 25.6, 25.7, 32.2, and 42.5 |
+| Gate 6E | Post-MVP Milestone 25.7 | Post-MVP Milestone 32.1, Post-MVP Milestone 32.5, and future hosted dashboards |
+| Gate 6F | Post-MVP Milestone 32.1 | Post-MVP Milestone 32, Post-MVP Milestone 32.2, Post-MVP Milestone 25.7, and external event sinks |
+| Gate 9 | Post-MVP Milestone 42.5 | Post-MVP Milestones 12.5, 32.2, 32.5, and 42 |
+| Gate 9A | Post-MVP Milestone 42 | Post-MVP Milestone 42.5, Post-MVP Milestone 31, and Post-MVP Milestone 29 semantic package conformance |
+
 ## Post-MVP Milestone 10.5: artifact freshness and cache optimization
 
 Build this only after Milestones 1-10 are complete and after the 0.1
@@ -885,6 +923,9 @@ Required gate:
 
 - resolve the selectors and contract selection semantics gate in
   the applicable milestone design prework gate,
+- resolve the windowed and incremental reconciliation semantics gate before
+  selector scope can act as execution-window, event-time, processing-time,
+  watermark, partition, or backfill scope,
 - confirm Post-MVP Milestone 10.5 artifact freshness and cleanup behavior is
   sufficient for selector-scoped generated artifacts.
 
@@ -892,6 +933,49 @@ Recommended commit message:
 
 ```text
 feat: add minimal contract selectors
+```
+
+## Post-MVP Milestone 10.7: user-facing agent onboarding pack and installer
+
+Build this after the MVP release-readiness decision and after the core docs can
+describe the supported local project workflow accurately.
+
+Goal:
+
+- provide canonical Recon agent instructions for users' own data and warehouse
+  projects without duplicating rules across agent-specific wrappers.
+
+Build:
+
+- one canonical user-facing agent instruction pack,
+- generated wrappers for supported agent targets from that canonical source,
+- `recon agent init --target generic`,
+- tool-specific `recon agent init --target ...` modes after each wrapper is
+  designed,
+- `recon agent init --target all`,
+- later target support only after its wrapper and update behavior are designed,
+- safe write locations such as `AGENTS.md`, `llms.txt`, `.recon/agent/...`,
+  optional tool-specific wrapper folders, and later local tool config files,
+- update, doctor, stale-version, merge, skip, and overwrite behavior,
+- tests proving generated files do not contain secrets and wrappers point back
+  to the canonical `.recon/agent` content.
+
+Do not build:
+
+- a local MCP server,
+- AI assistant behavior,
+- automated contract mutation,
+- expensive scans or evidence publication through agent instructions.
+
+Required gate:
+
+- resolve Gate 5G: User-Facing Agent Skill And Prompt-Pack Safety in the
+  applicable milestone design prework gate before implementation.
+
+Recommended commit message:
+
+```text
+feat: add user-facing agent onboarding
 ```
 
 ## Post-MVP Milestone 11: aggregate metrics expansion
@@ -930,7 +1014,12 @@ Required gate:
 
 - resolve the aggregate metrics expansion gate in
   the applicable milestone design prework gate before
-  implementation.
+  implementation,
+- preserve the Gate 3A suggestion boundary: suggestion support does not imply
+  execution support. Future discovery/profile/suggest work may draft aggregate
+  candidates, but aggregate metrics beyond the currently supported execution
+  surface remain advisory until this milestone locks typed plans, adapter
+  capabilities, results, evidence, and tests.
 
 Recommended commit message:
 
@@ -976,6 +1065,66 @@ Recommended commit message:
 
 ```text
 feat: add schema policy checks
+```
+
+## Post-MVP Milestone 12.5: metadata discovery, data profiling, contract suggestions, and relation scope selection
+
+Build this after adapter metadata access is designed and after the project can
+represent safe multi-relation output without confusing suggestions for accepted
+contracts.
+
+Goal:
+
+- provide scoped metadata discovery, row-data profiling, and advisory contract
+  suggestions without turning inferred facts into accepted Recon behavior.
+
+Build:
+
+- `recon discover` for metadata/catalog inspection,
+- `recon profile` for scoped row-data statistics,
+- `recon suggest` for advisory candidate generation from discovery, profile,
+  and later history,
+- relation identifier handling for schema/table, database/schema/table, adapter
+  naming, quoting, and case sensitivity,
+- explicit scope flags such as `--schema`, repeatable `--table`, repeatable
+  `--exclude-table`, and later relation-type flags,
+- include/exclude precedence,
+- stable multi-relation artifact layout,
+- per-relation diagnostics and partial-failure behavior,
+- provenance for discovered or suggested facts,
+- candidate metadata that distinguishes catalog-derived, profile-derived,
+  history-derived, lineage-derived, rule-template-derived, model-assisted, and
+  human-authored suggestions,
+- confidence, risk, review, duplicate, low-value, and evaluation metadata for
+  generated candidate checks.
+
+Do not build:
+
+- accepted contract behavior from suggestions,
+- automatic grain, tolerance, mapping, filter, policy, or business-rule
+  enforcement,
+- unbounded row-data scans for schema-level profiling or suggestion,
+- aggregate execution for suggestions that current execution milestones do not
+  support.
+
+Required gates:
+
+- resolve Gate 3L: Metadata Discovery, Profiling, Contract Suggestion, And
+  Relation Scope Safety,
+- resolve Gate 3M: Automated Test Candidate Lifecycle And Evaluation,
+- resolve Gate 4L: Execution Cost, Scan Budget, And Query Plan Safety for
+  row-data scans,
+- preserve the Gate 3A aggregate suggestion boundary for unsupported aggregate
+  metrics,
+- resolve Gate 9: AI Assistant Provider, Prompt, And Model Governance before
+  any model-assisted or LLM-assisted suggestions are included,
+- apply source/target privacy rules before profile or suggestion output can
+  expose sampled values, identifiers, or data-derived statistics.
+
+Recommended commit message:
+
+```text
+feat: add metadata discovery and suggestions
 ```
 
 ## Post-MVP Milestone 13: explicit source-target column mapping
@@ -1467,6 +1616,9 @@ Required gate:
 
 - resolve the sampling execution modes gate in
   the applicable milestone design prework gate,
+- resolve Gate 4L before sampling modes scan source/target data broadly,
+- resolve Gate 4M before sampling modes define partition, window, event-time,
+  processing-time, or incremental scope,
 - resolve the probabilistic key-diff/Bloom/sketch gate before using compact
   summaries for sampled key coverage, including false-positive safeguards,
   canonical composite-key serialization, partition/window scope, multi-phase
@@ -1540,6 +1692,9 @@ Required gate:
 
 - resolve the state, watermarks, and persisted samples gate in
   the applicable milestone design prework gate,
+- resolve Gate 4M before watermark, incremental-window, replay, backfill, or
+  state-derived filters affect check scope,
+- resolve Gate 4L before stateful execution can run broad source/target scans,
 - prove watermark advancement, persisted sample keys, and previous-failure state
   are explicit, versioned, and recoverable without relying on result tables or
   evidence sinks.
@@ -1577,6 +1732,8 @@ Required gate:
 
 - resolve the result table writer gate in
   the applicable milestone design prework gate,
+- resolve Gate 4L before production result-table work records or depends on
+  scan-cost metadata from execution paths,
 - resolve adapter write/sink capability requirements before writing through any
   source, target, or third configured connection,
 - define behavior for unsupported sink capability, unsafe destination config,
@@ -1587,6 +1744,88 @@ Recommended commit message:
 
 ```text
 feat: add production result tables
+```
+
+## Post-MVP Milestone 25.6: historical profiles, drift, and statistical baseline checks
+
+Build this after local state, run lifecycle, historical metric storage, and
+result/evidence semantics are stable enough to explain what history was used.
+
+Goal:
+
+- support explicit baseline and drift checks without silently mutating accepted
+  static tolerances.
+
+Build:
+
+- historical profile and metric records,
+- baseline artifact shape and versioning,
+- minimum history and training-window rules,
+- holdout or evaluation-window rules where supported,
+- first explicit baseline/anomaly check model,
+- anomaly feedback states,
+- retention and privacy policy for historical metrics,
+- result and evidence wording that distinguishes fixed thresholds from learned
+  baselines.
+
+Do not build:
+
+- `tolerance: auto` as a silent mutation of accepted contract behavior,
+- hidden adaptive thresholds,
+- scorecards or action/remediation workflows.
+
+Required gates:
+
+- resolve Gate 4N: Statistical Baseline, Drift, And Adaptive Threshold Safety,
+- resolve Gate 3M if baseline or anomaly candidate checks are generated,
+- apply Gate 6 source/target privacy before storing or publishing historical
+  metrics,
+- resolve Gate 6D before baseline feedback triggers any action.
+
+Recommended commit message:
+
+```text
+feat: add baseline drift checks
+```
+
+## Post-MVP Milestone 25.7: quality rollups, ownership, and SLA scorecards
+
+Build this after run results, evidence, history, and score input semantics are
+stable.
+
+Goal:
+
+- summarize quality health without hiding skipped checks, errors, partial runs,
+  sampled scope, unsupported checks, stale results, missing evidence, or
+  ownership gaps.
+
+Build:
+
+- score dimensions for pass/fail/error, freshness, volume, completeness,
+  uniqueness, consistency, SLA adherence, evidence availability, and coverage,
+- score unavailable and incomplete states,
+- owner/team metadata and privacy classification,
+- rollups at check, contract, dataset/relation, domain/team, and project level,
+- links from score output back to detailed run results and evidence,
+- trend windows after historical metrics are available.
+
+Do not build:
+
+- a single score that replaces detailed evidence,
+- action triggers without the remediation/action safety gate,
+- hosted dashboard behavior.
+
+Required gates:
+
+- resolve Gate 6E: Quality Rollup, Ownership, And SLA Scorecard Semantics,
+- resolve Gate 4N when scorecards use baselines or historical metrics,
+- resolve Gate 6D before scorecards can trigger webhooks, tickets,
+  notifications, remediation, contract edits, or threshold updates.
+
+Recommended commit message:
+
+```text
+feat: add quality scorecards
 ```
 
 ## Post-MVP Milestone 26: first CDC implementation
@@ -1615,6 +1854,8 @@ Required gate:
 
 - resolve the CDC first implementation scope gate in
   the applicable milestone design prework gate,
+- resolve Gate 4M before CDC windows, watermarks, backfills, or incremental
+  filters affect reconciliation scope,
 - resolve the probabilistic key-diff/Bloom/sketch gate before using compact
   summaries for CDC coverage, including bidirectional probing, partition/window
   scope, false-positive handling, exact-confirmation behavior, and evidence
@@ -1646,7 +1887,9 @@ Build:
 Required gate:
 
 - resolve the asymmetric CDC delete representation gate in
-  the applicable milestone design prework gate.
+  the applicable milestone design prework gate,
+- resolve Gate 4M if delete behavior depends on event-time, processing-time,
+  backfill, or watermark windows.
 
 Recommended commit message:
 
@@ -1679,7 +1922,9 @@ Build:
 Required gate:
 
 - resolve the advanced CDC modes and propagation checks gate in
-  the applicable milestone design prework gate.
+  the applicable milestone design prework gate,
+- resolve Gate 4M for every incremental, event-time, processing-time, watermark,
+  backfill, replay, or partition-window propagation mode.
 
 Recommended commit message:
 
@@ -1889,6 +2134,9 @@ Required gate:
   partition/window filtering; shared tests must include adapter-native SQL
   snapshots, optional dialect syntax validation, and semantic comparison
   coverage for the capabilities the adapter claims,
+- include scan-cost and query-plan safety conformance before production
+  adapters claim execution compatibility for operations that may scan broad
+  source or target relations,
 - resolve the adapter install extras and packaging strategy gate before
   publishing adapter packages or documenting adapter extras,
 - resolve the DuckDB adapter repository extraction gate before moving the
@@ -1976,10 +2224,18 @@ Goal:
 - connect Recon to ecosystem workflows without making integrations define core
   semantics.
 
+Boundary:
+
+- this milestone owns the Hub and broad integration foundation,
+- concrete event export, local agent tool surfaces, and action/remediation
+  integrations are owned by the decimal milestones below,
+- integrations must call public CLI, artifact, adapter, package, Hub, result,
+  or evidence contracts rather than private internals.
+
 Build:
 
 - Recon Hub index metadata,
-- GitHub Action,
+- CI action integration,
 - orchestrator provider/operator,
 - workflow provider integration,
 - transformation framework integration patterns,
@@ -1994,6 +2250,131 @@ Recommended commit message:
 
 ```text
 docs: define hub index metadata
+```
+
+## Post-MVP Milestone 32.1: lineage and observability event export
+
+Build this after run, check, contract, result, and evidence metadata are stable
+enough for external systems to consume without redefining Recon semantics.
+
+Goal:
+
+- export Recon run, check, contract, and evidence metadata safely to external
+  observability, lineage, catalog, orchestration, or event systems.
+
+Build:
+
+- versioned event schema,
+- run/check/contract identifiers,
+- safe evidence links,
+- retry and idempotency rules,
+- local/offline export mode,
+- external sink configuration boundaries,
+- privacy classification for relation, owner/team, row-count, aggregate, and
+  failure-summary metadata.
+
+Do not build:
+
+- raw row, key, value, credential, rendered profile, raw SQL, or native database
+  error export by default,
+- sink-specific behavior that changes core result or evidence semantics.
+
+Required gate:
+
+- resolve Gate 6F: Lineage And Observability Event Export Safety in the
+  applicable milestone design prework gate,
+- resolve Gate 6 source/target data privacy and ADR 0022 before exported event
+  payloads include relation metadata, owner/team metadata, row counts,
+  aggregate values, failure summaries, evidence links, or any other potentially
+  sensitive run metadata.
+
+Recommended commit message:
+
+```text
+feat: export observability events
+```
+
+## Post-MVP Milestone 32.2: optional local Recon MCP server and agent tool interface
+
+Build this after CLI and Python command surfaces are stable enough to expose
+through a structured local tool interface.
+
+Goal:
+
+- provide an optional local, non-hosted tool surface around safe Recon APIs for
+  coding agents and local developer workflows.
+
+Build:
+
+- local-only server boundary,
+- package or command shape,
+- tool list and stable input/output schemas,
+- tool classification for read-only, expensive, state-changing, row-scanning,
+  file-writing, contract-writing, and remediation actions,
+- project/profile access rules,
+- redacted diagnostics and stable tool result schemas,
+- explicit confirmation requirements for tools that scan rows, write artifacts,
+  mutate contracts, or trigger actions.
+
+Do not build:
+
+- a hosted agent service,
+- default state-changing tools,
+- unapproved row-data scanning,
+- contract-writing or remediation tools without separate gate coverage.
+
+Required gates:
+
+- resolve Gate 5H: Local MCP Tool Surface, Permissions, And Agent Action
+  Safety,
+- resolve Gate 4L for any row-scanning tool,
+- apply Gate 6 privacy rules for all diagnostics and tool output,
+- resolve Gate 6D before any action/remediation tool is exposed.
+
+Recommended commit message:
+
+```text
+feat: add local recon mcp interface
+```
+
+## Post-MVP Milestone 32.5: workflow actions and remediation integrations
+
+Build this only after run results, evidence, integration boundaries, and
+permission rules are stable.
+
+Goal:
+
+- support explicit, approval-first workflow actions without letting Recon become
+  an unsafe autonomous actor.
+
+Build:
+
+- webhooks, tickets, notifications, remediation hooks, and approval workflows,
+- allowed and forbidden action types,
+- dry-run behavior,
+- approval and permission model,
+- idempotency, retry, audit log, rollback, and failure-status behavior,
+- links from actions back to run and evidence artifacts,
+- explicit policy for whether actions may modify contracts, baselines, or
+  warehouse state.
+
+Do not build:
+
+- destructive or self-healing defaults,
+- automatic tolerance, contract, warehouse, dashboard, deployment, or baseline
+  updates from inferred business behavior,
+- action triggers from scorecards, baselines, MCP tools, or AI assistants before
+  this gate is satisfied for that surface.
+
+Required gate:
+
+- resolve Gate 6D: Actionable Sink And Remediation Safety in the applicable
+  milestone design prework gate.
+
+Recommended commit message:
+
+```text
+feat: add remediation actions
 ```
 
 ## Post-MVP Milestone 33: source-location diagnostics
@@ -2253,6 +2634,92 @@ Recommended commit message:
 docs: define domain package boundaries
 ```
 
+## Post-MVP Milestone 42: semantic and AI-assisted comparison packages
+
+Build this only after core exact comparison, evidence, package compatibility,
+privacy, adapter conformance, and result wording are stable.
+
+Goal:
+
+- allow optional semantic, vector, fuzzy, model-judged, or business-semantic
+  comparison packages without making non-exact similarity a default core
+  equivalence claim.
+
+Build:
+
+- explicit package boundary outside default core exact checks,
+- supported method taxonomy,
+- threshold calibration and labeled evaluation requirements,
+- model/provider/version and embedding/version metadata where applicable,
+- false-positive and false-negative reporting,
+- deterministic fallback behavior,
+- cost and privacy controls for text sent outside the local project,
+- result and evidence wording that clearly says non-exact comparison.
+
+Do not build:
+
+- default core semantic comparison,
+- exact-equivalence wording for similarity or model-judged checks,
+- model calls without provider, version, budget, privacy, and output-validation
+  policy.
+
+Required gates:
+
+- resolve Gate 9A: Semantic, LLM, And Embedding Comparison Safety,
+- resolve Gate 9 when a semantic package calls a model provider,
+- resolve Gate 3M when semantic or model-assisted candidates generate checks.
+
+Recommended commit message:
+
+```text
+feat: add semantic comparison packages
+```
+
+## Post-MVP Milestone 42.5: optional Recon AI assistant package
+
+Build this only after deterministic discovery, suggestion, package, MCP,
+action, privacy, and semantic-package boundaries are mature enough to keep AI
+output advisory and auditable.
+
+Goal:
+
+- provide an optional bring-your-own-model assistant package for advisory Recon
+  suggestions outside `recon-core` default behavior.
+
+Build:
+
+- optional package boundary,
+- provider abstraction and bring-your-own-key behavior,
+- model and prompt version tracking,
+- token and cost budgets,
+- prompt privacy policy,
+- structured output validation,
+- failure fallback behavior,
+- explicit user approval flow for generated contract edits, actions, or
+  suggestions.
+
+Do not build:
+
+- model/provider dependency in `recon-core`,
+- hidden chain-of-thought reliance,
+- automatic contract mutation,
+- automatic remediation or baseline updates,
+- sending raw rows, credentials, rendered profiles, raw SQL, or sensitive
+  project metadata without an explicitly approved opt-in policy.
+
+Required gates:
+
+- resolve Gate 9: AI Assistant Provider, Prompt, And Model Governance,
+- resolve Gate 3M for generated check candidates,
+- resolve Gate 6D for assistant-proposed actions or fixes,
+- resolve Gate 9A if the assistant performs semantic comparison.
+
+Recommended commit message:
+
+```text
+feat: add optional ai assistant package
+```
+
 ## Deferral list
 
 Do not block MVP on:
@@ -2287,9 +2754,14 @@ Do not block MVP on:
 - multi-policy sampling composition,
 - state, watermarks, persisted samples, and previous-failure state,
 - artifact freshness and cache optimization,
+- user-facing agent onboarding pack and installer,
+- metadata discovery, data profiling, contract suggestions, and relation scope
+  selection,
 - CDC execution and asymmetric delete representation,
 - advanced CDC modes such as operation-column CDC, update propagation, operation
   count diff, tombstone CDC, and SCD2 CDC,
+- historical profiles, drift, and statistical baseline checks,
+- quality rollups, ownership, and SLA scorecards,
 - future CLI commands and options beyond the MVP command set,
 - package dependency installer and lock workflow,
 - adapter package split and external adapter test kit,
@@ -2306,6 +2778,11 @@ Do not block MVP on:
 - documentation-site or examples-repo split,
 - hosted service, UI, or enterprise policy controls,
 - domain-specific package families,
+- lineage and observability event export,
+- optional local Recon MCP server and agent tool interface,
+- workflow actions and remediation integrations,
+- semantic and AI-assisted comparison packages,
+- optional Recon AI assistant package,
 - source-location diagnostic ranges,
 - orchestration integrations.
 
