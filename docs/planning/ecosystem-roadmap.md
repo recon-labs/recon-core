@@ -193,6 +193,43 @@ recon-github-action
 
 These should come after the CLI and artifacts are stable.
 
+## Agent and local tool ecosystem
+
+Future user-facing agent support should start with one canonical Recon agent
+instruction pack for users' own data projects. Tool-specific wrappers should be
+generated from that source of truth so agent rules do not drift. The installer
+should use safe merge, skip, overwrite, update, and doctor behavior before it
+writes files such as `AGENTS.md`, `llms.txt`, `.recon/agent/...`, optional
+tool-specific wrapper folders, or later local tool configuration.
+
+An optional local Recon MCP server or structured agent tool interface should
+wait until the CLI and Python command surfaces it wraps are stable. The first
+tool surface should be local-only, safe-by-default, mostly read-only, redacted,
+and approval-gated for row scans, file writes, contract edits, and remediation
+actions.
+
+## Event export and remediation integrations
+
+Lineage, observability, catalog, orchestration, and event exports should be
+metadata artifacts. They should link back to Recon run results and evidence
+without exporting raw rows, keys, values, credentials, rendered profiles, raw
+SQL, or native database errors by default.
+
+Workflow actions such as webhooks, tickets, notifications, remediation hooks,
+contract edits, threshold updates, table tagging, or downstream filtering should
+be approval-first. They need dry-run behavior, idempotency, retries, audit logs,
+rollback semantics, permissions, and non-destructive defaults before any
+integration treats them as supported.
+
+## Semantic and AI package ecosystem
+
+Semantic, vector, fuzzy, model-judged, or assistant behavior should live in
+optional packages first, not default `recon-core` behavior. These packages must
+keep exact reconciliation distinct from non-exact similarity, record model and
+prompt versions when models are used, bound cost and privacy risk, validate
+structured output, and require explicit user approval before generated changes
+affect contracts, actions, baselines, or evidence.
+
 ## Documentation site
 
 Docs may eventually move into:
@@ -238,8 +275,17 @@ Recommended order:
 6. split `recon-duckdb` and official adapters only after adapter conformance
    gates are satisfied,
 7. create official check/policy packages,
-8. create Hub index,
-9. create orchestration integrations.
+8. add the user-facing agent onboarding pack after the public local workflow is
+   stable,
+9. create Hub index,
+10. add metadata event exports after result and evidence metadata is stable,
+11. add optional local tool interfaces after the wrapped command surfaces are
+    stable,
+12. create orchestration integrations,
+13. add action/remediation integrations only after approval, audit, and privacy
+    gates are satisfied,
+14. add semantic and AI packages last, as optional non-default ecosystem
+    packages.
 
 ## Ecosystem principle
 
