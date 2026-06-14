@@ -2282,7 +2282,11 @@ Do not build:
 Required gate:
 
 - resolve Gate 6F: Lineage And Observability Event Export Safety in the
-  applicable milestone design prework gate.
+  applicable milestone design prework gate,
+- resolve Gate 6 source/target data privacy and ADR 0022 before exported event
+  payloads include relation metadata, owner/team metadata, row counts,
+  aggregate values, failure summaries, evidence links, or any other potentially
+  sensitive run metadata.
 
 Recommended commit message:
 
