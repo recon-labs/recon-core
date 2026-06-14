@@ -334,6 +334,61 @@ def test_loader_reports_duplicate_check_ids(tmp_path: Path) -> None:
     assert "duplicate check id" in diagnostic.message
 
 
+def test_loader_rejects_artifact_file_name_that_does_not_match_contract_name(
+    tmp_path: Path,
+) -> None:
+    _write_payload(
+        tmp_path / "target" / "compiled_checks" / "stale_customer_revenue.yml",
+        _compiled_checks_payload(),
+    )
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert "contract.name" in diagnostic.message
+    assert "file name" in diagnostic.message
+
+
+def test_loader_rejects_duplicate_contract_identity_across_artifacts(
+    tmp_path: Path,
+) -> None:
+    duplicate_check = _compiled_check_payload()
+    duplicate_check["id"] = "check.ecommerce_recon.customer_revenue.duplicate_row_count"
+    duplicate_check["name"] = "duplicate_row_count"
+    duplicate_check["plan"] = {
+        "id": "plan.ecommerce_recon.customer_revenue.duplicate_row_count",
+        "operations": [{"type": "row_count", "side": "source"}],
+        "required_capabilities": [],
+    }
+    _write_payload(
+        tmp_path / "target" / "compiled_checks" / "customer_revenue.yml",
+        _compiled_checks_payload(),
+    )
+    _write_payload(
+        tmp_path / "target" / "compiled_checks" / "customer_revenue_copy.yml",
+        _compiled_checks_payload(
+            contract_name="customer_revenue_copy",
+            checks=[duplicate_check],
+        )
+        | {
+            "contract": {
+                "id": "contract.ecommerce_recon.customer_revenue",
+                "name": "customer_revenue_copy",
+                "source_file": "contracts/customer_revenue_copy.yml",
+            }
+        },
+    )
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert "duplicate contract id" in diagnostic.message
+
+
 @pytest.mark.parametrize(
     ("identity", "expected_message"),
     [

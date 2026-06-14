@@ -122,11 +122,15 @@ class CompiledCheckLoader:
 
         artifacts: list[LoadedCompiledChecksArtifact] = []
         diagnostics: list[Diagnostic] = []
+        seen_contract_ids: set[str] = set()
+        seen_contract_names: set[str] = set()
         seen_check_ids: set[str] = set()
 
         for artifact_path in artifact_paths:
             artifact, artifact_diagnostics = self._load_artifact(
                 artifact_path,
+                seen_contract_ids=seen_contract_ids,
+                seen_contract_names=seen_contract_names,
                 seen_check_ids=seen_check_ids,
             )
             diagnostics.extend(artifact_diagnostics)
@@ -149,6 +153,8 @@ class CompiledCheckLoader:
         self,
         artifact_path: Path,
         *,
+        seen_contract_ids: set[str],
+        seen_contract_names: set[str],
         seen_check_ids: set[str],
     ) -> tuple[LoadedCompiledChecksArtifact | None, tuple[Diagnostic, ...]]:
         path_diagnostic = _symlinked_artifact_path_diagnostic(artifact_path)
@@ -159,6 +165,8 @@ class CompiledCheckLoader:
             artifact = _parse_artifact(
                 artifact_path,
                 payload,
+                seen_contract_ids=seen_contract_ids,
+                seen_contract_names=seen_contract_names,
                 seen_check_ids=seen_check_ids,
             )
         except yaml.YAMLError:
@@ -237,6 +245,8 @@ def _parse_artifact(
     path: Path,
     payload: dict[str, object],
     *,
+    seen_contract_ids: set[str],
+    seen_contract_names: set[str],
     seen_check_ids: set[str],
 ) -> LoadedCompiledChecksArtifact:
     artifact_type = _required_string(payload, "artifact_type", "artifact_type")
@@ -258,6 +268,18 @@ def _parse_artifact(
     contract = _required_mapping(payload, "contract", "contract")
     contract_id = _required_string(contract, "id", "contract.id")
     contract_name = _required_string(contract, "name", "contract.name")
+    if path.stem != contract_name:
+        raise _ArtifactShapeError("Compiled-check artifact file name must match contract.name.")
+    if contract_id in seen_contract_ids:
+        raise _ArtifactShapeError(
+            f"Compiled-check artifact contains duplicate contract id: {contract_id}."
+        )
+    seen_contract_ids.add(contract_id)
+    if contract_name in seen_contract_names:
+        raise _ArtifactShapeError(
+            f"Compiled-check artifact contains duplicate contract name: {contract_name}."
+        )
+    seen_contract_names.add(contract_name)
     source_file = _required_string(contract, "source_file", "contract.source_file")
 
     raw_checks = _required_list(payload, "checks", "checks")
