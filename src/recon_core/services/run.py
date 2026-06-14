@@ -181,11 +181,15 @@ def _prepare_runtime_execution_dependencies(
     row_count_candidates = _runtime_row_count_candidates(check_artifacts)
     if not row_count_candidates:
         return _RuntimeExecutionDependencies()
+    candidate_contracts = _compiled_contracts_for_row_count_candidates(
+        row_count_candidates,
+        compiled_contracts=compiled_contracts,
+    )
 
     profile_result = load_selected_profile_for_connection_names(
         context,
         referenced_connection_names=referenced_connection_names_from_compiled_contracts(
-            compiled_contracts
+            candidate_contracts
         ),
         environ=environ,
     )
@@ -323,6 +327,21 @@ def _runtime_row_count_candidates(
             )
         )
     return tuple(candidates)
+
+
+def _compiled_contracts_for_row_count_candidates(
+    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    compiled_contracts: tuple[LoadedCompiledContractArtifact, ...],
+) -> tuple[LoadedCompiledContractArtifact, ...]:
+    candidate_contract_names = frozenset(
+        artifact.contract_name for artifact in row_count_candidates
+    )
+    return tuple(
+        contract
+        for contract in compiled_contracts
+        if contract.contract_name in candidate_contract_names
+    )
 
 
 def _required_capabilities_by_connection(

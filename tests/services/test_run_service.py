@@ -821,6 +821,75 @@ profiles:
     assert factory.adapters == []
 
 
+def test_run_service_ignores_later_phase_contract_profile_env_during_row_count_setup(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+          later_phase:
+            type: duckdb
+            database: "{{ env_var('LATER_PHASE_DB') }}"
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(tmp_path)
+    write_compiled_checks(
+        tmp_path,
+        contract_name="later_phase_contract",
+        checks=[
+            _compiled_check_payload(
+                check_id="check.ecommerce_recon.later_phase_contract.missing_keys",
+                name="missing_keys",
+                check_type="missing_keys",
+                operations=[
+                    {
+                        "type": "key_diff",
+                        "direction": "source_minus_target",
+                        "identity": {"kind": "grain", "keys": ["customer_id"]},
+                    }
+                ],
+                required_capabilities=[],
+            )
+        ],
+    )
+    write_compiled_contract(
+        tmp_path,
+        contract_name="later_phase_contract",
+        source_connection="later_phase",
+        target_connection="later_phase",
+    )
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_CHECK_NOT_EXECUTABLE"
+    ]
+    assert "LATER_PHASE_DB" not in _service_result_text(result)
+    assert len(factory.adapters) == 1
+    adapter = factory.adapters[0]
+    assert adapter.connection.name == "warehouse"
+    assert adapter.connect_count == 1
+    assert adapter.close_count == 1
+    assert len(adapter.queries) == 1
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_reports_adapter_setup_failure_before_connect(tmp_path: Path) -> None:
     write_project(tmp_path, profile="local")
     write_profiles(
