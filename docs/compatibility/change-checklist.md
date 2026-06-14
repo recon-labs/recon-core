@@ -66,6 +66,11 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Checked whether execution placement changed across operation execution
       location, comparison location, materialization/staging policy, Python
       fallback behavior, or unsupported-placement diagnostics.
+- [ ] Checked whether scan-budget or query-plan safety changed across scan
+      scope classification, estimate support, unknown or unavailable estimates,
+      over-budget behavior, unsafe preflight behavior, bounded local/dev
+      exceptions, no-scan guarantees after hard blocks, or user-facing budget
+      settings.
 - [ ] Checked whether probabilistic key-diff, Bloom filters, set sketches,
       false-positive-rate policy, hash/canonicalization, partition/window
       scope, bidirectional probing, multi-phase lifecycle, intermediate
@@ -200,6 +205,10 @@ review. This checklist is a process guide; it is not a CI gate.
       placement, comparison placement, materialization/staging, result/evidence
       sink mode, result table schema, or adapter write/sink compatibility
       changed.
+- [ ] Updated `docs/compatibility/compatibility-matrix.md` when scan-budget or
+      query-plan safety changed, including production unknown estimates,
+      over-budget outcomes, bounded local/dev exceptions, unsafe preflight
+      behavior, no-scan guarantees, or future user-facing budget settings.
 - [ ] Updated `docs/compatibility/compatibility-matrix.md` when probabilistic
       key-diff, Bloom/sketch, approximate key coverage, or adapter
       probabilistic-summary compatibility changed, including layered
