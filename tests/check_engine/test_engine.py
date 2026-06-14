@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
     AdapterCapabilities,
@@ -205,8 +207,10 @@ def test_engine_mixes_executable_row_count_and_later_phase_checks(tmp_path: Path
     assert len(adapter.queries) == 1
 
 
+@pytest.mark.parametrize("rendering_status", ["blocked", "failed"])
 def test_engine_keeps_render_blocked_later_phase_checks_non_executable(
     tmp_path: Path,
+    rendering_status: str,
 ) -> None:
     render_block_diagnostic = Diagnostic(
         code="RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS",
@@ -218,7 +222,7 @@ def test_engine_keeps_render_blocked_later_phase_checks_non_executable(
         name="missing_keys",
         check_type="missing_keys",
         operations=({"type": "key_diff", "direction": "source_minus_target"},),
-        rendering_status="blocked",
+        rendering_status=rendering_status,
         diagnostics=(render_block_diagnostic,),
     )
     artifact = _artifact(tmp_path, checks=(check,))

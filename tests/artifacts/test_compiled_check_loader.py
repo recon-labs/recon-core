@@ -390,9 +390,13 @@ def test_loader_reports_empty_operation_list_as_malformed_artifact(tmp_path: Pat
     assert "must not be empty" in diagnostic.message
 
 
-def test_loader_rejects_blocked_rendering_without_error_diagnostic(tmp_path: Path) -> None:
+@pytest.mark.parametrize("rendering_status", ["blocked", "failed"])
+def test_loader_rejects_blocked_or_failed_rendering_without_error_diagnostic(
+    tmp_path: Path,
+    rendering_status: str,
+) -> None:
     check = _compiled_check_payload()
-    check["rendering"] = {"status": "blocked", "sql_paths": []}
+    check["rendering"] = {"status": rendering_status, "sql_paths": []}
     payload = _compiled_checks_payload(checks=[check])
     _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
 

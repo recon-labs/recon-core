@@ -245,8 +245,17 @@ profiles:
     assert not (tmp_path / "state").exists()
 
 
-def test_run_service_blocks_row_count_with_blocked_compiled_rendering_status(
+@pytest.mark.parametrize(
+    ("rendering_status", "diagnostic_code"),
+    [
+        ("blocked", "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS"),
+        ("failed", "RC_ADAPTER_OPERATION_RENDER_FAILED"),
+    ],
+)
+def test_run_service_blocks_row_count_with_blocked_or_failed_compiled_rendering_status(
     tmp_path: Path,
+    rendering_status: str,
+    diagnostic_code: str,
 ) -> None:
     write_project(tmp_path, profile="local")
     write_profiles(
@@ -268,15 +277,13 @@ profiles:
         checks=[
             _compiled_check_payload(
                 operations=row_count_plan(),
-                rendering={"status": "blocked", "sql_paths": []},
+                rendering={"status": rendering_status, "sql_paths": []},
                 diagnostics=[
                     {
-                        "code": "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS",
+                        "code": diagnostic_code,
                         "severity": "error",
                         "message": (
-                            "SQL rendering for check `row_count_diff` was blocked because "
-                            "compile validation produced diagnostics before adapter rendering "
-                            "could start."
+                            f"SQL rendering for check `row_count_diff` was {rendering_status}."
                         ),
                         "resource_type": "compiled_check",
                         "resource_name": "check.ecommerce_recon.customer_revenue.row_count_diff",
@@ -300,9 +307,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run failed during check-engine evaluation."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS"
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [diagnostic_code]
     assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
