@@ -11,7 +11,10 @@ from recon_core.artifacts import (
     LoadedCompiledContractArtifact,
 )
 from recon_core.check_engine.dispatch import CheckDispatcher
-from recon_core.check_engine.execution import execute_row_count_check
+from recon_core.check_engine.execution import (
+    execute_row_count_check,
+    is_supported_row_count_plan_shape,
+)
 from recon_core.check_engine.models import (
     CheckReason,
     CheckResult,
@@ -235,6 +238,10 @@ _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
 
 def _rendering_blocked_result_if_needed(check: LoadedCompiledCheck) -> CheckResult | None:
     if check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES:
+        return None
+    if check.check_type != "row_count_diff":
+        return None
+    if not is_supported_row_count_plan_shape(check.plan.operations):
         return None
 
     message = (

@@ -205,6 +205,42 @@ def test_engine_mixes_executable_row_count_and_later_phase_checks(tmp_path: Path
     assert len(adapter.queries) == 1
 
 
+def test_engine_keeps_render_blocked_later_phase_checks_non_executable(
+    tmp_path: Path,
+) -> None:
+    render_block_diagnostic = Diagnostic(
+        code="RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS",
+        severity=DiagnosticSeverity.ERROR,
+        message="SQL rendering was blocked before adapter rendering could start.",
+    )
+    check = _check(
+        check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+        name="missing_keys",
+        check_type="missing_keys",
+        operations=({"type": "key_diff", "direction": "source_minus_target"},),
+        rendering_status="blocked",
+        diagnostics=(render_block_diagnostic,),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+    )
+
+    check_result = result.contract_results[0].check_results[0]
+    assert result.status is RunStatus.NOT_EXECUTABLE
+    assert check_result.status is CheckStatus.NOT_EXECUTABLE
+    assert not check_result.executed
+    assert check_result.reason_code is CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE
+    assert [diagnostic.code for diagnostic in check_result.diagnostics] == [
+        "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS",
+        "RC_RUNTIME_CHECK_NOT_EXECUTABLE",
+    ]
+
+
 def test_engine_blocks_dependent_check_when_row_count_prerequisite_fails(
     tmp_path: Path,
 ) -> None:
@@ -592,6 +628,7 @@ def _check(
     check_type: str = "row_count_diff",
     prerequisites: tuple[str, ...] = (),
     diagnostics: tuple[Diagnostic, ...] = (),
+    rendering_status: str | None = None,
     operations: tuple[dict[str, object], ...] | None = None,
     required_capabilities: tuple[str, ...] = (),
 ) -> LoadedCompiledCheck:
@@ -608,6 +645,7 @@ def _check(
             required_capabilities=required_capabilities,
         ),
         prerequisites=prerequisites,
+        rendering_status=rendering_status,
         diagnostics=diagnostics,
         payload={
             "identity": {
