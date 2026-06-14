@@ -47,6 +47,7 @@ def test_loader_loads_compiled_check_artifact_written_by_writer(tmp_path: Path) 
     assert loaded_check.check_type == "row_count_diff"
     assert loaded_check.contract_name == "customer_revenue"
     assert loaded_check.prerequisites == ()
+    assert loaded_check.rendering_status == "not_rendered"
     assert loaded_check.plan.id == "plan.ecommerce_recon.customer_revenue.row_count_diff"
     assert loaded_check.plan.operations == ({"type": "row_count", "side": "source"},)
     assert loaded_check.plan.required_capabilities == ()
@@ -387,6 +388,21 @@ def test_loader_reports_empty_operation_list_as_malformed_artifact(tmp_path: Pat
     assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
     assert "plan.operations" in diagnostic.message
     assert "must not be empty" in diagnostic.message
+
+
+def test_loader_rejects_blocked_rendering_without_error_diagnostic(tmp_path: Path) -> None:
+    check = _compiled_check_payload()
+    check["rendering"] = {"status": "blocked", "sql_paths": []}
+    payload = _compiled_checks_payload(checks=[check])
+    _write_payload(tmp_path / "target" / "compiled_checks" / "customer_revenue.yml", payload)
+
+    result = CompiledCheckLoader().load(tmp_path / "target")
+
+    assert not result.succeeded
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID"
+    assert "rendering.status" in diagnostic.message
+    assert "has no error diagnostic" in diagnostic.message
 
 
 @pytest.mark.parametrize(

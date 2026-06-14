@@ -33,6 +33,7 @@ from recon_core.check_engine import (
     RunStatus,
     is_supported_row_count_plan_shape,
 )
+from recon_core.compiler.models import RenderingStatus
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import (
     load_selected_profile_for_connection_names,
@@ -161,6 +162,12 @@ class RunService:
 
 
 _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES = ("row_count", "cte_support")
+_RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
+    {
+        RenderingStatus.BLOCKED.value,
+        RenderingStatus.FAILED.value,
+    }
+)
 
 
 def _prepare_runtime_execution_dependencies(
@@ -298,6 +305,7 @@ def _runtime_row_count_candidates(
             for check in artifact.checks
             if check.check_type == "row_count_diff"
             and is_supported_row_count_plan_shape(check.plan.operations)
+            and check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES
         )
         if not candidate_checks:
             continue

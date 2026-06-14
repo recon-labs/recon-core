@@ -19,6 +19,7 @@ from recon_core.check_engine.models import (
     ContractResult,
     RunResult,
 )
+from recon_core.compiler.models import RenderingStatus
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 BLOCKED_BY_PREREQUISITE = "RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE"
@@ -120,6 +121,11 @@ class CheckEngine:
             check_results_by_id[check.id] = blocked_result
             return blocked_result
 
+        rendering_blocked_result = _rendering_blocked_result_if_needed(check)
+        if rendering_blocked_result is not None:
+            check_results_by_id[check.id] = rendering_blocked_result
+            return rendering_blocked_result
+
         try:
             dispatch_result = self._dispatcher.dispatch(check)
             result = (
@@ -218,6 +224,34 @@ _DISPATCH_HARD_BLOCKING_REASONS = frozenset(
         CheckReason.UNSUPPORTED_MATERIALIZATION_POLICY,
     }
 )
+
+_RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
+    {
+        RenderingStatus.BLOCKED.value,
+        RenderingStatus.FAILED.value,
+    }
+)
+
+
+def _rendering_blocked_result_if_needed(check: LoadedCompiledCheck) -> CheckResult | None:
+    if check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES:
+        return None
+
+    message = (
+        f"Check `{check.name}` did not run because compiled rendering status is "
+        f"`{check.rendering_status}`."
+    )
+    return CheckResult(
+        check_id=check.id,
+        name=check.name,
+        check_type=check.check_type,
+        contract_name=check.contract_name,
+        status=CheckStatus.ERROR,
+        executed=False,
+        identity=_identity_label(check),
+        message=message,
+        diagnostics=check.diagnostics,
+    )
 
 
 def _row_count_execution_result_if_available(

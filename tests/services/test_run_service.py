@@ -245,6 +245,68 @@ profiles:
     assert not (tmp_path / "state").exists()
 
 
+def test_run_service_blocks_row_count_with_blocked_compiled_rendering_status(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(
+                operations=row_count_plan(),
+                rendering={"status": "blocked", "sql_paths": []},
+                diagnostics=[
+                    {
+                        "code": "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS",
+                        "severity": "error",
+                        "message": (
+                            "SQL rendering for check `row_count_diff` was blocked because "
+                            "compile validation produced diagnostics before adapter rendering "
+                            "could start."
+                        ),
+                        "resource_type": "compiled_check",
+                        "resource_name": "check.ecommerce_recon.customer_revenue.row_count_diff",
+                        "path": None,
+                        "line": None,
+                        "column": None,
+                        "hint": (
+                            "Fix the compile diagnostics and rerun `recon compile --render-sql`."
+                        ),
+                    }
+                ],
+            )
+        ],
+    )
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run failed during check-engine evaluation."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS"
+    ]
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_executes_row_count_with_actual_duckdb_relations_pass(
     tmp_path: Path,
 ) -> None:
@@ -1140,6 +1202,8 @@ def _compiled_check_payload(
     check_type: str = "row_count_diff",
     operations: list[dict[str, object]] | None = None,
     required_capabilities: list[str] | None = None,
+    rendering: dict[str, object] | None = None,
+    diagnostics: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     resolved_required_capabilities = (
         required_capabilities if required_capabilities is not None else ["row_count"]
@@ -1170,8 +1234,10 @@ def _compiled_check_payload(
             else [{"type": "row_count", "side": "source"}],
             "required_capabilities": resolved_required_capabilities,
         },
-        "rendering": {"status": "not_rendered", "sql_paths": []},
-        "diagnostics": [],
+        "rendering": rendering
+        if rendering is not None
+        else {"status": "not_rendered", "sql_paths": []},
+        "diagnostics": diagnostics if diagnostics is not None else [],
     }
 
 
