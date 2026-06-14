@@ -271,12 +271,12 @@ Recommended order:
 2. stabilize contract schema,
 3. stabilize parse/compile/run artifacts,
 4. stabilize adapter interface,
-5. create adapter test kit,
-6. split `recon-duckdb` and official adapters only after adapter conformance
-   gates are satisfied,
-7. create official check/policy packages,
-8. add the user-facing agent onboarding pack after the public local workflow is
+5. add the user-facing agent onboarding pack after the public local workflow is
    stable,
+6. create adapter test kit,
+7. split `recon-duckdb` and official adapters only after adapter conformance
+   gates are satisfied,
+8. create official check/policy packages,
 9. create Hub index,
 10. add metadata event exports after result and evidence metadata is stable,
 11. add optional local tool interfaces after the wrapped command surfaces are

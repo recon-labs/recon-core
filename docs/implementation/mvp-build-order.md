@@ -1116,6 +1116,8 @@ Required gates:
   row-data scans,
 - preserve the Gate 3A aggregate suggestion boundary for unsupported aggregate
   metrics,
+- resolve Gate 9: AI Assistant Provider, Prompt, And Model Governance before
+  any model-assisted or LLM-assisted suggestions are included,
 - apply source/target privacy rules before profile or suggestion output can
   expose sampled values, identifiers, or data-derived statistics.
 
