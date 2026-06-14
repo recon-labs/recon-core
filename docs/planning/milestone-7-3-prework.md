@@ -620,85 +620,104 @@ out-of-scope rationale before implementation starts.
 
 ## Acceptance And Conformance Matrix
 
-Step 5 must complete this section before Milestone 7.3 implementation starts.
-The matrix must be dimension-expanded and must not rely on examples alone.
+This matrix is the Step 5 high-risk control for Milestone 7.3. Every required
+row maps to a new implementation test, an existing test, or an explicit
+out-of-scope rationale. The implementation phase must not treat examples as
+complete coverage unless the sibling cases in this matrix are also covered.
 
-Required matrix placeholder dimensions:
-
-| Dimension | Required cases to complete in Step 5 | Expected behavior to lock |
-| --- | --- | --- |
-| Null-key checks | Source side, target side, single key, composite key, any component null, no nulls. | Null-key checks fail on null-containing grain tuples and pass otherwise. |
-| Duplicate-key checks | Source side, target side, fully non-null duplicate tuples, null-containing tuples, composite keys. | Duplicate checks operate on fully non-null tuples and do not absorb null-key semantics. |
-| Missing/extra key coverage | Missing keys, extra keys, duplicates present, nulls present, empty sides, composite keys. | Coverage compares distinct fully non-null tuples and does not imply value matching is safe. |
-| Prerequisite blocking | Failed, errored, missing, and not-executable null/duplicate prerequisites. | Dependent future row-level checks are `blocked` with `blocked_by` and safe diagnostics. |
-| Capability validation | Required key capabilities present, missing, unknown, unsupported, malformed, versioned, exception-raising. | Unsupported capability states block before execution. |
-| Placement | Same-context relation-backed, query endpoint, cross-adapter, cross-context, staging/materialization, Python fallback temptation. | Only same-context relation-backed execution may run. Other paths are `not_executable`. |
-| Scan budget | Explicit allowed budget, production unknown estimate, unsupported estimate, over budget, unsafe executing profile, bounded local/dev exception. | Unsafe scan paths become `not_executable`; bounded local/dev is allowed only if explicitly classified. |
-| Privacy | Counts/statuses, raw keys, raw rows, relation data, query text, DB errors, rendered profile values, failure samples. | Safe summaries only; sensitive values are not emitted. |
-| Output side effects | In-memory results, run-result artifact, evidence, reports, failure details, state, sinks, generated SQL. | Only in-memory results and diagnostics may exist. |
-| Future-scope exclusions | Row-level values, tolerance/null/normalization, schema, CDC, filters/windows, probabilistic key diff, aggregate execution. | Future behavior remains blocked, not executable, or out of scope with clear rationale. |
+| Dimension | Cases | Expected behavior | Test coverage | Docs or gate impact | Out-of-scope rationale |
+| --- | --- | --- | --- | --- | --- |
+| Check-pack and typed-plan input | `recon_core.basic_equivalence`, explicit compiled key checks, source and target sides, `grain.keys` present, `grain.keys` missing at compile time. | 7.3 consumes already compiled key-safety checks. The pack still expands to row count, missing, extra, null, and duplicate checks. Missing grain remains a compile-time validation error, not a runtime downgrade. | Existing: `tests/compiler/test_check_packs.py` covers pack expansion, grain identity, key-diff directions, null-key operations, duplicate-key operations, and missing-grain rejection. Add no 7.3 runtime YAML parsing tests because run consumes compiled artifacts only. | Gate 1A, ADR 0007, ADR 0014, check-pack docs. | Authored `checks: [...]`, new check-pack config, and runtime recompilation remain outside 7.3. |
+| Null-key checks | `null_source_keys`, `null_target_keys`, single key, composite keys, any component null, multiple null rows, no null rows, sampled metadata present. | A null-key check fails when any declared grain-key component is null on the checked side and passes when no checked tuple has a null component. Sampling does not remove the key-safety requirement. | Add check-engine and run-service tests for source, target, composite, any-component-null, no-null pass, and sampled contracts still requiring key safety. Renderer tests should assert null predicates for each grain component. | Gate 1A, Gate 6, sampling docs. | Raw null key examples and failed-key samples remain evidence/failure-detail scope. |
+| Duplicate-key checks | `duplicate_source_keys`, `duplicate_target_keys`, single key, composite keys, duplicate fully non-null tuples, null-containing duplicate candidates, duplicate and null failures in the same side. | Duplicate checks fail only for duplicate fully non-null grain tuples. Null-containing tuples belong to null-key checks. Duplicate checks still run when null-key checks fail so both safety signals are visible. | Add check-engine and run-service tests for source, target, composite duplicate, null-containing duplicate candidate excluded, duplicate plus null in one run. Renderer tests should assert duplicate grouping excludes or is evaluated over fully non-null tuples before failure classification. | Gate 1A, ADR 0007, ADR 0014. | Relaxed uniqueness modes remain future advanced contract work. |
+| Missing/extra key coverage | `missing_keys`, `extra_keys`, source-minus-target, target-minus-source, distinct fully non-null tuples, duplicates present, nulls present, composite keys, missing and extra in one run. | Missing/extra coverage compares distinct fully non-null grain tuples only. Nulls and duplicates are reported by their own safety checks and do not make missing/extra claim that row-level value matching is safe. | Existing: renderer tests assert key-diff direction, distinct non-null key CTEs, composite key comparison, and type checks. Add check-engine/run-service tests for missing, extra, duplicates present, nulls present, composite keys, and simultaneous missing/extra failures. | Gate 1A, Gate 4I, Gate 6. | Row-level value diff and failure-key export remain future evidence/value-comparison scope. |
+| Empty sides | Empty source, empty target, both sides empty, null-key checks on empty sides, duplicate-key checks on empty sides, missing/extra over empty sides. | Empty checked sides pass null/duplicate checks. Missing fails when source has distinct non-null keys and target is empty. Extra fails when target has distinct non-null keys and source is empty. Both sides empty pass key coverage. | Add run-service or check-engine fixture tests for empty source, empty target, and both sides empty across null, duplicate, missing, and extra checks. | Gate 1A, result-model docs. | Empty aggregate semantics remain 7.4. |
+| Key physical type mismatch | Source/target key type mismatch with rows, mismatch without rows, composite key with one mismatched component. | Recon must not silently coerce keys. A type mismatch fails closed as a sanitized runtime `error` or pre-execution `not_executable`, depending on where it is detected. It never becomes `pass` or a data mismatch. | Existing: `tests/adapters/test_duckdb_sql_renderer.py` covers key-diff type mismatch with and without rows. Add runtime tests that map adapter execution failure into safe diagnostics without raw query, relation data, or key values. | Gate 3F2, Gate 4I, no silent type coercion rule. | Portable cross-adapter key canonicalization and explicit type-cast policy remain future design work. |
+| Dependent blocking | Failed null prerequisite, failed duplicate prerequisite, errored prerequisite, missing prerequisite, blocked prerequisite, not-executable prerequisite, multiple prerequisites, duplicate prerequisite IDs. | Dependent future row-level value checks are `blocked`, include `blocked_by`, and use machine-readable prerequisite reasons. A blocked dependent check never runs and never looks skipped or passing. | Existing: `tests/check_engine/test_engine.py` covers prerequisite failed, missing, error, blocked, not executable, and duplicate missing prerequisite IDs. Add 7.3-specific tests where key-safety check names are the prerequisites and failures come from executed null/duplicate checks. | Gate 1A, result-model docs, ADR 0014. | Actual row-level value comparison remains later work. |
+| Capability block | `key_diff`, `null_key`, `duplicate_key`, same-context mechanics, `cte_support` where required, capability present, missing, unsupported, unknown, malformed, exception-raising, version-incompatible. | Unsupported capability states block before check execution and produce `not_executable` or configuration/runtime diagnostics according to existing adapter setup boundaries. No adapter query executes after a hard capability block. | Existing: run-service tests cover row-count capability support and missing required capability before connect. Add 7.3 tests for key capabilities and malformed or exception-raising capability declarations. | Gate 4I, compatibility capability catalog, adapter API compatibility docs. | External adapter test-kit conformance and production adapter execution claims remain future work. |
+| Placement/materialization block | Same-context relation-backed allowed, query endpoint block, cross-context block, cross-adapter block, unsupported execution placement, unsupported materialization/staging, third engine, side-local production key diff, no hidden Python fallback. | Only same-context relation-backed key-safety execution may run. Query endpoints, cross-context, cross-adapter, materialization/staging, third-engine comparison, side-local production key diff, and Python fallback are `not_executable` before data movement. | Existing: run-service tests cover query endpoint block, cross-context block, different adapter type block, same-context aliases allowed, unsupported placement/materialization block, and no generated outputs. Add 7.3 versions for key operations and assert no hidden Python fallback. | Gate 4I, ADR 0021. | Generic placement syntax, staging, temp tables, external comparison engines, and query endpoint execution remain future work. |
+| Scan-budget allowed path | Full scan allowed under explicit budget, bounded local/dev relation-backed fixture, scan classification present, non-executing estimate within limit when a production adapter can prove it. | A key-safety check may execute only when scope and budget status are explicit. Local/dev relation-backed fixtures may use the bounded exception if the context is explicitly classified local, relation-backed, and bounded. Production paths require non-executing estimate evidence inside the phase budget. | Add scan-budget policy tests for allowed bounded local/dev execution, explicit within-budget status, and recorded classification. No new contract YAML settings are used. | Gate 4L. | Full general user-facing budget settings remain future work. |
+| Scan-budget fail-closed path | Scan blocked over budget as `not_executable`, production unknown estimate as `not_executable`, unavailable estimate, unsupported estimation/capability as `not_executable`, malformed estimate, executing profile/analyze as unsafe preflight. | Over-budget and unsafe-estimate outcomes are execution-policy outcomes, not data failures. Recon must not run the scan, must not report mismatch evidence, and must not use executing profile/analyze as safe preflight by default. | Add scan-budget tests for over budget, unknown production estimate, unsupported estimate capability, malformed estimate, unsafe executing preflight, and adapter estimate support states. | Gate 4L, Gate 4I, Gate 6. | Adapter test-kit rows for production scan-estimation compatibility remain future work. |
+| Future user-facing budget settings boundary | No contract YAML scan-budget settings, no broad allow-unestimated production scan override, future project/profile/run policy or command option only after separate design, Recon-computed final budget status. | Milestone 7.3 does not add budget settings to contracts. Users may configure limits only in future designed surfaces; Recon computes final budget status from evidence and policy, not user-provided status text. | Add negative tests only if implementation introduces a parser/config surface by mistake. Otherwise this remains a prework/docs guardrail validated by docs scans and code review. | Gate 4L, public contract decision. | Contract-level budget policy requires a later public schema decision. |
+| Privacy and diagnostics | Safe status/reason/diagnostic fields, raw keys, raw rows, key lists, relation data, query text, rendered SQL, raw database errors, rendered profile values, credentials, DSN fragments, tracebacks, failure samples. | Public/service diagnostics preserve code, severity, safe message, safe context, and hint where available. They do not emit raw keys, key lists, rows, query text, rendered SQL, raw database errors, rendered profile values, credentials, DSNs, tracebacks, or failure samples. | Existing: run-service and check-engine tests cover sanitized engine, adapter, database, query endpoint, connection, and close failures. Add key-check and scan-budget diagnostic tests for no raw key output and no raw database/query leakage. | Gate 3F2, Gate 6, ADR 0022. | Evidence redaction, failure-detail masking, and secure debug artifacts remain later work. |
+| No-output side effects | In-memory results, `target/run_results.json`, `target/failures`, `reports`, `state`, compiled SQL, result tables, sink refs, artifact refs, stale preexisting outputs. | 7.3 writes no generated output and does not mutate stale generated output. In-memory results may carry empty artifact/sink references only. | Existing: check-engine and run-service tests cover no generated outputs and no stale-output mutation. Add 7.3 tests after key execution succeeds and fails. | Gate 6, ADR 0022, generated artifact lifecycle boundary. | Durable run results belong to Milestone 8; evidence and failure details belong to Milestone 9. |
+| Sampling/key-safety interaction | Contract sampling metadata present, full sampling mode, sampled row-level dependency, deterministic/random/windowed policy metadata not executed. | Sampled contracts still requiring key safety is mandatory. Sampling metadata does not bypass non-null or uniqueness requirements. Unsupported sampling execution policies remain not executable or future scope. | Add tests that compiled key-safety checks with sampling metadata still execute key safety or block dependent checks; do not add deterministic/random/window execution tests in 7.3. | Sampling docs, Gate 1A, Gate 4L for scan scope. | Sampling execution, persisted sample keys, windows, and watermarks remain future state/window work. |
+| Run-service boundary | Missing compiled checks, missing compiled contract, invalid/mismatched artifact, multiple contracts, one executable and one not executable, no parser/compiler invocation, profile resolution only for executable contracts. | `recon run` consumes compiled artifacts only and preserves existing artifact/runtime boundaries. Later-phase non-executable checks do not force unused profile rendering. | Existing: run-service tests cover missing artifacts, no parser fallback, empty check scope, mixed executable/later-phase checks, missing compiled contract, and ignored later-phase profile env. Add equivalent mixed row-count/key-safety cases where needed. | Runtime diagnostics docs, public contract inventory. | Selectors, partial compile, artifact freshness, and runtime recompilation remain future work. |
+| Future-scope exclusions | Row-level values, tolerance/null/normalization execution, schema execution, CDC key execution, aggregate execution, query endpoints, filters/windows, probabilistic key diff, no unbounded row fetch, no unbounded key-row movement into Core. | These surfaces remain blocked, `not_executable`, or out of scope with clear rationale. 7.3 must not introduce hidden Python fallback, unbounded row fetch, or unbounded key-row movement into Core. | Add negative tests where an unsupported compiled operation appears beside 7.3 key checks. Use docs/code review for out-of-scope surfaces not reachable by current runtime. | Gate 4I, Gate 4K, Gate 4L, Gate 6, ADR 0021, ADR 0022. | Each future surface needs its own gate, matrix, and tests before implementation. |
 
 ## Edge-Case Matrix
 
-Step 5 must complete this section before implementation starts.
-
-Required edge-case placeholders:
-
-- source null key,
-- target null key,
-- null in one component of a composite grain,
-- duplicate fully non-null source key,
-- duplicate fully non-null target key,
-- duplicate candidate containing a null component,
-- missing key with duplicate source rows,
-- extra key with duplicate target rows,
-- missing/extra with null-containing tuples,
-- empty source,
-- empty target,
-- both sides empty,
-- source/target key physical type mismatch,
-- unsupported key comparison capability,
-- unsupported same-context execution,
-- query endpoint check,
-- cross-context check,
-- production unknown scan estimate,
-- over-budget scan estimate,
-- unsafe executing profile/analyze preflight,
-- bounded local/dev relation-backed fixture,
-- dependent row-level value check blocked by failed prerequisite,
-- no raw key output,
-- no generated output.
+| Edge case | Expected behavior | Test mapping |
+| --- | --- | --- |
+| Source null key | `null_source_keys` fails with sanitized diagnostic and no raw key value. | Add check-engine/run-service key-safety test. |
+| Target null key | `null_target_keys` fails with sanitized diagnostic and no raw key value. | Add check-engine/run-service key-safety test. |
+| Null in one component of a composite grain | The relevant null-key check fails when any component is null. | Add composite key-safety test. |
+| Duplicate fully non-null source key | `duplicate_source_keys` fails. | Add check-engine/run-service duplicate test. |
+| Duplicate fully non-null target key | `duplicate_target_keys` fails. | Add check-engine/run-service duplicate test. |
+| Duplicate candidate containing a null component | Not counted as duplicate-key identity; reported by null-key check. | Add duplicate-plus-null test. |
+| Missing key with duplicate source rows | `missing_keys` compares distinct fully non-null source tuples and fails once for coverage. | Add key-diff result test. |
+| Extra key with duplicate target rows | `extra_keys` compares distinct fully non-null target tuples and fails once for coverage. | Add key-diff result test. |
+| Missing/extra with null-containing tuples | Null-containing tuples are excluded from key coverage and handled by null-key checks. | Add key-diff with null tuples test. |
+| Empty source | Source null/duplicate pass; `extra_keys` may fail if target has keys. | Add empty-side tests. |
+| Empty target | Target null/duplicate pass; `missing_keys` may fail if source has keys. | Add empty-side tests. |
+| Both sides empty | Null, duplicate, missing, and extra key checks pass. | Add both-empty test. |
+| Source/target key physical type mismatch | Fails closed as sanitized `error` or pre-execution `not_executable`; no coercion. | Existing renderer type-mismatch tests plus new runtime diagnostic test. |
+| Unsupported key comparison capability | `not_executable` or configuration error before adapter query execution. | Add key capability tests. |
+| Unsupported same-context execution | `not_executable`; no bridge, staging, or Python fallback. | Existing row-count placement tests plus new key-operation variants. |
+| Query endpoint check | `not_executable` before adapter execution and query text is not printed. | Existing query endpoint run-service test plus key-operation variant. |
+| Cross-context check | `not_executable`; no cross-context bridge or fallback. | Existing cross-context run-service test plus key-operation variant. |
+| Cross-adapter check | `not_executable`; no adapter-owned strategy substitution. | Existing different-adapter run-service test plus key-operation variant. |
+| Unsupported materialization/staging | `not_executable` before adapter setup where possible. | Existing placement/materialization test plus key-operation variant. |
+| Production unknown scan estimate | `not_executable` and no scan runs. | Add scan-budget test. |
+| Over-budget scan estimate | `not_executable`, not data failure. | Add scan-budget test. |
+| Unsupported or malformed estimation/capability | `not_executable` and safe diagnostic. | Add scan-budget/capability tests. |
+| Unsafe executing profile/analyze preflight | Rejected as safe preflight unless explicitly classified and budgeted. | Add scan-budget test. |
+| Full scan allowed under explicit budget | Executes only when scan scope and policy budget are explicit and within limit. | Add scan-budget allowed-path test. |
+| Bounded local/dev relation-backed fixture | May execute only when explicitly classified local, relation-backed, and bounded. | Add local/dev exception test. |
+| Future user-facing budget settings boundary | No contract YAML scan-budget setting is introduced in 7.3. | Docs scan and parser/config negative test only if a new surface appears. |
+| Dependent row-level check blocked by failed prerequisite | Dependent check is `blocked` with `blocked_by` and prerequisite reason. | Existing prerequisite tests plus key-safety prerequisite variants. |
+| Dependent row-level check blocked by missing/error/not-executable prerequisite | Dependent check is `blocked` and never runs. | Existing prerequisite tests plus key-safety prerequisite variants. |
+| Sampled contract with key-safety checks | Sampled contracts still require key safety; sampling does not bypass null/duplicate checks. | Add sampling metadata key-safety test. |
+| No raw key output | Public diagnostics/results omit raw keys and key lists. | Add privacy test for each key-failure family. |
+| No generated output | No run-result, evidence, report, failure-detail, compiled SQL, state, sink, or stale-output mutation. | Existing no-output tests plus 7.3 success/failure variants. |
+| No hidden Python fallback | No key rows are fetched into Core for comparison. | Add adapter query-count/no-fetch test around key operations. |
+| No unbounded row fetch | Adapter execution returns bounded status/count-style summaries only. | Add key-operation result-shape test. |
+| No unbounded key-row movement into Core | Key diff does not stream full key sets into Core by default. | Add key-diff result-shape and no-failure-detail tests. |
 
 ## BDD Workflow Scenarios
-
-Step 5 must complete this section before implementation starts.
-
-Required scenario placeholders:
 
 ### Scenario 1: Null-Key Check Fails
 
 Given a compiled relation-backed key-safety check exists for declared
 `grain.keys`.
-And one side contains a null in any declared grain-key component.
+And one side contains a null in any declared grain-key component, including a
+composite-key component.
 When the user runs `recon run`.
 Then the matching null-key check fails.
-And the diagnostic is safe.
+And the result status is `fail`.
+And the diagnostic is safe and machine-readable.
 And no raw key value or row value is emitted.
+And no generated output is written.
 
 ### Scenario 2: Duplicate-Key Check Fails
 
 Given a compiled duplicate-key safety check exists.
 And one side contains a duplicate fully non-null grain-key tuple.
+And another tuple may contain a null component.
 When the user runs `recon run`.
 Then the matching duplicate-key check fails.
 And null-containing tuples are not counted as duplicate-key identities.
+And null-containing tuples are handled by the null-key check.
+And both safety signals remain visible when both problems exist.
 
 ### Scenario 3: Missing Or Extra Key Check Fails
 
 Given compiled missing/extra key checks exist.
 And a distinct fully non-null key tuple exists on only one side.
+And duplicate or null-containing tuples may also exist.
 When the user runs `recon run`.
 Then the matching key-coverage check fails.
+And coverage is computed over distinct fully non-null tuples only.
 And the result does not imply row-level value comparison is safe.
 
 ### Scenario 4: Dependent Row-Level Check Is Blocked
@@ -709,8 +728,30 @@ executable.
 When the check engine evaluates dependencies.
 Then the dependent check is `blocked`.
 And `blocked_by` identifies the prerequisite.
+And the dependent check does not execute.
+And the outcome is not reported as `skipped`, `pass`, or `fail`.
 
-### Scenario 5: Production Unknown Scan Estimate Is Blocked
+### Scenario 5: Empty Sides Are Classified Correctly
+
+Given compiled null, duplicate, missing, and extra key checks exist.
+And source and target may be empty independently or both empty.
+When the user runs `recon run`.
+Then null and duplicate checks pass on empty sides.
+And missing or extra checks fail only when the opposite side has distinct
+fully non-null keys.
+And both sides empty passes key coverage.
+
+### Scenario 6: Key Type Mismatch Fails Closed
+
+Given source and target expose the same grain-key name with incompatible
+physical types.
+When a key coverage check prepares or executes comparison.
+Then Recon does not coerce values.
+And the check fails closed as a sanitized runtime `error` or pre-execution
+`not_executable`.
+And no raw query, relation data, key value, or database error text is emitted.
+
+### Scenario 7: Production Unknown Scan Estimate Is Blocked
 
 Given a production adapter path cannot provide the required scan estimate.
 When a grain-key safety check is prepared for execution.
@@ -718,14 +759,15 @@ Then the check is `not_executable`.
 And the reason is scan-estimate related.
 And Recon does not run the scan.
 
-### Scenario 6: Over-Budget Scan Is Not Executable
+### Scenario 8: Over-Budget Scan Is Not Executable
 
 Given a scan estimate exceeds the configured or phase-defined budget.
 When a grain-key safety check is prepared for execution.
 Then the check is `not_executable`.
 And the outcome is not reported as a data failure.
+And no source-target mismatch evidence is produced.
 
-### Scenario 7: Bounded Local Fixture May Execute
+### Scenario 9: Bounded Local Fixture May Execute
 
 Given the execution context is explicitly classified as local, relation-backed,
 and bounded.
@@ -733,71 +775,94 @@ When a grain-key safety check has no production scan estimate.
 Then the check may execute under the bounded local/dev exception.
 And the result must record that it used the bounded local classification.
 
-### Scenario 8: Unsupported Placement Does Not Fall Back
+### Scenario 10: Unsupported Estimation Or Capability Is Not Executable
+
+Given the adapter cannot provide required key-check capability or exposes an
+unsupported, unknown, malformed, or unsafe estimate capability.
+When a grain-key safety check is prepared for execution.
+Then the check is `not_executable` or fails adapter setup with a sanitized
+configuration diagnostic.
+And no adapter query runs after the hard blocker is identified.
+
+### Scenario 11: Unsupported Placement Does Not Fall Back
 
 Given a compiled key check requires query endpoints, cross-context execution,
 materialization, staging, or Python fallback.
 When the user runs `recon run`.
 Then Recon reports `not_executable`.
 And no alternate comparison strategy runs silently.
+And there is no hidden Python fallback, no unbounded row fetch, and no
+unbounded key-row movement into Core.
 
-### Scenario 9: No Generated Output Is Written
+### Scenario 12: Sampled Contracts Still Require Key Safety
+
+Given a compiled contract includes sampling metadata or a sampled future
+row-level check depends on grain keys.
+When grain-key safety checks run or dependency evaluation happens.
+Then null-key and duplicate-key requirements still apply.
+And sampled metadata does not permit row-level matching without non-null and
+unique grain keys.
+
+### Scenario 13: No Generated Output Is Written
 
 Given writable `target/`, `reports/`, and `state/` directories exist.
 When Milestone 7.3 grain-key safety execution completes.
 Then Recon does not create, update, delete, or claim any run-result, evidence,
 report, failure-detail, state, compiled SQL, result-table, sink, or hosted-sync
 output.
+And preexisting generated output remains untouched.
 
 ## Gate Satisfaction Proof
 
-This section proves that the design gates needed for Milestone 7.3 are
-represented before implementation. Step 5 must complete the final proof table
-before coding starts.
+This section proves that Step 5 has mapped the design gates needed for
+Milestone 7.3 into concrete matrix rows, scenarios, and tests. Implementation
+must still wait for the remaining prework steps to align public planning docs,
+finish the exact implementation map, and run final validation.
 
-| Gate | Step 4 status | Proof in this prework |
+| Gate | Step 5 status | Proof in this prework |
 | --- | --- | --- |
-| Split decision | Satisfied for Step 4. | Milestone 7 remains split and 7.3 owns only grain-key safety execution. |
-| High-risk milestone prework | Partially satisfied for Step 4. | Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, scan/cost, required tests, matrix placeholders, BDD placeholders, phase-exit placeholders, implementation-map placeholders, DoD, and blockers are documented. Step 5 must complete the full matrix and BDD content. |
-| Gate 1A: key semantics | Partially satisfied for Step 4. | `grain.keys` is the only identity, `cdc.keys` is out of scope, and null/duplicate/missing/extra semantics are locked. Step 5 must map all cases to matrix rows and tests. |
-| Gate 3F2: diagnostic output message conformance | Partially satisfied for Step 4. | Diagnostics must preserve code, severity, safe message, and useful context while suppressing unsafe data. Step 5 must map diagnostic cases to tests. |
-| Gate 4I: comparison execution placement | Partially satisfied for Step 4. | Same-context relation-backed execution is the only allowed placement. Python fallback, query endpoints, staging, materialization, cross-adapter, and cross-context execution are forbidden. |
-| Gate 4K: probabilistic key-diff | Not applicable to 7.3 as scoped. | Probabilistic, Bloom, sketch, checksum, bisection, and chunked key-diff strategies are out of scope. Gate 4K remains future if such strategies are proposed later. |
-| Gate 4L: scan budget and query-plan safety | Partially satisfied for Step 4. | Bounded 7.3 policy is locked: production unknown estimates and over-budget scans become `not_executable`; bounded local/dev exceptions require explicit classification; full settings remain future work. Step 5 must map concrete rows and tests. |
-| Gate 6: privacy, evidence, and failure detail | Partially satisfied for Step 4. | Raw keys, rows, query text, database errors, rendered profile values, failure details, evidence, and sinks remain out of scope. Counts/statuses/safe diagnostics only. |
-| Adapter API and capability compatibility | Partially satisfied for Step 4. | Required capabilities are named and unsupported states fail closed. No adapter API version or external compatibility claim is made. |
-| Generated artifact lifecycle | Partially satisfied for Step 4. | 7.3 writes no generated run results, evidence, failure details, reports, state, sinks, or compiled SQL. Step 5 must map no-output tests. |
-| Public contract compatibility | Partially satisfied for Step 4. | Public behavior is narrow in-memory execution for compiled relation-backed key checks. No YAML, artifact schema, result schema, evidence schema, sink schema, or adapter API version change is planned. |
+| Split decision | Satisfied for Step 5. | Split Decision remains `Already Split / Follow Existing Split`. 7.3 owns only grain-key safety execution inside the existing Milestone 7 split. |
+| High-risk milestone prework | Satisfied for Step 5-owned artifacts. | Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, scan/cost, required tests, matrix, edge cases, BDD scenarios, gate proof, phase-exit checklist, and DoD are now concrete. Steps 6-8 still own public-doc alignment, exact implementation map, and final validation. |
+| Gate 1A: key semantics | Satisfied for Step 5 design lock. | Matrix rows cover `grain.keys` only, null keys, duplicate keys, missing/extra keys, composite keys, empty sides, sampled contracts still requiring key safety, and dependent blocking. |
+| Gate 3F2: diagnostic output message conformance | Satisfied for Step 5 design lock. | Matrix rows and scenarios require safe code/severity/message/context/hint behavior and no raw keys, raw rows, relation data, query text, rendered SQL, database errors, profile values, credentials, DSNs, or tracebacks. |
+| Gate 4I: comparison execution placement | Satisfied for Step 5 design lock. | Matrix rows cover same-context relation-backed allowed path, query endpoint block, cross-context block, cross-adapter block, capability block, placement/materialization block, no hidden Python fallback, no unbounded row fetch, and no unbounded key-row movement into Core. |
+| Gate 4K: probabilistic key-diff | Satisfied as not applicable to 7.3. | Matrix and non-goals explicitly exclude probabilistic, Bloom, sketch, checksum, bisection, chunked, and threshold-based key-diff strategies. Future use must reopen Gate 4K. |
+| Gate 4L: scan budget and query-plan safety | Satisfied for Step 5 bounded policy. | Matrix rows cover full scan allowed under explicit budget, scan blocked over budget as `not_executable`, production unknown estimate as `not_executable`, bounded local/dev fixture exception, unsupported estimation/capability as `not_executable`, unsafe executing profile/analyze rejection, and future user-facing budget settings boundary. |
+| Gate 6: privacy, evidence, and failure detail | Satisfied for Step 5 design lock. | Matrix rows cover privacy, no-output, no raw key output, no failure details, no generated run-result/evidence/report/state/sink output, and no stale generated output mutation. |
+| Adapter API and capability compatibility | Satisfied for Step 5 design lock. | Matrix rows require key-diff, null-key, duplicate-key, same-context, and CTE capability checks while explicitly avoiding adapter API version changes, production adapter compatibility claims, and shared adapter test-kit publication. |
+| Generated artifact lifecycle | Satisfied for Step 5 design lock. | Matrix and scenarios require only in-memory results and empty artifact/sink references. No runtime-generated `target/`, `reports/`, `state/`, compiled SQL, evidence, result table, or sink output is assigned to 7.3. |
+| Public contract compatibility | Satisfied for Step 5 design lock. | Public change remains narrow: in-memory runtime execution of already compiled relation-backed grain-key safety checks. No YAML schema, durable artifact schema, evidence schema, sink schema, or adapter API version change is proposed. |
 
 ## Phase-Exit Checklist
 
-Step 5 must complete this checklist before implementation starts:
+This is the pre-implementation phase-exit checklist for Milestone 7.3. Step 5
+completes the matrix, gate, BDD, and DoD portions; later prework steps must
+finish public-doc alignment, exact implementation mapping, and final validation.
 
-- [ ] Split Decision remains `Already Split / Follow Existing Split`.
-- [ ] `docs/planning/milestone-7-3-prework.md` contains complete scope,
-  non-goals, expected behavior, diagnostics, compatibility, privacy, placement,
-  scan/cost, evidence/sink/state constraints, matrix, BDD scenarios,
-  implementation map, and DoD.
-- [ ] Gate 4L scan-budget rows are mapped to tests.
-- [ ] Gate 4I placement rows are mapped to tests.
-- [ ] Gate 6 privacy/output rows are mapped to tests.
-- [ ] Null-key, duplicate-key, missing-key, and extra-key semantics are mapped
-  to tests.
-- [ ] Dependent row-level blocking semantics are mapped to tests.
-- [ ] No public doc contains external research attribution introduced during
-  this session.
-- [ ] No hard milestone labels were added to prohibited durable docs.
-- [ ] No authored YAML schema change is proposed for 7.3.
-- [ ] No contract-level scan-budget setting is proposed for 7.3.
-- [ ] No compiled artifact schema change is proposed for 7.3 unless a separate
-  compatibility review documents it.
-- [ ] No adapter API version change is proposed for 7.3 unless a separate
-  compatibility review documents it.
-- [ ] No run-result, evidence, report, failure-detail, state, sink, or
-  result-table output is assigned to 7.3.
-- [ ] Future implementation tests are planned before source changes.
-- [ ] Validation commands for the prework session pass or any skipped
-  validation is explicitly justified.
+| Check | Status after Step 5 | Owner before coding |
+| --- | --- | --- |
+| Split Decision remains `Already Split / Follow Existing Split`. | Done. | Step 5 |
+| Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, scan/cost, evidence/sink/state constraints, matrix, BDD scenarios, gate proof, and DoD are complete. | Done for Step 5-owned sections. | Step 5 |
+| Acceptance/conformance matrix maps every required 7.3 behavior to a test, existing test, or out-of-scope rationale. | Done. | Step 5 |
+| Edge-case matrix covers null keys, duplicate keys, missing/extra keys, composite keys, empty sides, type mismatch, capability block, placement block, scan-budget block, sampling, privacy, and no-output. | Done. | Step 5 |
+| BDD scenarios cover user-facing runtime paths. | Done. | Step 5 |
+| Gate 4L scan-budget rows are mapped to tests. | Done. | Step 5 |
+| Gate 4I placement rows are mapped to tests. | Done. | Step 5 |
+| Gate 6 privacy/output rows are mapped to tests. | Done. | Step 5 |
+| Null-key, duplicate-key, missing-key, and extra-key semantics are mapped to tests. | Done. | Step 5 |
+| Dependent row-level blocking semantics are mapped to tests. | Done. | Step 5 |
+| Existing public planning and compatibility docs are aligned with the new prework. | Pending. | Step 6 |
+| Exact source map, test-first map, implementation sequence, validation commands, risks, and rollback points are complete. | Pending. | Step 7 |
+| Prompt/docs drift check and final validation pass. | Pending. | Step 8 |
+| No public doc contains external research attribution introduced during this session. | Must be revalidated after each public-doc edit. | Step 6 and Step 8 |
+| No hard milestone labels were added to prohibited durable docs. | Must be revalidated after each public-doc edit. | Step 6 and Step 8 |
+| No authored YAML schema change is proposed for 7.3. | Done. | Step 5 |
+| No contract-level scan-budget setting is proposed for 7.3. | Done. | Step 5 |
+| No compiled artifact schema change is proposed for 7.3 unless a separate compatibility review documents it. | Done for current plan. | Step 5, recheck in Step 7 |
+| No adapter API version change is proposed for 7.3 unless a separate compatibility review documents it. | Done for current plan. | Step 5, recheck in Step 7 |
+| No run-result, evidence, report, failure-detail, state, sink, or result-table output is assigned to 7.3. | Done. | Step 5 |
+| Future implementation tests are planned before source changes. | Done at matrix level; exact order pending. | Step 7 |
+| Validation commands for the prework session pass or any skipped validation is explicitly justified. | Pending final run. | Step 8 |
 
 ## Implementation Map
 
@@ -895,9 +960,10 @@ feat: execute grain-key safety checks
 
 Split Decision: Already Split / Follow Existing Split.
 
-Readiness status after Step 4: not implementation-ready yet.
+Readiness status after Step 5: not implementation-ready yet.
 
-This artifact now locks the public Step 4 behavior for Milestone 7.3:
+This artifact now locks the public Step 5 behavior and planning controls for
+Milestone 7.3:
 
 - scope,
 - non-goals,
@@ -912,17 +978,18 @@ This artifact now locks the public Step 4 behavior for Milestone 7.3:
 - public contract decision,
 - changelog decision,
 - required tests,
-- matrix placeholders,
-- BDD placeholders,
-- gate proof placeholders,
-- phase-exit checklist,
+- dimension-expanded acceptance/conformance matrix,
+- edge-case matrix,
+- BDD workflow scenarios,
+- gate satisfaction proof,
+- phase-exit checklist with remaining owners,
 - implementation-map placeholders,
 - Definition of Done,
 - remaining blockers.
 
-Implementation must not start until Steps 5, 6, 7, and 8 complete the matrix,
-BDD scenarios, gate proof, public-doc alignment, exact implementation plan, and
-final validation.
+Implementation must not start until Steps 6, 7, and 8 complete public-doc
+alignment, the exact implementation plan, prompt/docs drift validation, final
+validation, and companion brain-dump closeout.
 
 ## Definition Of Done
 
@@ -930,9 +997,14 @@ Milestone 7.3 prework is complete only when:
 
 - this prework artifact is complete,
 - existing public docs align with this prework,
-- the final acceptance/conformance matrix maps every required behavior to a
-  test, existing test, or explicit out-of-scope rationale,
-- BDD workflow scenarios cover the user-facing runtime paths,
+- the final acceptance/conformance matrix maps every required behavior to a new
+  test, an existing test, or explicit out-of-scope rationale,
+- the edge-case matrix covers null keys, duplicate keys, missing/extra keys,
+  composite keys, empty sides, type mismatch, capability block,
+  placement/materialization block, scan-budget block, sampling, privacy, and
+  no-output behavior,
+- BDD workflow scenarios cover the user-facing runtime paths and safety
+  blockers,
 - gate satisfaction proof is complete,
 - phase-exit checklist is complete,
 - exact future implementation plan is complete,
@@ -946,27 +1018,35 @@ Milestone 7.3 implementation is complete only when:
 - null-key checks fail on null-containing grain tuples,
 - duplicate-key checks fail on duplicate fully non-null grain tuples,
 - missing/extra checks compare distinct fully non-null grain tuples,
+- empty source, empty target, and both-empty cases follow the accepted
+  key-safety matrix,
+- source/target key physical type mismatches fail closed without type coercion,
 - dependent future row-level checks are blocked when key prerequisites fail,
   error, are missing, or are not executable,
 - unsupported capabilities, unsupported placement, unsupported materialization,
-  unknown production estimates, unsupported estimates, over-budget scans, query
-  endpoints, cross-context execution, and Python fallback remain blocked or
-  not executable,
+  unknown production estimates, unsupported estimates, malformed estimates,
+  over-budget scans, unsafe executing profile/analyze preflight, query
+  endpoints, cross-context execution, cross-adapter execution, and Python
+  fallback remain blocked or not executable,
+- full scan allowed under explicit budget works only when scan scope and budget
+  status are explicit,
+- bounded local/dev fixture execution works only when explicitly classified as
+  local, relation-backed, and bounded,
+- future user-facing budget settings remain outside 7.3,
+- sampled contracts still require key safety,
 - runtime diagnostics are sanitized,
 - raw keys and raw rows do not appear in public output,
+- no unbounded row fetch or unbounded key-row movement into Core occurs,
 - no generated result/evidence/report/failure/state/sink output is written,
 - required targeted tests pass,
 - full phase-exit validation passes or deviations are explicitly approved.
 
 ## Remaining Blockers
 
-Milestone 7.3 is not implementation-ready after Step 4.
+Milestone 7.3 is not implementation-ready after Step 5.
 
 Remaining prework blockers:
 
-- Step 5 must complete the acceptance/conformance matrix, edge-case matrix,
-  BDD scenarios, gate satisfaction proof, phase-exit checklist, and concrete
-  scan-budget status/test rows.
 - Step 6 must align existing public planning and compatibility docs after this
   prework artifact becomes authoritative.
 - Step 7 must complete the exact future implementation plan and readiness
