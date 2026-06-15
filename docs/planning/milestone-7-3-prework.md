@@ -817,14 +817,13 @@ And preexisting generated output remains untouched.
 ## Gate Satisfaction Proof
 
 This section proves that Step 5 has mapped the design gates needed for
-Milestone 7.3 into concrete matrix rows, scenarios, and tests. Implementation
-must still wait for the final prework step to run prompt/docs drift validation,
-close out the companion brain dump, and report the locked implementation scope.
+Milestone 7.3 into concrete matrix rows, scenarios, and tests. Step 8 completed
+the prompt/docs drift validation and closeout report for this prework session.
 
 | Gate | Step 5 status | Proof in this prework |
 | --- | --- | --- |
 | Split decision | Satisfied for Step 5. | Split Decision remains `Already Split / Follow Existing Split`. 7.3 owns only grain-key safety execution inside the existing Milestone 7 split. |
-| High-risk milestone prework | Satisfied for Step 7-owned public artifacts. | Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, scan/cost, required tests, matrix, edge cases, BDD scenarios, gate proof, phase-exit checklist, DoD, public-doc alignment, and exact implementation map are now concrete. Step 8 still owns prompt/docs drift validation and final closeout. |
+| High-risk milestone prework | Satisfied for Step 8 prework closeout. | Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, scan/cost, required tests, matrix, edge cases, BDD scenarios, gate proof, phase-exit checklist, DoD, public-doc alignment, exact implementation map, prompt/docs drift validation, and final closeout are now complete. |
 | Gate 1A: key semantics | Satisfied for Step 5 design lock. | Matrix rows cover `grain.keys` only, null keys, duplicate keys, missing/extra keys, composite keys, empty sides, sampled contracts still requiring key safety, and dependent blocking. |
 | Gate 3F2: diagnostic output message conformance | Satisfied for Step 5 design lock. | Matrix rows and scenarios require safe code/severity/message/context/hint behavior and no raw keys, raw rows, relation data, query text, rendered SQL, database errors, profile values, credentials, DSNs, or tracebacks. |
 | Gate 4I: comparison execution placement | Satisfied for Step 5 design lock. | Matrix rows cover same-context relation-backed allowed path, query endpoint block, cross-context block, cross-adapter block, capability block, placement/materialization block, no hidden Python fallback, no unbounded row fetch, and no unbounded key-row movement into Core. |
@@ -840,7 +839,7 @@ close out the companion brain dump, and report the locked implementation scope.
 This is the pre-implementation phase-exit checklist for Milestone 7.3. Step 5
 completed the matrix, gate, BDD, and DoD portions. Step 6 aligned existing
 public planning and compatibility docs. Step 7 completes the exact future
-implementation map. Step 8 still owns final validation and closeout.
+implementation map. Step 8 completed final validation and closeout.
 
 | Check | Status after Step 5 | Owner before coding |
 | --- | --- | --- |
@@ -856,16 +855,16 @@ implementation map. Step 8 still owns final validation and closeout.
 | Dependent row-level blocking semantics are mapped to tests. | Done. | Step 5 |
 | Existing public planning and compatibility docs are aligned with the new prework. | Done. | Step 6 |
 | Exact source map, test-first map, implementation sequence, validation commands, risks, and rollback points are complete. | Done. | Step 7 |
-| Prompt/docs drift check and final validation pass. | Pending. | Step 8 |
-| No public doc contains external research attribution introduced during this session. | Must be revalidated after each public-doc edit. | Step 6 and Step 8 |
-| No hard milestone labels were added to prohibited durable docs. | Must be revalidated after each public-doc edit. | Step 6 and Step 8 |
+| Prompt/docs drift check and final validation pass. | Done. | Step 8 |
+| No public doc contains external research attribution introduced during this session. | Done for touched public docs in final validation. | Step 8 |
+| No hard milestone labels were added to prohibited durable docs. | Done for touched public docs in final validation. | Step 8 |
 | No authored YAML schema change is proposed for 7.3. | Done. | Step 5 |
 | No contract-level scan-budget setting is proposed for 7.3. | Done. | Step 5 |
 | No compiled artifact schema change is proposed for 7.3 unless a separate compatibility review documents it. | Done for current plan. | Step 7 recheck found no schema change needed. |
 | No adapter API version change is proposed for 7.3 unless a separate compatibility review documents it. | Done for current plan. | Step 7 recheck found no adapter API version change needed. |
 | No run-result, evidence, report, failure-detail, state, sink, or result-table output is assigned to 7.3. | Done. | Step 5 |
 | Future implementation tests are planned before source changes. | Done. | Step 7 |
-| Validation commands for the prework session pass or any skipped validation is explicitly justified. | Pending final run. | Step 8 |
+| Validation commands for the prework session pass or any skipped validation is explicitly justified. | Done. | Step 8 |
 
 ## Implementation Map
 
@@ -1088,8 +1087,8 @@ feat: execute grain-key safety checks
 
 Split Decision: Already Split / Follow Existing Split.
 
-Readiness status after Step 7: plan-complete, but not implementation-ready until
-Step 8 final validation and companion closeout pass.
+Readiness status after Step 8: implementation prework complete for future
+Milestone 7.3 coding.
 
 This artifact now locks the public behavior, planning controls, and future
 implementation plan for Milestone 7.3:
@@ -1122,10 +1121,10 @@ implementation plan for Milestone 7.3:
 - Definition of Done,
 - remaining blockers.
 
-No known design, gate, public-doc alignment, source-map, test-map, or sequencing
-blocker remains after Step 7. Implementation must still wait until Step 8 runs
-the final prompt/docs drift validation, validation commands, status checks, and
-companion brain-dump closeout.
+No known design, gate, public-doc alignment, source-map, test-map, sequencing,
+prompt/docs drift, or final-validation blocker remains after Step 8.
+Implementation remains a separate future task and must start from this prework,
+the companion closeout, and the required routed context reads before coding.
 
 ## Definition Of Done
 
@@ -1179,9 +1178,8 @@ Milestone 7.3 implementation is complete only when:
 
 ## Remaining Blockers
 
-Milestone 7.3 is not implementation-ready after Step 7.
+No prework blockers remain for Milestone 7.3 after Step 8.
 
-Remaining prework blocker:
-
-- Step 8 must run final validation, close out the companion brain dump, and
-  report what is locked for 7.3.
+Implementation remains a separate future coding session. It must still follow
+the test-first implementation sequence, required routed instructions, public
+contract review, and phase-exit validation in this artifact.
