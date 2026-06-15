@@ -488,8 +488,14 @@ gate before key checks execute.
 This phase locks a bounded policy only:
 
 - scan scope and budget status must be explicit before execution,
-- production unknown or unavailable scan estimates become `not_executable`,
-- over-budget checks become `not_executable`, not data failures,
+- the only M7.3 allowed execution path is explicit bounded local/dev
+  relation-backed execution,
+- production key-safety scan paths remain `not_executable` until Milestone 8
+  locks the first user-facing scan-budget settings surface and compatibility
+  policy,
+- production estimate-present, unknown, unavailable, unsupported, malformed,
+  unsafe, or over-budget scan preflight outcomes are `not_executable`, not data
+  failures,
 - unsupported or malformed estimate capability becomes `not_executable`,
 - executing profile/analyze modes are not safe preflight by default,
 - bounded local/dev fixture exceptions are allowed only if explicitly
@@ -504,11 +510,15 @@ future home for general execution-safety policy is project, profile/target, or
 run policy unless a later decision explicitly chooses otherwise. Milestone 8
 owns the first user-facing scan-budget settings decision for `recon run`
 execution policy; Milestone 7.3 only owns the bounded internal policy required
-to keep grain-key safety execution safe.
+to keep grain-key safety execution safe in local/dev relation-backed contexts.
 
-Recon computes budget status from adapter plan/estimate evidence, adapter
-capability state, placement policy, configured limits, and bounded local/dev
-classification. Users do not set final budget status directly.
+For Milestone 7.3, Recon computes budget status from adapter capability state,
+placement policy, scan classification, and bounded local/dev classification. It
+does not read project, profile, run-policy, command, contract, or user-provided
+scan limits, and it does not accept user-provided final budget status. Any
+production path that would need the future Milestone 8 settings surface or
+production scan-estimation compatibility is `not_executable` until that
+settings decision admits and tests the surface.
 
 ## Evidence, Sink, And State Constraint
 
@@ -641,9 +651,9 @@ complete coverage unless the sibling cases in this matrix are also covered.
 | Dependent blocking | Failed null prerequisite, failed duplicate prerequisite, errored prerequisite, missing prerequisite, blocked prerequisite, not-executable prerequisite, multiple prerequisites, duplicate prerequisite IDs. | Dependent future row-level value checks are `blocked`, include `blocked_by`, and use machine-readable prerequisite reasons. A blocked dependent check never runs and never looks skipped or passing. | Existing: `tests/check_engine/test_engine.py` covers prerequisite failed, missing, error, blocked, not executable, and duplicate missing prerequisite IDs. Add 7.3-specific tests where key-safety check names are the prerequisites and failures come from executed null/duplicate checks. | Gate 1A, result-model docs, ADR 0014. | Actual row-level value comparison remains later work. |
 | Capability block | `key_diff`, `null_key`, `duplicate_key`, same-context mechanics, `cte_support` where required, capability present, missing, unsupported, unknown, malformed, exception-raising, version-incompatible. | Unsupported capability states block before check execution and produce `not_executable` or configuration/runtime diagnostics according to existing adapter setup boundaries. No adapter query executes after a hard capability block. | Existing: run-service tests cover row-count capability support and missing required capability before connect. Add 7.3 tests for key capabilities and malformed or exception-raising capability declarations. | Gate 4I, compatibility capability catalog, adapter API compatibility docs. | External adapter test-kit conformance and production adapter execution claims remain future work. |
 | Placement/materialization block | Same-context relation-backed allowed, query endpoint block, cross-context block, cross-adapter block, unsupported execution placement, unsupported materialization/staging, third engine, side-local production key diff, no hidden Python fallback. | Only same-context relation-backed key-safety execution may run. Query endpoints, cross-context, cross-adapter, materialization/staging, third-engine comparison, side-local production key diff, and Python fallback are `not_executable` before data movement. | Existing: run-service tests cover query endpoint block, cross-context block, different adapter type block, same-context aliases allowed, unsupported placement/materialization block, and no generated outputs. Add 7.3 versions for key operations and assert no hidden Python fallback. | Gate 4I, ADR 0021. | Generic placement syntax, staging, temp tables, external comparison engines, and query endpoint execution remain future work. |
-| Scan-budget allowed path | Full scan allowed under explicit budget, bounded local/dev relation-backed fixture, scan classification present, non-executing estimate within limit when a production adapter can prove it. | A key-safety check may execute only when scope and budget status are explicit. Local/dev relation-backed fixtures may use the bounded exception if the context is explicitly classified local, relation-backed, and bounded. Production paths require non-executing estimate evidence inside the phase budget. | Add scan-budget policy tests for allowed bounded local/dev execution, explicit within-budget status, and recorded classification. No new contract YAML settings are used. | Gate 4L. | Full general user-facing budget settings remain future work. |
-| Scan-budget fail-closed path | Scan blocked over budget as `not_executable`, production unknown estimate as `not_executable`, unavailable estimate, unsupported estimation/capability as `not_executable`, malformed estimate, executing profile/analyze as unsafe preflight. | Over-budget and unsafe-estimate outcomes are execution-policy outcomes, not data failures. Recon must not run the scan, must not report mismatch evidence, and must not use executing profile/analyze as safe preflight by default. | Add scan-budget tests for over budget, unknown production estimate, unsupported estimate capability, malformed estimate, unsafe executing preflight, and adapter estimate support states. | Gate 4L, Gate 4I, Gate 6. | Adapter test-kit rows for production scan-estimation compatibility remain future work. |
-| Future user-facing budget settings boundary | No contract YAML scan-budget settings, no broad allow-unestimated production scan override, future project/profile/run policy or command option only after separate design, Recon-computed final budget status. | Milestone 7.3 does not add budget settings to contracts. Users may configure limits only in future designed surfaces; Recon computes final budget status from evidence and policy, not user-provided status text. | Add negative tests only if implementation introduces a parser/config surface by mistake. Otherwise this remains a prework/docs guardrail validated by docs scans and code review. | Gate 4L, public contract decision. | Contract-level budget policy requires a later public schema decision. |
+| Scan-budget allowed path | Bounded local/dev relation-backed fixture, scan classification present, explicit bounded-local budget status. | A key-safety check may execute only when scope and budget status are explicit and the context is explicitly classified as local, relation-backed, and bounded. M7.3 has no production within-budget execution path. | Add scan-budget policy tests for allowed bounded local/dev execution, recorded bounded-local classification, and no new contract YAML settings. | Gate 4L. | Full general user-facing budget settings and production within-budget execution remain future work. |
+| Scan-budget fail-closed path | Production estimate present, production unknown estimate, unavailable estimate, unsupported estimation/capability, malformed estimate, executing profile/analyze as unsafe preflight, over-budget preflight if a future or adapter-provided policy reports it. | Production estimate-dependent paths are `not_executable` in M7.3 because no user-facing budget settings or production adapter scan-estimation compatibility is locked yet. Unsafe-estimate and over-budget outcomes are execution-policy outcomes, not data failures. Recon must not run the scan, must not report mismatch evidence, and must not use executing profile/analyze as safe preflight by default. | Add scan-budget tests for production estimate present but blocked, unknown production estimate, unsupported estimate capability, malformed estimate, unsafe executing preflight, over-budget signals when representable, and adapter estimate support states. | Gate 4L, Gate 4I, Gate 6. | Adapter test-kit rows for production scan-estimation compatibility remain future work. |
+| Future user-facing budget settings boundary | No contract YAML scan-budget settings, no broad allow-unestimated production scan override, no production within-budget allow path before M8, future project/profile/run policy or command option only after separate design, Recon-computed final budget status. | Milestone 7.3 does not add budget settings to contracts and does not add a general budget settings source. Users may configure limits only in future designed surfaces; Recon computes final budget status from evidence and policy, not user-provided status text. | Add negative tests only if implementation introduces a parser/config surface by mistake. Otherwise this remains a prework/docs guardrail validated by docs scans and code review. | Gate 4L, public contract decision. | Contract-level budget policy requires a later public schema decision. |
 | Privacy and diagnostics | Safe status/reason/diagnostic fields, raw keys, raw rows, key lists, relation data, query text, rendered SQL, raw database errors, rendered profile values, credentials, DSN fragments, tracebacks, failure samples. | Public/service diagnostics preserve code, severity, safe message, safe context, and hint where available. They do not emit raw keys, key lists, rows, query text, rendered SQL, raw database errors, rendered profile values, credentials, DSNs, tracebacks, or failure samples. | Existing: run-service and check-engine tests cover sanitized engine, adapter, database, query endpoint, connection, and close failures. Add key-check and scan-budget diagnostic tests for no raw key output and no raw database/query leakage. | Gate 3F2, Gate 6, ADR 0022. | Evidence redaction, failure-detail masking, and secure debug artifacts remain later work. |
 | No-output side effects | In-memory results, `target/run_results.json`, `target/failures`, `reports`, `state`, compiled SQL, result tables, sink refs, artifact refs, stale preexisting outputs. | 7.3 writes no generated output and does not mutate stale generated output. In-memory results may carry empty artifact/sink references only. | Existing: check-engine and run-service tests cover no generated outputs and no stale-output mutation. Add 7.3 tests after key execution succeeds and fails. | Gate 6, ADR 0022, generated artifact lifecycle boundary. | Durable run results belong to Milestone 8; evidence and failure details belong to Milestone 9. |
 | Sampling/key-safety interaction | Contract sampling metadata present, full sampling mode, sampled row-level dependency, deterministic/random/windowed policy metadata not executed. | Sampled contracts still requiring key safety is mandatory. Sampling metadata does not bypass non-null or uniqueness requirements. Unsupported sampling execution policies remain not executable or future scope. | Add tests that compiled key-safety checks with sampling metadata still execute key safety or block dependent checks; do not add deterministic/random/window execution tests in 7.3. | Sampling docs, Gate 1A, Gate 4L for scan scope. | Sampling execution, persisted sample keys, windows, and watermarks remain future state/window work. |
@@ -677,7 +687,7 @@ complete coverage unless the sibling cases in this matrix are also covered.
 | Over-budget scan estimate | `not_executable`, not data failure. | Add scan-budget test. |
 | Unsupported or malformed estimation/capability | `not_executable` and safe diagnostic. | Add scan-budget/capability tests. |
 | Unsafe executing profile/analyze preflight | Rejected as safe preflight unless explicitly classified and budgeted. | Add scan-budget test. |
-| Full scan allowed under explicit budget | Executes only when scan scope and policy budget are explicit and within limit. | Add scan-budget allowed-path test. |
+| Production estimate present before M8 settings | `not_executable` because 7.3 has no production budget settings source or production adapter scan-estimation compatibility claim. | Add scan-budget fail-closed test. |
 | Bounded local/dev relation-backed fixture | May execute only when explicitly classified local, relation-backed, and bounded. | Add local/dev exception test. |
 | Future user-facing budget settings boundary | No contract YAML scan-budget setting is introduced in 7.3. | Docs scan and parser/config negative test only if a new surface appears. |
 | Dependent row-level check blocked by failed prerequisite | Dependent check is `blocked` with `blocked_by` and prerequisite reason. | Existing prerequisite tests plus key-safety prerequisite variants. |
@@ -831,7 +841,7 @@ the prompt/docs drift validation and closeout report for this prework session.
 | Gate 3F2: diagnostic output message conformance | Satisfied for Step 5 design lock. | Matrix rows and scenarios require safe code/severity/message/context/hint behavior and no raw keys, raw rows, relation data, query text, rendered SQL, database errors, profile values, credentials, DSNs, or tracebacks. |
 | Gate 4I: comparison execution placement | Satisfied for Step 5 design lock. | Matrix rows cover same-context relation-backed allowed path, query endpoint block, cross-context block, cross-adapter block, capability block, placement/materialization block, no hidden Python fallback, no unbounded row fetch, and no unbounded key-row movement into Core. |
 | Gate 4K: probabilistic key-diff | Satisfied as not applicable to 7.3. | Matrix and non-goals explicitly exclude probabilistic, Bloom, sketch, checksum, bisection, chunked, and threshold-based key-diff strategies. Future use must reopen Gate 4K. |
-| Gate 4L: scan budget and query-plan safety | Satisfied for Step 5 bounded policy. | Matrix rows cover full scan allowed under explicit budget, scan blocked over budget as `not_executable`, production unknown estimate as `not_executable`, bounded local/dev fixture exception, unsupported estimation/capability as `not_executable`, unsafe executing profile/analyze rejection, and future user-facing budget settings boundary. |
+| Gate 4L: scan budget and query-plan safety | Satisfied for Step 5 bounded policy. | Matrix rows cover bounded local/dev fixture execution as the only M7.3 allowed scan path, production estimate-present paths as `not_executable` until M8 settings, scan blocked over budget as `not_executable` when representable, production unknown estimate as `not_executable`, unsupported estimation/capability as `not_executable`, unsafe executing profile/analyze rejection, and future user-facing budget settings boundary. |
 | Gate 6: privacy, evidence, and failure detail | Satisfied for Step 5 design lock. | Matrix rows cover privacy, no-output, no raw key output, no failure details, no generated run-result/evidence/report/state/sink output, and no stale generated output mutation. |
 | Adapter API and capability compatibility | Satisfied for Step 5 design lock. | Matrix rows require key-diff, null-key, duplicate-key, same-context, and CTE capability checks while explicitly avoiding adapter API version changes, production adapter compatibility claims, and shared adapter test-kit publication. |
 | Generated artifact lifecycle | Satisfied for Step 5 design lock. | Matrix and scenarios require only in-memory results and empty artifact/sink references. No runtime-generated `target/`, `reports/`, `state/`, compiled SQL, evidence, result table, or sink output is assigned to 7.3. |
@@ -882,7 +892,7 @@ Planned source changes:
 | File | Planned change | Guardrail |
 | --- | --- | --- |
 | `src/recon_core/check_engine/models.py` | Add scan-budget `CheckReason` values for unknown estimate, unsupported estimate, budget exceeded, unsafe preflight, and bounded-local classification requirements. Keep them under `not_executable`; do not add new statuses. | Existing status taxonomy remains unchanged. No durable result artifact schema is introduced. |
-| `src/recon_core/check_engine/scan_budget.py` | Add a small internal scan-budget classifier for this phase. It should produce an allow/block decision plus safe diagnostics. The only allowed no-estimate path is explicit local, relation-backed, bounded execution. | No public YAML, profile, project, run-policy, or CLI setting is added. Users do not set final budget status directly. |
+| `src/recon_core/check_engine/scan_budget.py` | Add a small internal scan-budget classifier for this phase. It should produce an allow/block decision plus safe diagnostics. The only allowed path is explicit local, relation-backed, bounded execution; production estimate-dependent paths remain `not_executable` until Milestone 8 locks settings and compatibility policy. | No public YAML, profile, project, run-policy, or CLI setting is added. Users do not set final budget status directly. |
 | `src/recon_core/check_engine/key_safety.py` | Add key-safety execution helpers for `null_source_keys`, `null_target_keys`, `duplicate_source_keys`, `duplicate_target_keys`, `missing_keys`, and `extra_keys`. The helpers should render the current typed operation, wrap the rendered key-row query in a count query, execute only the bounded count query, parse a single violation count, and return `pass` or `fail` in-memory results. | Runtime must not fetch raw keys, raw rows, or failure samples into Core. Data failures are counted, not exported. |
 | `src/recon_core/check_engine/execution.py` | Reuse existing row-count placement, relation-endpoint, same-context, renderer, and diagnostic patterns where practical. If shared helpers are extracted to support key safety, keep row-count behavior byte-for-byte compatible in tests. | Row-count execution must remain unchanged except for intentional helper extraction covered by existing tests. |
 | `src/recon_core/check_engine/engine.py` | Add key-safety execution dispatch beside the current row-count execution hook. Execute key checks only after generic dispatch says the compiled check is otherwise a later-phase non-executable check and no hard blocker applies. Pass scan-budget decisions through the execution context. | Do not execute unknown check types, unsupported typed operations, unsupported placement, unsupported materialization, or missing hard capabilities. |
@@ -915,9 +925,10 @@ Write or update tests in this order before source changes:
      materialization, missing renderer, and renderer failure handling,
    - assert sanitized diagnostics and no raw keys, query text, relation data,
      profile values, database errors, or tracebacks in public result text,
-   - assert scan-budget allowed, unknown estimate, unsupported estimate,
-     malformed estimate, unsafe preflight, over-budget, and missing bounded
-     local classification cases.
+  - assert bounded local/dev allowed, production estimate-present blocked,
+    unknown estimate, unsupported estimate, malformed estimate, unsafe
+    preflight, over-budget when representable, and missing bounded local
+    classification cases.
 3. `tests/check_engine/test_engine.py`
    - add engine tests proving key-safety checks execute through the execution
      context, mixed row-count/key-safety checks both run when eligible, and
@@ -956,7 +967,8 @@ Future coding should proceed in this order:
    payloads.
 3. Add scan-budget tests, then implement the internal scan-budget classifier
    and new `CheckReason` values. Keep blocked scan outcomes as
-   `not_executable`.
+   `not_executable`, and keep bounded local/dev execution as the only allowed
+   M7.3 scan path.
 4. Add engine integration tests, then wire key-safety execution into
    `CheckEngine` beside row-count execution.
 5. Add run-service tests, then generalize runtime candidate discovery,
@@ -1050,8 +1062,8 @@ environment or report the missing dependency as a blocker.
 | Duplicate-key semantics include null-containing tuples. | Renderer and runtime tests must prove duplicate checks count only fully non-null tuples and nulls are owned by null-key checks. | Revert DuckDB duplicate-key rendering and key-safety execution changes if the non-null invariant cannot be preserved. |
 | Missing/extra semantics compare duplicate rows instead of distinct fully non-null tuples. | Keep the existing key-diff renderer distinct/non-null CTEs and add runtime count tests with duplicates and nulls present. | Disable key-diff execution and leave key coverage `not_executable` until distinct/non-null semantics are proven. |
 | Runtime fetches raw keys into Core. | Execute only count-wrapped key queries and assert `CheckResult` contains count-style summaries, not key rows or key lists. | Revert key execution helper and keep compiled key checks non-executable. |
-| Scan-budget blockers become data failures. | Add explicit scan-budget `CheckReason` values and tests asserting `not_executable`, `executed=False`, and no adapter scan after hard blocks. | Revert scan-budget classifier and keep key checks non-executable. |
-| Unknown estimates become an implicit production allow path. | Allow no-estimate execution only through explicit local, relation-backed, bounded classification. All other unknowns are `not_executable`. | Remove bounded exception or restrict it further to test/local DuckDB fixtures. |
+| Scan-budget blockers become data failures. | Add explicit scan-budget `CheckReason` values and tests asserting `not_executable`, `executed=False`, and no adapter scan after hard production blocks. | Revert scan-budget classifier and keep key checks non-executable. |
+| Production estimates or unknown estimates become an implicit production allow path. | Allow execution only through explicit local, relation-backed, bounded classification. Production estimate-present, unknown, unavailable, unsupported, malformed, unsafe, or over-budget paths are `not_executable` until Milestone 8 locks user-facing settings and compatibility policy. | Remove bounded exception or restrict it further to test/local DuckDB fixtures. |
 | Python fallback or cross-engine comparison appears. | Keep same-context relation-backed checks and assert no row/key movement into Core and no alternate adapter strategy. | Revert run-service candidate expansion and execution hook. |
 | Diagnostics leak raw keys, SQL, relation data, profile values, database errors, or tracebacks. | Add diagnostic text scans for every failure family and reuse existing redaction helpers. | Replace detailed diagnostics with safe runtime-family fallback diagnostics. |
 | Generated output appears before its owning milestone. | Reuse existing no-output assertions and add 7.3 success/failure variants. | Revert any writer or artifact-reference changes. |
@@ -1166,8 +1178,8 @@ Milestone 7.3 implementation is complete only when:
   over-budget scans, unsafe executing profile/analyze preflight, query
   endpoints, cross-context execution, cross-adapter execution, and Python
   fallback remain blocked or not executable,
-- full scan allowed under explicit budget works only when scan scope and budget
-  status are explicit,
+- production estimate-dependent scan execution remains `not_executable` until
+  Milestone 8 locks user-facing budget settings and compatibility policy,
 - bounded local/dev fixture execution works only when explicitly classified as
   local, relation-backed, and bounded,
 - future user-facing budget settings remain outside 7.3,
