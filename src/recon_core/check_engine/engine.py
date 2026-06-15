@@ -18,6 +18,7 @@ from recon_core.check_engine.execution import (
 from recon_core.check_engine.key_safety import (
     execute_key_safety_check,
     is_key_safety_check_type,
+    is_supported_key_safety_plan_shape,
 )
 from recon_core.check_engine.models import (
     CheckReason,
@@ -258,12 +259,15 @@ _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
 def _rendering_blocked_result_if_needed(check: LoadedCompiledCheck) -> CheckResult | None:
     if check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES:
         return None
-    if check.check_type != "row_count_diff" and not is_key_safety_check_type(
-        check.check_type
-    ):
+    if check.check_type != "row_count_diff" and not is_key_safety_check_type(check.check_type):
         return None
     if check.check_type == "row_count_diff" and not is_supported_row_count_plan_shape(
         check.plan.operations
+    ):
+        return None
+    if is_key_safety_check_type(check.check_type) and not is_supported_key_safety_plan_shape(
+        check.check_type,
+        check.plan.operations,
     ):
         return None
 

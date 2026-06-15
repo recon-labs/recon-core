@@ -186,9 +186,7 @@ def execute_key_safety_check(
 
     status = CheckStatus.PASS if parsed_result == 0 else CheckStatus.FAIL
     message = (
-        "Key-safety check passed."
-        if status is CheckStatus.PASS
-        else "Key-safety check failed."
+        "Key-safety check passed." if status is CheckStatus.PASS else "Key-safety check failed."
     )
     diagnostics = check.diagnostics + contract.diagnostics
     if status is CheckStatus.FAIL:
@@ -454,10 +452,7 @@ def _render_key_safety_count_query(
         )
 
     return (
-        "select count(*) as failure_count\n"
-        "from (\n"
-        f"{rendered_sql}\n"
-        ") as recon_key_safety_failures"
+        f"select count(*) as failure_count\nfrom (\n{rendered_sql}\n) as recon_key_safety_failures"
     )
 
 

@@ -327,9 +327,7 @@ def _runtime_execution_candidates(
     candidates: list[LoadedCompiledChecksArtifact] = []
     for artifact in check_artifacts:
         candidate_checks = tuple(
-            check
-            for check in artifact.checks
-            if _is_runtime_execution_candidate(check)
+            check for check in artifact.checks if _is_runtime_execution_candidate(check)
         )
         if not candidate_checks:
             continue
@@ -364,9 +362,7 @@ def _compiled_contracts_for_runtime_candidates(
     *,
     compiled_contracts: tuple[LoadedCompiledContractArtifact, ...],
 ) -> tuple[LoadedCompiledContractArtifact, ...]:
-    candidate_contract_names = frozenset(
-        artifact.contract_name for artifact in runtime_candidates
-    )
+    candidate_contract_names = frozenset(artifact.contract_name for artifact in runtime_candidates)
     return tuple(
         contract
         for contract in compiled_contracts

@@ -547,9 +547,7 @@ def test_run_service_executes_actual_duckdb_key_safety_failures_without_raw_outp
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        expected_diagnostic
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [expected_diagnostic]
     public_text = _service_result_text(result)
     for token in forbidden_tokens:
         assert token not in public_text
@@ -635,9 +633,7 @@ def test_run_service_executes_actual_duckdb_key_safety_empty_side_cases(
     result = RunService(start_path=tmp_path).execute()
 
     assert result.exit_category is expected_exit
-    assert [diagnostic.code for diagnostic in result.diagnostics] == list(
-        expected_diagnostics
-    )
+    assert [diagnostic.code for diagnostic in result.diagnostics] == list(expected_diagnostics)
     public_text = _service_result_text(result)
     assert "source-only" not in public_text
     assert "target-only" not in public_text
@@ -706,9 +702,7 @@ def test_run_service_does_not_mutate_stale_outputs_during_actual_key_safety(
     result = RunService(start_path=tmp_path).execute()
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_MISSING_KEYS"
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_RUNTIME_MISSING_KEYS"]
     assert "secret-stale-output" not in _service_result_text(result)
     for path, content in output_contents.items():
         assert path.read_text(encoding="utf-8") == content
@@ -2043,9 +2037,7 @@ def _key_safety_check_payload(
     diagnostics: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     resolved_operations = (
-        operations
-        if operations is not None
-        else [_key_diff_operation("source_minus_target")]
+        operations if operations is not None else [_key_diff_operation("source_minus_target")]
     )
     resolved_required_capabilities = (
         required_capabilities if required_capabilities is not None else ["key_diff"]
@@ -2197,12 +2189,10 @@ def _write_duckdb_key_safety_tables(
     try:
         connection.execute("create schema qa")
         connection.execute(
-            "create table qa.source_customers"
-            f"({', '.join(source_column_definitions)})"
+            f"create table qa.source_customers({', '.join(source_column_definitions)})"
         )
         connection.execute(
-            "create table qa.target_customers"
-            f"({', '.join(target_column_definitions)})"
+            f"create table qa.target_customers({', '.join(target_column_definitions)})"
         )
         _insert_duckdb_rows(connection, "qa.source_customers", source_rows)
         _insert_duckdb_rows(connection, "qa.target_customers", target_rows)

@@ -269,6 +269,49 @@ def test_engine_blocks_render_blocked_key_safety_checks_before_adapter_query(
     assert adapter.queries == []
 
 
+def test_engine_keeps_unsupported_render_blocked_key_safety_shape_not_executable(
+    tmp_path: Path,
+) -> None:
+    check = _check(
+        check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+        name="missing_keys",
+        check_type="missing_keys",
+        operations=(_key_diff_operation("target_minus_source"),),
+        rendering_status="failed",
+        diagnostics=(
+            Diagnostic(
+                code="RC_ADAPTER_OPERATION_RENDER_FAILED",
+                severity=DiagnosticSeverity.ERROR,
+                message="Rendering failed before runtime.",
+            ),
+        ),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+    contract = _compiled_contract(tmp_path)
+    adapter = _RecordingDuckDbAdapter(
+        result=QueryResult(columns=("failure_count",), rows=((0,),), row_count=1)
+    )
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+            scan_budget_decisions_by_check_id={check.id: _allowed_scan_budget()},
+        ),
+    )
+
+    check_result = result.contract_results[0].check_results[0]
+    assert result.status is RunStatus.NOT_EXECUTABLE
+    assert check_result.status is CheckStatus.NOT_EXECUTABLE
+    assert not check_result.executed
+    assert check_result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
+    assert adapter.queries == []
+
+
 def test_engine_blocks_dependent_check_when_row_count_prerequisite_fails(
     tmp_path: Path,
 ) -> None:

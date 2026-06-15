@@ -293,9 +293,7 @@ class DuckDbSqlRenderer(SqlRenderer):
         quoted_keys = tuple(self.quote_identifier(key) for key in identity_keys)
         cte_keys = _select_lines(quoted_keys, indent=4)
         selected_keys = _select_lines(f"left_keys.{quoted_key}" for quoted_key in quoted_keys)
-        non_null_predicate = " and ".join(
-            f"{quoted_key} is not null" for quoted_key in quoted_keys
-        )
+        non_null_predicate = " and ".join(f"{quoted_key} is not null" for quoted_key in quoted_keys)
         join_predicate = " and ".join(
             self._strict_null_safe_equality(
                 f"left_keys.{quoted_key}",

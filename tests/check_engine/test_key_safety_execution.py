@@ -88,9 +88,7 @@ def test_scan_budget_requires_local_relation_backed_bounded_classification(
     assert not decision.allowed
     assert decision.reason is CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED
     assert decision.classification == "not_executable"
-    assert [diagnostic.code for diagnostic in decision.diagnostics] == [
-        BOUNDED_LOCAL_SCAN_REQUIRED
-    ]
+    assert [diagnostic.code for diagnostic in decision.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
 
 
 @pytest.mark.parametrize(
