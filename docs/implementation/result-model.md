@@ -104,9 +104,9 @@ Reserved metadata concepts:
 
 | Concept | Purpose | First-boundary behavior |
 | --- | --- | --- |
-| execution placement | Records the planned source-side and target-side operation locations. | May be represented as unset, not applicable, or blocked; no adapter execution or source/target query is allowed. |
+| execution placement | Records the planned source-side and target-side operation locations. | May be represented as unset, not applicable, executed by an owning execution phase, or blocked; this reservation alone does not authorize source/target queries. |
 | comparison placement | Records where source and target operation outputs would be compared. | May explain why no comparison ran; no Python fallback, same-context comparison, or external engine execution is implied. |
-| adapter or engine used | Names the adapter, execution context, or engine that actually ran a check. | Empty unless an earlier compiled artifact or in-memory fixture already supplies non-runtime metadata; no profile-backed lifecycle is started. |
+| adapter or engine used | Names the adapter, execution context, or engine that actually ran a check. | Empty unless an owning execution phase or in-memory fixture supplies runtime metadata; no profile-backed lifecycle is started by the result-model reservation alone. |
 | capability fit | Records required capabilities and capability mismatch reasons. | Capability mismatch may block or mark a result not executable, but it must not trigger fallback behavior. |
 | blocked or not-executable reason | Explains why a check did not run. | Must be visible through structured reason fields and diagnostics; a check that did not execute must not look like pass/fail comparison evidence. |
 | materialization policy | Records whether data movement, staging, or temporary objects were used. | Always absent, not applicable, or blocked until an explicit materialization phase defines movement, cleanup, and privacy rules. |

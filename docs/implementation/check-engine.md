@@ -48,14 +48,13 @@ starts.
 remain separate later surfaces unless a later split explicitly changes those
 boundaries.
 
-The first boundary is not an adapter execution lifecycle. It must not load
-profiles, open source or target connections, instantiate runtime adapters,
+The first boundary by itself is not an adapter execution lifecycle. It must not
+load profiles, open source or target connections, instantiate runtime adapters,
 render or execute SQL, query source or target systems, write
-`target/run_results.json`, write evidence, emit reports, export failure
-details, write state, write sink records, create materialized or staged data, or
-produce probabilistic summaries. Any dependency slot for adapters, state, or
-evidence is a future seam unless the owning execution or writer phase explicitly
-activates it.
+`target/run_results.json`, write evidence, emit reports, export failure details,
+write state, write sink records, create materialized or staged data, or produce
+probabilistic summaries. Any dependency slot for adapters, state, or evidence is
+inactive unless the owning execution or writer phase explicitly activates it.
 
 ## First-boundary result metadata
 

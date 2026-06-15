@@ -39,10 +39,10 @@ YAML or recompiling contracts. Run-result artifacts, evidence reports, failure
 details, and evidence links remain separate later surfaces unless a future split
 explicitly changes those boundaries.
 
-The first check-engine boundary is not an execution phase. It may define
-internal dispatch and blocker metadata that later execution needs, but it must
-not add public YAML placement syntax, adapter execution, generated run results,
-evidence reports, failure-detail export, state, sink writes, materialization, or
+The first check-engine boundary is not an execution phase by itself. It may
+define internal dispatch and blocker metadata that later execution needs, but it
+must not add public YAML placement syntax, generated run results, evidence
+reports, failure-detail export, state, sink writes, materialization, or
 probabilistic key-diff behavior.
 
 The same boundary may reserve in-memory metadata for future execution and output
