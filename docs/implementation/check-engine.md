@@ -227,13 +227,14 @@ them to matching compiled-contract artifacts before any runtime profile or
 adapter work. It should not parse authored YAML, recompile contracts, write
 generated files, or run selector/subset logic.
 
-For relation-backed row-count candidates and explicitly bounded local/dev
-grain-key safety candidates that match the supported typed plan shapes, the
-service may load the selected profile and referenced profile connections,
-validate adapter metadata/API/capabilities, open the supported adapter
-connection, classify scan-budget safety for key checks, and pass an explicit
-execution context to the check engine. The service must close adapters it
-opened. It must not open adapters for checks that are not in the supported
+For relation-backed row-count candidates and grain-key safety candidates that
+match the supported typed plan shapes, the service may load the selected profile
+and referenced profile connections, validate adapter metadata/API/capabilities,
+open the supported adapter connection, classify scan-budget safety for key
+checks, and pass an explicit execution context to the check engine. The current
+key-safety path is allowed only when the internal local/dev scan guard
+classifies the relation-backed input as bounded. The service must close adapters
+it opened. It must not open adapters for checks that are not in the supported
 row-count or bounded local/dev grain-key safety execution shapes, and aggregate
 or row-level value checks must remain `not_executable` or blocked until their
 owning execution phases exist.

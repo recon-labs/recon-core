@@ -91,6 +91,8 @@ def test_scan_budget_requires_local_relation_backed_bounded_classification(
     assert decision.reason is CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED
     assert decision.classification == "not_executable"
     assert [diagnostic.code for diagnostic in decision.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    assert "internal bounded local/dev" in decision.diagnostics[0].message
+    assert "internal local/dev scan guard" in (decision.diagnostics[0].hint or "")
 
 
 @pytest.mark.parametrize(
@@ -155,6 +157,8 @@ def test_scan_budget_fail_closed_paths_are_not_executable(
     assert diagnostic.code == diagnostic_code
     assert diagnostic.severity is DiagnosticSeverity.ERROR
     assert "not executable" in diagnostic.message
+    if diagnostic_code == SCAN_ESTIMATE_UNKNOWN:
+        assert "internal local/dev scan guard" in (diagnostic.hint or "")
 
 
 @pytest.mark.parametrize(

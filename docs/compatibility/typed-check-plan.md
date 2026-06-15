@@ -34,8 +34,9 @@ Current state:
 - `recon compile --render-sql` renders currently emitted typed operations to
   DuckDB SQL for relation-backed contracts.
 - `recon run` can execute the current relation-backed same-context DuckDB
-  `row_count_diff` typed-plan shape and explicitly bounded local/dev grain-key
-  safety typed-plan shapes from already compiled artifacts.
+  `row_count_diff` typed-plan shape and grain-key safety typed-plan shapes that
+  pass the internal bounded local/dev scan guard from already compiled
+  artifacts.
 - No stable typed check-plan schema has been released.
 - No broader adapter execution, query endpoint execution, aggregate execution,
   row-level value execution, or external adapter execution compatibility claim

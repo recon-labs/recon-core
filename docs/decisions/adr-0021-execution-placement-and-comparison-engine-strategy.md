@@ -58,7 +58,7 @@ result metadata:
 | Concept | Meaning | First allowed use |
 | --- | --- | --- |
 | Side-local pushdown | Source operations run in the source context and target operations run in the target context. Recon compares only bounded returned results. | Later row-count and small aggregate summaries when capability and privacy rules are satisfied. |
-| Same-context pushdown | Source and target relations are addressable from one adapter execution context, so the comparison query can run in that context. | Current in-core DuckDB relation-backed execution and the first row-count execution phase. |
+| Same-context pushdown | Source and target relations are addressable from one adapter execution context, so the comparison query can run in that context. | Current in-core DuckDB relation-backed row-count execution and bounded local/dev grain-key safety execution. |
 | Recon-local comparison | Recon Core compares returned values in process memory. | Only for explicitly bounded scalar or small structured results. |
 | Adapter-managed intermediate engine | An adapter-managed engine stages data or summaries and performs comparison outside the original source or target. | Future gated work after staging, privacy, cleanup, and capability semantics are defined. |
 | External comparison engine | A third configured connection acts as the comparison engine for staged source and target data or summaries. | Future gated work outside the initial check-execution split. |

@@ -488,8 +488,8 @@ gate before key checks execute.
 This phase locks a bounded policy only:
 
 - scan scope and budget status must be explicit before execution,
-- the only M7.3 allowed execution path is explicit bounded local/dev
-  relation-backed execution,
+- the only M7.3 allowed execution path is relation-backed execution that passes
+  the internal bounded local/dev scan guard,
 - production key-safety scan paths remain `not_executable` until Milestone 8
   locks the first user-facing scan-budget settings surface and compatibility
   policy,

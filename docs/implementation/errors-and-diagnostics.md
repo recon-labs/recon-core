@@ -418,8 +418,8 @@ results. Locked codes:
 | `RC_RUNTIME_SCAN_ESTIMATE_UNSUPPORTED` | run | error | Scan estimation is unavailable, unsupported, malformed, or incompatible. |
 | `RC_RUNTIME_SCAN_BUDGET_EXCEEDED` | run | error | Scan-budget preflight says execution would exceed the allowed budget. |
 | `RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT` | run | error | A proposed scan preflight would itself execute or otherwise be unsafe. |
-| `RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED` | run | error | The check is not explicitly classified as bounded local relation-backed execution. |
-| `RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED` | run | info | A grain-key safety check executed only after explicit bounded local/dev relation-backed scan classification. |
+| `RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED` | run | error | The check did not pass the internal bounded local/dev relation-backed scan guard. |
+| `RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED` | run | info | A grain-key safety check executed only after the internal bounded local/dev relation-backed scan guard allowed it. |
 | `RC_RUNTIME_NULL_GRAIN_KEYS` | run | error | A null grain-key safety check executed and found null grain-key tuples. |
 | `RC_RUNTIME_DUPLICATE_GRAIN_KEYS` | run | error | A duplicate grain-key safety check executed and found duplicate fully non-null grain-key tuples. |
 | `RC_RUNTIME_MISSING_KEYS` | run | error | A missing-key coverage check executed and found distinct fully non-null source keys missing from target. |

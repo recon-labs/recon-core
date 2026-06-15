@@ -275,11 +275,11 @@ adapter registration, capability validation, SQL rendering, and the first
 adapter test-kit shape without declaring a production adapter package.
 
 Current DuckDB behavior renders SQL for existing typed plans and executes the
-current relation-backed same-context `row_count_diff` path plus explicitly
-bounded local/dev grain-key safety paths. It guards key/group and aggregate
-comparison SQL against unsafe dialect coercion and rejects boolean inputs for
-current `sum` metric rendering because DuckDB treats `sum(boolean)` as a
-true-value count. It also rejects `UHUGEINT` aggregate inputs until exact
+current relation-backed same-context `row_count_diff` path plus grain-key safety
+paths allowed by the internal bounded local/dev scan guard. It guards key/group
+and aggregate comparison SQL against unsafe dialect coercion and rejects boolean
+inputs for current `sum` metric rendering because DuckDB treats `sum(boolean)` as
+a true-value count. It also rejects `UHUGEINT` aggregate inputs until exact
 aggregate behavior for that type is proven. Current rendering, row-count
 execution, and bounded local/dev grain-key safety execution require source and
 target DuckDB connections to resolve to the same rendered connection config;
@@ -299,8 +299,8 @@ evidence expose the distinction.
 ## Query endpoint boundary
 
 Current adapter-aware rendering and row-count execution are relation-backed only.
-Current grain-key safety execution is relation-backed and limited to explicitly
-bounded local/dev scan classification. Query endpoints can remain parseable, but
+Current grain-key safety execution is relation-backed and limited to the
+internal bounded local/dev scan classification. Query endpoints can remain parseable, but
 adapter-aware rendering and relation-backed execution phases must return a clear
 unsupported diagnostic for `source.query` or `target.query` until query
 execution is explicitly designed.

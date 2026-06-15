@@ -65,7 +65,7 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
                 "Grain-key safety scan is not executable because scan "
                 "preflight would execute or profile the query."
             ),
-            hint="Use only non-executing scan estimates or explicit bounded local/dev execution.",
+            hint=("Use only non-executing scan estimates or the internal local/dev scan guard."),
         )
 
     if context.estimate_state is ScanEstimateState.OVER_BUDGET:
@@ -90,8 +90,8 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
                     code=BOUNDED_LOCAL_SCAN_ALLOWED,
                     severity=DiagnosticSeverity.INFO,
                     message=(
-                        "Grain-key safety scan is allowed because it is explicitly "
-                        "classified as bounded local/dev relation-backed execution."
+                        "Grain-key safety scan is allowed because the internal "
+                        "bounded local/dev relation-backed scan guard passed."
                     ),
                     resource_type="runtime_policy",
                     hint=(
@@ -110,7 +110,7 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
             reason=CheckReason.SCAN_ESTIMATE_UNKNOWN,
             diagnostic_code=SCAN_ESTIMATE_UNKNOWN,
             message="Grain-key safety scan is not executable because scan estimate is unknown.",
-            hint="Use explicit bounded local/dev execution or a later supported estimate policy.",
+            hint=("Use the internal local/dev scan guard or a later supported estimate policy."),
         )
 
     if context.estimate_state in {
@@ -125,7 +125,7 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
                 "Grain-key safety scan is not executable because scan "
                 "estimation is unavailable, unsupported, or malformed."
             ),
-            hint="Use explicit bounded local/dev execution or a later compatible adapter policy.",
+            hint=("Use the internal local/dev scan guard or a later compatible adapter policy."),
         )
 
     return _bounded_local_required_decision()
@@ -137,11 +137,11 @@ def _bounded_local_required_decision() -> ScanBudgetDecision:
         diagnostic_code=BOUNDED_LOCAL_SCAN_REQUIRED,
         message=(
             "Grain-key safety scan is not executable because this phase allows "
-            "only explicit bounded local/dev relation-backed execution."
+            "only internal bounded local/dev relation-backed execution."
         ),
         hint=(
-            "Use a local/dev relation-backed bounded context or wait for later "
-            "scan-budget settings."
+            "Use a context that passes the internal local/dev scan guard or wait "
+            "for later scan-budget settings."
         ),
     )
 
