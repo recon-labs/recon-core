@@ -51,6 +51,11 @@ def test_status_and_reason_values_match_locked_taxonomy() -> None:
         "missing_engine_capability",
         "unsupported_execution_placement",
         "unsupported_materialization_policy",
+        "scan_estimate_unknown",
+        "scan_estimate_unsupported",
+        "scan_budget_exceeded",
+        "unsafe_scan_preflight",
+        "bounded_local_scan_required",
         "not_implemented_in_current_phase",
         "skipped_by_policy",
         "selected_out",
@@ -240,6 +245,34 @@ def test_non_executed_result_requires_message_and_diagnostics(
             message=message,
             diagnostics=diagnostics,
         )
+
+
+@pytest.mark.parametrize(
+    "reason_code",
+    [
+        CheckReason.SCAN_ESTIMATE_UNKNOWN,
+        CheckReason.SCAN_ESTIMATE_UNSUPPORTED,
+        CheckReason.SCAN_BUDGET_EXCEEDED,
+        CheckReason.UNSAFE_SCAN_PREFLIGHT,
+        CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,
+    ],
+)
+def test_scan_budget_reasons_are_not_executable_reasons(
+    reason_code: CheckReason,
+) -> None:
+    result = CheckResult(
+        check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+        name="missing_keys",
+        check_type="missing_keys",
+        contract_name="customer_revenue",
+        status=CheckStatus.NOT_EXECUTABLE,
+        executed=False,
+        reason_code=reason_code,
+        message="Check did not run because scan-budget policy blocked execution.",
+        diagnostics=(_diagnostic("Check did not run."),),
+    )
+
+    assert result.reason_code is reason_code
 
 
 def test_non_executed_result_rejects_value_and_output_refs() -> None:
