@@ -21,6 +21,7 @@ from recon_core.artifacts import (
     CompiledCheckLoadResult,
     CompiledContractLoader,
     CompiledContractLoadResult,
+    LoadedCompiledCheck,
     LoadedCompiledChecksArtifact,
     LoadedCompiledContractArtifact,
 )
@@ -32,6 +33,17 @@ from recon_core.check_engine import (
     RunResult,
     RunStatus,
     is_supported_row_count_plan_shape,
+)
+from recon_core.check_engine.key_safety import (
+    is_key_safety_check_type,
+    is_supported_key_safety_plan_shape,
+)
+from recon_core.check_engine.scan_budget import (
+    ScanBudgetContext,
+    ScanBudgetDecision,
+    ScanEstimateState,
+    ScanExecutionEnvironment,
+    classify_scan_budget,
 )
 from recon_core.compiler.models import RenderingStatus
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -162,6 +174,11 @@ class RunService:
 
 
 _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES = ("row_count", "cte_support")
+_KEY_SAFETY_RUNTIME_REQUIRED_CAPABILITIES = {
+    "key_diff": ("key_diff", "cte_support"),
+    "null_key": ("null_key",),
+    "duplicate_key": ("duplicate_key",),
+}
 _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
     {
         RenderingStatus.BLOCKED.value,
@@ -178,11 +195,11 @@ def _prepare_runtime_execution_dependencies(
     registry: AdapterRegistry | None,
     environ: Mapping[str, str] | None,
 ) -> _RuntimeExecutionDependencies:
-    row_count_candidates = _runtime_row_count_candidates(check_artifacts)
-    if not row_count_candidates:
+    runtime_candidates = _runtime_execution_candidates(check_artifacts)
+    if not runtime_candidates:
         return _RuntimeExecutionDependencies()
-    candidate_contracts = _compiled_contracts_for_row_count_candidates(
-        row_count_candidates,
+    candidate_contracts = _compiled_contracts_for_runtime_candidates(
+        runtime_candidates,
         compiled_contracts=compiled_contracts,
     )
 
@@ -203,7 +220,7 @@ def _prepare_runtime_execution_dependencies(
     assert profile_result.profile is not None
     contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
     required_capabilities_by_connection = _required_capabilities_by_connection(
-        row_count_candidates,
+        runtime_candidates,
         contracts_by_name=contracts_by_name,
     )
     adapters_by_connection: dict[str, BaseAdapter] = {}
@@ -231,7 +248,7 @@ def _prepare_runtime_execution_dependencies(
         )
 
     open_result = _open_runtime_adapters(
-        row_count_candidates,
+        runtime_candidates,
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
         connections_by_name=profile_result.profile.connections,
@@ -248,6 +265,11 @@ def _prepare_runtime_execution_dependencies(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
             connections_by_name=profile_result.profile.connections,
+            scan_budget_decisions_by_check_id=_scan_budget_decisions_by_check_id(
+                runtime_candidates,
+                contracts_by_name=contracts_by_name,
+                connections_by_name=profile_result.profile.connections,
+            ),
         ),
         opened_adapters=open_result.opened_adapters,
     )
@@ -260,14 +282,14 @@ class _AdapterOpenResult:
 
 
 def _open_runtime_adapters(
-    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     adapters_by_connection: Mapping[str, BaseAdapter],
     connections_by_name: Mapping[str, ConnectionConfig],
 ) -> _AdapterOpenResult:
     connection_names = _connection_names_to_open(
-        row_count_candidates,
+        runtime_candidates,
         contracts_by_name,
         connections_by_name,
     )
@@ -299,7 +321,7 @@ def _open_runtime_adapters(
     return _AdapterOpenResult(opened_adapters=tuple(opened_adapters))
 
 
-def _runtime_row_count_candidates(
+def _runtime_execution_candidates(
     check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
 ) -> tuple[LoadedCompiledChecksArtifact, ...]:
     candidates: list[LoadedCompiledChecksArtifact] = []
@@ -307,9 +329,7 @@ def _runtime_row_count_candidates(
         candidate_checks = tuple(
             check
             for check in artifact.checks
-            if check.check_type == "row_count_diff"
-            and is_supported_row_count_plan_shape(check.plan.operations)
-            and check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES
+            if _is_runtime_execution_candidate(check)
         )
         if not candidate_checks:
             continue
@@ -329,13 +349,23 @@ def _runtime_row_count_candidates(
     return tuple(candidates)
 
 
-def _compiled_contracts_for_row_count_candidates(
-    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+def _is_runtime_execution_candidate(check: LoadedCompiledCheck) -> bool:
+    if check.rendering_status in _RUNTIME_BLOCKING_RENDERING_STATUSES:
+        return False
+    if check.check_type == "row_count_diff":
+        return is_supported_row_count_plan_shape(check.plan.operations)
+    if is_key_safety_check_type(check.check_type):
+        return is_supported_key_safety_plan_shape(check.check_type, check.plan.operations)
+    return False
+
+
+def _compiled_contracts_for_runtime_candidates(
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
     compiled_contracts: tuple[LoadedCompiledContractArtifact, ...],
 ) -> tuple[LoadedCompiledContractArtifact, ...]:
     candidate_contract_names = frozenset(
-        artifact.contract_name for artifact in row_count_candidates
+        artifact.contract_name for artifact in runtime_candidates
     )
     return tuple(
         contract
@@ -345,19 +375,17 @@ def _compiled_contracts_for_row_count_candidates(
 
 
 def _required_capabilities_by_connection(
-    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
 ) -> dict[str, tuple[str, ...]]:
     capabilities_by_connection: dict[str, list[str]] = {}
-    for artifact in row_count_candidates:
+    for artifact in runtime_candidates:
         contract = contracts_by_name.get(artifact.contract_name)
         if contract is None:
             continue
         for check in artifact.checks:
-            required_capabilities = (
-                tuple(check.plan.required_capabilities) + _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES
-            )
+            required_capabilities = _runtime_required_capabilities(check)
             for connection_name in (contract.source.connection, contract.target.connection):
                 capabilities = capabilities_by_connection.setdefault(connection_name, [])
                 for capability in required_capabilities:
@@ -369,13 +397,81 @@ def _required_capabilities_by_connection(
     }
 
 
+def _runtime_required_capabilities(check: LoadedCompiledCheck) -> tuple[str, ...]:
+    required_capabilities = list(check.plan.required_capabilities)
+    if check.check_type == "row_count_diff":
+        required_capabilities.extend(_ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES)
+    elif is_key_safety_check_type(check.check_type) and check.plan.operations:
+        operation_type = check.plan.operations[0].get("type")
+        if isinstance(operation_type, str):
+            required_capabilities.extend(
+                _KEY_SAFETY_RUNTIME_REQUIRED_CAPABILITIES.get(operation_type, ())
+            )
+
+    deduped: list[str] = []
+    for capability in required_capabilities:
+        if capability and capability not in deduped:
+            deduped.append(capability)
+    return tuple(deduped)
+
+
+def _scan_budget_decisions_by_check_id(
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+    connections_by_name: Mapping[str, ConnectionConfig],
+) -> dict[str, ScanBudgetDecision]:
+    decisions: dict[str, ScanBudgetDecision] = {}
+    for artifact in runtime_candidates:
+        contract = contracts_by_name.get(artifact.contract_name)
+        if contract is None:
+            continue
+        for check in artifact.checks:
+            if not is_key_safety_check_type(check.check_type):
+                continue
+            decisions[check.id] = _scan_budget_decision_for_key_safety(
+                contract,
+                connections_by_name=connections_by_name,
+            )
+    return decisions
+
+
+def _scan_budget_decision_for_key_safety(
+    contract: LoadedCompiledContractArtifact,
+    *,
+    connections_by_name: Mapping[str, ConnectionConfig],
+) -> ScanBudgetDecision:
+    relation_backed = contract.source.relation is not None and contract.target.relation is not None
+    source_connection = connections_by_name.get(contract.source.connection)
+    target_connection = connections_by_name.get(contract.target.connection)
+    bounded_local = (
+        relation_backed
+        and source_connection is not None
+        and target_connection is not None
+        and source_connection.type == "duckdb"
+        and _same_connection_context(source_connection, target_connection)
+    )
+    return classify_scan_budget(
+        ScanBudgetContext(
+            environment=(
+                ScanExecutionEnvironment.LOCAL_DEV
+                if bounded_local
+                else ScanExecutionEnvironment.PRODUCTION
+            ),
+            relation_backed=relation_backed,
+            bounded=bounded_local,
+            estimate_state=ScanEstimateState.UNKNOWN,
+        )
+    )
+
+
 def _connection_names_to_open(
-    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     connections_by_name: Mapping[str, ConnectionConfig],
 ) -> tuple[str, ...]:
     connection_names: set[str] = set()
-    for artifact in row_count_candidates:
+    for artifact in runtime_candidates:
         contract = contracts_by_name.get(artifact.contract_name)
         if contract is None:
             continue
