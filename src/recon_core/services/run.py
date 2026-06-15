@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final, Protocol
+from typing import Protocol
 from uuid import uuid4
 
 from recon_core.adapters import (
@@ -180,7 +180,7 @@ _KEY_SAFETY_RUNTIME_REQUIRED_CAPABILITIES = {
     "null_key": ("null_key",),
     "duplicate_key": ("duplicate_key",),
 }
-_BOUNDED_LOCAL_FIXTURE_MARKER: Final = "_recon_bounded_local_fixture"
+_MAX_BOUNDED_LOCAL_DUCKDB_BYTES = 64 * 1024 * 1024
 _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
     {
         RenderingStatus.BLOCKED.value,
@@ -243,6 +243,7 @@ def _prepare_runtime_execution_dependencies(
         profile_candidates,
         contracts_by_name=contracts_by_name,
         connections_by_name=profile_result.profile.connections,
+        project_root=context.project_root,
     )
     adapter_candidates = _adapter_required_runtime_candidates(
         profile_candidates,
@@ -548,6 +549,7 @@ def _scan_budget_decisions_by_check_id(
     *,
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     connections_by_name: Mapping[str, ConnectionConfig],
+    project_root: Path,
 ) -> dict[str, ScanBudgetDecision]:
     decisions: dict[str, ScanBudgetDecision] = {}
     for artifact in runtime_candidates:
@@ -560,6 +562,7 @@ def _scan_budget_decisions_by_check_id(
             decisions[check.id] = _scan_budget_decision_for_key_safety(
                 contract,
                 connections_by_name=connections_by_name,
+                project_root=project_root,
             )
     return decisions
 
@@ -568,24 +571,24 @@ def _scan_budget_decision_for_key_safety(
     contract: LoadedCompiledContractArtifact,
     *,
     connections_by_name: Mapping[str, ConnectionConfig],
+    project_root: Path,
 ) -> ScanBudgetDecision:
     relation_backed = contract.source.relation is not None and contract.target.relation is not None
     source_connection = connections_by_name.get(contract.source.connection)
     target_connection = connections_by_name.get(contract.target.connection)
-    bounded_local = (
-        relation_backed
-        and source_connection is not None
-        and target_connection is not None
-        and source_connection.type == "duckdb"
-        and _same_connection_context(source_connection, target_connection)
-        and _has_explicit_bounded_local_fixture(source_connection)
-        and _has_explicit_bounded_local_fixture(target_connection)
+    local_dev = relation_backed and _is_local_duckdb_context(
+        source_connection,
+        target_connection,
+    )
+    bounded_local = local_dev and _has_bounded_local_duckdb_database(
+        source_connection,
+        project_root=project_root,
     )
     return classify_scan_budget(
         ScanBudgetContext(
             environment=(
                 ScanExecutionEnvironment.LOCAL_DEV
-                if bounded_local
+                if local_dev
                 else ScanExecutionEnvironment.PRODUCTION
             ),
             relation_backed=relation_backed,
@@ -595,8 +598,57 @@ def _scan_budget_decision_for_key_safety(
     )
 
 
-def _has_explicit_bounded_local_fixture(connection: ConnectionConfig) -> bool:
-    return connection.config.get(_BOUNDED_LOCAL_FIXTURE_MARKER) is True
+def _is_local_duckdb_context(
+    source_connection: ConnectionConfig | None,
+    target_connection: ConnectionConfig | None,
+) -> bool:
+    if source_connection is None or target_connection is None:
+        return False
+    if source_connection.type != "duckdb" or target_connection.type != "duckdb":
+        return False
+    return _same_connection_context(source_connection, target_connection)
+
+
+def _has_bounded_local_duckdb_database(
+    connection: ConnectionConfig | None,
+    *,
+    project_root: Path,
+) -> bool:
+    if connection is None:
+        return False
+    database_path = _local_duckdb_database_path(connection, project_root)
+    return database_path is not None and _is_bounded_local_file(database_path)
+
+
+def _local_duckdb_database_path(
+    connection: ConnectionConfig,
+    project_root: Path,
+) -> Path | None:
+    database = connection.config.get("database")
+    if not isinstance(database, str) or not database:
+        return None
+    if database == ":memory:":
+        return None
+    candidate = Path(database)
+    if not candidate.is_absolute():
+        candidate = project_root / candidate
+    try:
+        resolved_candidate = candidate.resolve()
+        resolved_project_root = project_root.resolve()
+    except OSError:
+        return None
+    if resolved_candidate.suffix != ".duckdb":
+        return None
+    if not resolved_candidate.is_relative_to(resolved_project_root):
+        return None
+    return resolved_candidate
+
+
+def _is_bounded_local_file(path: Path) -> bool:
+    try:
+        return path.is_file() and path.stat().st_size <= _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+    except OSError:
+        return False
 
 
 def _connection_names_to_open(

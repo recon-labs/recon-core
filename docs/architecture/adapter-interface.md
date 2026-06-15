@@ -298,8 +298,9 @@ evidence expose the distinction.
 
 ## Query endpoint boundary
 
-Current adapter-aware rendering, row-count execution, and grain-key safety
-execution are relation-backed only. Query endpoints can remain parseable, but
+Current adapter-aware rendering and row-count execution are relation-backed only.
+Current grain-key safety execution is relation-backed and limited to explicitly
+bounded local/dev scan classification. Query endpoints can remain parseable, but
 adapter-aware rendering and relation-backed execution phases must return a clear
 unsupported diagnostic for `source.query` or `target.query` until query
 execution is explicitly designed.

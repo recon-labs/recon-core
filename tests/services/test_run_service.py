@@ -35,7 +35,14 @@ from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 
 BOUNDED_LOCAL_SCAN_ALLOWED = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED"
-_BOUNDED_LOCAL_FIXTURE_MARKER = "_recon_bounded_local_fixture"
+BOUNDED_LOCAL_SCAN_REQUIRED = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
+
+
+def write_bounded_local_duckdb_fixture(
+    path: Path,
+    database_name: str = "warehouse.duckdb",
+) -> None:
+    (path / database_name).touch()
 
 
 def test_run_service_reports_missing_compiled_artifacts(tmp_path: Path) -> None:
@@ -864,6 +871,7 @@ def test_run_service_sanitizes_actual_duckdb_key_safety_type_mismatch(
 def test_run_service_executes_key_safety_with_runtime_profile_and_adapter_context(
     tmp_path: Path,
 ) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -877,7 +885,6 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
           unused:
             type: duckdb
             database: "{{ env_var('UNUSED_DB') }}"
@@ -908,6 +915,7 @@ profiles:
 def test_run_service_executes_key_safety_failure_without_raw_key_output(
     tmp_path: Path,
 ) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -921,7 +929,6 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(
@@ -964,6 +971,7 @@ profiles:
 def test_run_service_executes_key_safety_with_named_sampling_metadata(
     tmp_path: Path,
 ) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -977,7 +985,6 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
 """,
     )
     sampled_key_check = _key_safety_payload_for("null_source_keys")
@@ -1216,7 +1223,7 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
-def test_run_service_blocks_key_safety_same_context_duckdb_without_explicit_bounded_fixture(
+def test_run_service_blocks_key_safety_same_context_duckdb_without_local_fixture(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path, profile="local")
@@ -1246,16 +1253,16 @@ profiles:
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN"
-    ]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
     assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 
-def test_run_service_executes_key_safety_for_same_context_duckdb_aliases(
+def test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture(
     tmp_path: Path,
 ) -> None:
+    with (tmp_path / "warehouse.duckdb").open("wb") as database:
+        database.truncate(65 * 1024 * 1024)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1269,11 +1276,45 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory(
+        connect_error=RuntimeError("opened oversized key-safety adapter")
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_executes_key_safety_for_same_context_duckdb_aliases(
+    tmp_path: Path,
+) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
           replica:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
@@ -1613,6 +1654,7 @@ def test_run_service_rejects_key_safety_identity_mismatch_before_profile_or_adap
 def test_run_service_executes_valid_row_count_and_key_safety_checks(
     tmp_path: Path,
 ) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1626,7 +1668,6 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(
@@ -1842,6 +1883,7 @@ profiles:
 
 
 def test_run_service_requires_key_safety_capability_before_connect(tmp_path: Path) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1855,7 +1897,6 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
@@ -1908,6 +1949,7 @@ def test_run_service_requires_each_key_safety_capability_before_connect(
     missing_capability: str,
     capabilities: dict[str, CapabilitySupport],
 ) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1921,7 +1963,6 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_payload_for(check_type)])
@@ -1946,6 +1987,7 @@ profiles:
 def test_run_service_blocks_key_safety_malformed_capability_before_connect(
     tmp_path: Path,
 ) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1959,7 +2001,6 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
-            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
@@ -1989,6 +2030,7 @@ profiles:
 def test_run_service_sanitizes_key_safety_capability_declaration_exception(
     tmp_path: Path,
 ) -> None:
+    write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -2003,7 +2045,6 @@ profiles:
             type: duckdb
             database: warehouse.duckdb
             password: super-secret
-            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
@@ -2345,7 +2386,6 @@ def write_duckdb_key_safety_run_inputs(
                                     "warehouse": {
                                         "type": "duckdb",
                                         "database": str(database),
-                                        _BOUNDED_LOCAL_FIXTURE_MARKER: True,
                                     }
                                 }
                             }
