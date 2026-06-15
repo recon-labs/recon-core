@@ -196,9 +196,10 @@ Current `recon run` consumes compiled-check artifacts from
 `target/compiled_checks/`, joins them to matching compiled-contract metadata,
 and reports explicit in-memory results. Relation-backed same-context DuckDB
 `row_count_diff` checks can execute. Grain-key safety checks execute only when
-the internal local/dev scan guard classifies the input as bounded; otherwise
-their scan-heavy paths are reported as non-executable instead of looking like
-passing evidence.
+the internal local/dev scan guard verifies a project-local DuckDB file under the
+size cap and compiled source/target relations that resolve to local base tables;
+otherwise their scan-heavy paths are reported as non-executable instead of
+looking like passing evidence.
 
 ```bash
 recon run

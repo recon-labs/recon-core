@@ -1,10 +1,12 @@
 """Run command service."""
 
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib import import_module
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 from recon_core.adapters import (
@@ -94,6 +96,13 @@ class _RuntimeExecutionDependencies:
 class _OpenedAdapter:
     adapter: BaseAdapter
     connection: ConnectionConfig
+
+
+@dataclass(frozen=True, slots=True)
+class _DuckDbRelationName:
+    identifier: str
+    schema: str | None = None
+    catalog: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -582,6 +591,7 @@ def _scan_budget_decision_for_key_safety(
     )
     bounded_local = local_dev and _has_bounded_local_duckdb_database(
         source_connection,
+        contract=contract,
         project_root=project_root,
     )
     return classify_scan_budget(
@@ -612,12 +622,17 @@ def _is_local_duckdb_context(
 def _has_bounded_local_duckdb_database(
     connection: ConnectionConfig | None,
     *,
+    contract: LoadedCompiledContractArtifact,
     project_root: Path,
 ) -> bool:
     if connection is None:
         return False
     database_path = _local_duckdb_database_path(connection, project_root)
-    return database_path is not None and _is_bounded_local_file(database_path)
+    return (
+        database_path is not None
+        and _is_bounded_local_file(database_path)
+        and _duckdb_relations_are_local_base_tables(database_path, contract)
+    )
 
 
 def _local_duckdb_database_path(
@@ -649,6 +664,112 @@ def _is_bounded_local_file(path: Path) -> bool:
         return path.is_file() and path.stat().st_size <= _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
     except OSError:
         return False
+
+
+def _duckdb_relations_are_local_base_tables(
+    database_path: Path,
+    contract: LoadedCompiledContractArtifact,
+) -> bool:
+    source_relation = _duckdb_relation_name_from_compiled_endpoint(contract.source.relation)
+    target_relation = _duckdb_relation_name_from_compiled_endpoint(contract.target.relation)
+    if source_relation is None or target_relation is None:
+        return False
+
+    try:
+        duckdb = import_module("duckdb")
+        connection = duckdb.connect(str(database_path), read_only=True)
+    except Exception:
+        return False
+
+    try:
+        local_catalog_names = _local_duckdb_catalog_names(connection, database_path)
+        if not local_catalog_names:
+            return False
+        return all(
+            _duckdb_relation_is_local_base_table(
+                connection,
+                relation,
+                local_catalog_names=local_catalog_names,
+            )
+            for relation in (source_relation, target_relation)
+        )
+    except Exception:
+        return False
+    finally:
+        with suppress(Exception):
+            connection.close()
+
+
+def _duckdb_relation_name_from_compiled_endpoint(
+    relation_name: str | None,
+) -> _DuckDbRelationName | None:
+    if relation_name is None:
+        return None
+    raw_parts = relation_name.split(".")
+    parts = tuple(part for part in raw_parts if part)
+    if len(parts) not in {1, 2, 3} or len(parts) != len(raw_parts):
+        return None
+    if len(parts) == 1:
+        return _DuckDbRelationName(identifier=parts[0])
+    if len(parts) == 2:
+        return _DuckDbRelationName(schema=parts[0], identifier=parts[1])
+    return _DuckDbRelationName(catalog=parts[0], schema=parts[1], identifier=parts[2])
+
+
+def _local_duckdb_catalog_names(connection: Any, database_path: Path) -> frozenset[str]:
+    rows = connection.execute("pragma database_list").fetchall()
+    catalog_names: set[str] = set()
+    resolved_database_path = database_path.resolve()
+    for row in rows:
+        if not isinstance(row, tuple) or len(row) < 3:
+            continue
+        catalog_name = row[1]
+        catalog_path = row[2]
+        if not isinstance(catalog_name, str) or not isinstance(catalog_path, str):
+            continue
+        try:
+            if Path(catalog_path).resolve() == resolved_database_path:
+                catalog_names.add(catalog_name)
+        except OSError:
+            continue
+    return frozenset(catalog_names)
+
+
+def _duckdb_relation_is_local_base_table(
+    connection: Any,
+    relation: _DuckDbRelationName,
+    *,
+    local_catalog_names: frozenset[str],
+) -> bool:
+    predicates = ["table_name = ?"]
+    parameters: list[str] = [relation.identifier]
+    if relation.schema is not None:
+        predicates.append("table_schema = ?")
+        parameters.append(relation.schema)
+    if relation.catalog is not None:
+        predicates.append("table_catalog = ?")
+        parameters.append(relation.catalog)
+
+    rows = connection.execute(
+        "select table_catalog, table_schema, table_name, table_type "
+        "from information_schema.tables "
+        f"where {' and '.join(predicates)}",
+        parameters,
+    ).fetchall()
+    local_rows = tuple(
+        row
+        for row in rows
+        if (
+            isinstance(row, tuple)
+            and len(row) >= 4
+            and isinstance(row[0], str)
+            and row[0] in local_catalog_names
+        )
+    )
+    if len(rows) != 1 or len(local_rows) != 1:
+        return False
+    table_type = local_rows[0][3]
+    return isinstance(table_type, str) and table_type.upper() == "BASE TABLE"
 
 
 def _connection_names_to_open(

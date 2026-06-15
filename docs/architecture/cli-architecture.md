@@ -139,8 +139,9 @@ Runs compiled checks.
 The run command uses already compiled checks and matching compiled-contract
 metadata. Current execution is limited to relation-backed same-context DuckDB
 `row_count_diff` checks plus grain-key safety checks that pass the internal
-bounded local/dev scan guard, and does not write generated run or evidence
-artifacts.
+bounded local/dev scan guard, which requires a project-local DuckDB file under
+the size cap and relation endpoints that resolve to local base tables. The
+command does not write generated run or evidence artifacts.
 Later runner/result and evidence phases may parse or compile automatically when
 artifact freshness semantics are locked.
 

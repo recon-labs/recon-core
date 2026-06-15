@@ -139,15 +139,16 @@ adapter API is stable.
 
 Current adapter-aware rendering and row-count execution are relation-backed
 only. Current grain-key safety execution is relation-backed and limited to
-bounded local/dev scan classification. The `queries` capability is reserved for
-future executable query endpoint support and is not required by current
-relation-backed rendering or execution. Relation-backed row-count execution
-requires `row_count` and `cte_support`; bounded local/dev relation-backed
-grain-key safety execution requires `key_diff` and `cte_support` for key-diff
-checks, `null_key` for null-key checks, and `duplicate_key` for duplicate-key
-checks. None of these requirements treats query endpoints as supported. Counting
-rows or keys for authored query endpoints also requires the future `queries`
-capability design,
+bounded local/dev scan classification over a project-local DuckDB file whose
+compiled relation endpoints resolve to local base tables. The `queries`
+capability is reserved for future executable query endpoint support and is not
+required by current relation-backed rendering or execution. Relation-backed
+row-count execution requires `row_count` and `cte_support`; bounded local/dev
+relation-backed grain-key safety execution requires `key_diff` and `cte_support`
+for key-diff checks, `null_key` for null-key checks, and `duplicate_key` for
+duplicate-key checks. None of these requirements treats query endpoints, views,
+or externally backed relations as supported. Counting rows or keys for authored
+query endpoints also requires the future `queries` capability design,
 query execution validation, and source/target privacy rules for query text
 before it can be implemented.
 

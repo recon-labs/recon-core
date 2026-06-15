@@ -36,7 +36,8 @@ Current state:
 - `recon run` can execute the current relation-backed same-context DuckDB
   `row_count_diff` typed-plan shape and grain-key safety typed-plan shapes that
   pass the internal bounded local/dev scan guard from already compiled
-  artifacts.
+  artifacts. The key-safety guard requires a project-local DuckDB file under the
+  size cap and compiled relation endpoints that resolve to local base tables.
 - No stable typed check-plan schema has been released.
 - No broader adapter execution, query endpoint execution, aggregate execution,
   row-level value execution, or external adapter execution compatibility claim
@@ -168,7 +169,9 @@ Current adapter-aware rendering renders typed operations to SQL through
 adapters. Current run execution consumes compiled typed plans only for
 relation-backed same-context DuckDB `row_count_diff` checks and grain-key safety
 checks that pass the internal bounded local/dev scan guard; other typed-plan
-execution surfaces remain blocked or not executable.
+execution surfaces remain blocked or not executable. The key-safety guard fails
+closed for views, externally backed relations, missing catalog metadata, or
+metadata inspection failures.
 
 Execution is split by executable surface. Row-count typed-plan execution,
 grain-key safety typed-plan execution, and current aggregate metric typed-plan

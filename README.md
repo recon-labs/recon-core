@@ -49,7 +49,8 @@ Implemented today:
   `recon run`,
 - relation-backed same-context DuckDB grain-key safety execution for compiled
   null-key, duplicate-key, missing-key, and extra-key checks through `recon run`
-  when the internal local/dev scan guard classifies the input as bounded.
+  when the internal local/dev scan guard verifies a project-local DuckDB file
+  under the size cap and both relation endpoints resolve to local base tables.
 
 Not implemented yet:
 
@@ -152,9 +153,11 @@ generated profile example, set `RECON_DUCKDB_PATH` or edit
 first check-engine boundary. It can execute relation-backed same-context DuckDB
 `row_count_diff` checks when matching compiled-contract artifacts and runtime
 profiles are available. Grain-key safety checks execute only when the runtime
-context passes the internal local/dev bounded scan guard; otherwise their
-scan-heavy paths remain not executable. It reports missing, invalid, empty, unsupported,
-blocked, or not-executable compiled checks with structured runtime diagnostics.
+  context passes the internal local/dev bounded scan guard. That guard requires a
+  project-local DuckDB file under the size cap and relation endpoints that resolve
+  to local base tables, not views or externally backed relations; otherwise their
+  scan-heavy paths remain not executable. It reports missing, invalid, empty,
+  unsupported, blocked, or not-executable compiled checks with structured runtime diagnostics.
 It does not execute query endpoints, aggregate checks, row-level value checks, or
 write run-result, evidence, report, failure-detail, state, or sink artifacts yet.
 
@@ -257,10 +260,13 @@ row-level value check expansion is still future work.
 Current `recon run` consumes `target/compiled_checks/` plus matching
 `target/compiled_contracts/` metadata. It does not parse authored YAML or
 recompile contracts. It loads runtime profiles and opens the DuckDB adapter only
-for supported relation-backed same-context `row_count_diff` checks and for
+  for supported relation-backed same-context `row_count_diff` checks and for
 grain-key safety checks only when the internal local/dev scan guard classifies
-the input as bounded; unsupported execution surfaces remain blocked or not
-executable. It does not write generated run/evidence outputs.
+the input as bounded. The guard requires a project-local DuckDB file under the
+size cap and compiled source/target relations that resolve to local base tables;
+views and externally backed relations fail closed. Unsupported execution surfaces
+remain blocked or not executable. It does not write generated run/evidence
+outputs.
 
 Current generated artifacts:
 

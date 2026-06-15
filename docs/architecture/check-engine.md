@@ -161,6 +161,9 @@ duplicate-key, missing-key, and extra-key checks. They must still not parse
 authored YAML, compile contracts, execute query endpoints, execute aggregate or
 row-level value checks, write generated artifacts, emit evidence, mutate state,
 write sinks, produce probabilistic summaries, or execute selector/subset scopes.
+The bounded local/dev key-safety guard is stricter than DuckDB file size: it
+also requires non-executing catalog metadata to show that both compiled relation
+endpoints are local base tables in the project-local DuckDB file.
 
 ## Adapter capability fit
 

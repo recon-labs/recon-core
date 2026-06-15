@@ -285,7 +285,9 @@ execution, and bounded local/dev grain-key safety execution require source and
 target DuckDB connections to resolve to the same rendered connection config;
 cross-file or cross-connection execution remains future work. Connection
 lifecycle is implemented only for the supported row-count and bounded local/dev
-grain-key safety execution paths. Metadata fetching, query endpoints, aggregate
+grain-key safety execution paths. The key-safety scan guard may use
+non-executing DuckDB catalog metadata to confirm that compiled relations are
+local base tables; general metadata fetching, query endpoints, aggregate
 execution, broad metadata inspection, connection pooling, and broader check
 execution remain separate future surfaces.
 
@@ -300,10 +302,11 @@ evidence expose the distinction.
 
 Current adapter-aware rendering and row-count execution are relation-backed only.
 Current grain-key safety execution is relation-backed and limited to the
-internal bounded local/dev scan classification. Query endpoints can remain parseable, but
+internal bounded local/dev scan classification, which excludes DuckDB views and
+externally backed relations. Query endpoints can remain parseable, but
 adapter-aware rendering and relation-backed execution phases must return a clear
-unsupported diagnostic for `source.query` or `target.query` until query
-execution is explicitly designed.
+unsupported diagnostic for `source.query` or `target.query` until query execution
+is explicitly designed.
 
 Executable query endpoints require a later design for SELECT-only validation,
 single-statement handling, wrapping, artifact visibility, and adapter

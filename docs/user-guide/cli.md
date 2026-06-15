@@ -25,7 +25,9 @@ Current implementation status:
   compiled checks. It executes relation-backed same-context DuckDB
   `row_count_diff` checks, executes grain-key safety checks only when they pass
   the internal bounded local/dev scan guard, and reports other current or
-  later-phase checks as blocked or not executable.
+  later-phase checks as blocked or not executable. The scan guard requires a
+  project-local DuckDB file under the size cap and compiled relation endpoints
+  that resolve to local base tables.
 
 ## `recon init`
 
@@ -210,7 +212,8 @@ Loads compiled checks and routes them through the check-engine boundary. The
 current command executes supported relation-backed same-context DuckDB
 `row_count_diff` checks, executes grain-key safety checks only when they pass
 the internal bounded local/dev scan guard, and reports explicit diagnostics for
-checks that cannot execute yet.
+checks that cannot execute yet. The guard rejects views and externally backed
+relations because this phase has no general scan-estimation policy.
 
 ```bash
 recon run
@@ -239,7 +242,8 @@ Current behavior:
   relation-backed `row_count_diff` checks,
 - executes supported grain-key safety checks as bounded count queries for
   null-key, duplicate-key, missing-key, and extra-key checks only after explicit
-  bounded local/dev scan classification,
+  bounded local/dev scan classification over a project-local DuckDB file whose
+  compiled source and target relations resolve to local base tables,
 - does not parse authored contract YAML,
 - does not recompile contracts,
 - does not execute query endpoints, cross-context checks, aggregate checks, or

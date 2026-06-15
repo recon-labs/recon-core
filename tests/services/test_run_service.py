@@ -42,7 +42,12 @@ def write_bounded_local_duckdb_fixture(
     path: Path,
     database_name: str = "warehouse.duckdb",
 ) -> None:
-    (path / database_name).touch()
+    _write_duckdb_key_safety_tables(
+        _duckdb_module(),
+        path / database_name,
+        source_rows=(),
+        target_rows=(),
+    )
 
 
 def test_run_service_reports_missing_compiled_artifacts(tmp_path: Path) -> None:
@@ -475,6 +480,48 @@ def test_run_service_executes_actual_duckdb_key_safety_all_checks_pass(
     public_text = _service_result_text(result)
     assert "north" not in public_text
     assert "south" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    external_source = tmp_path / "external_source.csv"
+    external_source.write_text("customer_id,region\n1,secret-external\n", encoding="utf-8")
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute("create schema qa")
+        escaped_external_source = external_source.as_posix().replace("'", "''")
+        connection.execute(
+            "create view qa.source_customers as "
+            f"select * from read_csv_auto('{escaped_external_source}')"
+        )
+        connection.execute("create table qa.target_customers(customer_id integer, region varchar)")
+    finally:
+        connection.close()
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=[_key_safety_payload_for("missing_keys", keys=("customer_id", "region"))],
+    )
+    factory = RecordingDuckDbFactory(
+        result=QueryResult(columns=("failure_count",), rows=((0,),), row_count=1)
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    public_text = _service_result_text(result)
+    assert "secret-external" not in public_text
+    assert "external_source" not in public_text
+    assert "source_customers" not in public_text
+    assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 
