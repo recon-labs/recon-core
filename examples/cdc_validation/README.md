@@ -24,8 +24,8 @@ This is a future/negative design fixture for the framework design, not a
 currently executable CDC example. `recon parse` is implemented for the current
 parser scope, but `recon compile` is expected to reject the unsupported future
 surfaces used here. `recon run` is implemented for already compiled,
-relation-backed same-context DuckDB row-count and grain-key safety checks, but
-CDC execution remains future scope.
+relation-backed same-context DuckDB row-count and bounded local/dev grain-key
+safety checks, but CDC execution remains future scope.
 
 This fixture intentionally includes current compile blockers:
 

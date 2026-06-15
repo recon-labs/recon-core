@@ -347,12 +347,12 @@ def _key_safety_execution_result_if_available(
     contract = execution_context.contracts_by_name.get(check.contract_name)
     if contract is None:
         return None
-    if _contract_has_query_endpoint(contract):
-        return key_safety_query_endpoint_not_executable_result(check, contract)
-    if not key_safety_identity_matches_contract(check, contract):
-        return key_safety_identity_mismatch_not_executable_result(check, contract)
     if not is_supported_key_safety_plan_shape(check.check_type, check.plan.operations):
         return key_safety_unsupported_plan_shape_not_executable_result(check, contract)
+    if not key_safety_identity_matches_contract(check, contract):
+        return key_safety_identity_mismatch_not_executable_result(check, contract)
+    if _contract_has_query_endpoint(contract):
+        return key_safety_query_endpoint_not_executable_result(check, contract)
 
     connection_context_blocker = _key_safety_connection_context_blocker_if_needed(
         check,

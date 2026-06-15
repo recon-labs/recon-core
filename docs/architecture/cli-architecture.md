@@ -138,8 +138,8 @@ Runs compiled checks.
 
 The run command uses already compiled checks and matching compiled-contract
 metadata. Current execution is limited to relation-backed same-context DuckDB
-`row_count_diff` and grain-key safety checks and does not write generated run or
-evidence artifacts.
+`row_count_diff` checks plus explicitly bounded local/dev grain-key safety
+checks, and does not write generated run or evidence artifacts.
 Later runner/result and evidence phases may parse or compile automatically when
 artifact freshness semantics are locked.
 

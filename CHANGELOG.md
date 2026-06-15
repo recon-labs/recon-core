@@ -27,12 +27,12 @@ This project follows semantic versioning once public package releases begin.
   rendering for current typed operations, and compiled SQL artifact output.
 - First `recon run` check-engine boundary for already compiled checks, including
   matching compiled-contract loading, runtime profile and adapter setup for
-  relation-backed same-context DuckDB `row_count_diff` and grain-key safety
-  checks, bounded key-safety scan classification, in-memory run/contract/check
-  results, runtime diagnostics for missing, invalid, empty, unsupported,
-  blocked, not-executable, profile, adapter, lifecycle, scan-budget, and
-  execution inputs, and no run-result, evidence, report, failure-detail, state,
-  or sink artifact writes.
+  relation-backed same-context DuckDB `row_count_diff` checks and bounded
+  local/dev grain-key safety checks, bounded key-safety scan classification,
+  in-memory run/contract/check results, runtime diagnostics for missing,
+  invalid, empty, unsupported, blocked, not-executable, profile, adapter,
+  lifecycle, scan-budget, and execution inputs, and no run-result, evidence,
+  report, failure-detail, state, or sink artifact writes.
 
 ### Changed
 

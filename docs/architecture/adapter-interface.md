@@ -275,18 +275,19 @@ adapter registration, capability validation, SQL rendering, and the first
 adapter test-kit shape without declaring a production adapter package.
 
 Current DuckDB behavior renders SQL for existing typed plans and executes the
-current relation-backed same-context `row_count_diff` and grain-key safety
-paths. It guards key/group and aggregate comparison SQL against unsafe dialect
-coercion and rejects boolean inputs for current `sum` metric rendering because
-DuckDB treats `sum(boolean)` as a true-value count. It also rejects `UHUGEINT`
-aggregate inputs until exact aggregate behavior for that type is proven. Current
-rendering, row-count execution, and grain-key safety execution require source
-and target DuckDB connections to resolve to the same rendered connection config;
+current relation-backed same-context `row_count_diff` path plus explicitly
+bounded local/dev grain-key safety paths. It guards key/group and aggregate
+comparison SQL against unsafe dialect coercion and rejects boolean inputs for
+current `sum` metric rendering because DuckDB treats `sum(boolean)` as a
+true-value count. It also rejects `UHUGEINT` aggregate inputs until exact
+aggregate behavior for that type is proven. Current rendering, row-count
+execution, and bounded local/dev grain-key safety execution require source and
+target DuckDB connections to resolve to the same rendered connection config;
 cross-file or cross-connection execution remains future work. Connection
-lifecycle is implemented only for the supported row-count and grain-key safety
-execution paths. Metadata fetching, query endpoints, aggregate execution, broad
-metadata inspection, connection pooling, and broader check execution remain
-separate future surfaces.
+lifecycle is implemented only for the supported row-count and bounded local/dev
+grain-key safety execution paths. Metadata fetching, query endpoints, aggregate
+execution, broad metadata inspection, connection pooling, and broader check
+execution remain separate future surfaces.
 
 Future check execution and shared adapter conformance tests must explicitly
 define empty aggregate result semantics before aggregate comparison execution is
