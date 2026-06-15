@@ -219,6 +219,11 @@ def is_supported_key_safety_plan_shape(
     return _operation_matches_key_safety_shape(operations[0], expected_operation)
 
 
+def is_key_safety_check_type(check_type: str) -> bool:
+    """Return whether a check type belongs to the grain-key safety family."""
+    return check_type in _EXPECTED_KEY_OPERATION_BY_CHECK_TYPE
+
+
 class _ReservedMetadataBlocker:
     def __init__(
         self,

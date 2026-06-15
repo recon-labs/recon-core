@@ -15,12 +15,23 @@ from recon_core.check_engine.execution import (
     execute_row_count_check,
     is_supported_row_count_plan_shape,
 )
+from recon_core.check_engine.key_safety import (
+    execute_key_safety_check,
+    is_key_safety_check_type,
+)
 from recon_core.check_engine.models import (
     CheckReason,
     CheckResult,
     CheckStatus,
     ContractResult,
     RunResult,
+)
+from recon_core.check_engine.scan_budget import (
+    ScanBudgetContext,
+    ScanBudgetDecision,
+    ScanEstimateState,
+    ScanExecutionEnvironment,
+    classify_scan_budget,
 )
 from recon_core.compiler.models import RenderingStatus
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -41,6 +52,9 @@ class CheckExecutionContext:
     adapters_by_connection: Mapping[str, BaseAdapter]
     connections_by_name: Mapping[str, ConnectionConfig] = field(default_factory=dict)
     renderers_by_adapter_type: Mapping[str, SqlRenderer] = field(default_factory=dict)
+    scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] = field(
+        default_factory=dict
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +147,11 @@ class CheckEngine:
             dispatch_result = self._dispatcher.dispatch(check)
             result = (
                 _row_count_execution_result_if_available(
+                    check,
+                    dispatch_result,
+                    execution_context,
+                )
+                or _key_safety_execution_result_if_available(
                     check,
                     dispatch_result,
                     execution_context,
@@ -239,9 +258,13 @@ _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
 def _rendering_blocked_result_if_needed(check: LoadedCompiledCheck) -> CheckResult | None:
     if check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES:
         return None
-    if check.check_type != "row_count_diff":
+    if check.check_type != "row_count_diff" and not is_key_safety_check_type(
+        check.check_type
+    ):
         return None
-    if not is_supported_row_count_plan_shape(check.plan.operations):
+    if check.check_type == "row_count_diff" and not is_supported_row_count_plan_shape(
+        check.plan.operations
+    ):
         return None
 
     message = (
@@ -289,6 +312,53 @@ def _row_count_execution_result_if_available(
         adapter,
         renderer=renderer,
         connections_by_name=execution_context.connections_by_name,
+    )
+
+
+def _key_safety_execution_result_if_available(
+    check: LoadedCompiledCheck,
+    dispatch_result: CheckResult,
+    execution_context: CheckExecutionContext | None,
+) -> CheckResult | None:
+    if execution_context is None:
+        return None
+    if not is_key_safety_check_type(check.check_type):
+        return None
+    if dispatch_result.status is not CheckStatus.NOT_EXECUTABLE:
+        return None
+    if dispatch_result.reason_code in _DISPATCH_HARD_BLOCKING_REASONS:
+        return None
+
+    contract = execution_context.contracts_by_name.get(check.contract_name)
+    if contract is None:
+        return None
+    adapter = execution_context.adapters_by_connection.get(contract.source.connection)
+    if adapter is None:
+        return None
+
+    scan_budget_decision = execution_context.scan_budget_decisions_by_check_id.get(
+        check.id,
+        _missing_scan_budget_decision(),
+    )
+    renderer = _renderer_for_adapter(adapter, execution_context)
+    return execute_key_safety_check(
+        check,
+        contract,
+        adapter,
+        scan_budget_decision=scan_budget_decision,
+        renderer=renderer,
+        connections_by_name=execution_context.connections_by_name,
+    )
+
+
+def _missing_scan_budget_decision() -> ScanBudgetDecision:
+    return classify_scan_budget(
+        ScanBudgetContext(
+            environment=ScanExecutionEnvironment.PRODUCTION,
+            relation_backed=True,
+            bounded=False,
+            estimate_state=ScanEstimateState.UNKNOWN,
+        )
     )
 
 
