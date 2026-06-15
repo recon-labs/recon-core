@@ -262,15 +262,17 @@ Recommended existing or phase-owned diagnostic concepts include:
 
 Milestone 7.3 also needs scan-budget diagnostics for:
 
-- unknown scan estimate,
-- unsupported scan estimate,
-- scan budget exceeded,
-- unsafe executing plan/profile mode,
-- bounded local/dev fixture classification.
+- `RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN`,
+- `RC_RUNTIME_SCAN_ESTIMATE_UNSUPPORTED`,
+- `RC_RUNTIME_SCAN_BUDGET_EXCEEDED`,
+- `RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT`,
+- `RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED`,
+- `RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED`.
 
-Exact diagnostic code names for scan-budget outcomes must be locked in Step 5
-before implementation. They should use the runtime family unless the failure is
-owned by adapter setup or capability validation.
+These phase-owned diagnostic code names are runtime-family names because the
+failure is owned by execution policy. Adapter setup and malformed capability
+diagnostics may still use the existing adapter/capability diagnostic family
+when the failure is detected before runtime budget classification.
 
 Runtime diagnostics explain check outcome, non-execution, lifecycle failure,
 budget blocking, prerequisite blocking, or key-safety data failures. They are
@@ -816,13 +818,13 @@ And preexisting generated output remains untouched.
 
 This section proves that Step 5 has mapped the design gates needed for
 Milestone 7.3 into concrete matrix rows, scenarios, and tests. Implementation
-must still wait for the remaining prework steps to align public planning docs,
-finish the exact implementation map, and run final validation.
+must still wait for the final prework step to run prompt/docs drift validation,
+close out the companion brain dump, and report the locked implementation scope.
 
 | Gate | Step 5 status | Proof in this prework |
 | --- | --- | --- |
 | Split decision | Satisfied for Step 5. | Split Decision remains `Already Split / Follow Existing Split`. 7.3 owns only grain-key safety execution inside the existing Milestone 7 split. |
-| High-risk milestone prework | Satisfied for Step 5-owned artifacts. | Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, scan/cost, required tests, matrix, edge cases, BDD scenarios, gate proof, phase-exit checklist, and DoD are now concrete. Steps 6-8 still own public-doc alignment, exact implementation map, and final validation. |
+| High-risk milestone prework | Satisfied for Step 7-owned public artifacts. | Scope, non-goals, expected behavior, diagnostics, compatibility, privacy, placement, scan/cost, required tests, matrix, edge cases, BDD scenarios, gate proof, phase-exit checklist, DoD, public-doc alignment, and exact implementation map are now concrete. Step 8 still owns prompt/docs drift validation and final closeout. |
 | Gate 1A: key semantics | Satisfied for Step 5 design lock. | Matrix rows cover `grain.keys` only, null keys, duplicate keys, missing/extra keys, composite keys, empty sides, sampled contracts still requiring key safety, and dependent blocking. |
 | Gate 3F2: diagnostic output message conformance | Satisfied for Step 5 design lock. | Matrix rows and scenarios require safe code/severity/message/context/hint behavior and no raw keys, raw rows, relation data, query text, rendered SQL, database errors, profile values, credentials, DSNs, or tracebacks. |
 | Gate 4I: comparison execution placement | Satisfied for Step 5 design lock. | Matrix rows cover same-context relation-backed allowed path, query endpoint block, cross-context block, cross-adapter block, capability block, placement/materialization block, no hidden Python fallback, no unbounded row fetch, and no unbounded key-row movement into Core. |
@@ -836,8 +838,9 @@ finish the exact implementation map, and run final validation.
 ## Phase-Exit Checklist
 
 This is the pre-implementation phase-exit checklist for Milestone 7.3. Step 5
-completes the matrix, gate, BDD, and DoD portions; later prework steps must
-finish public-doc alignment, exact implementation mapping, and final validation.
+completed the matrix, gate, BDD, and DoD portions. Step 6 aligned existing
+public planning and compatibility docs. Step 7 completes the exact future
+implementation map. Step 8 still owns final validation and closeout.
 
 | Check | Status after Step 5 | Owner before coding |
 | --- | --- | --- |
@@ -851,81 +854,206 @@ finish public-doc alignment, exact implementation mapping, and final validation.
 | Gate 6 privacy/output rows are mapped to tests. | Done. | Step 5 |
 | Null-key, duplicate-key, missing-key, and extra-key semantics are mapped to tests. | Done. | Step 5 |
 | Dependent row-level blocking semantics are mapped to tests. | Done. | Step 5 |
-| Existing public planning and compatibility docs are aligned with the new prework. | Pending. | Step 6 |
-| Exact source map, test-first map, implementation sequence, validation commands, risks, and rollback points are complete. | Pending. | Step 7 |
+| Existing public planning and compatibility docs are aligned with the new prework. | Done. | Step 6 |
+| Exact source map, test-first map, implementation sequence, validation commands, risks, and rollback points are complete. | Done. | Step 7 |
 | Prompt/docs drift check and final validation pass. | Pending. | Step 8 |
 | No public doc contains external research attribution introduced during this session. | Must be revalidated after each public-doc edit. | Step 6 and Step 8 |
 | No hard milestone labels were added to prohibited durable docs. | Must be revalidated after each public-doc edit. | Step 6 and Step 8 |
 | No authored YAML schema change is proposed for 7.3. | Done. | Step 5 |
 | No contract-level scan-budget setting is proposed for 7.3. | Done. | Step 5 |
-| No compiled artifact schema change is proposed for 7.3 unless a separate compatibility review documents it. | Done for current plan. | Step 5, recheck in Step 7 |
-| No adapter API version change is proposed for 7.3 unless a separate compatibility review documents it. | Done for current plan. | Step 5, recheck in Step 7 |
+| No compiled artifact schema change is proposed for 7.3 unless a separate compatibility review documents it. | Done for current plan. | Step 7 recheck found no schema change needed. |
+| No adapter API version change is proposed for 7.3 unless a separate compatibility review documents it. | Done for current plan. | Step 7 recheck found no adapter API version change needed. |
 | No run-result, evidence, report, failure-detail, state, sink, or result-table output is assigned to 7.3. | Done. | Step 5 |
-| Future implementation tests are planned before source changes. | Done at matrix level; exact order pending. | Step 7 |
+| Future implementation tests are planned before source changes. | Done. | Step 7 |
 | Validation commands for the prework session pass or any skipped validation is explicitly justified. | Pending final run. | Step 8 |
 
 ## Implementation Map
 
-Step 7 must complete this section with the exact future implementation plan.
-This Step 4 skeleton records the likely implementation surfaces only.
+This is the exact future implementation plan for Milestone 7.3. It is a
+test-first plan for later coding; this prework session does not implement
+runtime code or tests.
 
 ### Source Map
 
-Likely future source surfaces:
+Planned source changes:
 
-- `src/recon_core/services/run.py`,
-- `src/recon_core/check_engine/engine.py`,
-- `src/recon_core/check_engine/execution.py`,
-- `src/recon_core/check_engine/dispatch.py`,
-- `src/recon_core/check_engine/models.py`,
-- `src/recon_core/adapters/duckdb/adapter.py`,
-- `src/recon_core/compiler/check_packs.py`,
-- `src/recon_core/compiler/models.py`,
-- runtime diagnostic helpers if scan-budget or key-safety diagnostics need
-  new constants.
-
-Step 7 must define exact file changes, guardrails, sequencing, and rollback
-points before implementation starts.
+| File | Planned change | Guardrail |
+| --- | --- | --- |
+| `src/recon_core/check_engine/models.py` | Add scan-budget `CheckReason` values for unknown estimate, unsupported estimate, budget exceeded, unsafe preflight, and bounded-local classification requirements. Keep them under `not_executable`; do not add new statuses. | Existing status taxonomy remains unchanged. No durable result artifact schema is introduced. |
+| `src/recon_core/check_engine/scan_budget.py` | Add a small internal scan-budget classifier for this phase. It should produce an allow/block decision plus safe diagnostics. The only allowed no-estimate path is explicit local, relation-backed, bounded execution. | No public YAML, profile, project, run-policy, or CLI setting is added. Users do not set final budget status directly. |
+| `src/recon_core/check_engine/key_safety.py` | Add key-safety execution helpers for `null_source_keys`, `null_target_keys`, `duplicate_source_keys`, `duplicate_target_keys`, `missing_keys`, and `extra_keys`. The helpers should render the current typed operation, wrap the rendered key-row query in a count query, execute only the bounded count query, parse a single violation count, and return `pass` or `fail` in-memory results. | Runtime must not fetch raw keys, raw rows, or failure samples into Core. Data failures are counted, not exported. |
+| `src/recon_core/check_engine/execution.py` | Reuse existing row-count placement, relation-endpoint, same-context, renderer, and diagnostic patterns where practical. If shared helpers are extracted to support key safety, keep row-count behavior byte-for-byte compatible in tests. | Row-count execution must remain unchanged except for intentional helper extraction covered by existing tests. |
+| `src/recon_core/check_engine/engine.py` | Add key-safety execution dispatch beside the current row-count execution hook. Execute key checks only after generic dispatch says the compiled check is otherwise a later-phase non-executable check and no hard blocker applies. Pass scan-budget decisions through the execution context. | Do not execute unknown check types, unsupported typed operations, unsupported placement, unsupported materialization, or missing hard capabilities. |
+| `src/recon_core/check_engine/__init__.py` | Export new internal execution helpers or diagnostic constants only if tests need the same package-level import style used by row-count execution. | Avoid creating a stable public API promise beyond the current pre-alpha check-engine surface. |
+| `src/recon_core/services/run.py` | Replace row-count-only runtime candidate discovery with executable runtime candidates for row-count plus 7.3 key-safety checks. Load profiles, resolve adapters, validate required capabilities, open adapters, and build scan-budget decisions for only executable candidate contracts. | `recon run` still consumes compiled artifacts only. It must not parse YAML, recompile, load unused later-phase profile values, or write generated outputs. |
+| `src/recon_core/adapters/duckdb/adapter.py` | Update `duplicate_key` rendering so duplicate checks operate over fully non-null grain-key tuples. Keep `key_diff` distinct non-null behavior and `null_key` any-null behavior. | Do not add adapter-owned reconciliation semantics. Do not introduce production adapter compatibility claims. |
+| `src/recon_core/compiler/check_packs.py` | No planned behavior change. Current `recon_core.basic_equivalence` already emits row count, missing, extra, null, and duplicate checks. Change only if implementation discovers a concrete mismatch with the matrix. | Authored `checks: [...]`, new check-pack config, and runtime recompilation remain out of scope. |
+| `src/recon_core/compiler/models.py` | No planned behavior change. Current typed operations and capabilities already include `key_diff`, `null_key`, and `duplicate_key`. Change only if implementation discovers a concrete typed-plan validation gap. | No typed check-plan version or artifact schema change is planned. |
 
 ### Test-First Map
 
-Likely future tests:
+Write or update tests in this order before source changes:
 
-- `tests/compiler/test_check_packs.py`,
-- `tests/adapters/test_duckdb_sql_renderer.py`,
-- `tests/check_engine/test_engine.py`,
-- `tests/check_engine/test_row_count_execution.py`,
-- `tests/services/test_run_service.py`,
-- targeted adapter/runtime tests for scan-budget classification if a new helper
-  is introduced.
-
-Step 5 must map matrix rows to tests; Step 7 must order those tests before
-implementation.
+1. `tests/adapters/test_duckdb_sql_renderer.py`
+   - update the duplicate-key SQL expectation to exclude null-containing grain
+     tuples before grouping,
+   - add a DuckDB semantic test proving null-containing duplicate candidates do
+     not trigger duplicate-key failure,
+   - keep existing key-diff distinct non-null, target-minus-source, and
+     type-mismatch tests passing.
+2. New `tests/check_engine/test_key_safety_execution.py`
+   - add unit tests for each key check type passing and failing from a
+     single-count adapter result,
+   - cover composite keys, null in any component, duplicate fully non-null
+     tuples, missing and extra over distinct fully non-null keys, empty source,
+     empty target, and both-empty cases,
+   - assert count-query wrapping and no raw key rows returned to `CheckResult`,
+   - assert malformed count result, key type mismatch, adapter query failure,
+     query endpoint, cross-context, unsupported placement, unsupported
+     materialization, missing renderer, and renderer failure handling,
+   - assert sanitized diagnostics and no raw keys, query text, relation data,
+     profile values, database errors, or tracebacks in public result text,
+   - assert scan-budget allowed, unknown estimate, unsupported estimate,
+     malformed estimate, unsafe preflight, over-budget, and missing bounded
+     local classification cases.
+3. `tests/check_engine/test_engine.py`
+   - add engine tests proving key-safety checks execute through the execution
+     context, mixed row-count/key-safety checks both run when eligible, and
+     later unsupported checks remain `not_executable`,
+   - add dependent row-level check tests where executed null/duplicate key
+     failures block future value checks,
+   - add hard-blocker tests proving unsupported placement/materialization and
+     scan-budget blockers prevent adapter queries.
+4. `tests/services/test_run_service.py`
+   - add service tests with actual DuckDB relation-backed fixtures for null,
+     duplicate, missing, extra, empty-side, pass, and fail outcomes,
+   - add service tests for mixed row-count plus key-safety artifacts,
+   - add service tests for query endpoint, cross-context, cross-adapter,
+     unsupported materialization, missing key capability, scan-budget blocked,
+     and bounded local/dev allowed paths,
+   - assert no `target/run_results.json`, failure details, reports, state,
+     compiled SQL, result tables, or sink output is created or mutated,
+   - assert terminal/service diagnostics do not print raw keys or raw database
+     payloads.
+5. `tests/check_engine/test_row_count_execution.py`
+   - keep the existing row-count tests passing. Add regression tests only if a
+     shared helper extraction changes code paths.
+6. `tests/compiler/test_check_packs.py`
+   - keep existing check-pack expansion tests passing. Add tests only if the
+     implementation changes prerequisites or requirements; no such change is
+     currently planned.
 
 ### Implementation Sequence
 
-Step 7 must complete the implementation sequence. The first implementation
-phase should remain test-first and should not start until Steps 5 and 6 are
-complete.
+Future coding should proceed in this order:
+
+1. Add the renderer regression test for duplicate-key non-null grouping, then
+   update DuckDB duplicate-key rendering.
+2. Add key-safety execution unit tests, then implement `key_safety.py` with
+   count-wrapped execution, result parsing, safe diagnostics, and no raw-key
+   payloads.
+3. Add scan-budget tests, then implement the internal scan-budget classifier
+   and new `CheckReason` values. Keep blocked scan outcomes as
+   `not_executable`.
+4. Add engine integration tests, then wire key-safety execution into
+   `CheckEngine` beside row-count execution.
+5. Add run-service tests, then generalize runtime candidate discovery,
+   capability validation, profile loading, adapter opening, and scan-budget
+   decision construction in `RunService`.
+6. Run the row-count regression suite and fix only intentional fallout from
+   shared helper extraction.
+7. Update implementation docs and changelog if runtime behavior actually ships.
+   Do not update public YAML, artifact schemas, adapter API version, evidence
+   docs, or run-result docs unless implementation discovers a real
+   compatibility blocker and a separate review approves it.
+8. Run the phase-exit review against the acceptance/conformance matrix before
+   considering Milestone 7.3 implementation complete.
+
+Implementation must stop and return to design if it requires contract YAML
+scan-budget settings, adapter API version changes, compiled artifact schema
+changes, durable run-result/evidence artifacts, raw key export, production
+adapter scan-estimation compatibility claims, materialization/staging, query
+endpoint execution, or Python-side key-set fallback.
+
+### Public Artifacts Affected
+
+Milestone 7.3 implementation is planned to affect only in-memory runtime result
+surfaces:
+
+- `RunResult`,
+- `ContractResult`,
+- `CheckResult`,
+- terminal/service diagnostics derived from those result objects.
+
+Milestone 7.3 must not create, write, or change:
+
+- authored contract YAML schema,
+- compiled artifact schema or typed check-plan version,
+- adapter API version,
+- local `target/run_results.json`,
+- evidence artifacts,
+- report artifacts,
+- failure-detail artifacts,
+- state or watermark artifacts,
+- result or evidence sinks,
+- result tables,
+- generated SQL artifacts.
+
+If implementation discovers that any durable artifact or public schema must
+change, Milestone 7.3 must stop and run a separate compatibility review before
+coding continues.
+
+### Docs During Implementation
+
+When runtime behavior ships, future implementation should update only the docs
+whose public behavior statements change:
+
+- `docs/implementation/check-engine.md`,
+- `docs/implementation/result-model.md`,
+- `docs/implementation/errors-and-diagnostics.md`,
+- `docs/compatibility/public-contract-inventory.md`,
+- `docs/compatibility/compatibility-matrix.md`,
+- `CHANGELOG.md` if implemented user-visible behavior changes.
+
+Do not update framework YAML docs, evidence docs, run-result artifact docs,
+adapter API docs, or capability catalog docs during 7.3 unless implementation
+discovers a real compatibility blocker and the separate review approves the
+expanded scope.
 
 ### Validation Commands
 
-Minimum future validation will include targeted tests for compiler check-pack
-emission, SQL rendering, check-engine dispatch/execution, run service behavior,
-and adapter runtime behavior. Step 7 must lock exact commands.
+Future implementation validation commands:
+
+```bash
+pytest tests/adapters/test_duckdb_sql_renderer.py
+pytest tests/check_engine/test_key_safety_execution.py
+pytest tests/check_engine/test_engine.py
+pytest tests/check_engine/test_row_count_execution.py
+pytest tests/services/test_run_service.py
+pytest tests/compiler/test_check_packs.py
+pytest
+ruff check .
+ruff format --check .
+mypy src
+```
+
+If optional DuckDB is unavailable, the implementation must not silently skip
+required DuckDB semantic coverage. Install the `duckdb` extra in the validation
+environment or report the missing dependency as a blocker.
 
 ### Risks And Rollback Points
 
-Step 7 must complete the risk and rollback table. Known Step 4 risks are:
-
-- duplicate-key semantics could accidentally include null-containing tuples,
-- missing/extra semantics could accidentally compare duplicate rows instead of
-  distinct non-null key tuples,
-- scan-budget blockers could be misreported as data failures,
-- unknown estimate could become an implicit production allow path,
-- Python key-set fallback could move unbounded keys into Core,
-- diagnostics could leak raw keys or database errors,
-- generated output could appear before its owning milestone.
+| Risk | Mitigation | Rollback point |
+| --- | --- | --- |
+| Duplicate-key semantics include null-containing tuples. | Renderer and runtime tests must prove duplicate checks count only fully non-null tuples and nulls are owned by null-key checks. | Revert DuckDB duplicate-key rendering and key-safety execution changes if the non-null invariant cannot be preserved. |
+| Missing/extra semantics compare duplicate rows instead of distinct fully non-null tuples. | Keep the existing key-diff renderer distinct/non-null CTEs and add runtime count tests with duplicates and nulls present. | Disable key-diff execution and leave key coverage `not_executable` until distinct/non-null semantics are proven. |
+| Runtime fetches raw keys into Core. | Execute only count-wrapped key queries and assert `CheckResult` contains count-style summaries, not key rows or key lists. | Revert key execution helper and keep compiled key checks non-executable. |
+| Scan-budget blockers become data failures. | Add explicit scan-budget `CheckReason` values and tests asserting `not_executable`, `executed=False`, and no adapter scan after hard blocks. | Revert scan-budget classifier and keep key checks non-executable. |
+| Unknown estimates become an implicit production allow path. | Allow no-estimate execution only through explicit local, relation-backed, bounded classification. All other unknowns are `not_executable`. | Remove bounded exception or restrict it further to test/local DuckDB fixtures. |
+| Python fallback or cross-engine comparison appears. | Keep same-context relation-backed checks and assert no row/key movement into Core and no alternate adapter strategy. | Revert run-service candidate expansion and execution hook. |
+| Diagnostics leak raw keys, SQL, relation data, profile values, database errors, or tracebacks. | Add diagnostic text scans for every failure family and reuse existing redaction helpers. | Replace detailed diagnostics with safe runtime-family fallback diagnostics. |
+| Generated output appears before its owning milestone. | Reuse existing no-output assertions and add 7.3 success/failure variants. | Revert any writer or artifact-reference changes. |
+| Row-count behavior regresses while extracting helpers. | Run row-count service and execution tests after each phase. | Revert shared helper extraction and keep row-count path isolated. |
 
 ### Future-Owned Items Not Implemented In 7.3
 
@@ -960,10 +1088,11 @@ feat: execute grain-key safety checks
 
 Split Decision: Already Split / Follow Existing Split.
 
-Readiness status after Step 5: not implementation-ready yet.
+Readiness status after Step 7: plan-complete, but not implementation-ready until
+Step 8 final validation and companion closeout pass.
 
-This artifact now locks the public Step 5 behavior and planning controls for
-Milestone 7.3:
+This artifact now locks the public behavior, planning controls, and future
+implementation plan for Milestone 7.3:
 
 - scope,
 - non-goals,
@@ -983,13 +1112,20 @@ Milestone 7.3:
 - BDD workflow scenarios,
 - gate satisfaction proof,
 - phase-exit checklist with remaining owners,
-- implementation-map placeholders,
+- exact source map,
+- exact test-first map,
+- exact implementation sequence,
+- public artifacts affected,
+- docs during implementation,
+- validation commands,
+- risks and rollback points,
 - Definition of Done,
 - remaining blockers.
 
-Implementation must not start until Steps 6, 7, and 8 complete public-doc
-alignment, the exact implementation plan, prompt/docs drift validation, final
-validation, and companion brain-dump closeout.
+No known design, gate, public-doc alignment, source-map, test-map, or sequencing
+blocker remains after Step 7. Implementation must still wait until Step 8 runs
+the final prompt/docs drift validation, validation commands, status checks, and
+companion brain-dump closeout.
 
 ## Definition Of Done
 
@@ -1043,13 +1179,9 @@ Milestone 7.3 implementation is complete only when:
 
 ## Remaining Blockers
 
-Milestone 7.3 is not implementation-ready after Step 5.
+Milestone 7.3 is not implementation-ready after Step 7.
 
-Remaining prework blockers:
+Remaining prework blocker:
 
-- Step 6 must align existing public planning and compatibility docs after this
-  prework artifact becomes authoritative.
-- Step 7 must complete the exact future implementation plan and readiness
-  report.
 - Step 8 must run final validation, close out the companion brain dump, and
   report what is locked for 7.3.
