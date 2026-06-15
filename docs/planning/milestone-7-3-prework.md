@@ -620,8 +620,8 @@ Milestone 7.3 implementation must add tests for:
 - production unknown estimate becoming `not_executable`,
 - unsupported estimate capability becoming `not_executable`,
 - over-budget estimate becoming `not_executable` rather than data failure,
-- executing profile/analyze rejected as safe preflight unless explicitly
-  classified and budgeted,
+- executing profile/analyze rejected as safe preflight; execution may proceed
+  only through the separate bounded local/dev relation-backed exception,
 - sanitized diagnostics for key-safety failures and scan-budget blockers,
 - terminal/service diagnostics not printing raw keys or key lists,
 - existing row-count execution remaining in scope from the prior phase,
@@ -686,7 +686,7 @@ complete coverage unless the sibling cases in this matrix are also covered.
 | Production unknown scan estimate | `not_executable` and no scan runs. | Add scan-budget test. |
 | Over-budget scan estimate | `not_executable`, not data failure. | Add scan-budget test. |
 | Unsupported or malformed estimation/capability | `not_executable` and safe diagnostic. | Add scan-budget/capability tests. |
-| Unsafe executing profile/analyze preflight | Rejected as safe preflight unless explicitly classified and budgeted. | Add scan-budget test. |
+| Unsafe executing profile/analyze preflight | Rejected as safe preflight in Milestone 7.3. Execution may proceed only through the separate bounded local/dev relation-backed exception, not by treating an executing analyze/profile path as an estimate. | Add scan-budget test. |
 | Production estimate present before M8 settings | `not_executable` because 7.3 has no production budget settings source or production adapter scan-estimation compatibility claim. | Add scan-budget fail-closed test. |
 | Bounded local/dev relation-backed fixture | May execute only when explicitly classified local, relation-backed, and bounded. | Add local/dev exception test. |
 | Future user-facing budget settings boundary | No contract YAML scan-budget setting is introduced in 7.3. | Docs scan and parser/config negative test only if a new surface appears. |
@@ -776,7 +776,7 @@ And Recon does not run the scan.
 
 ### Scenario 8: Over-Budget Scan Is Not Executable
 
-Given a scan estimate exceeds the configured or phase-defined budget.
+Given scan-budget classification receives an over-budget preflight signal.
 When a grain-key safety check is prepared for execution.
 Then the check is `not_executable`.
 And the outcome is not reported as a data failure.
