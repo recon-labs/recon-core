@@ -722,6 +722,35 @@ def test_run_service_preserves_key_safety_shape_blocker_in_mixed_runtime_run(
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_preserves_key_safety_shape_blocker_when_it_is_the_only_check(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _key_safety_check_payload(
+                operations=[_key_diff_operation("target_minus_source")],
+                required_capabilities=["key_diff"],
+            ),
+        ],
+    )
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+    ]
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_does_not_mutate_stale_outputs_during_actual_key_safety(
     tmp_path: Path,
 ) -> None:

@@ -308,6 +308,8 @@ def _row_count_execution_result_if_available(
         return None
     if dispatch_result.reason_code in _DISPATCH_HARD_BLOCKING_REASONS:
         return None
+    if not is_supported_row_count_plan_shape(check.plan.operations):
+        return None
 
     contract = execution_context.contracts_by_name.get(check.contract_name)
     if contract is None:

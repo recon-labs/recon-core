@@ -197,10 +197,17 @@ def _prepare_runtime_execution_dependencies(
     registry: AdapterRegistry | None,
     environ: Mapping[str, str] | None,
 ) -> _RuntimeExecutionDependencies:
+    contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
     runtime_candidates = _runtime_execution_candidates(check_artifacts)
     if not runtime_candidates:
+        if _has_key_safety_checks(check_artifacts):
+            return _RuntimeExecutionDependencies(
+                execution_context=CheckExecutionContext(
+                    contracts_by_name=contracts_by_name,
+                    adapters_by_connection={},
+                ),
+            )
         return _RuntimeExecutionDependencies()
-    contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
     profile_candidates = _relation_backed_runtime_candidates(
         runtime_candidates,
         contracts_by_name=contracts_by_name,
@@ -363,6 +370,16 @@ def _runtime_execution_candidates(
             )
         )
     return tuple(candidates)
+
+
+def _has_key_safety_checks(
+    check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+) -> bool:
+    return any(
+        is_key_safety_check_type(check.check_type)
+        for artifact in check_artifacts
+        for check in artifact.checks
+    )
 
 
 def _relation_backed_runtime_candidates(
