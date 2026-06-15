@@ -1022,6 +1022,51 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_executes_key_safety_for_same_context_duckdb_aliases(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+          replica:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(
+        tmp_path,
+        source_connection="warehouse",
+        target_connection="replica",
+    )
+    factory = RecordingDuckDbFactory(
+        result=QueryResult(columns=("failure_count",), rows=((0,),), row_count=1)
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert result.diagnostics == ()
+    assert len(factory.adapters) == 2
+    assert sum(adapter.connect_count for adapter in factory.adapters) == 1
+    assert sum(adapter.close_count for adapter in factory.adapters) == 1
+    assert sum(len(adapter.queries) for adapter in factory.adapters) == 1
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_blocks_different_adapter_types_without_bridge_or_fallback(
     tmp_path: Path,
 ) -> None:
@@ -1044,6 +1089,55 @@ profiles:
 """,
     )
     write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(
+        tmp_path,
+        source_connection="warehouse",
+        target_connection="replica",
+    )
+    duckdb_factory = RecordingDuckDbFactory()
+    other_factory = RecordingWarehouseFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", duckdb_factory)
+    registry.register("warehouse_test", other_factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
+    ]
+    assert len(duckdb_factory.adapters) == 1
+    assert len(other_factory.adapters) == 1
+    assert duckdb_factory.adapters[0].connect_count == 0
+    assert other_factory.adapters[0].connect_count == 0
+    assert duckdb_factory.adapters[0].queries == []
+    assert other_factory.adapters[0].queries == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_blocks_key_safety_different_adapter_types_without_bridge_or_fallback(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+          replica:
+            type: warehouse_test
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
     write_compiled_contract(
         tmp_path,
         source_connection="warehouse",
@@ -1192,6 +1286,53 @@ def test_run_service_blocks_unsupported_placement_or_materialization_before_adap
 ) -> None:
     write_project(tmp_path, profile="local")
     write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=operations)])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [diagnostic_code]
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("operation", "diagnostic_code"),
+    [
+        (
+            {
+                "type": "key_diff",
+                "direction": "source_minus_target",
+                "identity": {"kind": "grain", "keys": ["customer_id"]},
+                "execution_placement": "source",
+            },
+            "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT",
+        ),
+        (
+            {
+                "type": "key_diff",
+                "direction": "source_minus_target",
+                "identity": {"kind": "grain", "keys": ["customer_id"]},
+                "materialization_policy": "temporary_table",
+            },
+            "RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY",
+        ),
+    ],
+)
+def test_run_service_blocks_key_safety_unsupported_runtime_metadata_before_adapter_setup(
+    tmp_path: Path,
+    operation: dict[str, object],
+    diagnostic_code: str,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_compiled_checks(
+        tmp_path,
+        checks=[_key_safety_check_payload(operations=[operation])],
+    )
     write_compiled_contract(tmp_path)
     factory = RecordingDuckDbFactory()
     registry = AdapterRegistry()
@@ -1468,6 +1609,151 @@ profiles:
         "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
     ]
     assert "key_diff" in result.diagnostics[0].message
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 0
+    assert adapter.queries == []
+
+
+@pytest.mark.parametrize(
+    ("check_type", "missing_capability", "capabilities"),
+    [
+        (
+            "null_source_keys",
+            "null_key",
+            {
+                "cte_support": CapabilitySupport.FULL,
+                "key_diff": CapabilitySupport.FULL,
+                "duplicate_key": CapabilitySupport.FULL,
+            },
+        ),
+        (
+            "duplicate_source_keys",
+            "duplicate_key",
+            {
+                "cte_support": CapabilitySupport.FULL,
+                "key_diff": CapabilitySupport.FULL,
+                "null_key": CapabilitySupport.FULL,
+            },
+        ),
+    ],
+)
+def test_run_service_requires_each_key_safety_capability_before_connect(
+    tmp_path: Path,
+    check_type: str,
+    missing_capability: str,
+    capabilities: dict[str, CapabilitySupport],
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_payload_for(check_type)])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory(capabilities=AdapterCapabilities(capabilities))
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "Run adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert missing_capability in result.diagnostics[0].message
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 0
+    assert adapter.queries == []
+
+
+def test_run_service_blocks_key_safety_malformed_capability_before_connect(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(tmp_path)
+    malformed_capabilities: dict[str, Any] = {
+        "cte_support": CapabilitySupport.FULL,
+        "key_diff": "wat",
+    }
+    factory = RecordingDuckDbFactory(capabilities=AdapterCapabilities(malformed_capabilities))
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "Run adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_UNSUPPORTED"
+    ]
+    assert "key_diff" in result.diagnostics[0].message
+    assert "invalid support state" in result.diagnostics[0].message
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 0
+    assert adapter.queries == []
+
+
+def test_run_service_sanitizes_key_safety_capability_declaration_exception(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+            password: super-secret
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory(
+        capabilities_error=RuntimeError("capabilities leaked password=super-secret")
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "Run adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CAPABILITY_DECLARATION_FAILED"
+    ]
+    assert "super-secret" not in _service_result_text(result)
     adapter = factory.adapters[0]
     assert adapter.connect_count == 0
     assert adapter.queries == []
@@ -2249,6 +2535,7 @@ class RecordingDuckDbFactory:
         result: QueryResult | None = None,
         results: tuple[QueryResult, ...] | None = None,
         capabilities: AdapterCapabilities | None = None,
+        capabilities_error: Exception | None = None,
         connect_error: Exception | None = None,
         execute_error: Exception | None = None,
         close_error: Exception | None = None,
@@ -2256,6 +2543,7 @@ class RecordingDuckDbFactory:
         self.result = result
         self.results = results
         self.capabilities = capabilities
+        self.capabilities_error = capabilities_error
         self.connect_error = connect_error
         self.execute_error = execute_error
         self.close_error = close_error
@@ -2267,6 +2555,7 @@ class RecordingDuckDbFactory:
             result=self.result,
             results=self.results,
             capabilities=self.capabilities,
+            capabilities_error=self.capabilities_error,
             connect_error=self.connect_error,
             execute_error=self.execute_error,
             close_error=self.close_error,
@@ -2286,6 +2575,7 @@ class RecordingWarehouseFactory:
             result=None,
             results=None,
             capabilities=self.capabilities,
+            capabilities_error=None,
             connect_error=None,
             execute_error=None,
             close_error=None,
@@ -2306,6 +2596,7 @@ class RecordingDuckDbAdapter(BaseAdapter):
         result: QueryResult | None,
         results: tuple[QueryResult, ...] | None,
         capabilities: AdapterCapabilities | None,
+        capabilities_error: Exception | None,
         connect_error: Exception | None,
         execute_error: Exception | None,
         close_error: Exception | None,
@@ -2326,6 +2617,7 @@ class RecordingDuckDbAdapter(BaseAdapter):
                 "duplicate_key": CapabilitySupport.FULL,
             }
         )
+        self.capabilities_error = capabilities_error
         self.connect_error = connect_error
         self.execute_error = execute_error
         self.close_error = close_error
@@ -2361,6 +2653,8 @@ class RecordingDuckDbAdapter(BaseAdapter):
         return ()
 
     def capabilities(self) -> AdapterCapabilities:
+        if self.capabilities_error is not None:
+            raise self.capabilities_error
         return self._capabilities
 
 
