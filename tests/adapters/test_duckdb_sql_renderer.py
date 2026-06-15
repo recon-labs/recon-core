@@ -236,6 +236,7 @@ where "customer_id" is null or "month" is null""",
   "month",
   count(*) as row_count
 from "qa"."customer_source"
+where "customer_id" is not null and "month" is not null
 group by "customer_id", "month"
 having count(*) > 1""",
         ),
@@ -301,6 +302,37 @@ def test_render_target_minus_source_key_diff_uses_target_left_key_set(
     assert rendered.sql.index('  from "qa"."customer_target"\n') < rendered.sql.index(
         '  from "qa"."customer_source"\n'
     )
+
+
+def test_duplicate_key_excludes_null_containing_duplicate_candidates(
+    renderer: DuckDbSqlRenderer,
+) -> None:
+    duckdb = _duckdb_module()
+    con = duckdb.connect(database=":memory:")
+    con.execute("create table source_table (customer_id integer, month varchar)")
+    con.execute(
+        """
+        insert into source_table values
+          (null, '2026-01'),
+          (null, '2026-01'),
+          (2, null),
+          (2, null),
+          (3, '2026-03'),
+          (4, '2026-04'),
+          (4, '2026-04')
+        """
+    )
+
+    rendered = renderer.render_operation(
+        TypedOperation.duplicate_key(
+            side=OperationSide.SOURCE,
+            identity=Identity(IdentityKind.GRAIN, ("customer_id", "month")),
+        ).to_dict(),
+        source_relation=Relation(identifier="source_table"),
+        target_relation=Relation(identifier="target_table"),
+    )
+
+    assert sorted(con.execute(rendered.sql).fetchall()) == [(4, "2026-04", 2)]
 
 
 def test_render_count_comparison_plan(

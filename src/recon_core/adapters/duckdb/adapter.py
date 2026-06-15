@@ -293,7 +293,9 @@ class DuckDbSqlRenderer(SqlRenderer):
         quoted_keys = tuple(self.quote_identifier(key) for key in identity_keys)
         cte_keys = _select_lines(quoted_keys, indent=4)
         selected_keys = _select_lines(f"left_keys.{quoted_key}" for quoted_key in quoted_keys)
-        non_null_predicate = " and ".join(f"{quoted_key} is not null" for quoted_key in quoted_keys)
+        non_null_predicate = " and ".join(
+            f"{quoted_key} is not null" for quoted_key in quoted_keys
+        )
         join_predicate = " and ".join(
             self._strict_null_safe_equality(
                 f"left_keys.{quoted_key}",
@@ -369,10 +371,12 @@ class DuckDbSqlRenderer(SqlRenderer):
         relation = self._side_relation(operation, source_relation, target_relation)
         identity_keys = _identity_keys(operation)
         quoted_keys = tuple(self.quote_identifier(key) for key in identity_keys)
+        non_null_predicate = " and ".join(f"{quoted_key} is not null" for quoted_key in quoted_keys)
         sql = (
             "select\n"
             f"{_select_lines((*quoted_keys, 'count(*) as row_count'))}\n"
             f"from {self.render_relation(relation)}\n"
+            f"where {non_null_predicate}\n"
             f"group by {', '.join(quoted_keys)}\n"
             "having count(*) > 1"
         )
