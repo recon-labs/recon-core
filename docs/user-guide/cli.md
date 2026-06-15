@@ -23,9 +23,9 @@ Current implementation status:
   and current typed check-plan operations.
 - `recon run` is implemented as the first check-engine boundary for already
   compiled checks. It executes relation-backed same-context DuckDB
-  `row_count_diff` checks, executes grain-key safety checks only in explicitly
-  bounded local/dev contexts, and reports other current or later-phase checks as
-  blocked or not executable.
+  `row_count_diff` checks, executes grain-key safety checks only when they pass
+  the internal bounded local/dev scan guard, and reports other current or
+  later-phase checks as blocked or not executable.
 
 ## `recon init`
 
@@ -208,9 +208,9 @@ Current limitations:
 
 Loads compiled checks and routes them through the check-engine boundary. The
 current command executes supported relation-backed same-context DuckDB
-`row_count_diff` checks, executes grain-key safety checks only in explicitly
-bounded local/dev contexts, and reports explicit diagnostics for checks that
-cannot execute yet.
+`row_count_diff` checks, executes grain-key safety checks only when they pass
+the internal bounded local/dev scan guard, and reports explicit diagnostics for
+checks that cannot execute yet.
 
 ```bash
 recon run

@@ -166,9 +166,9 @@ Adapters must not hide new reconciliation behavior in dialect-specific rendering
 
 Current adapter-aware rendering renders typed operations to SQL through
 adapters. Current run execution consumes compiled typed plans only for
-relation-backed same-context DuckDB `row_count_diff` checks and explicitly
-bounded local/dev grain-key safety checks; other typed-plan execution surfaces
-remain blocked or not executable.
+relation-backed same-context DuckDB `row_count_diff` checks and grain-key safety
+checks that pass the internal bounded local/dev scan guard; other typed-plan
+execution surfaces remain blocked or not executable.
 
 Execution is split by executable surface. Row-count typed-plan execution,
 grain-key safety typed-plan execution, and current aggregate metric typed-plan

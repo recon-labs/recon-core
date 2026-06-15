@@ -411,11 +411,11 @@ capabilities.
 ## Execution placement boundary
 
 Current adapter-aware compile produces SQL, and current run execution is limited
-to relation-backed same-context DuckDB `row_count_diff` checks plus explicitly
-bounded local/dev grain-key safety checks. Before the check engine executes any
-additional typed-plan surface, Recon must define where comparison work may run:
-source system, target system, adapter-managed intermediate system, or bounded
-Python-side comparison.
+to relation-backed same-context DuckDB `row_count_diff` checks plus grain-key
+safety checks that pass the internal bounded local/dev scan guard. Before the
+check engine executes any additional typed-plan surface, Recon must define where
+comparison work may run: source system, target system, adapter-managed
+intermediate system, or bounded Python-side comparison.
 
 Unsupported SQL behavior must not silently fall back to Python. Any Python or
 intermediate-system fallback requires explicit limits, privacy rules,
