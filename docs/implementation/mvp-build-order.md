@@ -597,7 +597,9 @@ Build:
 - duplicate source/target key checks,
 - missing key checks,
 - extra key checks,
-- prerequisite/blocking semantics for dependent future row-level value checks.
+- prerequisite/blocking semantics for dependent future row-level value checks,
+- bounded scan-budget preflight for key-safety execution before source/target
+  scans.
 
 Non-goals:
 
@@ -605,12 +607,22 @@ Non-goals:
 - no automatic source-target mapping guesses,
 - no inferred grain keys,
 - no CDC key execution,
-- no sampling bypass of non-null or uniqueness requirements.
+- no sampling bypass of non-null or uniqueness requirements,
+- no raw key export,
+- no contract YAML scan-budget settings,
+- no full user-facing scan-budget configuration,
+- no broad allow-unestimated production scan overrides.
 
 Assigned gates and blockers:
 
 - resolve the comparison execution placement strategy gate for key checks before
   executing typed plans,
+- resolve Gate 4L scan-budget and query-plan safety before executing key checks;
+  key checks may execute only when scan scope and budget status are explicit,
+- treat production unknown, unavailable, unsupported, malformed, unsafe, or
+  over-budget scan preflight outcomes as `not_executable`, not data failures,
+- allow bounded local/dev scan-budget exceptions only when explicitly classified
+  as local, relation-backed, and bounded,
 - preserve locked key semantics: `grain.keys` means comparison identity,
   `cdc.keys` means CDC/change propagation identity, row-level checks require
   `grain.keys`, and row-level value and row-matching checks require non-null and
@@ -626,6 +638,10 @@ Required tests:
 - null source/target key cases,
 - duplicate source/target key cases,
 - missing key and extra key cases,
+- scan-budget allowed and fail-closed cases,
+- production unknown, unavailable, unsupported, malformed, unsafe, and
+  over-budget scan preflight cases return `not_executable`,
+- bounded local/dev fixture exceptions are explicit,
 - null or duplicate keys block dependent row-level value checks,
 - no inferred grain or source-target mapping behavior.
 
@@ -633,6 +649,12 @@ Phase exit review:
 
 - no raw key examples or row-level values are exported unless a later privacy and
   evidence policy explicitly allows that surface,
+- scan scope and budget status are explicit before execution,
+- production unknown or over-budget scan preflight outcomes are
+  `not_executable`, not data failures,
+- bounded local/dev scan-budget exceptions are explicit and bounded,
+- no contract YAML scan-budget settings or broad user-facing budget
+  configuration are introduced,
 - dependent row-level value checks remain future scope,
 - no evidence/report/failure-detail artifacts are written.
 
