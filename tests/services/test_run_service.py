@@ -440,6 +440,315 @@ def test_run_service_sanitizes_actual_duckdb_execution_failure(
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_executes_actual_duckdb_key_safety_all_checks_pass(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=((1, "north"), (2, "south")),
+        target_rows=((1, "north"), (2, "south")),
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=_all_key_safety_checks(keys=("customer_id", "region")),
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert result.diagnostics == ()
+    public_text = _service_result_text(result)
+    assert "north" not in public_text
+    assert "south" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize(
+    (
+        "check_type",
+        "source_rows",
+        "target_rows",
+        "expected_diagnostic",
+        "forbidden_tokens",
+    ),
+    [
+        (
+            "null_source_keys",
+            ((None, "secret-source-null"), (1, "shared")),
+            ((1, "shared"),),
+            "RC_RUNTIME_NULL_GRAIN_KEYS",
+            ("secret-source-null", "customer_id", "region"),
+        ),
+        (
+            "null_target_keys",
+            ((1, "shared"),),
+            ((None, "secret-target-null"), (1, "shared")),
+            "RC_RUNTIME_NULL_GRAIN_KEYS",
+            ("secret-target-null", "customer_id", "region"),
+        ),
+        (
+            "duplicate_source_keys",
+            ((7, "secret-source-duplicate"), (7, "secret-source-duplicate")),
+            ((7, "secret-source-duplicate"),),
+            "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
+            ("secret-source-duplicate", "customer_id", "region"),
+        ),
+        (
+            "duplicate_target_keys",
+            ((8, "secret-target-duplicate"),),
+            ((8, "secret-target-duplicate"), (8, "secret-target-duplicate")),
+            "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
+            ("secret-target-duplicate", "customer_id", "region"),
+        ),
+        (
+            "missing_keys",
+            ((11, "secret-source-only"), (11, "secret-source-only"), (None, "null-left")),
+            ((12, "target-only"),),
+            "RC_RUNTIME_MISSING_KEYS",
+            ("secret-source-only", "null-left", "target-only", "customer_id", "region"),
+        ),
+        (
+            "extra_keys",
+            ((13, "source-only"),),
+            ((14, "secret-target-only"), (14, "secret-target-only"), (None, "null-right")),
+            "RC_RUNTIME_EXTRA_KEYS",
+            ("source-only", "secret-target-only", "null-right", "customer_id", "region"),
+        ),
+    ],
+)
+def test_run_service_executes_actual_duckdb_key_safety_failures_without_raw_output(
+    tmp_path: Path,
+    check_type: str,
+    source_rows: tuple[tuple[object, ...], ...],
+    target_rows: tuple[tuple[object, ...], ...],
+    expected_diagnostic: str,
+    forbidden_tokens: tuple[str, ...],
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=source_rows,
+        target_rows=target_rows,
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=[_key_safety_payload_for(check_type, keys=("customer_id", "region"))],
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.CHECK_FAILURE
+    assert result.message == "Run completed with failing checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        expected_diagnostic
+    ]
+    public_text = _service_result_text(result)
+    for token in forbidden_tokens:
+        assert token not in public_text
+    assert "select" not in public_text.lower()
+    assert "source_customers" not in public_text
+    assert "target_customers" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_executes_actual_duckdb_duplicate_plus_null_signals(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=(
+            (None, "secret-null-candidate"),
+            (None, "secret-null-candidate"),
+            (21, "secret-duplicate"),
+            (21, "secret-duplicate"),
+        ),
+        target_rows=((21, "secret-duplicate"),),
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=[
+            _key_safety_payload_for("null_source_keys", keys=("customer_id", "region")),
+            _key_safety_payload_for(
+                "duplicate_source_keys",
+                keys=("customer_id", "region"),
+            ),
+        ],
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.CHECK_FAILURE
+    assert result.message == "Run completed with failing checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_NULL_GRAIN_KEYS",
+        "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
+    ]
+    public_text = _service_result_text(result)
+    assert "secret-null-candidate" not in public_text
+    assert "secret-duplicate" not in public_text
+    assert "customer_id" not in public_text
+    assert "region" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("source_rows", "target_rows", "expected_exit", "expected_diagnostics"),
+    [
+        ((), (), ExitCategory.SUCCESS, ()),
+        ((), ((31, "target-only"),), ExitCategory.CHECK_FAILURE, ("RC_RUNTIME_EXTRA_KEYS",)),
+        (((32, "source-only"),), (), ExitCategory.CHECK_FAILURE, ("RC_RUNTIME_MISSING_KEYS",)),
+    ],
+)
+def test_run_service_executes_actual_duckdb_key_safety_empty_side_cases(
+    tmp_path: Path,
+    source_rows: tuple[tuple[object, ...], ...],
+    target_rows: tuple[tuple[object, ...], ...],
+    expected_exit: ExitCategory,
+    expected_diagnostics: tuple[str, ...],
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=source_rows,
+        target_rows=target_rows,
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=_all_key_safety_checks(keys=("customer_id", "region")),
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is expected_exit
+    assert [diagnostic.code for diagnostic in result.diagnostics] == list(
+        expected_diagnostics
+    )
+    public_text = _service_result_text(result)
+    assert "source-only" not in public_text
+    assert "target-only" not in public_text
+    assert "failure_count" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_executes_actual_duckdb_row_count_and_key_safety_together(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=((41, "shared"), (42, "also-shared")),
+        target_rows=((41, "shared"), (42, "also-shared")),
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=[
+            _compiled_check_payload(operations=row_count_plan()),
+            _key_safety_payload_for("missing_keys", keys=("customer_id", "region")),
+        ],
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert result.diagnostics == ()
+    public_text = _service_result_text(result)
+    assert "shared" not in public_text
+    assert "also-shared" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_does_not_mutate_stale_outputs_during_actual_key_safety(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=((51, "secret-stale-output"),),
+        target_rows=(),
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=[_key_safety_payload_for("missing_keys", keys=("customer_id", "region"))],
+    )
+    output_contents = {
+        tmp_path / "target" / "run_results.json": '{"status":"stale"}\n',
+        tmp_path / "target" / "failures" / "existing.csv": "id\n1\n",
+        tmp_path / "target" / "compiled_sql" / "existing.sql": "select 1;\n",
+        tmp_path / "reports" / "existing.md": "# stale report\n",
+        tmp_path / "state" / "existing.json": '{"watermark":"stale"}\n',
+    }
+    for path, content in output_contents.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.CHECK_FAILURE
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_MISSING_KEYS"
+    ]
+    assert "secret-stale-output" not in _service_result_text(result)
+    for path, content in output_contents.items():
+        assert path.read_text(encoding="utf-8") == content
+
+
+def test_run_service_sanitizes_actual_duckdb_key_safety_type_mismatch(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=((61, "secret-type-source"),),
+        target_rows=(("61", "secret-type-target"),),
+        target_column_definitions=("customer_id varchar", "region varchar"),
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=[_key_safety_payload_for("missing_keys")],
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run failed during check-engine evaluation."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_QUERY_FAILED]
+    public_text = _service_result_text(result)
+    assert "DuckDB query execution failed." in public_text
+    assert "Recon DuckDB key_diff key type mismatch." not in public_text
+    assert "secret-type-source" not in public_text
+    assert "secret-type-target" not in public_text
+    assert "source_customers" not in public_text
+    assert "target_customers" not in public_text
+    assert "select" not in public_text.lower()
+    assert str(database) not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_executes_key_safety_with_runtime_profile_and_adapter_context(
     tmp_path: Path,
 ) -> None:
@@ -1470,6 +1779,40 @@ def write_duckdb_row_count_run_inputs(path: Path, database: Path) -> None:
     write_compiled_contract(path)
 
 
+def write_duckdb_key_safety_run_inputs(
+    path: Path,
+    database: Path,
+    *,
+    checks: list[dict[str, object]],
+) -> None:
+    write_project(path, profile="local")
+    write_profiles(
+        path,
+        yaml.safe_dump(
+            {
+                "profiles": {
+                    "local": {
+                        "target": "dev",
+                        "outputs": {
+                            "dev": {
+                                "connections": {
+                                    "warehouse": {
+                                        "type": "duckdb",
+                                        "database": str(database),
+                                    }
+                                }
+                            }
+                        },
+                    }
+                }
+            },
+            sort_keys=False,
+        ),
+    )
+    write_compiled_checks(path, checks=checks)
+    write_compiled_contract(path)
+
+
 def write_compiled_checks(
     path: Path,
     *,
@@ -1718,19 +2061,90 @@ def _key_safety_check_payload(
     )
 
 
-def _key_diff_operation(direction: str) -> dict[str, object]:
+def _key_safety_payload_for(
+    check_type: str,
+    *,
+    keys: tuple[str, ...] = ("customer_id",),
+) -> dict[str, object]:
+    if check_type == "null_source_keys":
+        operation = _null_key_operation("source", keys=keys)
+        required_capabilities = ["null_key"]
+    elif check_type == "null_target_keys":
+        operation = _null_key_operation("target", keys=keys)
+        required_capabilities = ["null_key"]
+    elif check_type == "duplicate_source_keys":
+        operation = _duplicate_key_operation("source", keys=keys)
+        required_capabilities = ["duplicate_key"]
+    elif check_type == "duplicate_target_keys":
+        operation = _duplicate_key_operation("target", keys=keys)
+        required_capabilities = ["duplicate_key"]
+    elif check_type == "missing_keys":
+        operation = _key_diff_operation("source_minus_target", keys=keys)
+        required_capabilities = ["key_diff"]
+    elif check_type == "extra_keys":
+        operation = _key_diff_operation("target_minus_source", keys=keys)
+        required_capabilities = ["key_diff"]
+    else:
+        raise AssertionError(f"Unsupported key-safety test check type: {check_type}")
+    return _key_safety_check_payload(
+        check_id=f"check.ecommerce_recon.customer_revenue.{check_type}",
+        name=check_type,
+        check_type=check_type,
+        operations=[operation],
+        required_capabilities=required_capabilities,
+    )
+
+
+def _all_key_safety_checks(
+    *,
+    keys: tuple[str, ...] = ("customer_id",),
+) -> list[dict[str, object]]:
+    return [
+        _key_safety_payload_for(check_type, keys=keys)
+        for check_type in (
+            "null_source_keys",
+            "null_target_keys",
+            "duplicate_source_keys",
+            "duplicate_target_keys",
+            "missing_keys",
+            "extra_keys",
+        )
+    ]
+
+
+def _key_diff_operation(
+    direction: str,
+    *,
+    keys: tuple[str, ...] = ("customer_id",),
+) -> dict[str, object]:
     return {
         "type": "key_diff",
         "direction": direction,
-        "identity": {"kind": "grain", "keys": ["customer_id"]},
+        "identity": {"kind": "grain", "keys": list(keys)},
     }
 
 
-def _duplicate_key_operation(side: str) -> dict[str, object]:
+def _null_key_operation(
+    side: str,
+    *,
+    keys: tuple[str, ...] = ("customer_id",),
+) -> dict[str, object]:
+    return {
+        "type": "null_key",
+        "side": side,
+        "identity": {"kind": "grain", "keys": list(keys)},
+    }
+
+
+def _duplicate_key_operation(
+    side: str,
+    *,
+    keys: tuple[str, ...] = ("customer_id",),
+) -> dict[str, object]:
     return {
         "type": "duplicate_key",
         "side": side,
-        "identity": {"kind": "grain", "keys": ["customer_id"]},
+        "identity": {"kind": "grain", "keys": list(keys)},
     }
 
 
@@ -1768,6 +2182,43 @@ def _write_duckdb_row_count_tables(
                 connection.executemany("insert into qa.target_customers values (?)", target_rows)
     finally:
         connection.close()
+
+
+def _write_duckdb_key_safety_tables(
+    duckdb: Any,
+    database: Path,
+    *,
+    source_rows: tuple[tuple[object, ...], ...],
+    target_rows: tuple[tuple[object, ...], ...],
+    source_column_definitions: tuple[str, ...] = ("customer_id integer", "region varchar"),
+    target_column_definitions: tuple[str, ...] = ("customer_id integer", "region varchar"),
+) -> None:
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute("create schema qa")
+        connection.execute(
+            "create table qa.source_customers"
+            f"({', '.join(source_column_definitions)})"
+        )
+        connection.execute(
+            "create table qa.target_customers"
+            f"({', '.join(target_column_definitions)})"
+        )
+        _insert_duckdb_rows(connection, "qa.source_customers", source_rows)
+        _insert_duckdb_rows(connection, "qa.target_customers", target_rows)
+    finally:
+        connection.close()
+
+
+def _insert_duckdb_rows(
+    connection: Any,
+    relation_name: str,
+    rows: tuple[tuple[object, ...], ...],
+) -> None:
+    if not rows:
+        return
+    placeholders = ", ".join("?" for _ in rows[0])
+    connection.executemany(f"insert into {relation_name} values ({placeholders})", rows)
 
 
 def _assert_no_runtime_outputs(path: Path) -> None:
