@@ -1114,9 +1114,7 @@ profiles:
     public_text = _service_result_text(result)
     assert "source.duckdb" not in public_text
     assert "target.duckdb" not in public_text
-    assert len(factory.adapters) == 2
-    assert [adapter.connect_count for adapter in factory.adapters] == [0, 0]
-    assert [adapter.queries for adapter in factory.adapters] == [[], []]
+    assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -1141,7 +1139,7 @@ profiles:
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
     write_compiled_contract(tmp_path)
     factory = RecordingDuckDbFactory(
-        result=QueryResult(columns=("failure_count",), rows=((0,),), row_count=1)
+        connect_error=RuntimeError("opened unbounded key-safety adapter")
     )
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
@@ -1153,7 +1151,7 @@ profiles:
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN"
     ]
-    assert sum(len(adapter.queries) for adapter in factory.adapters) == 0
+    assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -1293,12 +1291,8 @@ profiles:
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
     ]
-    assert len(duckdb_factory.adapters) == 1
-    assert len(other_factory.adapters) == 1
-    assert duckdb_factory.adapters[0].connect_count == 0
-    assert other_factory.adapters[0].connect_count == 0
-    assert duckdb_factory.adapters[0].queries == []
-    assert other_factory.adapters[0].queries == []
+    assert duckdb_factory.adapters == []
+    assert other_factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -1763,6 +1757,7 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
@@ -1828,6 +1823,7 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_payload_for(check_type)])
@@ -1865,6 +1861,7 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
@@ -1908,6 +1905,7 @@ profiles:
             type: duckdb
             database: warehouse.duckdb
             password: super-secret
+            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
@@ -1969,9 +1967,7 @@ profiles:
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN"
     ]
-    adapter = factory.adapters[0]
-    assert adapter.connect_count == 0
-    assert adapter.queries == []
+    assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 

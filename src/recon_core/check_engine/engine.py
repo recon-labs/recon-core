@@ -20,9 +20,11 @@ from recon_core.check_engine.key_safety import (
     execute_key_safety_check,
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
+    key_safety_connection_context_not_executable_result,
     key_safety_identity_matches_contract,
     key_safety_identity_mismatch_not_executable_result,
     key_safety_query_endpoint_not_executable_result,
+    key_safety_scan_budget_not_executable_result,
 )
 from recon_core.check_engine.models import (
     CheckReason,
@@ -346,14 +348,29 @@ def _key_safety_execution_result_if_available(
         return key_safety_query_endpoint_not_executable_result(check, contract)
     if not key_safety_identity_matches_contract(check, contract):
         return key_safety_identity_mismatch_not_executable_result(check, contract)
-    adapter = execution_context.adapters_by_connection.get(contract.source.connection)
-    if adapter is None:
-        return None
 
+    connection_context_blocker = _key_safety_connection_context_blocker_if_needed(
+        check,
+        contract,
+        execution_context,
+    )
+    if connection_context_blocker is not None:
+        return connection_context_blocker
     scan_budget_decision = execution_context.scan_budget_decisions_by_check_id.get(
         check.id,
         _missing_scan_budget_decision(),
     )
+    if not scan_budget_decision.allowed:
+        return key_safety_scan_budget_not_executable_result(
+            check,
+            contract,
+            scan_budget_decision,
+        )
+
+    adapter = execution_context.adapters_by_connection.get(contract.source.connection)
+    if adapter is None:
+        return None
+
     renderer = _renderer_for_adapter(adapter, execution_context)
     return execute_key_safety_check(
         check,
@@ -363,6 +380,22 @@ def _key_safety_execution_result_if_available(
         renderer=renderer,
         connections_by_name=execution_context.connections_by_name,
     )
+
+
+def _key_safety_connection_context_blocker_if_needed(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    execution_context: CheckExecutionContext,
+) -> CheckResult | None:
+    if contract.source.connection == contract.target.connection:
+        return None
+    source_connection = execution_context.connections_by_name.get(contract.source.connection)
+    target_connection = execution_context.connections_by_name.get(contract.target.connection)
+    if source_connection is None or target_connection is None:
+        return key_safety_connection_context_not_executable_result(check, contract)
+    if not _same_connection_context(source_connection, target_connection):
+        return key_safety_connection_context_not_executable_result(check, contract)
+    return None
 
 
 def _missing_scan_budget_decision() -> ScanBudgetDecision:
@@ -388,6 +421,10 @@ def _renderer_for_adapter(
 
 def _contract_has_query_endpoint(contract: LoadedCompiledContractArtifact) -> bool:
     return contract.source.query is not None or contract.target.query is not None
+
+
+def _same_connection_context(left: ConnectionConfig, right: ConnectionConfig) -> bool:
+    return left.type == right.type and left.config == right.config
 
 
 def _index_checks(

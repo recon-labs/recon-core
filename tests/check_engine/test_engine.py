@@ -520,10 +520,6 @@ def test_engine_blocks_key_safety_when_scan_budget_blocks_execution(tmp_path: Pa
     )
     artifact = _artifact(tmp_path, checks=(check,))
     contract = _compiled_contract(tmp_path)
-    adapter = _RecordingDuckDbAdapter(
-        result=QueryResult(columns=("failure_count",), rows=((0,),), row_count=1)
-    )
-
     result = CheckEngine().run(
         (artifact,),
         run_id="run-001",
@@ -531,7 +527,7 @@ def test_engine_blocks_key_safety_when_scan_budget_blocks_execution(tmp_path: Pa
         finished_at="2026-06-11T10:00:01Z",
         execution_context=CheckExecutionContext(
             contracts_by_name={contract.contract_name: contract},
-            adapters_by_connection={contract.source.connection: adapter},
+            adapters_by_connection={},
             scan_budget_decisions_by_check_id={
                 check.id: classify_scan_budget(
                     ScanBudgetContext(
@@ -549,7 +545,6 @@ def test_engine_blocks_key_safety_when_scan_budget_blocks_execution(tmp_path: Pa
     assert check_result.status is CheckStatus.NOT_EXECUTABLE
     assert not check_result.executed
     assert check_result.reason_code is CheckReason.SCAN_ESTIMATE_UNKNOWN
-    assert adapter.queries == []
 
 
 def test_engine_rejects_key_safety_identity_mismatch_before_adapter_lookup(

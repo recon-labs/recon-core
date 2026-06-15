@@ -232,8 +232,17 @@ def _prepare_runtime_execution_dependencies(
         )
 
     assert profile_result.profile is not None
-    required_capabilities_by_connection = _required_capabilities_by_connection(
+    scan_budget_decisions = _scan_budget_decisions_by_check_id(
         profile_candidates,
+        contracts_by_name=contracts_by_name,
+        connections_by_name=profile_result.profile.connections,
+    )
+    adapter_candidates = _adapter_required_runtime_candidates(
+        profile_candidates,
+        scan_budget_decisions_by_check_id=scan_budget_decisions,
+    )
+    required_capabilities_by_connection = _required_capabilities_by_connection(
+        adapter_candidates,
         contracts_by_name=contracts_by_name,
     )
     adapters_by_connection: dict[str, BaseAdapter] = {}
@@ -261,7 +270,7 @@ def _prepare_runtime_execution_dependencies(
         )
 
     open_result = _open_runtime_adapters(
-        profile_candidates,
+        adapter_candidates,
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
         connections_by_name=profile_result.profile.connections,
@@ -278,11 +287,7 @@ def _prepare_runtime_execution_dependencies(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
             connections_by_name=profile_result.profile.connections,
-            scan_budget_decisions_by_check_id=_scan_budget_decisions_by_check_id(
-                profile_candidates,
-                contracts_by_name=contracts_by_name,
-                connections_by_name=profile_result.profile.connections,
-            ),
+            scan_budget_decisions_by_check_id=scan_budget_decisions,
         ),
         opened_adapters=open_result.opened_adapters,
     )
@@ -402,6 +407,50 @@ def _requires_runtime_profile_for_contract(
     if is_key_safety_check_type(check.check_type):
         return key_safety_identity_matches_contract(check, contract)
     return False
+
+
+def _adapter_required_runtime_candidates(
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision],
+) -> tuple[LoadedCompiledChecksArtifact, ...]:
+    candidates: list[LoadedCompiledChecksArtifact] = []
+    for artifact in runtime_candidates:
+        candidate_checks = tuple(
+            check
+            for check in artifact.checks
+            if _check_requires_adapter_setup(
+                check,
+                scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id,
+            )
+        )
+        if not candidate_checks:
+            continue
+        candidates.append(
+            LoadedCompiledChecksArtifact(
+                path=artifact.path,
+                project_name=artifact.project_name,
+                project_version=artifact.project_version,
+                contract_id=artifact.contract_id,
+                contract_name=artifact.contract_name,
+                source_file=artifact.source_file,
+                checks=candidate_checks,
+                diagnostics=artifact.diagnostics,
+                payload=artifact.payload,
+            )
+        )
+    return tuple(candidates)
+
+
+def _check_requires_adapter_setup(
+    check: LoadedCompiledCheck,
+    *,
+    scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision],
+) -> bool:
+    if not is_key_safety_check_type(check.check_type):
+        return True
+    decision = scan_budget_decisions_by_check_id.get(check.id)
+    return decision is not None and decision.allowed
 
 
 def _is_relation_backed_contract(contract: LoadedCompiledContractArtifact) -> bool:

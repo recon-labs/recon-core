@@ -252,6 +252,23 @@ def key_safety_identity_mismatch_not_executable_result(
     return _identity_mismatch_not_executable_result(check, contract)
 
 
+def key_safety_connection_context_not_executable_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> CheckResult:
+    """Return the key-safety connection-context blocker without requiring an adapter."""
+    return _connection_context_not_executable_result(check, contract)
+
+
+def key_safety_scan_budget_not_executable_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    decision: ScanBudgetDecision,
+) -> CheckResult:
+    """Return the key-safety scan-budget blocker without requiring an adapter."""
+    return _scan_budget_not_executable_result(check, contract, decision)
+
+
 class _ReservedMetadataBlocker:
     def __init__(
         self,
