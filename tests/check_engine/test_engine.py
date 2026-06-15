@@ -552,6 +552,43 @@ def test_engine_blocks_key_safety_when_scan_budget_blocks_execution(tmp_path: Pa
     assert adapter.queries == []
 
 
+def test_engine_rejects_key_safety_identity_mismatch_before_adapter_lookup(
+    tmp_path: Path,
+) -> None:
+    check = _check(
+        check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+        name="missing_keys",
+        check_type="missing_keys",
+        operations=(
+            {
+                "type": "key_diff",
+                "direction": "source_minus_target",
+                "identity": {"kind": "grain", "keys": ["cdc_id"]},
+            },
+        ),
+        required_capabilities=("key_diff",),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+    contract = _compiled_contract(tmp_path)
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={},
+        ),
+    )
+
+    check_result = result.contract_results[0].check_results[0]
+    assert check_result.status is CheckStatus.NOT_EXECUTABLE
+    assert not check_result.executed
+    assert check_result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
+    assert check_result.diagnostics[-1].code == "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+
+
 def test_engine_blocks_key_safety_without_compatible_renderer(tmp_path: Path) -> None:
     check = _check(
         check_id="check.ecommerce_recon.customer_revenue.missing_keys",

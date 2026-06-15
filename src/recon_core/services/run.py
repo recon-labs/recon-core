@@ -37,6 +37,7 @@ from recon_core.check_engine import (
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
+    key_safety_identity_matches_contract,
 )
 from recon_core.check_engine.scan_budget import (
     ScanBudgetContext,
@@ -369,8 +370,38 @@ def _relation_backed_runtime_candidates(
         contract = contracts_by_name.get(artifact.contract_name)
         if contract is None or not _is_relation_backed_contract(contract):
             continue
-        candidates.append(artifact)
+        candidate_checks = tuple(
+            check
+            for check in artifact.checks
+            if _requires_runtime_profile_for_contract(check, contract)
+        )
+        if not candidate_checks:
+            continue
+        candidates.append(
+            LoadedCompiledChecksArtifact(
+                path=artifact.path,
+                project_name=artifact.project_name,
+                project_version=artifact.project_version,
+                contract_id=artifact.contract_id,
+                contract_name=artifact.contract_name,
+                source_file=artifact.source_file,
+                checks=candidate_checks,
+                diagnostics=artifact.diagnostics,
+                payload=artifact.payload,
+            )
+        )
     return tuple(candidates)
+
+
+def _requires_runtime_profile_for_contract(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> bool:
+    if check.check_type == "row_count_diff":
+        return True
+    if is_key_safety_check_type(check.check_type):
+        return key_safety_identity_matches_contract(check, contract)
+    return False
 
 
 def _is_relation_backed_contract(contract: LoadedCompiledContractArtifact) -> bool:

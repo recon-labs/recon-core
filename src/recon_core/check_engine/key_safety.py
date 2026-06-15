@@ -103,18 +103,8 @@ def execute_key_safety_check(
             hint="Compile a key-safety check plan with the supported typed operation shape.",
         )
 
-    if not _operation_identity_matches_contract(check.plan.operations[0], contract):
-        return _not_executable_result(
-            check,
-            contract,
-            reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
-            diagnostic_code=UNSUPPORTED_TYPED_OPERATION,
-            message=(
-                "Key-safety typed operation identity must match the compiled "
-                "contract grain identity."
-            ),
-            hint="Recompile the contract so key-safety checks use the contract grain keys.",
-        )
+    if not key_safety_identity_matches_contract(check, contract):
+        return _identity_mismatch_not_executable_result(check, contract)
 
     if contract.source.query is not None or contract.target.query is not None:
         return _query_endpoint_not_executable_result(check, contract)
@@ -244,6 +234,24 @@ def key_safety_query_endpoint_not_executable_result(
     return _query_endpoint_not_executable_result(check, contract)
 
 
+def key_safety_identity_matches_contract(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> bool:
+    """Return whether one key-safety operation uses the compiled grain identity."""
+    if not is_key_safety_check_type(check.check_type) or len(check.plan.operations) != 1:
+        return False
+    return _operation_identity_matches_contract(check.plan.operations[0], contract)
+
+
+def key_safety_identity_mismatch_not_executable_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> CheckResult:
+    """Return the key-safety identity mismatch blocker without requiring an adapter."""
+    return _identity_mismatch_not_executable_result(check, contract)
+
+
 class _ReservedMetadataBlocker:
     def __init__(
         self,
@@ -325,6 +333,23 @@ def _operation_identity_matches_contract(
     if not isinstance(keys, list):
         return False
     return tuple(keys) == contract.grain_keys
+
+
+def _identity_mismatch_not_executable_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> CheckResult:
+    return _not_executable_result(
+        check,
+        contract,
+        reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
+        diagnostic_code=UNSUPPORTED_TYPED_OPERATION,
+        message=(
+            "Key-safety typed operation identity must match the compiled "
+            "contract grain identity."
+        ),
+        hint="Recompile the contract so key-safety checks use the contract grain keys.",
+    )
 
 
 def _query_endpoint_not_executable_result(

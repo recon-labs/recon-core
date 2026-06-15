@@ -20,6 +20,8 @@ from recon_core.check_engine.key_safety import (
     execute_key_safety_check,
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
+    key_safety_identity_matches_contract,
+    key_safety_identity_mismatch_not_executable_result,
     key_safety_query_endpoint_not_executable_result,
 )
 from recon_core.check_engine.models import (
@@ -342,6 +344,8 @@ def _key_safety_execution_result_if_available(
         return None
     if _contract_has_query_endpoint(contract):
         return key_safety_query_endpoint_not_executable_result(check, contract)
+    if not key_safety_identity_matches_contract(check, contract):
+        return key_safety_identity_mismatch_not_executable_result(check, contract)
     adapter = execution_context.adapters_by_connection.get(contract.source.connection)
     if adapter is None:
         return None

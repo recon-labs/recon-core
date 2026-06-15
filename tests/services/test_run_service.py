@@ -1484,6 +1484,40 @@ def test_run_service_blocks_key_safety_unsupported_runtime_metadata_before_adapt
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_rejects_key_safety_identity_mismatch_before_profile_or_adapter_setup(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _key_safety_check_payload(
+                operations=[
+                    {
+                        "type": "key_diff",
+                        "direction": "source_minus_target",
+                        "identity": {"kind": "grain", "keys": ["cdc_id"]},
+                    }
+                ],
+            )
+        ],
+    )
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+    ]
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_executes_valid_row_count_and_key_safety_checks(
     tmp_path: Path,
 ) -> None:
