@@ -23,8 +23,8 @@ Current implementation status:
   and current typed check-plan operations.
 - `recon run` is implemented as the first check-engine boundary for already
   compiled checks. It executes relation-backed same-context DuckDB
-  `row_count_diff` checks and reports other current or later-phase checks as
-  blocked or not executable.
+  `row_count_diff` and grain-key safety checks and reports other current or
+  later-phase checks as blocked or not executable.
 
 ## `recon init`
 
@@ -198,16 +198,17 @@ Current limitations:
 - DuckDB `--render-sql` currently targets one adapter connection context and
   does not attach or bridge multiple DuckDB database files,
 - the in-core DuckDB adapter renders SQL and supports current same-context
-  relation-backed row-count execution, but does not fetch metadata yet,
-- query endpoint execution, key checks, aggregate checks, row-level value
-  checks, run results, and evidence reports are not implemented yet.
+  relation-backed row-count and grain-key safety execution, but does not fetch
+  metadata yet,
+- query endpoint execution, aggregate checks, row-level value checks, run
+  results, and evidence reports are not implemented yet.
 
 ## `recon run`
 
 Loads compiled checks and routes them through the check-engine boundary. The
 current command executes supported relation-backed same-context DuckDB
-`row_count_diff` checks and reports explicit diagnostics for checks that cannot
-execute yet.
+`row_count_diff` and grain-key safety checks and reports explicit diagnostics
+for checks that cannot execute yet.
 
 ```bash
 recon run
@@ -230,13 +231,15 @@ Current behavior:
 - returns `blocked` check results when prerequisites are missing, failed, or
   errored,
 - loads runtime profiles and initializes adapters only for the supported
-  same-context DuckDB row-count execution shape,
+  same-context DuckDB row-count and grain-key safety execution shapes,
 - executes the final DuckDB row-count comparison query for supported
   relation-backed `row_count_diff` checks,
+- executes supported grain-key safety checks as bounded count queries for
+  null-key, duplicate-key, missing-key, and extra-key checks,
 - does not parse authored contract YAML,
 - does not recompile contracts,
-- does not execute query endpoints, cross-context checks, key checks, aggregate
-  checks, or row-level value checks,
+- does not execute query endpoints, cross-context checks, aggregate checks, or
+  row-level value checks,
 - does not write generated outputs.
 
 Planned future output:

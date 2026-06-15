@@ -153,13 +153,14 @@ exit category and top-level message belong to command plumbing. `RunResult`,
 diagnostics, and future artifact or sink references.
 
 The first non-executing run boundary may load already compiled checks and route
-them through internal dispatch. The current row-count execution boundary may
-also load matching compiled-contract metadata, selected runtime profiles,
-referenced connections, and supported adapters for relation-backed same-context
-DuckDB `row_count_diff` checks. It must still not parse authored YAML, compile
-contracts, execute query endpoints, execute key/aggregate/value checks, write
-generated artifacts, emit evidence, mutate state, write sinks, produce
-probabilistic summaries, or execute selector/subset scopes.
+them through internal dispatch. The current row-count and grain-key safety
+execution boundaries may also load matching compiled-contract metadata, selected
+runtime profiles, referenced connections, and supported adapters for
+relation-backed same-context DuckDB `row_count_diff`, null-key, duplicate-key,
+missing-key, and extra-key checks. They must still not parse authored YAML,
+compile contracts, execute query endpoints, execute aggregate or row-level value
+checks, write generated artifacts, emit evidence, mutate state, write sinks,
+produce probabilistic summaries, or execute selector/subset scopes.
 
 ## Adapter capability fit
 

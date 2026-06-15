@@ -394,10 +394,11 @@ run results, evidence, or adapter test snapshots are published.
 
 ## Query endpoint boundary
 
-Current adapter-aware rendering and row-count execution are relation-backed
-only. `source.query` and `target.query` may remain parseable, but they must
-produce a clear unsupported diagnostic if adapter-aware rendering or current
-execution tries to use them. Executable query endpoints remain future work.
+Current adapter-aware rendering, row-count execution, and grain-key safety
+execution are relation-backed only. `source.query` and `target.query` may
+remain parseable, but they must produce a clear unsupported diagnostic if
+adapter-aware rendering or current execution tries to use them. Executable query
+endpoints remain future work.
 
 Current adapter-aware compile implements this boundary for SQL rendering:
 query endpoints produce `blocked` rendering metadata and no SQL files. Current
@@ -410,10 +411,10 @@ capabilities.
 ## Execution placement boundary
 
 Current adapter-aware compile produces SQL, and current run execution is limited
-to relation-backed same-context DuckDB `row_count_diff`. Before the check engine
-executes any additional typed-plan surface, Recon must define where comparison
-work may run: source system, target system, adapter-managed intermediate
-system, or bounded Python-side comparison.
+to relation-backed same-context DuckDB `row_count_diff` and grain-key safety
+checks. Before the check engine executes any additional typed-plan surface,
+Recon must define where comparison work may run: source system, target system,
+adapter-managed intermediate system, or bounded Python-side comparison.
 
 Unsupported SQL behavior must not silently fall back to Python. Any Python or
 intermediate-system fallback requires explicit limits, privacy rules,
