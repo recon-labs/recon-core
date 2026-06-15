@@ -999,6 +999,7 @@ def _compiled_contract(
             connection=target_connection,
             relation="qa.target_customers",
         ),
+        grain_keys=("customer_id",),
     )
 
 

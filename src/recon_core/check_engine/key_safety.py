@@ -103,6 +103,19 @@ def execute_key_safety_check(
             hint="Compile a key-safety check plan with the supported typed operation shape.",
         )
 
+    if not _operation_identity_matches_contract(check.plan.operations[0], contract):
+        return _not_executable_result(
+            check,
+            contract,
+            reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
+            diagnostic_code=UNSUPPORTED_TYPED_OPERATION,
+            message=(
+                "Key-safety typed operation identity must match the compiled "
+                "contract grain identity."
+            ),
+            hint="Recompile the contract so key-safety checks use the contract grain keys.",
+        )
+
     if contract.source.query is not None or contract.target.query is not None:
         return _query_endpoint_not_executable_result(check, contract)
 
@@ -295,8 +308,23 @@ def _operation_matches_key_safety_shape(
 def _has_identity_keys(identity: object) -> bool:
     if not isinstance(identity, Mapping):
         return False
+    if identity.get("kind") != "grain":
+        return False
     keys = identity.get("keys")
     return isinstance(keys, list) and all(isinstance(key, str) and key for key in keys)
+
+
+def _operation_identity_matches_contract(
+    operation: Mapping[str, object],
+    contract: LoadedCompiledContractArtifact,
+) -> bool:
+    identity = operation.get("identity")
+    if not isinstance(identity, Mapping) or identity.get("kind") != "grain":
+        return False
+    keys = identity.get("keys")
+    if not isinstance(keys, list):
+        return False
+    return tuple(keys) == contract.grain_keys
 
 
 def _query_endpoint_not_executable_result(

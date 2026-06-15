@@ -480,6 +480,54 @@ def test_execute_key_safety_check_blocks_scan_budget_before_adapter_query() -> N
     assert adapter.queries == []
 
 
+def test_execute_key_safety_check_rejects_non_grain_identity_before_adapter_query() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_key_safety_check(
+        _key_check(
+            "missing_keys",
+            {
+                "type": "key_diff",
+                "direction": "source_minus_target",
+                "identity": {"kind": "cdc", "keys": ["customer_id", "month"]},
+            },
+        ),
+        _contract(),
+        adapter,
+        scan_budget_decision=_allowed_scan_budget(),
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
+    assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+    assert adapter.queries == []
+
+
+def test_execute_key_safety_check_rejects_identity_keys_that_do_not_match_contract() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_key_safety_check(
+        _key_check(
+            "missing_keys",
+            {
+                "type": "key_diff",
+                "direction": "source_minus_target",
+                "identity": {"kind": "grain", "keys": ["cdc_id"]},
+            },
+        ),
+        _contract(),
+        adapter,
+        scan_budget_decision=_allowed_scan_budget(),
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
+    assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+    assert adapter.queries == []
+
+
 def _duckdb_adapter() -> "DuckDbExecutionAdapter":
     duckdb = pytest.importorskip("duckdb")
     return DuckDbExecutionAdapter(duckdb.connect(database=":memory:"))

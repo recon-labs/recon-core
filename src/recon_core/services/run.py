@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Final, Protocol
 from uuid import uuid4
 
 from recon_core.adapters import (
@@ -179,6 +179,7 @@ _KEY_SAFETY_RUNTIME_REQUIRED_CAPABILITIES = {
     "null_key": ("null_key",),
     "duplicate_key": ("duplicate_key",),
 }
+_BOUNDED_LOCAL_FIXTURE_MARKER: Final = "_recon_bounded_local_fixture"
 _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
     {
         RenderingStatus.BLOCKED.value,
@@ -480,6 +481,8 @@ def _scan_budget_decision_for_key_safety(
         and target_connection is not None
         and source_connection.type == "duckdb"
         and _same_connection_context(source_connection, target_connection)
+        and _has_explicit_bounded_local_fixture(source_connection)
+        and _has_explicit_bounded_local_fixture(target_connection)
     )
     return classify_scan_budget(
         ScanBudgetContext(
@@ -493,6 +496,10 @@ def _scan_budget_decision_for_key_safety(
             estimate_state=ScanEstimateState.UNKNOWN,
         )
     )
+
+
+def _has_explicit_bounded_local_fixture(connection: ConnectionConfig) -> bool:
+    return connection.config.get(_BOUNDED_LOCAL_FIXTURE_MARKER) is True
 
 
 def _connection_names_to_open(

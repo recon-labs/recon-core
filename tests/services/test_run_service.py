@@ -35,6 +35,7 @@ from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 
 BOUNDED_LOCAL_SCAN_ALLOWED = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED"
+_BOUNDED_LOCAL_FIXTURE_MARKER = "_recon_bounded_local_fixture"
 
 
 def test_run_service_reports_missing_compiled_artifacts(tmp_path: Path) -> None:
@@ -778,6 +779,7 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
           unused:
             type: duckdb
             database: "{{ env_var('UNUSED_DB') }}"
@@ -821,6 +823,7 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(
@@ -876,6 +879,7 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
 """,
     )
     sampled_key_check = _key_safety_payload_for("null_source_keys")
@@ -1116,6 +1120,43 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_blocks_key_safety_same_context_duckdb_without_explicit_bounded_fixture(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory(
+        result=QueryResult(columns=("failure_count",), rows=((0,),), row_count=1)
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN"
+    ]
+    assert sum(len(adapter.queries) for adapter in factory.adapters) == 0
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_executes_key_safety_for_same_context_duckdb_aliases(
     tmp_path: Path,
 ) -> None:
@@ -1132,9 +1173,11 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
           replica:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
@@ -1457,6 +1500,7 @@ profiles:
           warehouse:
             type: duckdb
             database: warehouse.duckdb
+            _recon_bounded_local_fixture: true
 """,
     )
     write_compiled_checks(
@@ -2173,6 +2217,7 @@ def write_duckdb_key_safety_run_inputs(
                                     "warehouse": {
                                         "type": "duckdb",
                                         "database": str(database),
+                                        _BOUNDED_LOCAL_FIXTURE_MARKER: True,
                                     }
                                 }
                             }
@@ -2184,7 +2229,7 @@ def write_duckdb_key_safety_run_inputs(
         ),
     )
     write_compiled_checks(path, checks=checks)
-    write_compiled_contract(path)
+    write_compiled_contract(path, grain_keys=_grain_keys_from_checks(checks))
 
 
 def write_compiled_checks(
@@ -2219,6 +2264,7 @@ def write_compiled_contract(
     target_relation: str | None = "qa.target_customers",
     source_query: str | None = None,
     target_query: str | None = None,
+    grain_keys: tuple[str, ...] = ("customer_id",),
 ) -> None:
     artifact_path = path / "target" / "compiled_contracts" / f"{contract_name}.yml"
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2232,6 +2278,7 @@ def write_compiled_contract(
                 target_relation=target_relation,
                 source_query=source_query,
                 target_query=target_query,
+                grain_keys=grain_keys,
             ),
             sort_keys=False,
         ),
@@ -2365,6 +2412,7 @@ def _compiled_contract_payload(
     target_relation: str | None,
     source_query: str | None = None,
     target_query: str | None = None,
+    grain_keys: tuple[str, ...],
 ) -> dict[str, object]:
     source: dict[str, object] = {"connection": source_connection}
     if source_relation is not None:
@@ -2388,7 +2436,7 @@ def _compiled_contract_payload(
             "name": contract_name,
             "source_file": f"contracts/{contract_name}.yml",
         },
-        "identity": {"grain": {"keys": []}, "cdc": {"keys": []}},
+        "identity": {"grain": {"keys": list(grain_keys)}, "cdc": {"keys": []}},
         "source": source,
         "target": target,
         "columns": [],
@@ -2396,6 +2444,26 @@ def _compiled_contract_payload(
         "checks": [],
         "diagnostics": [],
     }
+
+
+def _grain_keys_from_checks(checks: list[dict[str, object]]) -> tuple[str, ...]:
+    for check in checks:
+        plan = check.get("plan")
+        if not isinstance(plan, dict):
+            continue
+        operations = plan.get("operations")
+        if not isinstance(operations, list):
+            continue
+        for operation in operations:
+            if not isinstance(operation, dict):
+                continue
+            identity = operation.get("identity")
+            if not isinstance(identity, dict):
+                continue
+            keys = identity.get("keys")
+            if isinstance(keys, list) and all(isinstance(key, str) for key in keys):
+                return tuple(keys)
+    return ("customer_id",)
 
 
 def row_count_plan() -> list[dict[str, object]]:
