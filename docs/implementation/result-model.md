@@ -218,7 +218,7 @@ Current reason codes:
 | `scan_estimate_unsupported` | `not_executable` | Scan estimation is unavailable, unsupported, malformed, or incompatible. |
 | `scan_budget_exceeded` | `not_executable` | A scan-budget preflight says execution would exceed the allowed budget. |
 | `unsafe_scan_preflight` | `not_executable` | A proposed scan preflight would itself execute or otherwise be unsafe. |
-| `bounded_local_scan_required` | `not_executable` | The check is not explicitly classified as bounded local relation-backed execution. |
+| `bounded_local_scan_required` | `not_executable` | The check did not pass the internal bounded local/dev relation-backed scan guard. |
 | `not_implemented_in_current_phase` | `not_executable` | The check or typed operation is valid and known to Recon but belongs to a later execution phase. |
 | `skipped_by_policy` | `skipped` | Explicit user or configuration policy skipped the check. Reserved until skip policy exists. |
 | `selected_out` | `skipped` | Future selector behavior excluded the check from the run. Reserved until selectors exist. |

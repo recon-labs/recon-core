@@ -441,9 +441,10 @@ Cross-cutting gate assignments:
   path. Production estimate-present, unknown, unavailable, unsupported,
   malformed, unsafe, or over-budget scan preflight outcomes are
   `not_executable`, not data failures.
-  The bounded local/dev exception is allowed only when explicitly classified as
-  local, relation-backed, and bounded. Milestone 7.3 must not add contract YAML
-  scan-budget settings or broad user-facing budget configuration. If
+  The bounded local/dev exception is allowed only when the internal scan guard
+  classifies the input as local, relation-backed, and bounded. Milestone 7.3
+  must not add contract YAML scan-budget settings or broad user-facing budget
+  configuration. If
   probabilistic, Bloom, or sketch-based key coverage is proposed, Gate 4K must
   be resolved first and exact versus probabilistic result semantics must be
   reflected in result/evidence wording.
@@ -625,8 +626,8 @@ Assigned gates and blockers:
   malformed, unsafe, or over-budget scan preflight outcomes as
   `not_executable`, not data failures until Milestone 8 locks user-facing
   budget settings and compatibility policy,
-- allow bounded local/dev scan-budget exceptions only when explicitly classified
-  as local, relation-backed, and bounded,
+- allow bounded local/dev scan-budget exceptions only when the internal scan
+  guard classifies the input as local, relation-backed, and bounded,
 - preserve locked key semantics: `grain.keys` means comparison identity,
   `cdc.keys` means CDC/change propagation identity, row-level checks require
   `grain.keys`, and row-level value and row-matching checks require non-null and
