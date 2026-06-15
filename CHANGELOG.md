@@ -65,7 +65,8 @@ This project follows semantic versioning once public package releases begin.
   symlinked artifact paths, non-string artifact mapping keys, empty typed
   operation plans, fields not valid for known or reserved operation types, and
   non-executable prerequisites, while preserving valid artifacts when sibling
-  contracts compile to no checks.
+  contracts compile to no checks and preserving key-safety typed-plan shape
+  blockers in mixed runtime runs.
 - `recon compile`, compiled artifact writers, `CompiledSqlWriter`, and
   `recon compile --render-sql` now preflight artifact publication, reject unsafe
   output paths, symlinks, non-files, case-insensitive collisions, path-like

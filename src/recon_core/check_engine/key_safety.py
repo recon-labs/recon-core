@@ -94,14 +94,7 @@ def execute_key_safety_check(
         )
 
     if not is_supported_key_safety_plan_shape(check.check_type, check.plan.operations):
-        return _not_executable_result(
-            check,
-            contract,
-            reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
-            diagnostic_code=UNSUPPORTED_TYPED_OPERATION,
-            message="Key-safety execution requires one supported key-safety typed operation.",
-            hint="Compile a key-safety check plan with the supported typed operation shape.",
-        )
+        return _unsupported_plan_shape_not_executable_result(check, contract)
 
     if not key_safety_identity_matches_contract(check, contract):
         return _identity_mismatch_not_executable_result(check, contract)
@@ -252,6 +245,14 @@ def key_safety_identity_mismatch_not_executable_result(
     return _identity_mismatch_not_executable_result(check, contract)
 
 
+def key_safety_unsupported_plan_shape_not_executable_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> CheckResult:
+    """Return the key-safety typed-plan shape blocker without requiring an adapter."""
+    return _unsupported_plan_shape_not_executable_result(check, contract)
+
+
 def key_safety_connection_context_not_executable_result(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
@@ -365,6 +366,20 @@ def _identity_mismatch_not_executable_result(
             "Key-safety typed operation identity must match the compiled contract grain identity."
         ),
         hint="Recompile the contract so key-safety checks use the contract grain keys.",
+    )
+
+
+def _unsupported_plan_shape_not_executable_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> CheckResult:
+    return _not_executable_result(
+        check,
+        contract,
+        reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
+        diagnostic_code=UNSUPPORTED_TYPED_OPERATION,
+        message="Key-safety execution requires one supported key-safety typed operation.",
+        hint="Compile a key-safety check plan with the supported typed operation shape.",
     )
 
 

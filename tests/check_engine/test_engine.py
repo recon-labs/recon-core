@@ -547,6 +547,55 @@ def test_engine_blocks_key_safety_when_scan_budget_blocks_execution(tmp_path: Pa
     assert check_result.reason_code is CheckReason.SCAN_ESTIMATE_UNKNOWN
 
 
+def test_engine_preserves_key_safety_shape_blocker_when_scan_budget_decision_is_missing(
+    tmp_path: Path,
+) -> None:
+    row_count = _check(
+        check_id="check.ecommerce_recon.customer_revenue.row_count",
+        name="row_count",
+        check_type="row_count_diff",
+        operations=_row_count_operations(),
+        required_capabilities=("row_count",),
+    )
+    missing_keys = _check(
+        check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+        name="missing_keys",
+        check_type="missing_keys",
+        operations=(_key_diff_operation("target_minus_source"),),
+        required_capabilities=("key_diff",),
+    )
+    artifact = _artifact(tmp_path, checks=(row_count, missing_keys))
+    contract = _compiled_contract(tmp_path)
+    adapter = _RecordingDuckDbAdapter(
+        result=QueryResult(
+            columns=("source_row_count", "target_row_count", "row_count_diff"),
+            rows=((4, 4, 0),),
+            row_count=1,
+        )
+    )
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+            scan_budget_decisions_by_check_id={},
+        ),
+    )
+
+    row_count_result, missing_keys_result = result.contract_results[0].check_results
+    assert row_count_result.status is CheckStatus.PASS
+    assert row_count_result.executed
+    assert missing_keys_result.status is CheckStatus.NOT_EXECUTABLE
+    assert not missing_keys_result.executed
+    assert missing_keys_result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
+    assert missing_keys_result.diagnostics[-1].code == "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+    assert len(adapter.queries) == 1
+
+
 def test_engine_rejects_key_safety_identity_mismatch_before_adapter_lookup(
     tmp_path: Path,
 ) -> None:
