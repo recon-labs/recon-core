@@ -345,8 +345,7 @@ def _identity_mismatch_not_executable_result(
         reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
         diagnostic_code=UNSUPPORTED_TYPED_OPERATION,
         message=(
-            "Key-safety typed operation identity must match the compiled "
-            "contract grain identity."
+            "Key-safety typed operation identity must match the compiled contract grain identity."
         ),
         hint="Recompile the contract so key-safety checks use the contract grain keys.",
     )
