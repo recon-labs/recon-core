@@ -501,7 +501,10 @@ profile/target, run-policy, command, or future contract policy surfaces, but
 Milestone 7.3 adds no new contract YAML scan-budget settings. Contract-level
 scan-budget policy requires a separate public schema decision. The preferred
 future home for general execution-safety policy is project, profile/target, or
-run policy unless a later decision explicitly chooses otherwise.
+run policy unless a later decision explicitly chooses otherwise. Milestone 8
+owns the first user-facing scan-budget settings decision for `recon run`
+execution policy; Milestone 7.3 only owns the bounded internal policy required
+to keep grain-key safety execution safe.
 
 Recon computes budget status from adapter plan/estimate evidence, adapter
 capability state, placement policy, configured limits, and bounded local/dev
@@ -1058,7 +1061,7 @@ environment or report the missing dependency as a blocker.
 
 | Item | Owning phase or gate |
 | --- | --- |
-| General user-facing scan-budget configuration | Future Gate 4L work |
+| General user-facing scan-budget configuration | Milestone 8 first user-facing scan-budget settings decision under Gate 4L |
 | Contract-level scan-budget policy | Future public schema decision under Gate 4L |
 | Production adapter scan-estimation/test-kit conformance | Future adapter test-kit and adapter package work |
 | Row-level value comparison | Later row-level comparison work |

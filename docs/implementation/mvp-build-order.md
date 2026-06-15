@@ -687,9 +687,12 @@ Build:
 
 - execution plan,
 - run service,
+- first user-facing scan-budget settings decision for `recon run` execution
+  policy,
 - `target/run_results.json`,
 - local run-result artifact metadata for execution placement, adapter/capability
-  status, artifact references, and future sink-reference placeholders,
+  status, scan scope, budget status, artifact references, and future
+  sink-reference placeholders,
 - exit code mapping,
 - terminal summary.
 
@@ -703,6 +706,12 @@ Required gate:
   query text, adapter runtime errors, or database error text.
 - resolve the generated artifact lifecycle and cleanup gate before writing
   `target/run_results.json`.
+- resolve Gate 4L before introducing the first user-facing scan-budget settings
+  surface for `recon run`. Milestone 8 owns the first decision for where scan
+  limits or opt-ins live across project config, profile/target policy,
+  run-policy config, command options, or future contract policy. Contract YAML
+  scan-budget settings stay out of scope unless a separate public schema
+  decision explicitly admits them.
 - resolve the result/evidence sink metadata boundary before adding sink status or
   sink references to run results. Milestone 8 may record local metadata only; it
   must not write table sinks, evidence sinks, state, or external stores.
@@ -724,7 +733,11 @@ Tests:
   raw rows, keys, values, aggregates, relation names, query text, and runtime
   error text,
 - local run-result artifacts include stable metadata for placement/capability
-  decisions without implying evidence, sink, state, or result-table writes,
+  decisions and scan-budget decisions without implying evidence, sink, state,
+  or result-table writes,
+- first scan-budget settings tests cover the selected settings home, unknown
+  estimate behavior, over-budget behavior, explicit opt-ins if admitted, and
+  Recon-computed budget status rather than user-provided final status,
 - run-result scope metadata can represent whole-project runs now and can evolve
   to selected-scope runs later without changing the meaning of existing fields.
 
