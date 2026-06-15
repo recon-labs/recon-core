@@ -840,6 +840,49 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+def test_run_service_executes_key_safety_with_named_sampling_metadata(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    sampled_key_check = _key_safety_payload_for("null_source_keys")
+    sampled_key_check["sampling"] = {"policy": "stable_hash_5_percent"}
+    write_compiled_checks(tmp_path, checks=[sampled_key_check])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory(
+        result=QueryResult(columns=("failure_count",), rows=((1,),), row_count=1)
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.CHECK_FAILURE
+    assert result.message == "Run completed with failing checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_RUNTIME_NULL_GRAIN_KEYS"]
+    public_text = _service_result_text(result)
+    assert "stable_hash_5_percent" not in public_text
+    assert "customer_id" not in public_text
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 1
+    assert adapter.close_count == 1
+    assert len(adapter.queries) == 1
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_blocks_query_endpoints_before_adapter_execution(
     tmp_path: Path,
 ) -> None:
