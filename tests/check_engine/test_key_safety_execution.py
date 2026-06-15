@@ -35,6 +35,7 @@ from recon_core.check_engine.key_safety import (
     execute_key_safety_check,
 )
 from recon_core.check_engine.scan_budget import (
+    BOUNDED_LOCAL_SCAN_ALLOWED,
     BOUNDED_LOCAL_SCAN_REQUIRED,
     SCAN_BUDGET_EXCEEDED,
     SCAN_ESTIMATE_UNKNOWN,
@@ -62,7 +63,8 @@ def test_scan_budget_allows_explicit_bounded_local_relation_backed_context() -> 
     assert decision.reason is None
     assert decision.classification == "bounded_local"
     assert decision.message == "Bounded local/dev relation-backed scan may execute."
-    assert decision.diagnostics == ()
+    assert [diagnostic.code for diagnostic in decision.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    assert decision.diagnostics[0].severity is DiagnosticSeverity.INFO
 
 
 @pytest.mark.parametrize(
@@ -237,7 +239,7 @@ def test_execute_key_safety_check_passes_without_violations(
     assert result.failure_count == 0
     assert result.artifact_refs == ()
     assert result.sink_refs == ()
-    assert result.diagnostics == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(adapter.queries) == 1
     assert adapter.queries[0].startswith("select count(*) as failure_count\nfrom (")
     assert "recon_key_safety_failures" in adapter.queries[0]
@@ -333,7 +335,10 @@ def test_execute_key_safety_check_fails_with_count_only(
     assert result.target_value is None
     assert result.artifact_refs == ()
     assert result.sink_refs == ()
-    assert result.diagnostics[0].code == code
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        code,
+        BOUNDED_LOCAL_SCAN_ALLOWED,
+    ]
     assert "2026" not in diagnostic_text
     assert "customer_id" not in diagnostic_text
     assert "source_table" not in diagnostic_text

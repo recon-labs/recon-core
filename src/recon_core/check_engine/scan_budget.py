@@ -12,6 +12,7 @@ SCAN_ESTIMATE_UNSUPPORTED: Final = "RC_RUNTIME_SCAN_ESTIMATE_UNSUPPORTED"
 SCAN_BUDGET_EXCEEDED: Final = "RC_RUNTIME_SCAN_BUDGET_EXCEEDED"
 UNSAFE_SCAN_PREFLIGHT: Final = "RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT"
 BOUNDED_LOCAL_SCAN_REQUIRED: Final = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
+BOUNDED_LOCAL_SCAN_ALLOWED: Final = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED"
 
 
 class ScanExecutionEnvironment(StrEnum):
@@ -84,6 +85,21 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
             allowed=True,
             classification="bounded_local",
             message="Bounded local/dev relation-backed scan may execute.",
+            diagnostics=(
+                Diagnostic(
+                    code=BOUNDED_LOCAL_SCAN_ALLOWED,
+                    severity=DiagnosticSeverity.INFO,
+                    message=(
+                        "Grain-key safety scan is allowed because it is explicitly "
+                        "classified as bounded local/dev relation-backed execution."
+                    ),
+                    resource_type="runtime_policy",
+                    hint=(
+                        "This classification is internal to the current grain-key "
+                        "safety execution phase."
+                    ),
+                ),
+            ),
         )
 
     if context.environment is ScanExecutionEnvironment.LOCAL_DEV:

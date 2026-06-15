@@ -191,6 +191,7 @@ def execute_key_safety_check(
     diagnostics = check.diagnostics + contract.diagnostics
     if status is CheckStatus.FAIL:
         diagnostics = diagnostics + (_failure_diagnostic(check),)
+    diagnostics = diagnostics + scan_budget_decision.diagnostics
 
     return CheckResult(
         check_id=check.id,

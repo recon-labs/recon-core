@@ -34,6 +34,8 @@ from recon_core.check_engine import (
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 
+BOUNDED_LOCAL_SCAN_ALLOWED = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED"
+
 
 def test_run_service_reports_missing_compiled_artifacts(tmp_path: Path) -> None:
     write_project(tmp_path)
@@ -461,7 +463,7 @@ def test_run_service_executes_actual_duckdb_key_safety_all_checks_pass(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "north" not in public_text
     assert "south" not in public_text
@@ -547,7 +549,10 @@ def test_run_service_executes_actual_duckdb_key_safety_failures_without_raw_outp
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [expected_diagnostic]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        expected_diagnostic,
+        BOUNDED_LOCAL_SCAN_ALLOWED,
+    ]
     public_text = _service_result_text(result)
     for token in forbidden_tokens:
         assert token not in public_text
@@ -591,6 +596,7 @@ def test_run_service_executes_actual_duckdb_duplicate_plus_null_signals(
     assert result.message == "Run completed with failing checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
         "RC_RUNTIME_NULL_GRAIN_KEYS",
+        BOUNDED_LOCAL_SCAN_ALLOWED,
         "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
     ]
     public_text = _service_result_text(result)
@@ -604,9 +610,19 @@ def test_run_service_executes_actual_duckdb_duplicate_plus_null_signals(
 @pytest.mark.parametrize(
     ("source_rows", "target_rows", "expected_exit", "expected_diagnostics"),
     [
-        ((), (), ExitCategory.SUCCESS, ()),
-        ((), ((31, "target-only"),), ExitCategory.CHECK_FAILURE, ("RC_RUNTIME_EXTRA_KEYS",)),
-        (((32, "source-only"),), (), ExitCategory.CHECK_FAILURE, ("RC_RUNTIME_MISSING_KEYS",)),
+        ((), (), ExitCategory.SUCCESS, (BOUNDED_LOCAL_SCAN_ALLOWED,)),
+        (
+            (),
+            ((31, "target-only"),),
+            ExitCategory.CHECK_FAILURE,
+            (BOUNDED_LOCAL_SCAN_ALLOWED, "RC_RUNTIME_EXTRA_KEYS"),
+        ),
+        (
+            ((32, "source-only"),),
+            (),
+            ExitCategory.CHECK_FAILURE,
+            (BOUNDED_LOCAL_SCAN_ALLOWED, "RC_RUNTIME_MISSING_KEYS"),
+        ),
     ],
 )
 def test_run_service_executes_actual_duckdb_key_safety_empty_side_cases(
@@ -665,7 +681,7 @@ def test_run_service_executes_actual_duckdb_row_count_and_key_safety_together(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "shared" not in public_text
     assert "also-shared" not in public_text
@@ -702,7 +718,10 @@ def test_run_service_does_not_mutate_stale_outputs_during_actual_key_safety(
     result = RunService(start_path=tmp_path).execute()
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
-    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_RUNTIME_MISSING_KEYS"]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_MISSING_KEYS",
+        BOUNDED_LOCAL_SCAN_ALLOWED,
+    ]
     assert "secret-stale-output" not in _service_result_text(result)
     for path, content in output_contents.items():
         assert path.read_text(encoding="utf-8") == content
@@ -776,7 +795,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     adapter = factory.adapters[0]
     assert adapter.connect_count == 1
     assert adapter.close_count == 1
@@ -828,7 +847,8 @@ profiles:
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_DUPLICATE_GRAIN_KEYS"
+        "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
+        BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
     public_text = _service_result_text(result)
     assert "customer_id" not in public_text
@@ -872,7 +892,10 @@ profiles:
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_RUNTIME_NULL_GRAIN_KEYS"]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_NULL_GRAIN_KEYS",
+        BOUNDED_LOCAL_SCAN_ALLOWED,
+    ]
     public_text = _service_result_text(result)
     assert "stable_hash_5_percent" not in public_text
     assert "customer_id" not in public_text
@@ -1130,7 +1153,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(factory.adapters) == 2
     assert sum(adapter.connect_count for adapter in factory.adapters) == 1
     assert sum(adapter.close_count for adapter in factory.adapters) == 1
@@ -1461,7 +1484,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     adapter = factory.adapters[0]
     assert adapter.connect_count == 1
     assert adapter.close_count == 1
