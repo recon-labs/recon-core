@@ -46,6 +46,9 @@ Implemented today:
 - structured service results and diagnostics,
 - first `recon run` check-engine boundary for already compiled checks,
 - relation-backed same-context DuckDB `row_count_diff` execution through
+  `recon run`,
+- relation-backed same-context DuckDB grain-key safety execution for compiled
+  null-key, duplicate-key, missing-key, and extra-key checks through
   `recon run`.
 
 Not implemented yet:
@@ -53,9 +56,10 @@ Not implemented yet:
 - explicit authored checks beyond supported check-pack and metric compilation,
 - full sampling, tolerance, schema, and CDC policy engines,
 - adapter metadata access,
-- adapter execution beyond the current same-context DuckDB row-count path,
+- adapter execution beyond the current same-context DuckDB row-count and
+  grain-key safety paths,
 - query endpoint execution,
-- grain-key, aggregate, and row-level value check execution,
+- aggregate and row-level value check execution,
 - generated run-result artifacts,
 - evidence writers.
 
@@ -146,11 +150,12 @@ generated profile example, set `RECON_DUCKDB_PATH` or edit
 `connections/profiles.yml` before running `recon compile --render-sql`.
 `recon run` loads already compiled check artifacts and routes them through the
 first check-engine boundary. It can execute relation-backed same-context DuckDB
-`row_count_diff` checks when matching compiled-contract artifacts and runtime
-profiles are available. It reports missing, invalid, empty, unsupported,
-blocked, or not-executable compiled checks with structured runtime diagnostics.
-It does not execute query endpoints, broader check types, or write run-result,
-evidence, report, failure-detail, state, or sink artifacts yet.
+`row_count_diff` and supported grain-key safety checks when matching
+compiled-contract artifacts and runtime profiles are available. It reports
+missing, invalid, empty, unsupported, blocked, or not-executable compiled checks
+with structured runtime diagnostics. It does not execute query endpoints,
+aggregate checks, row-level value checks, or write run-result, evidence, report,
+failure-detail, state, or sink artifacts yet.
 
 ## Core Idea
 
@@ -246,14 +251,14 @@ pack, compiles explicit `sum` metrics, and carries limited contract-level
 `sampling.default_policy` metadata into compiled checks. Broader compile-time
 behavior such as authored checks, full sampling policy resolution, tolerance
 precedence, schema policy resolution, CDC validation, adapter checks, and
-row-level key non-null/uniqueness is still future work.
+row-level value check expansion is still future work.
 
 Current `recon run` consumes `target/compiled_checks/` plus matching
 `target/compiled_contracts/` metadata. It does not parse authored YAML or
 recompile contracts. It loads runtime profiles and opens the DuckDB adapter only
-for supported relation-backed same-context `row_count_diff` checks; all other
-check execution surfaces remain blocked or not executable. It does not write
-generated run/evidence outputs.
+for supported relation-backed same-context `row_count_diff` and grain-key safety
+checks; unsupported execution surfaces remain blocked or not executable. It does
+not write generated run/evidence outputs.
 
 Current generated artifacts:
 

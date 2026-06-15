@@ -37,12 +37,13 @@ Diagnostics
 
 Implementation is split across check-engine stages. The first boundary owns the
 check-engine boundary, status model, internal dispatch, and
-prerequisite/blocking representation. The current row-count execution stage
-adds relation-backed same-context DuckDB execution for the supported
-`row_count_diff` typed-plan shape. Later execution stages add grain-key safety
-execution and current aggregate metric execution. The row-count execution stage
-must join each executable compiled check to its matching compiled-contract
-metadata before any profile, adapter, or query work starts.
+prerequisite/blocking representation. The current row-count and grain-key safety
+execution stages add relation-backed same-context DuckDB execution for the
+supported `row_count_diff`, null-key, duplicate-key, missing-key, and extra-key
+typed-plan shapes. Later execution stages add current aggregate metric
+execution. Execution stages must join each executable compiled check to its
+matching compiled-contract metadata before any profile, adapter, or query work
+starts.
 `target/run_results.json`, evidence reports, failure details, and evidence links
 remain separate later surfaces unless a later split explicitly changes those
 boundaries.
@@ -227,13 +228,15 @@ them to matching compiled-contract artifacts before any runtime profile or
 adapter work. It should not parse authored YAML, recompile contracts, write
 generated files, or run selector/subset logic.
 
-For relation-backed row-count candidates that match the supported typed plan
-shape, the service may load the selected profile and referenced profile
-connections, validate adapter metadata/API/capabilities, open the supported
-adapter connection, and pass an explicit execution context to the check engine.
-The service must close adapters it opened. It must not open adapters for checks
-that are not in the supported row-count execution shape, and later-phase key or
-aggregate checks must remain `not_executable`.
+For relation-backed row-count and grain-key safety candidates that match the
+supported typed plan shapes, the service may load the selected profile and
+referenced profile connections, validate adapter metadata/API/capabilities, open
+the supported adapter connection, classify scan-budget safety for key checks,
+and pass an explicit execution context to the check engine. The service must
+close adapters it opened. It must not open adapters for checks that are not in
+the supported row-count or grain-key safety execution shapes, and aggregate or
+row-level value checks must remain `not_executable` or blocked until their
+owning execution phases exist.
 
 Missing compiled-check artifacts, malformed compiled-check artifacts, and empty
 compiled-check scopes are runtime diagnostics, not successful runs. They should
@@ -278,6 +281,10 @@ A check may support:
 - sampled failure detail,
 - limited failure detail,
 - full failure detail only when explicitly configured.
+
+Current grain-key safety execution returns in-memory pass/fail outcomes,
+failure counts, safe diagnostics, and prerequisite/blocking metadata only. It
+does not export raw key values or write failure-detail artifacts.
 
 ## Row-level checks
 

@@ -27,9 +27,10 @@ This project follows semantic versioning once public package releases begin.
   rendering for current typed operations, and compiled SQL artifact output.
 - First `recon run` check-engine boundary for already compiled checks, including
   matching compiled-contract loading, runtime profile and adapter setup for
-  relation-backed same-context DuckDB `row_count_diff` checks, in-memory
-  run/contract/check results, runtime diagnostics for missing, invalid, empty,
-  unsupported, blocked, not-executable, profile, adapter, lifecycle, and
+  relation-backed same-context DuckDB `row_count_diff` and grain-key safety
+  checks, bounded key-safety scan classification, in-memory run/contract/check
+  results, runtime diagnostics for missing, invalid, empty, unsupported,
+  blocked, not-executable, profile, adapter, lifecycle, scan-budget, and
   execution inputs, and no run-result, evidence, report, failure-detail, state,
   or sink artifact writes.
 
@@ -93,6 +94,9 @@ This project follows semantic versioning once public package releases begin.
   incompatibility, unsupported required capabilities, malformed adapter factory
   results or diagnostics, factory/capability exceptions, query endpoints,
   invalid relation names, unsupported template fragments, and empty factories.
+- DuckDB duplicate-key SQL rendering now evaluates duplicate grain-key tuples
+  only after excluding rows with null identity components, leaving null-key
+  failures to the null-key safety checks.
 - `render_check_sql` and `recon compile --render-sql` now enforce renderer-step
   `RenderedSql.required_capabilities`, validate explicit renderer
   `adapter_type` metadata before rendering, preserve diagnostics from

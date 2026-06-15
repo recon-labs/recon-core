@@ -29,10 +29,10 @@ Current implementation status:
 | Column and value comparison | Raw authored columns preserved; current typed column declaration/reference validation implemented; all-column expansion, row-level value checks, resolved column metadata, eligibility enforcement, and adapter metadata validation are not implemented. |
 | Tolerance, null, and normalization | High-level authored fields exist; MVP policy surface locked by ADR 0009; full resolver and execution not implemented. |
 | Adapter API | Implemented as a pre-alpha boundary with `ADAPTER_API_VERSION = "1"`; not stable for external adapter packages yet. |
-| Adapter capabilities | Support-state validation exists; the in-core DuckDB local adapter declares the current rendering and row-count execution subset. |
+| Adapter capabilities | Support-state validation exists; the in-core DuckDB local adapter declares the current rendering, row-count execution, and grain-key safety execution subset. |
 | Renderer output and artifact publication | Implemented for current compiled SQL writer behavior; future shared renderer, adapter test-kit, adapter repo, broader execution, and generated-artifact surfaces are gated. |
 | Diagnostic output and exception sanitization | Current CLI failures print code and safe message; current project/resource YAML diagnostics and implemented profile/adapter runtime diagnostics suppress raw parser, profile, SQL, database, and adapter exception snippets. Future generated run-result, evidence, debug, and test-kit surfaces are gated. |
-| Check-engine boundary and result model | Implemented as a pre-alpha in-memory boundary for already compiled checks, including relation-backed same-context DuckDB `row_count_diff` execution; generated run-result artifacts, evidence, and broader data-check execution remain future work. |
+| Check-engine boundary and result model | Implemented as a pre-alpha in-memory boundary for already compiled checks, including relation-backed same-context DuckDB `row_count_diff` and grain-key safety execution; generated run-result artifacts, evidence, aggregate execution, and row-level value comparison remain future work. |
 | External adapter repos | Planned, not split yet. |
 | Adapter test kit | Planned, not created yet. |
 | Run results and evidence | Planned, not implemented yet. |
