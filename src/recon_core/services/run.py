@@ -198,8 +198,20 @@ def _prepare_runtime_execution_dependencies(
     runtime_candidates = _runtime_execution_candidates(check_artifacts)
     if not runtime_candidates:
         return _RuntimeExecutionDependencies()
-    candidate_contracts = _compiled_contracts_for_runtime_candidates(
+    contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
+    profile_candidates = _relation_backed_runtime_candidates(
         runtime_candidates,
+        contracts_by_name=contracts_by_name,
+    )
+    if not profile_candidates:
+        return _RuntimeExecutionDependencies(
+            execution_context=CheckExecutionContext(
+                contracts_by_name=contracts_by_name,
+                adapters_by_connection={},
+            ),
+        )
+    candidate_contracts = _compiled_contracts_for_runtime_candidates(
+        profile_candidates,
         compiled_contracts=compiled_contracts,
     )
 
@@ -218,9 +230,8 @@ def _prepare_runtime_execution_dependencies(
         )
 
     assert profile_result.profile is not None
-    contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
     required_capabilities_by_connection = _required_capabilities_by_connection(
-        runtime_candidates,
+        profile_candidates,
         contracts_by_name=contracts_by_name,
     )
     adapters_by_connection: dict[str, BaseAdapter] = {}
@@ -248,7 +259,7 @@ def _prepare_runtime_execution_dependencies(
         )
 
     open_result = _open_runtime_adapters(
-        runtime_candidates,
+        profile_candidates,
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
         connections_by_name=profile_result.profile.connections,
@@ -266,7 +277,7 @@ def _prepare_runtime_execution_dependencies(
             adapters_by_connection=adapters_by_connection,
             connections_by_name=profile_result.profile.connections,
             scan_budget_decisions_by_check_id=_scan_budget_decisions_by_check_id(
-                runtime_candidates,
+                profile_candidates,
                 contracts_by_name=contracts_by_name,
                 connections_by_name=profile_result.profile.connections,
             ),
@@ -345,6 +356,29 @@ def _runtime_execution_candidates(
             )
         )
     return tuple(candidates)
+
+
+def _relation_backed_runtime_candidates(
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+) -> tuple[LoadedCompiledChecksArtifact, ...]:
+    candidates: list[LoadedCompiledChecksArtifact] = []
+    for artifact in runtime_candidates:
+        contract = contracts_by_name.get(artifact.contract_name)
+        if contract is None or not _is_relation_backed_contract(contract):
+            continue
+        candidates.append(artifact)
+    return tuple(candidates)
+
+
+def _is_relation_backed_contract(contract: LoadedCompiledContractArtifact) -> bool:
+    return (
+        contract.source.relation is not None
+        and contract.target.relation is not None
+        and contract.source.query is None
+        and contract.target.query is None
+    )
 
 
 def _is_runtime_execution_candidate(check: LoadedCompiledCheck) -> bool:

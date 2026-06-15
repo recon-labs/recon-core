@@ -14,11 +14,13 @@ from recon_core.check_engine.dispatch import CheckDispatcher
 from recon_core.check_engine.execution import (
     execute_row_count_check,
     is_supported_row_count_plan_shape,
+    row_count_query_endpoint_not_executable_result,
 )
 from recon_core.check_engine.key_safety import (
     execute_key_safety_check,
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
+    key_safety_query_endpoint_not_executable_result,
 )
 from recon_core.check_engine.models import (
     CheckReason,
@@ -305,6 +307,8 @@ def _row_count_execution_result_if_available(
     contract = execution_context.contracts_by_name.get(check.contract_name)
     if contract is None:
         return None
+    if _contract_has_query_endpoint(contract):
+        return row_count_query_endpoint_not_executable_result(check, contract)
     adapter = execution_context.adapters_by_connection.get(contract.source.connection)
     if adapter is None:
         return None
@@ -336,6 +340,8 @@ def _key_safety_execution_result_if_available(
     contract = execution_context.contracts_by_name.get(check.contract_name)
     if contract is None:
         return None
+    if _contract_has_query_endpoint(contract):
+        return key_safety_query_endpoint_not_executable_result(check, contract)
     adapter = execution_context.adapters_by_connection.get(contract.source.connection)
     if adapter is None:
         return None
@@ -374,6 +380,10 @@ def _renderer_for_adapter(
     if adapter_type is None:
         return None
     return execution_context.renderers_by_adapter_type.get(adapter_type)
+
+
+def _contract_has_query_endpoint(contract: LoadedCompiledContractArtifact) -> bool:
+    return contract.source.query is not None or contract.target.query is not None
 
 
 def _index_checks(

@@ -222,6 +222,14 @@ def is_key_safety_check_type(check_type: str) -> bool:
     return check_type in _EXPECTED_KEY_OPERATION_BY_CHECK_TYPE
 
 
+def key_safety_query_endpoint_not_executable_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> CheckResult:
+    """Return the key-safety query-endpoint blocker without requiring an adapter."""
+    return _query_endpoint_not_executable_result(check, contract)
+
+
 class _ReservedMetadataBlocker:
     def __init__(
         self,

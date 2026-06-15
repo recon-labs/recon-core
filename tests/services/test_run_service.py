@@ -887,20 +887,6 @@ def test_run_service_blocks_query_endpoints_before_adapter_execution(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path, profile="local")
-    write_profiles(
-        tmp_path,
-        """
-profiles:
-  local:
-    target: dev
-    outputs:
-      dev:
-        connections:
-          warehouse:
-            type: duckdb
-            database: warehouse.duckdb
-""",
-    )
     write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
     write_compiled_contract(
         tmp_path,
@@ -921,9 +907,7 @@ profiles:
     public_text = _service_result_text(result)
     assert "secret-ssn" not in public_text
     assert "select * from source_customers" not in public_text
-    adapter = factory.adapters[0]
-    assert adapter.connect_count == 0
-    assert adapter.queries == []
+    assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -931,20 +915,6 @@ def test_run_service_blocks_key_safety_query_endpoints_before_adapter_query(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path, profile="local")
-    write_profiles(
-        tmp_path,
-        """
-profiles:
-  local:
-    target: dev
-    outputs:
-      dev:
-        connections:
-          warehouse:
-            type: duckdb
-            database: warehouse.duckdb
-""",
-    )
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
     write_compiled_contract(
         tmp_path,
@@ -965,9 +935,67 @@ profiles:
     public_text = _service_result_text(result)
     assert "secret-ssn" not in public_text
     assert "select customer_id" not in public_text
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_ignores_query_endpoint_profile_when_relation_backed_check_executes(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(tmp_path)
+    write_compiled_checks(
+        tmp_path,
+        contract_name="query_endpoint_contract",
+        checks=[
+            _key_safety_check_payload(
+                check_id="check.ecommerce_recon.query_endpoint_contract.missing_keys"
+            )
+        ],
+    )
+    write_compiled_contract(
+        tmp_path,
+        contract_name="query_endpoint_contract",
+        source_connection="unused_query_connection",
+        target_connection="unused_query_connection",
+        source_relation=None,
+        source_query="select customer_id from source_customers where ssn = 'secret-ssn'",
+    )
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
+    ]
+    public_text = _service_result_text(result)
+    assert "unused_query_connection" not in public_text
+    assert "secret-ssn" not in public_text
+    assert "select customer_id" not in public_text
     adapter = factory.adapters[0]
-    assert adapter.connect_count == 0
-    assert adapter.queries == []
+    assert adapter.connection.name == "warehouse"
+    assert adapter.connect_count == 1
+    assert adapter.close_count == 1
+    assert len(adapter.queries) == 1
     _assert_no_runtime_outputs(tmp_path)
 
 
