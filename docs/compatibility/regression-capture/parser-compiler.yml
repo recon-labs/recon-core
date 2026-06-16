@@ -21,3 +21,22 @@ captures:
       Marked regression tests must not become disconnected from the capture
       row and current-test metadata that future agents and shared suites use for
       carryover decisions.
+  - id: regression-capture-decision-advisory-partial-surface-coverage
+    title: Regression-capture decision advisory reports uncovered surfaces per gate
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_reports_uncovered_surfaces_when_same_gate_has_existing_capture
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Advisory Decision Check
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      A capture row or no-capture rationale for one surface under a carryover
+      gate must not hide other changed surfaces that still need an explicit
+      regression-capture decision.

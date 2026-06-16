@@ -4,6 +4,8 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 
 def load_script() -> ModuleType:
     script_path = (
@@ -41,6 +43,8 @@ gates:
       - adapter test kit implementation
     trigger_surfaces:
       - adapter_runtime
+      - adapter_api
+      - adapter_capabilities
       - scan_safety
 """.lstrip()
     )
@@ -101,6 +105,46 @@ captures:
     assert findings == []
 
 
+@pytest.mark.regression_capture("regression-capture-decision-advisory-partial-surface-coverage")
+def test_advisory_reports_uncovered_surfaces_when_same_gate_has_existing_capture(
+    tmp_path: Path,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures:
+  - id: existing-scan-safety-row
+    title: Existing row
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/sample/test_example.py::test_existing_case
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[
+            "src/recon_core/services/run.py",
+            "src/recon_core/adapters/duckdb/adapter.py",
+        ],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities")
+    assert findings[0].paths == ("src/recon_core/adapters/duckdb/adapter.py",)
+
+
 def test_advisory_accepts_capture_not_required_decision_file(tmp_path: Path) -> None:
     script = load_script()
     capture_root = write_capture_project(
@@ -119,6 +163,7 @@ capture_not_required:
     gates:
       - adapter_testkit_regression_carryover
     surfaces:
+      - adapter_runtime
       - scan_safety
     rationale: Documentation wording only; existing capture row already covers behavior.
 """.lstrip()

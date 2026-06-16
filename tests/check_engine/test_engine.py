@@ -359,6 +359,7 @@ def test_engine_blocks_dependent_check_when_row_count_prerequisite_fails(
     assert len(adapter.queries) == 1
 
 
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
 def test_engine_blocks_dependent_check_when_key_safety_prerequisite_fails(
     tmp_path: Path,
 ) -> None:
@@ -836,6 +837,7 @@ def test_engine_blocks_check_when_prerequisite_is_blocked(tmp_path: Path) -> Non
     assert dependent_result.blocked_by == (prerequisite.id,)
 
 
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
 def test_engine_blocks_check_when_prerequisite_is_not_executable(tmp_path: Path) -> None:
     prerequisite = _check(
         check_id="check.ecommerce_recon.customer_revenue.duplicate_source_keys",

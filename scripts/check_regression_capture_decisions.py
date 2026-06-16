@@ -191,7 +191,8 @@ def evaluate(
     captured_surfaces = _captured_surfaces_by_gate(capture_root, index_data)
     not_required = _capture_not_required_decisions(decision_file)
 
-    matches: dict[str, dict[str, set[str]]] = {}
+    matched_surfaces_by_gate: dict[str, set[str]] = {}
+    paths_by_gate_surface: dict[str, dict[str, set[str]]] = {}
     for path in changed_paths:
         changed_surfaces = surfaces_for_path(path)
         if not changed_surfaces:
@@ -199,22 +200,25 @@ def evaluate(
         for gate, trigger_surfaces in gate_surfaces.items():
             matched_surfaces = changed_surfaces & trigger_surfaces
             if matched_surfaces:
-                gate_match = matches.setdefault(gate, {"surfaces": set(), "paths": set()})
-                gate_match["surfaces"].update(matched_surfaces)
-                gate_match["paths"].add(path)
+                matched_surfaces_by_gate.setdefault(gate, set()).update(matched_surfaces)
+                paths_by_surface = paths_by_gate_surface.setdefault(gate, {})
+                for surface in matched_surfaces:
+                    paths_by_surface.setdefault(surface, set()).add(path)
 
     findings: list[Finding] = []
-    for gate, gate_match in sorted(matches.items()):
-        surfaces = gate_match["surfaces"]
-        if surfaces & captured_surfaces.get(gate, set()):
+    for gate, surfaces in sorted(matched_surfaces_by_gate.items()):
+        covered_surfaces = captured_surfaces.get(gate, set()) | not_required.get(gate, set())
+        unresolved_surfaces = surfaces - covered_surfaces
+        if not unresolved_surfaces:
             continue
-        if surfaces & not_required.get(gate, set()):
-            continue
+        unresolved_paths: set[str] = set()
+        for surface in unresolved_surfaces:
+            unresolved_paths.update(paths_by_gate_surface.get(gate, {}).get(surface, set()))
         findings.append(
             Finding(
                 gate=gate,
-                surfaces=tuple(sorted(surfaces)),
-                paths=tuple(sorted(gate_match["paths"])),
+                surfaces=tuple(sorted(unresolved_surfaces)),
+                paths=tuple(sorted(unresolved_paths)),
             )
         )
     return findings
