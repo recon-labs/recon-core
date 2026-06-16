@@ -84,6 +84,12 @@ must treat it as a compatibility surface even if it is not listed here yet.
 Update the relevant compatibility document, or add a new document when the
 surface does not fit the existing files.
 
+Before completing high-risk compatibility work, check
+`regression-capture/index.yml` for carryover gates whose `primary_milestone`,
+`applies_to`, or `trigger_surfaces` match the changed capability. Applicable
+capture rows must be resolved or explicitly deferred before compatibility is
+claimed for that surface.
+
 ## Source of truth
 
 Compatibility docs summarize the current compatibility position. They do not

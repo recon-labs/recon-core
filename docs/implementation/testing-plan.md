@@ -19,6 +19,11 @@ required matrix row must map to a new test, an existing test, or an explicit
 out-of-scope rationale. Matrix examples are not complete coverage unless the
 relevant dimensions and sibling variants are enumerated.
 
+Milestone test plans must also check
+`docs/compatibility/regression-capture/index.yml` for applicable carryover gates
+and map matching capture rows to current tests, future shared suites, or an
+explicit deferred/not-applicable rationale.
+
 When a milestone is split into decimal sub-milestones, each sub-milestone needs
 its own test plan and, when high-risk, its own conformance matrix. Do not use the
 umbrella milestone as the implementation test boundary.

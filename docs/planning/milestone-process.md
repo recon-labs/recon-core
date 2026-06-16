@@ -50,6 +50,20 @@ out-of-scope decision with rationale. Example-only coverage is not sufficient,
 and examples do not prove coverage unless relevant dimensions and sibling
 variants are enumerated.
 
+## Carryover Gates
+
+Before milestone prework, implementation, or phase exit claims a high-risk or
+public compatibility surface complete, check:
+
+```text
+docs/compatibility/regression-capture/index.yml
+```
+
+Match the work by `primary_milestone`, `applies_to`, and `trigger_surfaces`.
+Applicable capture rows must be mapped to current tests, migrated into a future
+shared suite, intentionally deferred, or marked not applicable with rationale.
+Unresolved `pending` rows are blockers for the matching surface.
+
 For example, profile-backed adapter diagnostic redaction should not only test
 value-shaped diagnostic codes such as `RCsuper-secretLEAK` and `RC12LEAK`. The
 matrix must also enumerate the sibling dimensions that can leak unsafe config
