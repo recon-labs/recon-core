@@ -337,7 +337,9 @@ def _has_identity_keys(identity: object) -> bool:
     if identity.get("kind") != "grain":
         return False
     keys = identity.get("keys")
-    return isinstance(keys, list) and all(isinstance(key, str) and key for key in keys)
+    if not isinstance(keys, list) or not keys:
+        return False
+    return all(isinstance(key, str) and key for key in keys)
 
 
 def _operation_identity_matches_contract(
@@ -348,9 +350,9 @@ def _operation_identity_matches_contract(
     if not isinstance(identity, Mapping) or identity.get("kind") != "grain":
         return False
     keys = identity.get("keys")
-    if not isinstance(keys, list):
+    if not isinstance(keys, list) or not keys:
         return False
-    return tuple(keys) == contract.grain_keys
+    return all(isinstance(key, str) and key for key in keys) and tuple(keys) == contract.grain_keys
 
 
 def _identity_mismatch_not_executable_result(

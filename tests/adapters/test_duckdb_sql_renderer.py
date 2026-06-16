@@ -304,6 +304,32 @@ def test_render_target_minus_source_key_diff_uses_target_left_key_set(
     )
 
 
+@pytest.mark.regression_capture("key-safety-empty-grain-keys-shape-blocker")
+@pytest.mark.parametrize(
+    "identity",
+    (
+        {"kind": "grain", "keys": []},
+        {"kind": "grain", "keys": [""]},
+    ),
+)
+def test_key_operation_rejects_empty_identity_keys(
+    renderer: DuckDbSqlRenderer,
+    source_relation: Relation,
+    target_relation: Relation,
+    identity: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="Operation identity requires non-empty string keys"):
+        renderer.render_operation(
+            {
+                "type": "key_diff",
+                "direction": "source_minus_target",
+                "identity": identity,
+            },
+            source_relation=source_relation,
+            target_relation=target_relation,
+        )
+
+
 @pytest.mark.regression_capture("duplicate-key-excludes-null-containing-tuples")
 def test_duplicate_key_excludes_null_containing_duplicate_candidates(
     renderer: DuckDbSqlRenderer,

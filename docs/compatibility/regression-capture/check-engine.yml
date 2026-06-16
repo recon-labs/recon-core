@@ -47,6 +47,32 @@ captures:
     notes: >
       Duplicate-key failure counts consider only fully non-null grain-key
       tuples; null-containing key tuples belong to null-key checks.
+  - id: key-safety-empty-grain-keys-shape-blocker
+    title: Key-safety typed plans reject empty grain-key identities
+    area: check-engine
+    bug_class: typed_check_plan
+    owner_surface: sql_rendering
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_key_safety_execution.py::test_execute_key_safety_check_rejects_empty_identity_keys_before_adapter_query
+      - tests/adapters/test_duckdb_sql_renderer.py::test_key_operation_rejects_empty_identity_keys
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: typed_plan_shape
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: sql_comparison_semantics
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: typed_check_plan_runtime_semantics
+    requirement_refs:
+      - docs/planning/milestone-7-3-prework.md: Acceptance And Conformance Matrix row `Check-pack and typed-plan input`
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+    notes: >
+      Empty grain-key identity lists are malformed typed-plan shapes, not
+      executable key-safety checks. They must be rejected before adapter queries
+      and before SQL rendering can produce empty key predicates.
   - id: key-safety-prerequisites-block-dependent-checks
     title: Key-safety prerequisites block dependent checks when unsafe
     area: check-engine

@@ -508,6 +508,31 @@ def test_execute_key_safety_check_rejects_non_grain_identity_before_adapter_quer
     assert adapter.queries == []
 
 
+@pytest.mark.regression_capture("key-safety-empty-grain-keys-shape-blocker")
+def test_execute_key_safety_check_rejects_empty_identity_keys_before_adapter_query() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_key_safety_check(
+        _key_check(
+            "missing_keys",
+            {
+                "type": "key_diff",
+                "direction": "source_minus_target",
+                "identity": {"kind": "grain", "keys": []},
+            },
+        ),
+        _contract(grain_keys=()),
+        adapter,
+        scan_budget_decision=_allowed_scan_budget(),
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.reason_code is CheckReason.UNSUPPORTED_TYPED_OPERATION
+    assert result.diagnostics[0].code == "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
+    assert adapter.queries == []
+
+
 def test_execute_key_safety_check_rejects_identity_keys_that_do_not_match_contract() -> None:
     adapter = RecordingAdapter()
 
@@ -675,7 +700,10 @@ def _key_check(
     )
 
 
-def _contract() -> LoadedCompiledContractArtifact:
+def _contract(
+    *,
+    grain_keys: tuple[str, ...] = ("customer_id", "month"),
+) -> LoadedCompiledContractArtifact:
     return LoadedCompiledContractArtifact(
         path=Path("target/compiled_contracts/customer_revenue.yml"),
         project_name="ecommerce_recon",
@@ -691,7 +719,7 @@ def _contract() -> LoadedCompiledContractArtifact:
             connection="warehouse",
             relation="target_table",
         ),
-        grain_keys=("customer_id", "month"),
+        grain_keys=grain_keys,
     )
 
 

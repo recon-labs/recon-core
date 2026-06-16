@@ -829,8 +829,12 @@ def _identity_keys(operation: Mapping[str, Any]) -> tuple[str, ...]:
     if not isinstance(identity, Mapping):
         raise ValueError("Operation requires identity")
     keys = identity.get("keys")
-    if not isinstance(keys, list | tuple) or not all(isinstance(item, str) for item in keys):
-        raise ValueError("Operation identity requires string keys")
+    if (
+        not isinstance(keys, list | tuple)
+        or not keys
+        or not all(isinstance(item, str) and item for item in keys)
+    ):
+        raise ValueError("Operation identity requires non-empty string keys")
     return tuple(keys)
 
 
