@@ -15,8 +15,10 @@ Current pre-alpha status:
 - `recon run` loads existing compiled-check artifacts and returns explicit
   in-memory run/check statuses. It can execute relation-backed same-context
   DuckDB `row_count_diff` checks when matching compiled-contract artifacts and
-  runtime profiles are available. It does not write generated result, evidence,
-  report, failure-detail, or state artifacts yet.
+  runtime profiles are available. It can also execute grain-key safety checks
+  only when the internal local/dev scan guard verifies bounded project-local
+  DuckDB base-table inputs. It does not write generated result, evidence, report,
+  failure-detail, or state artifacts yet.
 
 Install the DuckDB extra when you want to render SQL in this local workflow:
 
