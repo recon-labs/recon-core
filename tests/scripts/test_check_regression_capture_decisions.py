@@ -45,6 +45,7 @@ gates:
       - adapter_runtime
       - adapter_api
       - adapter_capabilities
+      - sql_rendering
       - scan_safety
 """.lstrip()
     )
@@ -141,7 +142,7 @@ captures:
 
     assert len(findings) == 1
     assert findings[0].gate == "adapter_testkit_regression_carryover"
-    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities")
+    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities", "sql_rendering")
     assert findings[0].paths == ("src/recon_core/adapters/duckdb/adapter.py",)
 
 

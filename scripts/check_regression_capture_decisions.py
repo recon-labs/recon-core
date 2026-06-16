@@ -18,7 +18,7 @@ class Finding(NamedTuple):
 EXACT_PATH_SURFACES: dict[str, set[str]] = {
     "src/recon_core/services/run.py": {"adapter_runtime", "scan_safety"},
     "tests/services/test_run_service.py": {"adapter_runtime", "scan_safety"},
-    "src/recon_core/adapters/duckdb.py": {
+    "src/recon_core/adapters/duckdb/adapter.py": {
         "adapter_runtime",
         "adapter_capabilities",
         "sql_rendering",
