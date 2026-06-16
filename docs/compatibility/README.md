@@ -56,6 +56,9 @@ Current implementation status:
 - `artifact-versions.md` records generated artifact versioning rules.
 - `compatibility-matrix.md` records the current and future compatibility matrix
   format.
+- `regression-capture/` records reusable regression and conformance memory that
+  future milestone, adapter, package, and automation work must check before
+  claiming compatible behavior.
 
 ## Compatibility update rule
 
