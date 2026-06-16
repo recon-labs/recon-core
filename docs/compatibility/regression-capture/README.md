@@ -108,7 +108,7 @@ required rationale or references.
 until false positives are understood:
 
 ```bash
-python scripts/check_regression_capture_decisions.py
+python3 scripts/check_regression_capture_decisions.py
 ```
 
 For a durable no-capture decision, pass a small YAML file with a

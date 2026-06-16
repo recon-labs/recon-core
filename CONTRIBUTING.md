@@ -62,6 +62,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
+pre-commit run --all-files
 ```
 
 Adjust commands as project tooling is implemented.
@@ -106,6 +107,17 @@ Documentation should be written as project documentation, not as implementation 
 
 For changes to public contract surfaces, use
 `docs/compatibility/change-checklist.md`.
+
+High-risk or public-contract bug fixes should also review
+`docs/compatibility/regression-capture/`. The hard local metadata check is:
+
+```bash
+python3 scripts/check_regression_capture.py
+```
+
+`scripts/check_regression_capture_decisions.py` is advisory. Review its output
+during branch-wide reviews and high-risk fixes, but do not treat it as a
+blocking CI gate yet.
 
 ## Pull request expectations
 

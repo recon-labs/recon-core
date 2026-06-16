@@ -35,9 +35,16 @@ ruff check .
 ruff format --check .
 mypy .
 pytest
+python3 scripts/check_regression_capture.py
+pre-commit run --all-files
 ```
 
 Exact tooling should be defined in `pyproject.toml`.
+
+`scripts/check_regression_capture_decisions.py` is advisory. Use it during
+branch-wide reviews and high-risk or public-contract fixes to check whether
+changed surfaces probably need a capture row or a `capture_not_required`
+rationale.
 
 ## Development principles
 

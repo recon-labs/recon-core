@@ -25,6 +25,24 @@ umbrella milestone as the implementation test boundary.
 
 ## Test layers
 
+### Regression capture metadata validation
+
+Regression capture rows under `docs/compatibility/regression-capture/` preserve
+reusable conformance memory for high-risk surfaces. Local validation must run:
+
+```bash
+python3 scripts/check_regression_capture.py
+```
+
+This hard validator fails stale capture metadata, duplicate capture IDs, invalid
+carryover gates or statuses, and stale pytest node references. The local
+pre-commit configuration runs the same validator when capture metadata, tests,
+or the validator script change.
+
+`scripts/check_regression_capture_decisions.py` is advisory. Review its output
+during branch-wide reviews and high-risk or public-contract fixes, but do not
+make it a blocking gate until false positives are understood.
+
 ### Unit tests
 
 Fast tests for pure functions and small models.
