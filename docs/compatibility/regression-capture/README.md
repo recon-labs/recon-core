@@ -100,3 +100,29 @@ When implementing or reviewing milestone work:
 If an applicable row is still `pending`, the work is not complete until that row
 is marked `covered`, `migrated`, `deferred`, or `not_applicable` with the
 required rationale or references.
+
+## Advisory Decision Check
+
+`scripts/check_regression_capture_decisions.py` maps changed paths to known
+`trigger_surfaces` and reports likely missing capture decisions. It is advisory
+until false positives are understood:
+
+```bash
+python scripts/check_regression_capture_decisions.py
+```
+
+For a durable no-capture decision, pass a small YAML file with a
+`capture_not_required` list:
+
+```yaml
+capture_not_required:
+  - id: docs-only-scan-wording
+    gates:
+      - adapter_testkit_regression_carryover
+    surfaces:
+      - scan_safety
+    rationale: Documentation wording only; existing capture rows cover behavior.
+```
+
+Use this only when a changed high-risk or public-contract surface creates no
+reusable conformance memory. Otherwise add or update a capture row.
