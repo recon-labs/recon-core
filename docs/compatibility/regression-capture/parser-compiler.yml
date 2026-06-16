@@ -1,3 +1,23 @@
 schema_version: 1
 area: parser-compiler
-captures: []
+captures:
+  - id: regression-capture-orphan-marker-guard
+    title: Regression-capture markers require matching capture metadata
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture.py::test_validator_rejects_regression_capture_markers_without_capture_rows
+      - tests/scripts/test_check_regression_capture.py::test_validator_rejects_regression_capture_markers_missing_from_current_tests
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Row Shape
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      Marked regression tests must not become disconnected from the capture
+      row and current-test metadata that future agents and shared suites use for
+      carryover decisions.

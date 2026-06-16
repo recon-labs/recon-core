@@ -47,6 +47,16 @@ def _strip_param_suffix(node_part: str) -> str:
     return node_part.split("[", 1)[0]
 
 
+def _normalize_pytest_nodeid(nodeid: str) -> str | None:
+    path_text, separator, node_text = nodeid.partition("::")
+    if not separator or not node_text:
+        return None
+    node_parts = [_strip_param_suffix(part) for part in node_text.split("::") if part]
+    if not node_parts:
+        return None
+    return "::".join([path_text, *node_parts])
+
+
 def _class_method_node(
     class_node: ast.ClassDef,
     method_name: str,
@@ -72,22 +82,27 @@ def _decorators_include_regression_capture(
     decorators: list[ast.expr],
     row_id: str,
 ) -> bool:
+    return row_id in _regression_capture_ids_from_decorators(decorators)
+
+
+def _regression_capture_ids_from_decorators(decorators: list[ast.expr]) -> list[str]:
+    marker_ids: list[str] = []
     for decorator in decorators:
         if not isinstance(decorator, ast.Call):
             continue
         if not _pytest_mark_regression_capture(decorator.func):
             continue
         for arg in decorator.args:
-            if isinstance(arg, ast.Constant) and arg.value == row_id:
-                return True
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                marker_ids.append(arg.value)
         for keyword in decorator.keywords:
             if (
                 keyword.arg == "id"
                 and isinstance(keyword.value, ast.Constant)
-                and keyword.value.value == row_id
+                and isinstance(keyword.value.value, str)
             ):
-                return True
-    return False
+                marker_ids.append(keyword.value.value)
+    return marker_ids
 
 
 def _pytest_node_exists(test_file: Path, node_parts: list[str]) -> bool:
@@ -178,6 +193,70 @@ def _validate_current_test(
         )
 
 
+def _relative_pytest_nodeid(repo_root: Path, test_file: Path, *node_parts: str) -> str:
+    if test_file.is_relative_to(repo_root):
+        path_text = str(test_file.relative_to(repo_root))
+    else:
+        path_text = str(test_file)
+    return "::".join([path_text, *node_parts])
+
+
+def _collect_regression_capture_marker_nodeids(repo_root: Path) -> dict[str, set[str]]:
+    tests_root = repo_root / "tests"
+    marker_nodeids: dict[str, set[str]] = {}
+    if not tests_root.is_dir():
+        return marker_nodeids
+
+    for test_file in sorted(tests_root.rglob("*.py")):
+        try:
+            module = ast.parse(test_file.read_text())
+        except (OSError, SyntaxError):
+            continue
+
+        for node in module.body:
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                nodeid = _relative_pytest_nodeid(repo_root, test_file, node.name)
+                for marker_id in _regression_capture_ids_from_decorators(node.decorator_list):
+                    marker_nodeids.setdefault(marker_id, set()).add(nodeid)
+            if isinstance(node, ast.ClassDef):
+                class_marker_ids = _regression_capture_ids_from_decorators(node.decorator_list)
+                for child in node.body:
+                    if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                        nodeid = _relative_pytest_nodeid(
+                            repo_root, test_file, node.name, child.name
+                        )
+                        for marker_id in class_marker_ids:
+                            marker_nodeids.setdefault(marker_id, set()).add(nodeid)
+                        for marker_id in _regression_capture_ids_from_decorators(
+                            child.decorator_list
+                        ):
+                            marker_nodeids.setdefault(marker_id, set()).add(nodeid)
+
+    return marker_nodeids
+
+
+def _validate_regression_capture_markers_have_rows(
+    *,
+    repo_root: Path,
+    seen_ids: dict[str, Path],
+    captured_nodeids_by_id: dict[str, set[str]],
+    errors: list[str],
+) -> None:
+    for marker_id, nodeids in sorted(_collect_regression_capture_marker_nodeids(repo_root).items()):
+        if marker_id not in seen_ids:
+            locations = ", ".join(sorted(nodeids))
+            errors.append(
+                f"{locations}: orphan regression_capture marker {marker_id!r} "
+                "has no matching capture row"
+            )
+            continue
+        captured_nodeids = captured_nodeids_by_id.get(marker_id, set())
+        for nodeid in sorted(nodeids - captured_nodeids):
+            errors.append(
+                f"{nodeid}: regression_capture marker {marker_id!r} is not listed in current_tests"
+            )
+
+
 def _validate_gate_entry(
     gate_entry: Any,
     *,
@@ -222,6 +301,7 @@ def _validate_capture_row(
     file_area: str,
     repo_root: Path,
     seen_ids: dict[str, Path],
+    captured_nodeids_by_id: dict[str, set[str]],
     known_gates: set[str],
     allowed_statuses: set[str],
     errors: list[str],
@@ -254,6 +334,9 @@ def _validate_capture_row(
         errors.append(f"{row_context}: current_tests must be a non-empty list of pytest nodes")
     for nodeid in current_tests:
         if isinstance(row_id, str):
+            normalized_nodeid = _normalize_pytest_nodeid(nodeid)
+            if normalized_nodeid is not None:
+                captured_nodeids_by_id.setdefault(row_id, set()).add(normalized_nodeid)
             _validate_current_test(nodeid, row_id, repo_root, row_context, errors)
 
     carryover_gates = row.get("carryover_gates")
@@ -323,6 +406,7 @@ def validate(
         errors.append(f"{capture_root / unexpected_file}: unexpected capture file")
 
     seen_ids: dict[str, Path] = {}
+    captured_nodeids_by_id: dict[str, set[str]] = {}
     for relative_path, expected_area in expected_files.items():
         file_path = capture_root / relative_path
         if not file_path.is_file():
@@ -348,10 +432,18 @@ def validate(
                 file_area=expected_area,
                 repo_root=repo_root,
                 seen_ids=seen_ids,
+                captured_nodeids_by_id=captured_nodeids_by_id,
                 known_gates=known_gates,
                 allowed_statuses=allowed_statuses,
                 errors=errors,
             )
+
+    _validate_regression_capture_markers_have_rows(
+        repo_root=repo_root,
+        seen_ids=seen_ids,
+        captured_nodeids_by_id=captured_nodeids_by_id,
+        errors=errors,
+    )
 
     return errors
 

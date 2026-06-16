@@ -4,6 +4,8 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 
 def load_script() -> ModuleType:
     script_path = Path(__file__).resolve().parents[2] / "scripts" / "check_regression_capture.py"
@@ -221,6 +223,54 @@ captures:
 
     assert any(
         "missing @pytest.mark.regression_capture('missing-marker')" in error for error in errors
+    )
+
+
+@pytest.mark.regression_capture("regression-capture-orphan-marker-guard")
+def test_validator_rejects_regression_capture_markers_without_capture_rows(
+    tmp_path: Path,
+) -> None:
+    capture_root = write_capture_project(tmp_path, valid_capture_body())
+    (tmp_path / "tests" / "sample" / "test_orphan.py").write_text(
+        """
+import pytest
+
+
+@pytest.mark.regression_capture("orphan-marker")
+def test_orphan_marker_case():
+    assert True
+""".lstrip()
+    )
+    script = load_script()
+
+    errors = script.validate(capture_root=capture_root, repo_root=tmp_path)
+
+    assert any("orphan regression_capture marker 'orphan-marker'" in error for error in errors)
+
+
+@pytest.mark.regression_capture("regression-capture-orphan-marker-guard")
+def test_validator_rejects_regression_capture_markers_missing_from_current_tests(
+    tmp_path: Path,
+) -> None:
+    capture_root = write_capture_project(tmp_path, valid_capture_body())
+    (tmp_path / "tests" / "sample" / "test_missing_current_test.py").write_text(
+        """
+import pytest
+
+
+@pytest.mark.regression_capture("existing-case")
+def test_marked_but_unlisted_case():
+    assert True
+""".lstrip()
+    )
+    script = load_script()
+
+    errors = script.validate(capture_root=capture_root, repo_root=tmp_path)
+
+    assert any(
+        "test_missing_current_test.py::test_marked_but_unlisted_case" in error
+        and "not listed in current_tests" in error
+        for error in errors
     )
 
 

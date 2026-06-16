@@ -42,9 +42,9 @@ pre-commit run --all-files
 Exact tooling should be defined in `pyproject.toml`.
 
 `scripts/check_regression_capture_decisions.py` is advisory. Use it during
-branch-wide reviews and high-risk or public-contract fixes to check whether
-changed surfaces probably need a capture row or a `capture_not_required`
-rationale.
+branch-wide reviews, high-risk or public-contract fixes, and final branch
+validation to check whether changed surfaces probably need a capture row or a
+`capture_not_required` rationale.
 
 ## Development principles
 

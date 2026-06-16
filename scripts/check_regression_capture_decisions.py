@@ -280,7 +280,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  paths: {', '.join(finding.paths)}")
             print(
                 "  action: add/update a capture row or provide a "
-                "capture_not_required decision-file rationale."
+                "capture_not_required decision-file rationale and record "
+                "regression_capture_decision: not-required."
             )
         return 1 if args.fail_on_findings else 0
 

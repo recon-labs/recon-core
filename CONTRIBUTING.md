@@ -116,8 +116,9 @@ python3 scripts/check_regression_capture.py
 ```
 
 `scripts/check_regression_capture_decisions.py` is advisory. Review its output
-during branch-wide reviews and high-risk fixes, but do not treat it as a
-blocking CI gate yet.
+during branch-wide reviews, high-risk fixes, and final branch validation. If it
+reports a likely missing decision, add or update a capture row or record a
+durable no-capture rationale. Do not treat it as a blocking CI gate yet.
 
 ## Pull request expectations
 

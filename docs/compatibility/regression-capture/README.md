@@ -70,9 +70,10 @@ captures:
 
 `id` values must be unique across every capture file. Tests listed in
 `current_tests` must carry a matching
-`@pytest.mark.regression_capture("<id>")` marker. Keep notes short and
-Recon-native. Do not include private review history or external research
-attribution in public capture rows.
+`@pytest.mark.regression_capture("<id>")` marker, and every
+`regression_capture` marker in `tests/` must have a matching capture row. Keep
+notes short and Recon-native. Do not include private review history or external
+research attribution in public capture rows.
 
 ## Gate Statuses
 
@@ -128,3 +129,8 @@ capture_not_required:
 
 Use this only when a changed high-risk or public-contract surface creates no
 reusable conformance memory. Otherwise add or update a capture row.
+
+Run the advisory script during branch-wide reviews and final branch validation.
+When it reports a likely missing decision, either add or update a capture row or
+record a durable no-capture rationale in the active handoff/checklist artifact
+using `regression_capture_decision: not-required`.
