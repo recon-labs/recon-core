@@ -24,6 +24,7 @@ from recon_core.check_engine.key_safety import (
     key_safety_identity_matches_contract,
     key_safety_identity_mismatch_not_executable_result,
     key_safety_query_endpoint_not_executable_result,
+    key_safety_relation_endpoint_error_result_if_needed,
     key_safety_scan_budget_not_executable_result,
     key_safety_unsupported_plan_shape_not_executable_result,
 )
@@ -353,6 +354,10 @@ def _key_safety_execution_result_if_available(
         return key_safety_identity_mismatch_not_executable_result(check, contract)
     if _contract_has_query_endpoint(contract):
         return key_safety_query_endpoint_not_executable_result(check, contract)
+
+    relation_error = key_safety_relation_endpoint_error_result_if_needed(check, contract)
+    if relation_error is not None:
+        return relation_error
 
     connection_context_blocker = _key_safety_connection_context_blocker_if_needed(
         check,

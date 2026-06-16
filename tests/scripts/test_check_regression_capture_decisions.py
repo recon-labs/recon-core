@@ -313,3 +313,52 @@ captures: []
 
     assert result == 0
     assert "advisory found potential missing decisions" in capsys.readouterr().out
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-branch-wide-mode")
+def test_main_base_ref_fails_when_ref_cannot_be_resolved(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    def fake_run(
+        command: tuple[str, ...],
+        *,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+    ) -> CompletedProcess[str]:
+        assert check is False
+        assert capture_output is True
+        assert text is True
+        if command[3:] == ("merge-base", "HEAD", "origin/main"):
+            return CompletedProcess(command, 1, stdout="", stderr="")
+        raise AssertionError(f"unexpected command: {command}")
+
+    monkeypatch.setattr(script.subprocess, "run", fake_run)
+
+    result = script.main(
+        [
+            "--capture-root",
+            str(capture_root),
+            "--repo-root",
+            str(tmp_path),
+            "--base-ref",
+            "origin/main",
+        ]
+    )
+
+    assert result == 1
+    captured = capsys.readouterr()
+    assert "Could not resolve base ref `origin/main`." in captured.err
+    assert "no missing decisions found" not in captured.out

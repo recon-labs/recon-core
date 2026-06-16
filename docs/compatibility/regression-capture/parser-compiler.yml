@@ -49,6 +49,7 @@ captures:
     current_tests:
       - tests/scripts/test_check_regression_capture_decisions.py::test_changed_paths_from_git_includes_branch_diff_when_base_ref_is_set
       - tests/scripts/test_check_regression_capture_decisions.py::test_main_base_ref_uses_branch_wide_changed_paths
+      - tests/scripts/test_check_regression_capture_decisions.py::test_main_base_ref_fails_when_ref_cannot_be_resolved
     carryover_gates:
       - gate: parser_compiler_contract_carryover
         status: pending
@@ -59,4 +60,5 @@ captures:
     notes: >
       The default advisory command is intentionally scoped to local WIP and
       untracked files. Branch-wide reviews and final branch validation must use
-      an explicit base ref so committed branch changes are not missed.
+      an explicit, resolvable base ref so committed branch changes are not
+      missed or silently skipped.

@@ -56,7 +56,9 @@ This project follows semantic versioning once public package releases begin.
   step capability enforcement, and adapter/test-kit compatibility claims.
 - Regression-capture decision validation now has an explicit branch-wide mode
   with `scripts/check_regression_capture_decisions.py --base-ref origin/main`;
-  the no-argument advisory remains scoped to local WIP and untracked files.
+  the no-argument advisory remains scoped to local WIP and untracked files, and
+  an unresolved requested base ref now fails instead of silently skipping
+  committed branch changes.
 
 ### Fixed
 
@@ -105,7 +107,8 @@ This project follows semantic versioning once public package releases begin.
 - `recon run` now resolves relative DuckDB profile database paths against the
   project root for both bounded key-safety scan classification and adapter
   execution, preventing same-named process-CWD databases from producing
-  misleading key-safety results.
+  misleading key-safety results, and preserves malformed relation endpoint
+  diagnostics ahead of scan-budget blockers.
 - `render_check_sql` and `recon compile --render-sql` now enforce renderer-step
   `RenderedSql.required_capabilities`, validate explicit renderer
   `adapter_type` metadata before rendering, preserve diagnostics from

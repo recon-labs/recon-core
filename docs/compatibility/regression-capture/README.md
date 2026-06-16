@@ -122,6 +122,9 @@ from the merge base with the target branch:
 python3 scripts/check_regression_capture_decisions.py --base-ref origin/main
 ```
 
+If the requested `--base-ref` cannot be resolved, the advisory exits with an
+error instead of falling back to local-only changes.
+
 For a durable no-capture decision, pass a small YAML file with a
 `capture_not_required` list:
 

@@ -598,6 +598,45 @@ def test_engine_preserves_key_safety_shape_blocker_when_scan_budget_decision_is_
     assert len(adapter.queries) == 1
 
 
+@pytest.mark.regression_capture("key-safety-invalid-relation-diagnostic-precedence")
+def test_engine_preserves_key_safety_invalid_relation_before_scan_budget_block(
+    tmp_path: Path,
+) -> None:
+    check = _check(
+        check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+        name="missing_keys",
+        check_type="missing_keys",
+        operations=(_key_diff_operation("source_minus_target"),),
+        required_capabilities=("key_diff",),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+    contract = _compiled_contract(
+        tmp_path,
+        source_relation="bad..name",
+    )
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={},
+            scan_budget_decisions_by_check_id={},
+        ),
+    )
+
+    check_result = result.contract_results[0].check_results[0]
+    assert result.status is RunStatus.ERROR
+    assert check_result.status is CheckStatus.ERROR
+    assert not check_result.executed
+    assert check_result.reason_code is None
+    assert [diagnostic.code for diagnostic in check_result.diagnostics] == [
+        "RC_ADAPTER_INVALID_RELATION",
+    ]
+
+
 def test_engine_rejects_key_safety_identity_mismatch_before_adapter_lookup(
     tmp_path: Path,
 ) -> None:
@@ -1067,6 +1106,8 @@ def _compiled_contract(
     *,
     source_connection: str = "warehouse",
     target_connection: str = "warehouse",
+    source_relation: str = "qa.source_customers",
+    target_relation: str = "qa.target_customers",
 ) -> LoadedCompiledContractArtifact:
     return LoadedCompiledContractArtifact(
         path=tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml",
@@ -1077,11 +1118,11 @@ def _compiled_contract(
         source_file="contracts/customer_revenue.yml",
         source=LoadedCompiledEndpoint(
             connection=source_connection,
-            relation="qa.source_customers",
+            relation=source_relation,
         ),
         target=LoadedCompiledEndpoint(
             connection=target_connection,
-            relation="qa.target_customers",
+            relation=target_relation,
         ),
         grain_keys=("customer_id",),
     )

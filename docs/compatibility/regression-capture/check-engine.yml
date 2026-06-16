@@ -73,6 +73,29 @@ captures:
       Empty grain-key identity lists are malformed typed-plan shapes, not
       executable key-safety checks. They must be rejected before adapter queries
       and before SQL rendering can produce empty key predicates.
+  - id: key-safety-invalid-relation-diagnostic-precedence
+    title: Key-safety malformed relation diagnostics outrank scan-budget blockers
+    area: check-engine
+    bug_class: blocker_precedence
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_engine.py::test_engine_preserves_key_safety_invalid_relation_before_scan_budget_block
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: blocker_precedence
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: typed_check_plan_runtime_semantics
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Check engine boundary and result model
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+    notes: >
+      Malformed relation endpoints in compiled artifacts are runtime artifact
+      errors, not scan-policy failures. Check execution must report the invalid
+      relation diagnostic before missing or disallowed scan-budget decisions can
+      hide the artifact shape problem.
   - id: key-safety-prerequisites-block-dependent-checks
     title: Key-safety prerequisites block dependent checks when unsafe
     area: check-engine

@@ -15,6 +15,12 @@ class Finding(NamedTuple):
     paths: tuple[str, ...]
 
 
+class BaseRefResolutionError(Exception):
+    def __init__(self, base_ref: str) -> None:
+        super().__init__(f"Could not resolve base ref `{base_ref}`.")
+        self.base_ref = base_ref
+
+
 EXACT_PATH_SURFACES: dict[str, set[str]] = {
     "src/recon_core/services/run.py": {"adapter_runtime", "scan_safety"},
     "tests/services/test_run_service.py": {"adapter_runtime", "scan_safety"},
@@ -162,10 +168,11 @@ def _changed_paths_from_git(repo_root: Path, *, base_ref: str | None = None) -> 
     commands: list[tuple[str, ...]] = []
     if base_ref:
         merge_base = _merge_base(repo_root, base_ref)
-        if merge_base is not None:
-            commands.append(
-                ("git", "-C", str(repo_root), "diff", "--name-only", f"{merge_base}...HEAD", "--")
-            )
+        if merge_base is None:
+            raise BaseRefResolutionError(base_ref)
+        commands.append(
+            ("git", "-C", str(repo_root), "diff", "--name-only", f"{merge_base}...HEAD", "--")
+        )
     commands.extend(
         (
             ("git", "-C", str(repo_root), "diff", "--name-only", "HEAD", "--"),
@@ -298,7 +305,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.paths_from_stdin:
         changed_paths.extend(_paths_from_stdin())
     if not changed_paths:
-        changed_paths = _changed_paths_from_git(repo_root, base_ref=args.base_ref)
+        try:
+            changed_paths = _changed_paths_from_git(repo_root, base_ref=args.base_ref)
+        except BaseRefResolutionError as exc:
+            print(
+                f"{exc} Fetch the target branch or pass a valid --base-ref.",
+                file=sys.stderr,
+            )
+            return 1
 
     findings = evaluate(
         changed_paths=changed_paths,

@@ -111,28 +111,12 @@ def execute_key_safety_check(
     if context_blocker is not None:
         return context_blocker
 
-    source_relation, source_diagnostic = _relation_from_name(
-        contract.source.relation,
-        side="source",
-        contract_name=contract.contract_name,
+    source_relation, target_relation, relation_error = _key_safety_relation_endpoints(
+        check,
+        contract,
     )
-    target_relation, target_diagnostic = _relation_from_name(
-        contract.target.relation,
-        side="target",
-        contract_name=contract.contract_name,
-    )
-    relation_diagnostics = tuple(
-        diagnostic
-        for diagnostic in (source_diagnostic, target_diagnostic)
-        if diagnostic is not None
-    )
-    if relation_diagnostics:
-        return _error_result(
-            check,
-            contract,
-            message="Key-safety execution could not resolve relation endpoints.",
-            diagnostics=relation_diagnostics,
-        )
+    if relation_error is not None:
+        return relation_error
     assert source_relation is not None
     assert target_relation is not None
 
@@ -225,6 +209,15 @@ def key_safety_query_endpoint_not_executable_result(
 ) -> CheckResult:
     """Return the key-safety query-endpoint blocker without requiring an adapter."""
     return _query_endpoint_not_executable_result(check, contract)
+
+
+def key_safety_relation_endpoint_error_result_if_needed(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> CheckResult | None:
+    """Return malformed relation-endpoint errors without requiring an adapter."""
+    _, _, relation_error = _key_safety_relation_endpoints(check, contract)
+    return relation_error
 
 
 def key_safety_identity_matches_contract(
@@ -397,6 +390,39 @@ def _query_endpoint_not_executable_result(
         message="Key-safety execution supports relation endpoints only.",
         hint="Use relation endpoints for key-safety execution.",
     )
+
+
+def _key_safety_relation_endpoints(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> tuple[Relation | None, Relation | None, CheckResult | None]:
+    source_relation, source_diagnostic = _relation_from_name(
+        contract.source.relation,
+        side="source",
+        contract_name=contract.contract_name,
+    )
+    target_relation, target_diagnostic = _relation_from_name(
+        contract.target.relation,
+        side="target",
+        contract_name=contract.contract_name,
+    )
+    relation_diagnostics = tuple(
+        diagnostic
+        for diagnostic in (source_diagnostic, target_diagnostic)
+        if diagnostic is not None
+    )
+    if relation_diagnostics:
+        return (
+            None,
+            None,
+            _error_result(
+                check,
+                contract,
+                message="Key-safety execution could not resolve relation endpoints.",
+                diagnostics=relation_diagnostics,
+            ),
+        )
+    return source_relation, target_relation, None
 
 
 def _context_blocker(
