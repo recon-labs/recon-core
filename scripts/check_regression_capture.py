@@ -47,11 +47,47 @@ def _strip_param_suffix(node_part: str) -> str:
     return node_part.split("[", 1)[0]
 
 
-def _class_has_method(class_node: ast.ClassDef, method_name: str) -> bool:
-    return any(
-        isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) and child.name == method_name
-        for child in class_node.body
+def _class_method_node(
+    class_node: ast.ClassDef,
+    method_name: str,
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    for child in class_node.body:
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef) and child.name == method_name:
+            return child
+    return None
+
+
+def _pytest_mark_regression_capture(func: ast.expr) -> bool:
+    return (
+        isinstance(func, ast.Attribute)
+        and func.attr == "regression_capture"
+        and isinstance(func.value, ast.Attribute)
+        and func.value.attr == "mark"
+        and isinstance(func.value.value, ast.Name)
+        and func.value.value.id == "pytest"
     )
+
+
+def _decorators_include_regression_capture(
+    decorators: list[ast.expr],
+    row_id: str,
+) -> bool:
+    for decorator in decorators:
+        if not isinstance(decorator, ast.Call):
+            continue
+        if not _pytest_mark_regression_capture(decorator.func):
+            continue
+        for arg in decorator.args:
+            if isinstance(arg, ast.Constant) and arg.value == row_id:
+                return True
+        for keyword in decorator.keywords:
+            if (
+                keyword.arg == "id"
+                and isinstance(keyword.value, ast.Constant)
+                and keyword.value.value == row_id
+            ):
+                return True
+    return False
 
 
 def _pytest_node_exists(test_file: Path, node_parts: list[str]) -> bool:
@@ -63,7 +99,7 @@ def _pytest_node_exists(test_file: Path, node_parts: list[str]) -> bool:
     if len(node_parts) == 1:
         function_name = _strip_param_suffix(node_parts[0])
         return any(
-            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name
+            isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == function_name
             for node in module.body
         )
 
@@ -72,13 +108,51 @@ def _pytest_node_exists(test_file: Path, node_parts: list[str]) -> bool:
         method_name = _strip_param_suffix(node_parts[1])
         for node in module.body:
             if isinstance(node, ast.ClassDef) and node.name == class_name:
-                return _class_has_method(node, method_name)
+                return _class_method_node(node, method_name) is not None
+
+    return False
+
+
+def _pytest_node_has_regression_capture_marker(
+    test_file: Path,
+    node_parts: list[str],
+    row_id: str,
+) -> bool:
+    try:
+        module = ast.parse(test_file.read_text())
+    except (OSError, SyntaxError):
+        return False
+
+    if len(node_parts) == 1:
+        function_name = _strip_param_suffix(node_parts[0])
+        for node in module.body:
+            if (
+                isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+                and node.name == function_name
+            ):
+                return _decorators_include_regression_capture(node.decorator_list, row_id)
+        return False
+
+    if len(node_parts) == 2:
+        class_name = _strip_param_suffix(node_parts[0])
+        method_name = _strip_param_suffix(node_parts[1])
+        for node in module.body:
+            if not isinstance(node, ast.ClassDef) or node.name != class_name:
+                continue
+            method_node = _class_method_node(node, method_name)
+            if method_node is None:
+                return False
+            return _decorators_include_regression_capture(
+                node.decorator_list + method_node.decorator_list,
+                row_id,
+            )
 
     return False
 
 
 def _validate_current_test(
     nodeid: str,
+    row_id: str,
     repo_root: Path,
     row_context: str,
     errors: list[str],
@@ -96,6 +170,12 @@ def _validate_current_test(
     node_parts = [part for part in node_text.split("::") if part]
     if not _pytest_node_exists(test_file, node_parts):
         errors.append(f"{row_context}: pytest node not found for {nodeid}")
+        return
+
+    if not _pytest_node_has_regression_capture_marker(test_file, node_parts, row_id):
+        errors.append(
+            f"{row_context}: {nodeid} missing @pytest.mark.regression_capture({row_id!r})"
+        )
 
 
 def _validate_gate_entry(
@@ -173,7 +253,8 @@ def _validate_capture_row(
     if not current_tests:
         errors.append(f"{row_context}: current_tests must be a non-empty list of pytest nodes")
     for nodeid in current_tests:
-        _validate_current_test(nodeid, repo_root, row_context, errors)
+        if isinstance(row_id, str):
+            _validate_current_test(nodeid, row_id, repo_root, row_context, errors)
 
     carryover_gates = row.get("carryover_gates")
     if not isinstance(carryover_gates, list) or not carryover_gates:

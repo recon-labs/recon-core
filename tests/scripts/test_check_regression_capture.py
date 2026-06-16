@@ -46,11 +46,16 @@ gates:
     test_dir.mkdir(parents=True)
     (test_dir / "test_example.py").write_text(
         """
+import pytest
+
+
+@pytest.mark.regression_capture("existing-case")
 def test_existing_case():
     assert True
 
 
 class TestCaptured:
+    @pytest.mark.regression_capture("existing-case")
     def test_method_case(self):
         assert True
 """.lstrip()
@@ -185,6 +190,37 @@ captures:
     )
     assert any(
         "test file does not exist" in error and "missing_file.py" in error for error in errors
+    )
+
+
+def test_validator_rejects_tests_without_matching_regression_capture_marker(
+    tmp_path: Path,
+) -> None:
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures:
+  - id: missing-marker
+    title: Missing marker
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/sample/test_example.py::test_existing_case
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+""".lstrip(),
+    )
+    script = load_script()
+
+    errors = script.validate(capture_root=capture_root, repo_root=tmp_path)
+
+    assert any(
+        "missing @pytest.mark.regression_capture('missing-marker')" in error for error in errors
     )
 
 

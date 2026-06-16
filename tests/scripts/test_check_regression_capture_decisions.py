@@ -7,9 +7,7 @@ from types import ModuleType
 
 def load_script() -> ModuleType:
     script_path = (
-        Path(__file__).resolve().parents[2]
-        / "scripts"
-        / "check_regression_capture_decisions.py"
+        Path(__file__).resolve().parents[2] / "scripts" / "check_regression_capture_decisions.py"
     )
     spec = importlib.util.spec_from_file_location("check_regression_capture_decisions", script_path)
     assert spec is not None

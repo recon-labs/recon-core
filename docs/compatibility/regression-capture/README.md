@@ -68,7 +68,9 @@ captures:
       scan evidence.
 ```
 
-`id` values must be unique across every capture file. Keep notes short and
+`id` values must be unique across every capture file. Tests listed in
+`current_tests` must carry a matching
+`@pytest.mark.regression_capture("<id>")` marker. Keep notes short and
 Recon-native. Do not include private review history or external research
 attribution in public capture rows.
 
