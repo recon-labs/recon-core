@@ -40,6 +40,48 @@ captures:
       Small local DuckDB databases can contain views over external data. Future
       adapter conformance must prove truthful relation metadata or estimates;
       database file size alone is not bounded scan evidence.
+  - id: key-safety-duckdb-relative-path-project-root
+    title: Runtime DuckDB execution uses the same project-local file as the scan guard
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P1
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_resolves_relative_duckdb_profile_paths_from_project_root
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+    notes: >
+      Relative DuckDB profile paths must resolve consistently for both bounded
+      local/dev scan classification and adapter execution. The scan guard must
+      not approve one project-local database while execution opens a same-named
+      database from the process working directory.
+  - id: key-safety-adapter-capability-preflight
+    title: Key-safety execution validates adapter capabilities before opening adapters
+    area: adapter-runtime
+    bug_class: adapter_capabilities
+    owner_surface: adapter_api
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_requires_key_safety_capability_before_connect
+      - tests/services/test_run_service.py::test_run_service_requires_each_key_safety_capability_before_connect
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_malformed_capability_before_connect
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: adapter_capabilities
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/capability-catalog.md: Capability catalog
+    notes: >
+      Core must validate key-safety adapter capability declarations and support
+      states before opening adapters or running source/target scans. Future
+      adapter conformance must preserve explicit capability blockers instead of
+      falling through to execution.
   - id: bounded-scan-docs-no-user-provided-classification
     title: Public docs do not imply user-provided bounded scan classification
     area: adapter-runtime

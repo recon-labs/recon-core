@@ -158,10 +158,19 @@ def _capture_not_required_decisions(decision_file: Path | None) -> dict[str, set
     return decisions
 
 
-def _changed_paths_from_git(repo_root: Path) -> list[str]:
-    commands = (
-        ("git", "-C", str(repo_root), "diff", "--name-only", "HEAD", "--"),
-        ("git", "-C", str(repo_root), "ls-files", "--others", "--exclude-standard"),
+def _changed_paths_from_git(repo_root: Path, *, base_ref: str | None = None) -> list[str]:
+    commands: list[tuple[str, ...]] = []
+    if base_ref:
+        merge_base = _merge_base(repo_root, base_ref)
+        if merge_base is not None:
+            commands.append(
+                ("git", "-C", str(repo_root), "diff", "--name-only", f"{merge_base}...HEAD", "--")
+            )
+    commands.extend(
+        (
+            ("git", "-C", str(repo_root), "diff", "--name-only", "HEAD", "--"),
+            ("git", "-C", str(repo_root), "ls-files", "--others", "--exclude-standard"),
+        )
     )
     paths: list[str] = []
     for command in commands:
@@ -174,6 +183,19 @@ def _changed_paths_from_git(repo_root: Path) -> list[str]:
         if result.returncode == 0:
             paths.extend(line.strip() for line in result.stdout.splitlines() if line.strip())
     return sorted(set(paths))
+
+
+def _merge_base(repo_root: Path, base_ref: str) -> str | None:
+    result = subprocess.run(
+        ("git", "-C", str(repo_root), "merge-base", "HEAD", base_ref),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    merge_base = result.stdout.strip()
+    return merge_base or None
 
 
 def evaluate(
@@ -251,6 +273,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Repository root used to discover changed paths when none are provided.",
     )
     parser.add_argument(
+        "--base-ref",
+        default=None,
+        help=(
+            "Include committed branch changes from the merge base with this ref. "
+            "Use this for branch-wide reviews or final branch validation."
+        ),
+    )
+    parser.add_argument(
         "--decision-file",
         type=Path,
         default=None,
@@ -268,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.paths_from_stdin:
         changed_paths.extend(_paths_from_stdin())
     if not changed_paths:
-        changed_paths = _changed_paths_from_git(repo_root)
+        changed_paths = _changed_paths_from_git(repo_root, base_ref=args.base_ref)
 
     findings = evaluate(
         changed_paths=changed_paths,

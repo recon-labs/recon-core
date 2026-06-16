@@ -48,7 +48,8 @@ validator script change.
 `scripts/check_regression_capture_decisions.py` is advisory. Review its output
 during branch-wide reviews, high-risk or public-contract fixes, and final branch
 validation, but do not make it a blocking gate until false positives are
-understood.
+understood. The default command checks local WIP and untracked files. Use
+`--base-ref origin/main` for branch-wide or final branch validation.
 
 ### Unit tests
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from subprocess import CompletedProcess
 from types import ModuleType
 
 import pytest
@@ -228,3 +229,87 @@ captures: []
     )
 
     assert result == 1
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-branch-wide-mode")
+def test_changed_paths_from_git_includes_branch_diff_when_base_ref_is_set(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = load_script()
+    commands: list[tuple[str, ...]] = []
+
+    def fake_run(
+        command: tuple[str, ...],
+        *,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+    ) -> CompletedProcess[str]:
+        commands.append(command)
+        assert check is False
+        assert capture_output is True
+        assert text is True
+        if command[3:] == ("merge-base", "HEAD", "origin/main"):
+            return CompletedProcess(command, 0, stdout="abc123\n", stderr="")
+        if command[3:] == ("diff", "--name-only", "abc123...HEAD", "--"):
+            return CompletedProcess(
+                command,
+                0,
+                stdout="src/recon_core/adapters/duckdb/adapter.py\n",
+                stderr="",
+            )
+        if command[3:] == ("diff", "--name-only", "HEAD", "--"):
+            return CompletedProcess(command, 0, stdout="tests/wip.py\n", stderr="")
+        if command[3:] == ("ls-files", "--others", "--exclude-standard"):
+            return CompletedProcess(command, 0, stdout="tests/new.py\n", stderr="")
+        raise AssertionError(f"unexpected command: {command}")
+
+    monkeypatch.setattr(script.subprocess, "run", fake_run)
+
+    paths = script._changed_paths_from_git(tmp_path, base_ref="origin/main")
+
+    assert paths == [
+        "src/recon_core/adapters/duckdb/adapter.py",
+        "tests/new.py",
+        "tests/wip.py",
+    ]
+    assert commands[0][3:] == ("merge-base", "HEAD", "origin/main")
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-branch-wide-mode")
+def test_main_base_ref_uses_branch_wide_changed_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    def fake_changed_paths(repo_root: Path, *, base_ref: str | None = None) -> list[str]:
+        assert repo_root == tmp_path
+        assert base_ref == "origin/main"
+        return ["src/recon_core/services/run.py"]
+
+    monkeypatch.setattr(script, "_changed_paths_from_git", fake_changed_paths)
+
+    result = script.main(
+        [
+            "--capture-root",
+            str(capture_root),
+            "--repo-root",
+            str(tmp_path),
+            "--base-ref",
+            "origin/main",
+        ]
+    )
+
+    assert result == 0
+    assert "advisory found potential missing decisions" in capsys.readouterr().out

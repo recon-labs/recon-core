@@ -961,6 +961,59 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("key-safety-duckdb-relative-path-project-root")
+def test_run_service_resolves_relative_duckdb_profile_paths_from_project_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path = tmp_path / "project"
+    process_cwd = tmp_path / "process-cwd"
+    project_path.mkdir()
+    process_cwd.mkdir()
+    duckdb = _duckdb_module()
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        project_path / "warehouse.duckdb",
+        source_rows=((1, "north"),),
+        target_rows=(),
+    )
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        process_cwd / "warehouse.duckdb",
+        source_rows=(),
+        target_rows=(),
+    )
+    write_project(project_path, profile="local")
+    write_profiles(
+        project_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(project_path, checks=[_key_safety_payload_for("missing_keys")])
+    write_compiled_contract(project_path)
+    monkeypatch.chdir(process_cwd)
+
+    result = RunService(start_path=project_path).execute()
+
+    assert result.exit_category is ExitCategory.CHECK_FAILURE
+    assert result.message == "Run completed with failing checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_MISSING_KEYS",
+        BOUNDED_LOCAL_SCAN_ALLOWED,
+    ]
+    assert "warehouse.duckdb" not in _service_result_text(result)
+    _assert_no_runtime_outputs(project_path)
+
+
 def test_run_service_executes_key_safety_failure_without_raw_key_output(
     tmp_path: Path,
 ) -> None:
@@ -1933,6 +1986,7 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("key-safety-adapter-capability-preflight")
 def test_run_service_requires_key_safety_capability_before_connect(tmp_path: Path) -> None:
     write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
@@ -1994,6 +2048,7 @@ profiles:
         ),
     ],
 )
+@pytest.mark.regression_capture("key-safety-adapter-capability-preflight")
 def test_run_service_requires_each_key_safety_capability_before_connect(
     tmp_path: Path,
     check_type: str,
@@ -2035,6 +2090,7 @@ profiles:
     assert adapter.queries == []
 
 
+@pytest.mark.regression_capture("key-safety-adapter-capability-preflight")
 def test_run_service_blocks_key_safety_malformed_capability_before_connect(
     tmp_path: Path,
 ) -> None:

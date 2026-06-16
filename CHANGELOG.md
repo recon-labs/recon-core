@@ -54,6 +54,9 @@ This project follows semantic versioning once public package releases begin.
 - Compatibility docs now clarify future adapter ecosystem gates for
   DSN-component redaction, explicit adapter/renderer binding, rendered SQL
   step capability enforcement, and adapter/test-kit compatibility claims.
+- Regression-capture decision validation now has an explicit branch-wide mode
+  with `scripts/check_regression_capture_decisions.py --base-ref origin/main`;
+  the no-argument advisory remains scoped to local WIP and untracked files.
 
 ### Fixed
 
@@ -99,6 +102,10 @@ This project follows semantic versioning once public package releases begin.
 - DuckDB duplicate-key SQL rendering now evaluates duplicate grain-key tuples
   only after excluding rows with null identity components, leaving null-key
   failures to the null-key safety checks.
+- `recon run` now resolves relative DuckDB profile database paths against the
+  project root for both bounded key-safety scan classification and adapter
+  execution, preventing same-named process-CWD databases from producing
+  misleading key-safety results.
 - `render_check_sql` and `recon compile --render-sql` now enforce renderer-step
   `RenderedSql.required_capabilities`, validate explicit renderer
   `adapter_type` metadata before rendering, preserve diagnostics from

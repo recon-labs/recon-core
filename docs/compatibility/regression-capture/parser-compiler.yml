@@ -40,3 +40,23 @@ captures:
       A capture row or no-capture rationale for one surface under a carryover
       gate must not hide other changed surfaces that still need an explicit
       regression-capture decision.
+  - id: regression-capture-decision-advisory-branch-wide-mode
+    title: Regression-capture decision advisory has an explicit branch-wide mode
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture_decisions.py::test_changed_paths_from_git_includes_branch_diff_when_base_ref_is_set
+      - tests/scripts/test_check_regression_capture_decisions.py::test_main_base_ref_uses_branch_wide_changed_paths
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Advisory Decision Check
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      The default advisory command is intentionally scoped to local WIP and
+      untracked files. Branch-wide reviews and final branch validation must use
+      an explicit base ref so committed branch changes are not missed.

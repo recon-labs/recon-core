@@ -248,10 +248,14 @@ def _prepare_runtime_execution_dependencies(
         )
 
     assert profile_result.profile is not None
+    connections_by_name = _runtime_connections_for_project(
+        profile_result.profile.connections,
+        project_root=context.project_root,
+    )
     scan_budget_decisions = _scan_budget_decisions_by_check_id(
         profile_candidates,
         contracts_by_name=contracts_by_name,
-        connections_by_name=profile_result.profile.connections,
+        connections_by_name=connections_by_name,
         project_root=context.project_root,
     )
     adapter_candidates = _adapter_required_runtime_candidates(
@@ -267,7 +271,7 @@ def _prepare_runtime_execution_dependencies(
     for connection_name, required_capabilities in sorted(
         required_capabilities_by_connection.items()
     ):
-        connection = profile_result.profile.connections[connection_name]
+        connection = connections_by_name[connection_name]
         setup_result = prepare_runtime_adapter(
             connection=connection,
             required_capabilities=required_capabilities,
@@ -290,7 +294,7 @@ def _prepare_runtime_execution_dependencies(
         adapter_candidates,
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
-        connections_by_name=profile_result.profile.connections,
+        connections_by_name=connections_by_name,
     )
     if open_result.diagnostics:
         return _RuntimeExecutionDependencies(
@@ -303,7 +307,7 @@ def _prepare_runtime_execution_dependencies(
         execution_context=CheckExecutionContext(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
-            connections_by_name=profile_result.profile.connections,
+            connections_by_name=connections_by_name,
             scan_budget_decisions_by_check_id=scan_budget_decisions,
         ),
         opened_adapters=open_result.opened_adapters,
@@ -354,6 +358,41 @@ def _open_runtime_adapters(
         opened_adapters.append(_OpenedAdapter(adapter=adapter, connection=connection))
 
     return _AdapterOpenResult(opened_adapters=tuple(opened_adapters))
+
+
+def _runtime_connections_for_project(
+    connections_by_name: Mapping[str, ConnectionConfig],
+    *,
+    project_root: Path,
+) -> dict[str, ConnectionConfig]:
+    return {
+        name: _runtime_connection_for_project(connection, project_root=project_root)
+        for name, connection in connections_by_name.items()
+    }
+
+
+def _runtime_connection_for_project(
+    connection: ConnectionConfig,
+    *,
+    project_root: Path,
+) -> ConnectionConfig:
+    if connection.type != "duckdb":
+        return connection
+    database = connection.config.get("database")
+    if not isinstance(database, str) or not database or database == ":memory:":
+        return connection
+    database_path = Path(database)
+    if database_path.is_absolute():
+        return connection
+    try:
+        resolved_database = (project_root / database_path).resolve()
+    except OSError:
+        return connection
+    return ConnectionConfig(
+        name=connection.name,
+        type=connection.type,
+        config={**connection.config, "database": str(resolved_database)},
+    )
 
 
 def _runtime_execution_candidates(

@@ -107,11 +107,19 @@ required rationale or references.
 ## Advisory Decision Check
 
 `scripts/check_regression_capture_decisions.py` maps changed paths to known
-`trigger_surfaces` and reports likely missing capture decisions. It is advisory
-until false positives are understood:
+`trigger_surfaces` and reports likely missing capture decisions. With no path
+arguments, it checks local WIP and untracked files only. It is advisory until
+false positives are understood:
 
 ```bash
 python3 scripts/check_regression_capture_decisions.py
+```
+
+For branch-wide reviews and final branch validation, include the branch diff
+from the merge base with the target branch:
+
+```bash
+python3 scripts/check_regression_capture_decisions.py --base-ref origin/main
 ```
 
 For a durable no-capture decision, pass a small YAML file with a
@@ -130,7 +138,7 @@ capture_not_required:
 Use this only when a changed high-risk or public-contract surface creates no
 reusable conformance memory. Otherwise add or update a capture row.
 
-Run the advisory script during branch-wide reviews and final branch validation.
-When it reports a likely missing decision, either add or update a capture row or
-record a durable no-capture rationale in the active handoff/checklist artifact
-using `regression_capture_decision: not-required`.
+Run the advisory script during branch-wide reviews and final branch validation
+with `--base-ref`. When it reports a likely missing decision, either add or
+update a capture row or record a durable no-capture rationale in the active
+handoff/checklist artifact using `regression_capture_decision: not-required`.
