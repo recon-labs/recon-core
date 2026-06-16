@@ -1,3 +1,46 @@
 schema_version: 1
 area: check-engine
-captures: []
+captures:
+  - id: key-safety-shape-blocker-precedence
+    title: Key-safety shape blockers outrank missing scan-budget decisions
+    area: check-engine
+    bug_class: blocker_precedence
+    owner_surface: check_engine_runtime_classification
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_engine.py::test_engine_preserves_key_safety_shape_blocker_when_scan_budget_decision_is_missing
+      - tests/services/test_run_service.py::test_run_service_preserves_key_safety_shape_blocker_in_mixed_runtime_run
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: blocker_precedence
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: runtime_scan_policy
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Check engine boundary and result model
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+    notes: >
+      Unsupported typed-plan shapes must remain visible even when a mixed run
+      records scan-budget decisions only for executable runtime candidates.
+  - id: duplicate-key-excludes-null-containing-tuples
+    title: Duplicate-key checks ignore null-containing grain-key tuples
+    area: check-engine
+    bug_class: key_semantics
+    owner_surface: grain_key_semantics
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_sql_renderer.py::test_duplicate_key_excludes_null_containing_duplicate_candidates
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: grain_key_semantics
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: sql_comparison_semantics
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+      - docs/compatibility/adapter-api.md: SQL comparison semantics for future adapter test kit
+    notes: >
+      Duplicate-key failure counts consider only fully non-null grain-key
+      tuples; null-containing key tuples belong to null-key checks.

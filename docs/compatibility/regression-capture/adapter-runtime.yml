@@ -1,3 +1,63 @@
 schema_version: 1
 area: adapter-runtime
-captures: []
+captures:
+  - id: hidden-bounded-local-fixture-marker-removed
+    title: Key-safety scan policy does not depend on hidden fixture markers
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_same_context_duckdb_without_local_fixture
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+      - docs/compatibility/adapter-api.md: SQL comparison semantics for future adapter test kit
+    notes: >
+      Core may allow local key-safety execution only through explicit internal
+      scan evidence: project-local DuckDB file, bounded size, relation-backed
+      endpoints, and local base-table catalog proof.
+  - id: duckdb-view-external-scan-guard
+    title: DuckDB file size alone does not prove bounded relation scans
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+    notes: >
+      Small local DuckDB databases can contain views over external data. Future
+      adapter conformance must prove truthful relation metadata or estimates;
+      database file size alone is not bounded scan evidence.
+  - id: bounded-scan-docs-no-user-provided-classification
+    title: Public docs do not imply user-provided bounded scan classification
+    area: adapter-runtime
+    bug_class: docs_drift
+    owner_surface: public_compatibility_docs
+    severity: P3
+    current_tests:
+      - tests/docs/test_regression_capture_docs.py::test_public_docs_do_not_reintroduce_user_provided_bounded_scan_classification
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety_docs
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: scan_policy_public_contracts
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+      - docs/implementation/testing-plan.md: Scan-budget and query-plan safety
+    notes: >
+      Public docs may say scan scope and budget status must be explicit, but
+      must not imply users can supply the final bounded classification directly.

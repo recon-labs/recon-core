@@ -304,6 +304,7 @@ def test_render_target_minus_source_key_diff_uses_target_left_key_set(
     )
 
 
+@pytest.mark.regression_capture("duplicate-key-excludes-null-containing-tuples")
 def test_duplicate_key_excludes_null_containing_duplicate_candidates(
     renderer: DuckDbSqlRenderer,
 ) -> None:

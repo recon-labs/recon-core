@@ -483,6 +483,7 @@ def test_run_service_executes_actual_duckdb_key_safety_all_checks_pass(
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("duckdb-view-external-scan-guard")
 def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup(
     tmp_path: Path,
 ) -> None:
@@ -743,6 +744,7 @@ def test_run_service_executes_actual_duckdb_row_count_and_key_safety_together(
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("key-safety-shape-blocker-precedence")
 def test_run_service_preserves_key_safety_shape_blocker_in_mixed_runtime_run(
     tmp_path: Path,
 ) -> None:
@@ -1270,6 +1272,7 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("hidden-bounded-local-fixture-marker-removed")
 def test_run_service_blocks_key_safety_same_context_duckdb_without_local_fixture(
     tmp_path: Path,
 ) -> None:
@@ -1305,6 +1308,7 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("hidden-bounded-local-fixture-marker-removed")
 def test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture(
     tmp_path: Path,
 ) -> None:

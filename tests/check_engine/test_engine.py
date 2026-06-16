@@ -547,6 +547,7 @@ def test_engine_blocks_key_safety_when_scan_budget_blocks_execution(tmp_path: Pa
     assert check_result.reason_code is CheckReason.SCAN_ESTIMATE_UNKNOWN
 
 
+@pytest.mark.regression_capture("key-safety-shape-blocker-precedence")
 def test_engine_preserves_key_safety_shape_blocker_when_scan_budget_decision_is_missing(
     tmp_path: Path,
 ) -> None:
