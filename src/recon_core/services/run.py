@@ -742,8 +742,6 @@ def _local_duckdb_database_path(
         resolved_project_root = project_root.resolve()
     except OSError:
         return None
-    if resolved_candidate.suffix != ".duckdb":
-        return None
     if not resolved_candidate.is_relative_to(resolved_project_root):
         return None
     return resolved_candidate

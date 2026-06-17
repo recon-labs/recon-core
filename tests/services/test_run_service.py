@@ -486,6 +486,35 @@ def test_run_service_executes_actual_duckdb_key_safety_all_checks_pass(
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("key-safety-duckdb-local-database-filename-suffix")
+def test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suffix(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.db"
+    _write_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=((1, "north"), (2, "south")),
+        target_rows=((1, "north"), (2, "south")),
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=_all_key_safety_checks(keys=("customer_id", "region")),
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    public_text = _service_result_text(result)
+    assert "north" not in public_text
+    assert "south" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
 @pytest.mark.regression_capture("key-safety-duckdb-identifier-case-metadata")
 def test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch(
     tmp_path: Path,

@@ -79,6 +79,25 @@ captures:
       DuckDB resolves identifiers case-insensitively, so bounded local scan
       metadata checks must not reject project-local base tables only because
       authored relation casing differs from information_schema casing.
+  - id: key-safety-duckdb-local-database-filename-suffix
+    title: DuckDB scan guard accepts valid project-local database filenames
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suffix
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+    notes: >
+      Bounded local DuckDB scan classification requires a project-local bounded
+      database file plus local base-table metadata proof, but it must not add a
+      hidden filename-extension requirement that DuckDB itself does not impose.
   - id: key-safety-adapter-capability-preflight
     title: Key-safety execution validates adapter capabilities before opening adapters
     area: adapter-runtime
