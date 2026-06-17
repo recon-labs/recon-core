@@ -45,6 +45,11 @@ class CheckReason(StrEnum):
     MISSING_ENGINE_CAPABILITY = "missing_engine_capability"
     UNSUPPORTED_EXECUTION_PLACEMENT = "unsupported_execution_placement"
     UNSUPPORTED_MATERIALIZATION_POLICY = "unsupported_materialization_policy"
+    SCAN_ESTIMATE_UNKNOWN = "scan_estimate_unknown"
+    SCAN_ESTIMATE_UNSUPPORTED = "scan_estimate_unsupported"
+    SCAN_BUDGET_EXCEEDED = "scan_budget_exceeded"
+    UNSAFE_SCAN_PREFLIGHT = "unsafe_scan_preflight"
+    BOUNDED_LOCAL_SCAN_REQUIRED = "bounded_local_scan_required"
     NOT_IMPLEMENTED_IN_CURRENT_PHASE = "not_implemented_in_current_phase"
     SKIPPED_BY_POLICY = "skipped_by_policy"
     SELECTED_OUT = "selected_out"
@@ -105,6 +110,11 @@ _REASON_REQUIRED_STATUS: dict[CheckReason, CheckStatus] = {
     CheckReason.MISSING_ENGINE_CAPABILITY: CheckStatus.NOT_EXECUTABLE,
     CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT: CheckStatus.NOT_EXECUTABLE,
     CheckReason.UNSUPPORTED_MATERIALIZATION_POLICY: CheckStatus.NOT_EXECUTABLE,
+    CheckReason.SCAN_ESTIMATE_UNKNOWN: CheckStatus.NOT_EXECUTABLE,
+    CheckReason.SCAN_ESTIMATE_UNSUPPORTED: CheckStatus.NOT_EXECUTABLE,
+    CheckReason.SCAN_BUDGET_EXCEEDED: CheckStatus.NOT_EXECUTABLE,
+    CheckReason.UNSAFE_SCAN_PREFLIGHT: CheckStatus.NOT_EXECUTABLE,
+    CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED: CheckStatus.NOT_EXECUTABLE,
     CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE: CheckStatus.NOT_EXECUTABLE,
     CheckReason.SKIPPED_BY_POLICY: CheckStatus.SKIPPED,
     CheckReason.SELECTED_OUT: CheckStatus.SKIPPED,

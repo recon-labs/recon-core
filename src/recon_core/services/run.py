@@ -1,10 +1,12 @@
 """Run command service."""
 
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib import import_module
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 from recon_core.adapters import (
@@ -21,6 +23,7 @@ from recon_core.artifacts import (
     CompiledCheckLoadResult,
     CompiledContractLoader,
     CompiledContractLoadResult,
+    LoadedCompiledCheck,
     LoadedCompiledChecksArtifact,
     LoadedCompiledContractArtifact,
 )
@@ -32,6 +35,18 @@ from recon_core.check_engine import (
     RunResult,
     RunStatus,
     is_supported_row_count_plan_shape,
+)
+from recon_core.check_engine.key_safety import (
+    is_key_safety_check_type,
+    is_supported_key_safety_plan_shape,
+    key_safety_identity_matches_contract,
+)
+from recon_core.check_engine.scan_budget import (
+    ScanBudgetContext,
+    ScanBudgetDecision,
+    ScanEstimateState,
+    ScanExecutionEnvironment,
+    classify_scan_budget,
 )
 from recon_core.compiler.models import RenderingStatus
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -81,6 +96,31 @@ class _RuntimeExecutionDependencies:
 class _OpenedAdapter:
     adapter: BaseAdapter
     connection: ConnectionConfig
+
+
+@dataclass(frozen=True, slots=True)
+class _DuckDbRelationName:
+    identifier: str
+    schema: str | None = None
+    catalog: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _RuntimeScanBudgetDecisions:
+    decisions_by_check_id: Mapping[str, ScanBudgetDecision]
+    adapter_setup_required_check_ids: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
+class _KeySafetyScanBudgetDecision:
+    decision: ScanBudgetDecision
+    requires_adapter_setup: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _BoundedDuckDbDatabaseStatus:
+    bounded: bool
+    metadata_open_failed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +202,13 @@ class RunService:
 
 
 _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES = ("row_count", "cte_support")
+_KEY_SAFETY_RUNTIME_REQUIRED_CAPABILITIES = {
+    "key_diff": ("key_diff", "cte_support"),
+    "null_key": ("null_key",),
+    "duplicate_key": ("duplicate_key",),
+}
+_MAX_BOUNDED_LOCAL_DUCKDB_BYTES = 64 * 1024 * 1024
+_DUCKDB_LOCAL_SIDECAR_SUFFIXES = (".wal", ".tmp")
 _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
     {
         RenderingStatus.BLOCKED.value,
@@ -178,11 +225,30 @@ def _prepare_runtime_execution_dependencies(
     registry: AdapterRegistry | None,
     environ: Mapping[str, str] | None,
 ) -> _RuntimeExecutionDependencies:
-    row_count_candidates = _runtime_row_count_candidates(check_artifacts)
-    if not row_count_candidates:
+    contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
+    runtime_candidates = _runtime_execution_candidates(check_artifacts)
+    if not runtime_candidates:
+        if _has_key_safety_checks(check_artifacts):
+            return _RuntimeExecutionDependencies(
+                execution_context=CheckExecutionContext(
+                    contracts_by_name=contracts_by_name,
+                    adapters_by_connection={},
+                ),
+            )
         return _RuntimeExecutionDependencies()
-    candidate_contracts = _compiled_contracts_for_row_count_candidates(
-        row_count_candidates,
+    profile_candidates = _relation_backed_runtime_candidates(
+        runtime_candidates,
+        contracts_by_name=contracts_by_name,
+    )
+    if not profile_candidates:
+        return _RuntimeExecutionDependencies(
+            execution_context=CheckExecutionContext(
+                contracts_by_name=contracts_by_name,
+                adapters_by_connection={},
+            ),
+        )
+    candidate_contracts = _compiled_contracts_for_runtime_candidates(
+        profile_candidates,
         compiled_contracts=compiled_contracts,
     )
 
@@ -201,9 +267,23 @@ def _prepare_runtime_execution_dependencies(
         )
 
     assert profile_result.profile is not None
-    contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
+    connections_by_name = _runtime_connections_for_project(
+        profile_result.profile.connections,
+        project_root=context.project_root,
+    )
+    scan_budget_decisions = _scan_budget_decisions_by_check_id(
+        profile_candidates,
+        contracts_by_name=contracts_by_name,
+        connections_by_name=connections_by_name,
+        project_root=context.project_root,
+    )
+    adapter_candidates = _adapter_required_runtime_candidates(
+        profile_candidates,
+        scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
+        adapter_setup_required_check_ids=scan_budget_decisions.adapter_setup_required_check_ids,
+    )
     required_capabilities_by_connection = _required_capabilities_by_connection(
-        row_count_candidates,
+        adapter_candidates,
         contracts_by_name=contracts_by_name,
     )
     adapters_by_connection: dict[str, BaseAdapter] = {}
@@ -211,7 +291,7 @@ def _prepare_runtime_execution_dependencies(
     for connection_name, required_capabilities in sorted(
         required_capabilities_by_connection.items()
     ):
-        connection = profile_result.profile.connections[connection_name]
+        connection = connections_by_name[connection_name]
         setup_result = prepare_runtime_adapter(
             connection=connection,
             required_capabilities=required_capabilities,
@@ -231,10 +311,10 @@ def _prepare_runtime_execution_dependencies(
         )
 
     open_result = _open_runtime_adapters(
-        row_count_candidates,
+        adapter_candidates,
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
-        connections_by_name=profile_result.profile.connections,
+        connections_by_name=connections_by_name,
     )
     if open_result.diagnostics:
         return _RuntimeExecutionDependencies(
@@ -247,7 +327,8 @@ def _prepare_runtime_execution_dependencies(
         execution_context=CheckExecutionContext(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
-            connections_by_name=profile_result.profile.connections,
+            connections_by_name=connections_by_name,
+            scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
         ),
         opened_adapters=open_result.opened_adapters,
     )
@@ -260,14 +341,14 @@ class _AdapterOpenResult:
 
 
 def _open_runtime_adapters(
-    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     adapters_by_connection: Mapping[str, BaseAdapter],
     connections_by_name: Mapping[str, ConnectionConfig],
 ) -> _AdapterOpenResult:
     connection_names = _connection_names_to_open(
-        row_count_candidates,
+        runtime_candidates,
         contracts_by_name,
         connections_by_name,
     )
@@ -299,17 +380,48 @@ def _open_runtime_adapters(
     return _AdapterOpenResult(opened_adapters=tuple(opened_adapters))
 
 
-def _runtime_row_count_candidates(
+def _runtime_connections_for_project(
+    connections_by_name: Mapping[str, ConnectionConfig],
+    *,
+    project_root: Path,
+) -> dict[str, ConnectionConfig]:
+    return {
+        name: _runtime_connection_for_project(connection, project_root=project_root)
+        for name, connection in connections_by_name.items()
+    }
+
+
+def _runtime_connection_for_project(
+    connection: ConnectionConfig,
+    *,
+    project_root: Path,
+) -> ConnectionConfig:
+    if connection.type != "duckdb":
+        return connection
+    database = connection.config.get("database")
+    if not isinstance(database, str) or not database or database == ":memory:":
+        return connection
+    database_path = Path(database)
+    if database_path.is_absolute():
+        return connection
+    try:
+        resolved_database = (project_root / database_path).resolve()
+    except OSError:
+        return connection
+    return ConnectionConfig(
+        name=connection.name,
+        type=connection.type,
+        config={**connection.config, "database": str(resolved_database)},
+    )
+
+
+def _runtime_execution_candidates(
     check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
 ) -> tuple[LoadedCompiledChecksArtifact, ...]:
     candidates: list[LoadedCompiledChecksArtifact] = []
     for artifact in check_artifacts:
         candidate_checks = tuple(
-            check
-            for check in artifact.checks
-            if check.check_type == "row_count_diff"
-            and is_supported_row_count_plan_shape(check.plan.operations)
-            and check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES
+            check for check in artifact.checks if _is_runtime_execution_candidate(check)
         )
         if not candidate_checks:
             continue
@@ -329,14 +441,146 @@ def _runtime_row_count_candidates(
     return tuple(candidates)
 
 
-def _compiled_contracts_for_row_count_candidates(
-    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+def _has_key_safety_checks(
+    check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+) -> bool:
+    return any(
+        is_key_safety_check_type(check.check_type)
+        for artifact in check_artifacts
+        for check in artifact.checks
+    )
+
+
+def _relation_backed_runtime_candidates(
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+) -> tuple[LoadedCompiledChecksArtifact, ...]:
+    candidates: list[LoadedCompiledChecksArtifact] = []
+    for artifact in runtime_candidates:
+        contract = contracts_by_name.get(artifact.contract_name)
+        if contract is None or not _is_relation_backed_contract(contract):
+            continue
+        candidate_checks = tuple(
+            check
+            for check in artifact.checks
+            if _requires_runtime_profile_for_contract(check, contract)
+        )
+        if not candidate_checks:
+            continue
+        candidates.append(
+            LoadedCompiledChecksArtifact(
+                path=artifact.path,
+                project_name=artifact.project_name,
+                project_version=artifact.project_version,
+                contract_id=artifact.contract_id,
+                contract_name=artifact.contract_name,
+                source_file=artifact.source_file,
+                checks=candidate_checks,
+                diagnostics=artifact.diagnostics,
+                payload=artifact.payload,
+            )
+        )
+    return tuple(candidates)
+
+
+def _requires_runtime_profile_for_contract(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> bool:
+    if check.check_type == "row_count_diff":
+        return True
+    if is_key_safety_check_type(check.check_type):
+        return key_safety_identity_matches_contract(
+            check,
+            contract,
+        ) and _contract_has_valid_relation_endpoint_shape(contract)
+    return False
+
+
+def _contract_has_valid_relation_endpoint_shape(
+    contract: LoadedCompiledContractArtifact,
+) -> bool:
+    return (
+        _relation_name_parts(contract.source.relation) is not None
+        and _relation_name_parts(contract.target.relation) is not None
+    )
+
+
+def _adapter_required_runtime_candidates(
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision],
+    adapter_setup_required_check_ids: frozenset[str],
+) -> tuple[LoadedCompiledChecksArtifact, ...]:
+    candidates: list[LoadedCompiledChecksArtifact] = []
+    for artifact in runtime_candidates:
+        candidate_checks = tuple(
+            check
+            for check in artifact.checks
+            if _check_requires_adapter_setup(
+                check,
+                scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id,
+                adapter_setup_required_check_ids=adapter_setup_required_check_ids,
+            )
+        )
+        if not candidate_checks:
+            continue
+        candidates.append(
+            LoadedCompiledChecksArtifact(
+                path=artifact.path,
+                project_name=artifact.project_name,
+                project_version=artifact.project_version,
+                contract_id=artifact.contract_id,
+                contract_name=artifact.contract_name,
+                source_file=artifact.source_file,
+                checks=candidate_checks,
+                diagnostics=artifact.diagnostics,
+                payload=artifact.payload,
+            )
+        )
+    return tuple(candidates)
+
+
+def _check_requires_adapter_setup(
+    check: LoadedCompiledCheck,
+    *,
+    scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision],
+    adapter_setup_required_check_ids: frozenset[str],
+) -> bool:
+    if not is_key_safety_check_type(check.check_type):
+        return True
+    if check.id in adapter_setup_required_check_ids:
+        return True
+    decision = scan_budget_decisions_by_check_id.get(check.id)
+    return decision is not None and decision.allowed
+
+
+def _is_relation_backed_contract(contract: LoadedCompiledContractArtifact) -> bool:
+    return (
+        contract.source.relation is not None
+        and contract.target.relation is not None
+        and contract.source.query is None
+        and contract.target.query is None
+    )
+
+
+def _is_runtime_execution_candidate(check: LoadedCompiledCheck) -> bool:
+    if check.rendering_status in _RUNTIME_BLOCKING_RENDERING_STATUSES:
+        return False
+    if check.check_type == "row_count_diff":
+        return is_supported_row_count_plan_shape(check.plan.operations)
+    if is_key_safety_check_type(check.check_type):
+        return is_supported_key_safety_plan_shape(check.check_type, check.plan.operations)
+    return False
+
+
+def _compiled_contracts_for_runtime_candidates(
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
     compiled_contracts: tuple[LoadedCompiledContractArtifact, ...],
 ) -> tuple[LoadedCompiledContractArtifact, ...]:
-    candidate_contract_names = frozenset(
-        artifact.contract_name for artifact in row_count_candidates
-    )
+    candidate_contract_names = frozenset(artifact.contract_name for artifact in runtime_candidates)
     return tuple(
         contract
         for contract in compiled_contracts
@@ -345,19 +589,17 @@ def _compiled_contracts_for_row_count_candidates(
 
 
 def _required_capabilities_by_connection(
-    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
 ) -> dict[str, tuple[str, ...]]:
     capabilities_by_connection: dict[str, list[str]] = {}
-    for artifact in row_count_candidates:
+    for artifact in runtime_candidates:
         contract = contracts_by_name.get(artifact.contract_name)
         if contract is None:
             continue
         for check in artifact.checks:
-            required_capabilities = (
-                tuple(check.plan.required_capabilities) + _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES
-            )
+            required_capabilities = _runtime_required_capabilities(check)
             for connection_name in (contract.source.connection, contract.target.connection):
                 capabilities = capabilities_by_connection.setdefault(connection_name, [])
                 for capability in required_capabilities:
@@ -369,13 +611,298 @@ def _required_capabilities_by_connection(
     }
 
 
+def _runtime_required_capabilities(check: LoadedCompiledCheck) -> tuple[str, ...]:
+    required_capabilities = list(check.plan.required_capabilities)
+    if check.check_type == "row_count_diff":
+        required_capabilities.extend(_ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES)
+    elif is_key_safety_check_type(check.check_type) and check.plan.operations:
+        operation_type = check.plan.operations[0].get("type")
+        if isinstance(operation_type, str):
+            required_capabilities.extend(
+                _KEY_SAFETY_RUNTIME_REQUIRED_CAPABILITIES.get(operation_type, ())
+            )
+
+    deduped: list[str] = []
+    for capability in required_capabilities:
+        if capability and capability not in deduped:
+            deduped.append(capability)
+    return tuple(deduped)
+
+
+def _scan_budget_decisions_by_check_id(
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+    connections_by_name: Mapping[str, ConnectionConfig],
+    project_root: Path,
+) -> _RuntimeScanBudgetDecisions:
+    decisions: dict[str, ScanBudgetDecision] = {}
+    adapter_setup_required_check_ids: set[str] = set()
+    for artifact in runtime_candidates:
+        contract = contracts_by_name.get(artifact.contract_name)
+        if contract is None:
+            continue
+        for check in artifact.checks:
+            if not is_key_safety_check_type(check.check_type):
+                continue
+            prepared_decision = _scan_budget_decision_for_key_safety(
+                contract,
+                connections_by_name=connections_by_name,
+                project_root=project_root,
+            )
+            decisions[check.id] = prepared_decision.decision
+            if prepared_decision.requires_adapter_setup:
+                adapter_setup_required_check_ids.add(check.id)
+    return _RuntimeScanBudgetDecisions(
+        decisions_by_check_id=decisions,
+        adapter_setup_required_check_ids=frozenset(adapter_setup_required_check_ids),
+    )
+
+
+def _scan_budget_decision_for_key_safety(
+    contract: LoadedCompiledContractArtifact,
+    *,
+    connections_by_name: Mapping[str, ConnectionConfig],
+    project_root: Path,
+) -> _KeySafetyScanBudgetDecision:
+    relation_backed = contract.source.relation is not None and contract.target.relation is not None
+    source_connection = connections_by_name.get(contract.source.connection)
+    target_connection = connections_by_name.get(contract.target.connection)
+    local_dev = relation_backed and _is_local_duckdb_context(
+        source_connection,
+        target_connection,
+    )
+    bounded_status = (
+        _bounded_local_duckdb_database_status(
+            source_connection,
+            contract=contract,
+            project_root=project_root,
+        )
+        if local_dev
+        else _BoundedDuckDbDatabaseStatus(bounded=False)
+    )
+    decision = classify_scan_budget(
+        ScanBudgetContext(
+            environment=(
+                ScanExecutionEnvironment.LOCAL_DEV
+                if local_dev
+                else ScanExecutionEnvironment.PRODUCTION
+            ),
+            relation_backed=relation_backed,
+            bounded=bounded_status.bounded,
+            estimate_state=ScanEstimateState.UNKNOWN,
+        )
+    )
+    return _KeySafetyScanBudgetDecision(
+        decision=decision,
+        requires_adapter_setup=(
+            local_dev and bounded_status.metadata_open_failed and not decision.allowed
+        ),
+    )
+
+
+def _is_local_duckdb_context(
+    source_connection: ConnectionConfig | None,
+    target_connection: ConnectionConfig | None,
+) -> bool:
+    if source_connection is None or target_connection is None:
+        return False
+    if source_connection.type != "duckdb" or target_connection.type != "duckdb":
+        return False
+    return _same_connection_context(source_connection, target_connection)
+
+
+def _bounded_local_duckdb_database_status(
+    connection: ConnectionConfig | None,
+    *,
+    contract: LoadedCompiledContractArtifact,
+    project_root: Path,
+) -> _BoundedDuckDbDatabaseStatus:
+    if connection is None:
+        return _BoundedDuckDbDatabaseStatus(bounded=False)
+    database_path = _local_duckdb_database_path(connection, project_root)
+    if database_path is None or not _is_bounded_local_file(database_path):
+        return _BoundedDuckDbDatabaseStatus(bounded=False)
+    return _duckdb_relations_are_local_base_tables(database_path, contract)
+
+
+def _local_duckdb_database_path(
+    connection: ConnectionConfig,
+    project_root: Path,
+) -> Path | None:
+    database = connection.config.get("database")
+    if not isinstance(database, str) or not database:
+        return None
+    if database == ":memory:":
+        return None
+    candidate = Path(database)
+    if not candidate.is_absolute():
+        candidate = project_root / candidate
+    try:
+        resolved_candidate = candidate.resolve()
+        resolved_project_root = project_root.resolve()
+    except OSError:
+        return None
+    if not resolved_candidate.is_relative_to(resolved_project_root):
+        return None
+    return resolved_candidate
+
+
+def _is_bounded_local_file(path: Path) -> bool:
+    try:
+        return (
+            path.is_file()
+            and not _duckdb_local_sidecar_exists(path)
+            and path.stat().st_size <= _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+        )
+    except OSError:
+        return False
+
+
+def _duckdb_local_sidecar_exists(path: Path) -> bool:
+    for sidecar_path in _duckdb_local_sidecar_paths(path):
+        try:
+            sidecar_path.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError:
+            return True
+        return True
+    return False
+
+
+def _duckdb_local_sidecar_paths(path: Path) -> tuple[Path, ...]:
+    return tuple(
+        path.with_name(f"{path.name}{suffix}") for suffix in _DUCKDB_LOCAL_SIDECAR_SUFFIXES
+    )
+
+
+def _duckdb_relations_are_local_base_tables(
+    database_path: Path,
+    contract: LoadedCompiledContractArtifact,
+) -> _BoundedDuckDbDatabaseStatus:
+    source_relation = _duckdb_relation_name_from_compiled_endpoint(contract.source.relation)
+    target_relation = _duckdb_relation_name_from_compiled_endpoint(contract.target.relation)
+    if source_relation is None or target_relation is None:
+        return _BoundedDuckDbDatabaseStatus(bounded=False)
+
+    try:
+        duckdb = import_module("duckdb")
+        connection = duckdb.connect(str(database_path), read_only=True)
+    except Exception:
+        return _BoundedDuckDbDatabaseStatus(bounded=False, metadata_open_failed=True)
+
+    try:
+        local_catalog_names = _local_duckdb_catalog_names(connection, database_path)
+        if not local_catalog_names:
+            return _BoundedDuckDbDatabaseStatus(bounded=False)
+        return _BoundedDuckDbDatabaseStatus(
+            bounded=all(
+                _duckdb_relation_is_local_base_table(
+                    connection,
+                    relation,
+                    local_catalog_names=local_catalog_names,
+                )
+                for relation in (source_relation, target_relation)
+            )
+        )
+    except Exception:
+        return _BoundedDuckDbDatabaseStatus(bounded=False)
+    finally:
+        with suppress(Exception):
+            connection.close()
+
+
+def _duckdb_relation_name_from_compiled_endpoint(
+    relation_name: str | None,
+) -> _DuckDbRelationName | None:
+    parts = _relation_name_parts(relation_name)
+    if parts is None:
+        return None
+    if len(parts) == 1:
+        return _DuckDbRelationName(identifier=parts[0])
+    if len(parts) == 2:
+        return _DuckDbRelationName(schema=parts[0], identifier=parts[1])
+    return _DuckDbRelationName(catalog=parts[0], schema=parts[1], identifier=parts[2])
+
+
+def _relation_name_parts(relation_name: str | None) -> tuple[str, ...] | None:
+    if relation_name is None:
+        return None
+    raw_parts = relation_name.split(".")
+    parts = tuple(part for part in raw_parts if part)
+    if len(parts) not in {1, 2, 3} or len(parts) != len(raw_parts):
+        return None
+    return parts
+
+
+def _local_duckdb_catalog_names(connection: Any, database_path: Path) -> frozenset[str]:
+    rows = connection.execute("pragma database_list").fetchall()
+    catalog_names: set[str] = set()
+    resolved_database_path = database_path.resolve()
+    for row in rows:
+        if not isinstance(row, tuple) or len(row) < 3:
+            continue
+        catalog_name = row[1]
+        catalog_path = row[2]
+        if not isinstance(catalog_name, str) or not isinstance(catalog_path, str):
+            continue
+        try:
+            if Path(catalog_path).resolve() == resolved_database_path:
+                catalog_names.add(_duckdb_identifier_key(catalog_name))
+        except OSError:
+            continue
+    return frozenset(catalog_names)
+
+
+def _duckdb_relation_is_local_base_table(
+    connection: Any,
+    relation: _DuckDbRelationName,
+    *,
+    local_catalog_names: frozenset[str],
+) -> bool:
+    predicates = ["lower(table_name) = lower(?)"]
+    parameters: list[str] = [relation.identifier]
+    if relation.schema is not None:
+        predicates.append("lower(table_schema) = lower(?)")
+        parameters.append(relation.schema)
+    if relation.catalog is not None:
+        predicates.append("lower(table_catalog) = lower(?)")
+        parameters.append(relation.catalog)
+
+    rows = connection.execute(
+        "select table_catalog, table_schema, table_name, table_type "
+        "from information_schema.tables "
+        f"where {' and '.join(predicates)}",
+        parameters,
+    ).fetchall()
+    local_rows = tuple(
+        row
+        for row in rows
+        if (
+            isinstance(row, tuple)
+            and len(row) >= 4
+            and isinstance(row[0], str)
+            and _duckdb_identifier_key(row[0]) in local_catalog_names
+        )
+    )
+    if len(rows) != 1 or len(local_rows) != 1:
+        return False
+    table_type = local_rows[0][3]
+    return isinstance(table_type, str) and table_type.upper() == "BASE TABLE"
+
+
+def _duckdb_identifier_key(identifier: str) -> str:
+    return identifier.casefold()
+
+
 def _connection_names_to_open(
-    row_count_candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     connections_by_name: Mapping[str, ConnectionConfig],
 ) -> tuple[str, ...]:
     connection_names: set[str] = set()
-    for artifact in row_count_candidates:
+    for artifact in runtime_candidates:
         contract = contracts_by_name.get(artifact.contract_name)
         if contract is None:
             continue

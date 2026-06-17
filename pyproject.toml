@@ -71,6 +71,9 @@ addopts = [
   "--strict-config",
   "--import-mode=importlib",
 ]
+markers = [
+  "regression_capture(id): links a test to regression-capture metadata.",
+]
 
 [tool.ruff]
 target-version = "py311"

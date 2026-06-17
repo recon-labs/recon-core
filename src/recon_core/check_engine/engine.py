@@ -14,6 +14,19 @@ from recon_core.check_engine.dispatch import CheckDispatcher
 from recon_core.check_engine.execution import (
     execute_row_count_check,
     is_supported_row_count_plan_shape,
+    row_count_query_endpoint_not_executable_result,
+)
+from recon_core.check_engine.key_safety import (
+    execute_key_safety_check,
+    is_key_safety_check_type,
+    is_supported_key_safety_plan_shape,
+    key_safety_connection_context_not_executable_result,
+    key_safety_identity_matches_contract,
+    key_safety_identity_mismatch_not_executable_result,
+    key_safety_query_endpoint_not_executable_result,
+    key_safety_relation_endpoint_error_result_if_needed,
+    key_safety_scan_budget_not_executable_result,
+    key_safety_unsupported_plan_shape_not_executable_result,
 )
 from recon_core.check_engine.models import (
     CheckReason,
@@ -21,6 +34,13 @@ from recon_core.check_engine.models import (
     CheckStatus,
     ContractResult,
     RunResult,
+)
+from recon_core.check_engine.scan_budget import (
+    ScanBudgetContext,
+    ScanBudgetDecision,
+    ScanEstimateState,
+    ScanExecutionEnvironment,
+    classify_scan_budget,
 )
 from recon_core.compiler.models import RenderingStatus
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -41,6 +61,9 @@ class CheckExecutionContext:
     adapters_by_connection: Mapping[str, BaseAdapter]
     connections_by_name: Mapping[str, ConnectionConfig] = field(default_factory=dict)
     renderers_by_adapter_type: Mapping[str, SqlRenderer] = field(default_factory=dict)
+    scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] = field(
+        default_factory=dict
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +156,11 @@ class CheckEngine:
             dispatch_result = self._dispatcher.dispatch(check)
             result = (
                 _row_count_execution_result_if_available(
+                    check,
+                    dispatch_result,
+                    execution_context,
+                )
+                or _key_safety_execution_result_if_available(
                     check,
                     dispatch_result,
                     execution_context,
@@ -239,9 +267,16 @@ _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
 def _rendering_blocked_result_if_needed(check: LoadedCompiledCheck) -> CheckResult | None:
     if check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES:
         return None
-    if check.check_type != "row_count_diff":
+    if check.check_type != "row_count_diff" and not is_key_safety_check_type(check.check_type):
         return None
-    if not is_supported_row_count_plan_shape(check.plan.operations):
+    if check.check_type == "row_count_diff" and not is_supported_row_count_plan_shape(
+        check.plan.operations
+    ):
+        return None
+    if is_key_safety_check_type(check.check_type) and not is_supported_key_safety_plan_shape(
+        check.check_type,
+        check.plan.operations,
+    ):
         return None
 
     message = (
@@ -274,10 +309,14 @@ def _row_count_execution_result_if_available(
         return None
     if dispatch_result.reason_code in _DISPATCH_HARD_BLOCKING_REASONS:
         return None
+    if not is_supported_row_count_plan_shape(check.plan.operations):
+        return None
 
     contract = execution_context.contracts_by_name.get(check.contract_name)
     if contract is None:
         return None
+    if _contract_has_query_endpoint(contract):
+        return row_count_query_endpoint_not_executable_result(check, contract)
     adapter = execution_context.adapters_by_connection.get(contract.source.connection)
     if adapter is None:
         return None
@@ -292,6 +331,94 @@ def _row_count_execution_result_if_available(
     )
 
 
+def _key_safety_execution_result_if_available(
+    check: LoadedCompiledCheck,
+    dispatch_result: CheckResult,
+    execution_context: CheckExecutionContext | None,
+) -> CheckResult | None:
+    if execution_context is None:
+        return None
+    if not is_key_safety_check_type(check.check_type):
+        return None
+    if dispatch_result.status is not CheckStatus.NOT_EXECUTABLE:
+        return None
+    if dispatch_result.reason_code in _DISPATCH_HARD_BLOCKING_REASONS:
+        return None
+
+    contract = execution_context.contracts_by_name.get(check.contract_name)
+    if contract is None:
+        return None
+    if not is_supported_key_safety_plan_shape(check.check_type, check.plan.operations):
+        return key_safety_unsupported_plan_shape_not_executable_result(check, contract)
+    if not key_safety_identity_matches_contract(check, contract):
+        return key_safety_identity_mismatch_not_executable_result(check, contract)
+    if _contract_has_query_endpoint(contract):
+        return key_safety_query_endpoint_not_executable_result(check, contract)
+
+    relation_error = key_safety_relation_endpoint_error_result_if_needed(check, contract)
+    if relation_error is not None:
+        return relation_error
+
+    connection_context_blocker = _key_safety_connection_context_blocker_if_needed(
+        check,
+        contract,
+        execution_context,
+    )
+    if connection_context_blocker is not None:
+        return connection_context_blocker
+    scan_budget_decision = execution_context.scan_budget_decisions_by_check_id.get(
+        check.id,
+        _missing_scan_budget_decision(),
+    )
+    if not scan_budget_decision.allowed:
+        return key_safety_scan_budget_not_executable_result(
+            check,
+            contract,
+            scan_budget_decision,
+        )
+
+    adapter = execution_context.adapters_by_connection.get(contract.source.connection)
+    if adapter is None:
+        return None
+
+    renderer = _renderer_for_adapter(adapter, execution_context)
+    return execute_key_safety_check(
+        check,
+        contract,
+        adapter,
+        scan_budget_decision=scan_budget_decision,
+        renderer=renderer,
+        connections_by_name=execution_context.connections_by_name,
+    )
+
+
+def _key_safety_connection_context_blocker_if_needed(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    execution_context: CheckExecutionContext,
+) -> CheckResult | None:
+    if contract.source.connection == contract.target.connection:
+        return None
+    source_connection = execution_context.connections_by_name.get(contract.source.connection)
+    target_connection = execution_context.connections_by_name.get(contract.target.connection)
+    if source_connection is None or target_connection is None:
+        return key_safety_connection_context_not_executable_result(check, contract)
+    if not _same_connection_context(source_connection, target_connection):
+        return key_safety_connection_context_not_executable_result(check, contract)
+    return None
+
+
+def _missing_scan_budget_decision() -> ScanBudgetDecision:
+    return classify_scan_budget(
+        ScanBudgetContext(
+            environment=ScanExecutionEnvironment.PRODUCTION,
+            relation_backed=True,
+            bounded=False,
+            estimate_state=ScanEstimateState.UNKNOWN,
+        )
+    )
+
+
 def _renderer_for_adapter(
     adapter: BaseAdapter,
     execution_context: CheckExecutionContext,
@@ -300,6 +427,14 @@ def _renderer_for_adapter(
     if adapter_type is None:
         return None
     return execution_context.renderers_by_adapter_type.get(adapter_type)
+
+
+def _contract_has_query_endpoint(contract: LoadedCompiledContractArtifact) -> bool:
+    return contract.source.query is not None or contract.target.query is not None
+
+
+def _same_connection_context(left: ConnectionConfig, right: ConnectionConfig) -> bool:
+    return left.type == right.type and left.config == right.config
 
 
 def _index_checks(

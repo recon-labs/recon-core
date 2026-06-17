@@ -20,7 +20,9 @@ schema_policies/
 
 This is a project and contract fixture for the framework design. `recon parse`
 and `recon compile` are implemented for the current parser and compiler scope.
-`recon run` is registered in the CLI but is not implemented yet.
+`recon run` is implemented for already compiled, relation-backed same-context
+DuckDB row-count and bounded local/dev grain-key safety checks. This fixture
+remains a design example rather than an end-to-end executable cross-adapter run.
 
 Generated artifacts are written under `target/`. Future evidence and state
 outputs belong under `reports/` and `state/`. Those directories should not be

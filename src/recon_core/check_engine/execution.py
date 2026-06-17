@@ -194,6 +194,14 @@ def is_supported_row_count_plan_shape(operations: tuple[dict[str, object], ...])
     )
 
 
+def row_count_query_endpoint_not_executable_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+) -> CheckResult:
+    """Return the row-count query-endpoint blocker without requiring an adapter."""
+    return _query_endpoint_not_executable_result(check, contract)
+
+
 def _operation_matches_row_count_shape(
     operation: Mapping[str, object],
     expected_operation: Mapping[str, object],

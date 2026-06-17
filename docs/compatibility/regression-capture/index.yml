@@ -1,0 +1,129 @@
+schema_version: 1
+allowed_statuses:
+  - pending
+  - covered
+  - migrated
+  - deferred
+  - not_applicable
+capture_files:
+  - path: adapter-runtime.yml
+    area: adapter-runtime
+    description: Adapter runtime, scan-safety, capability, and cross-repo adapter cases.
+  - path: check-engine.yml
+    area: check-engine
+    description: Check-engine semantics, blocker/dependency behavior, and execution-result cases.
+  - path: diagnostics-privacy.yml
+    area: diagnostics-privacy
+    description: Diagnostic rendering, redaction, and source/target privacy cases.
+  - path: artifacts.yml
+    area: artifacts
+    description: Generated artifact publication, cleanup, freshness, and state/evidence artifact cases.
+  - path: cli.yml
+    area: cli
+    description: Command, option, exit-code, terminal-output, selector, and debug-command behavior.
+  - path: parser-compiler.yml
+    area: parser-compiler
+    description: Parser, compiler, contract YAML, check-pack, typed-plan, and validation-default behavior.
+gates:
+  adapter_testkit_regression_carryover:
+    primary_milestone: adapter_test_kit_and_package_split
+    primary_milestone_title: Adapter test kit and adapter package split
+    applies_to:
+      - adapter test kit implementation
+      - adapter package extraction
+      - external adapter repositories
+      - any adapter execution expansion
+      - query endpoint execution if adapter conformance is involved
+      - adapter result or evidence sink writes
+    trigger_surfaces:
+      - adapter_runtime
+      - adapter_api
+      - adapter_capabilities
+      - sql_rendering
+      - scan_safety
+      - cross_repo_compatibility
+  check_engine_semantics_carryover:
+    primary_milestone: aggregate_metric_execution
+    primary_milestone_title: Aggregate metric execution
+    applies_to:
+      - aggregate metric execution
+      - aggregate metrics expansion
+      - row-level value check execution
+      - CDC execution
+      - any new executable check type
+      - any blocker or dependency semantic change
+    trigger_surfaces:
+      - check_engine
+      - typed_check_plan
+      - execution_result
+      - prerequisite_blocking
+  diagnostics_privacy_carryover:
+    primary_milestone: runner_and_results
+    primary_milestone_title: Runner and results
+    applies_to:
+      - runner and results
+      - evidence reporting
+      - future debug commands
+      - adapter test-kit diagnostics
+      - advanced evidence
+      - source-location diagnostics
+      - any diagnostic, log, failure-detail, evidence, or debug surface
+    trigger_surfaces:
+      - diagnostics
+      - redaction
+      - source_target_privacy
+      - adapter_diagnostics
+      - debug_output
+  artifact_publication_carryover:
+    primary_milestone: runner_and_results
+    primary_milestone_title: Runner and results
+    applies_to:
+      - runner and results
+      - evidence reporting
+      - artifact freshness and cache optimization
+      - selected-scope artifacts
+      - local state
+      - advanced evidence
+      - remote or database state
+      - any generated artifact writer or cleanup surface
+    trigger_surfaces:
+      - generated_artifacts
+      - artifact_lifecycle
+      - run_results
+      - evidence
+      - state
+      - cache_freshness
+  cli_behavior_carryover:
+    primary_milestone: runner_and_results
+    primary_milestone_title: Runner and results
+    applies_to:
+      - runner and results
+      - minimal selectors
+      - rich selectors
+      - future CLI commands and options
+      - documentation generation commands
+      - any CLI command, option, terminal output, or exit-code change
+    trigger_surfaces:
+      - cli
+      - exit_codes
+      - terminal_output
+      - selectors
+      - debug_commands
+  parser_compiler_contract_carryover:
+    primary_milestone: aggregate_metrics_expansion
+    primary_milestone_title: Aggregate metrics expansion
+    applies_to:
+      - aggregate metrics expansion
+      - explicit source-target column mapping
+      - check-pack invocation config
+      - local and package resource loading
+      - executable query endpoints
+      - public contract schema stabilization
+      - any YAML schema, validation default, check-pack expansion, or typed-plan change
+    trigger_surfaces:
+      - parser
+      - compiler
+      - contract_yaml
+      - check_packs
+      - typed_check_plan
+      - validation_defaults

@@ -27,11 +27,13 @@ This project follows semantic versioning once public package releases begin.
   rendering for current typed operations, and compiled SQL artifact output.
 - First `recon run` check-engine boundary for already compiled checks, including
   matching compiled-contract loading, runtime profile and adapter setup for
-  relation-backed same-context DuckDB `row_count_diff` checks, in-memory
-  run/contract/check results, runtime diagnostics for missing, invalid, empty,
-  unsupported, blocked, not-executable, profile, adapter, lifecycle, and
-  execution inputs, and no run-result, evidence, report, failure-detail, state,
-  or sink artifact writes.
+  relation-backed same-context DuckDB `row_count_diff` checks and bounded
+  local/dev grain-key safety checks, bounded key-safety scan classification that
+  requires local DuckDB base-table metadata rather than views or externally backed
+  relations, in-memory run/contract/check results, runtime diagnostics for
+  missing, invalid, empty, unsupported, blocked, not-executable, profile,
+  adapter, lifecycle, scan-budget, and execution inputs, and no run-result,
+  evidence, report, failure-detail, state, or sink artifact writes.
 
 ### Changed
 
@@ -52,6 +54,11 @@ This project follows semantic versioning once public package releases begin.
 - Compatibility docs now clarify future adapter ecosystem gates for
   DSN-component redaction, explicit adapter/renderer binding, rendered SQL
   step capability enforcement, and adapter/test-kit compatibility claims.
+- Regression-capture decision validation now has an explicit branch-wide mode
+  with `scripts/check_regression_capture_decisions.py --base-ref origin/main`;
+  the no-argument advisory remains scoped to local WIP and untracked files, and
+  an unresolved requested base ref now fails instead of silently skipping
+  committed branch changes.
 
 ### Fixed
 
@@ -64,7 +71,8 @@ This project follows semantic versioning once public package releases begin.
   symlinked artifact paths, non-string artifact mapping keys, empty typed
   operation plans, fields not valid for known or reserved operation types, and
   non-executable prerequisites, while preserving valid artifacts when sibling
-  contracts compile to no checks.
+  contracts compile to no checks and preserving key-safety typed-plan shape
+  blockers in mixed runtime runs.
 - `recon compile`, compiled artifact writers, `CompiledSqlWriter`, and
   `recon compile --render-sql` now preflight artifact publication, reject unsafe
   output paths, symlinks, non-files, case-insensitive collisions, path-like
@@ -93,6 +101,20 @@ This project follows semantic versioning once public package releases begin.
   incompatibility, unsupported required capabilities, malformed adapter factory
   results or diagnostics, factory/capability exceptions, query endpoints,
   invalid relation names, unsupported template fragments, and empty factories.
+- DuckDB duplicate-key SQL rendering now evaluates duplicate grain-key tuples
+  only after excluding rows with null identity components, leaving null-key
+  failures to the null-key safety checks.
+- `recon run` now resolves relative DuckDB profile database paths against the
+  project root for both bounded key-safety scan classification and adapter
+  execution, preventing same-named process-CWD databases from producing
+  misleading key-safety results, preserves malformed relation endpoint
+  diagnostics ahead of scan-budget and profile-loading blockers, and surfaces
+  DuckDB adapter dependency or connection diagnostics when metadata-open
+  failures prevent the bounded local scan guard from proving local base-table
+  scope, while matching DuckDB base-table metadata using DuckDB identifier
+  casing semantics, failing closed when retained DuckDB sidecars are present,
+  and accepting valid project-local DuckDB database filenames without requiring
+  a `.duckdb` suffix.
 - `render_check_sql` and `recon compile --render-sql` now enforce renderer-step
   `RenderedSql.required_capabilities`, validate explicit renderer
   `adapter_type` metadata before rendering, preserve diagnostics from

@@ -84,11 +84,14 @@ sink-reference, and exact/probabilistic classification fields. Those concepts
 are reserved for compatibility but are not stable serialized fields until their
 implementing phases write a public schema.
 
-Before a generated run-result artifact exists, executable row-count checks may
-populate bounded in-memory check results only according to the source/target
-privacy policy. Terminal output and diagnostics must not expose row counts,
-diffs, relation names, query text, adapter errors, database errors, or rendered
-profile values unless the owning privacy policy explicitly allows that surface.
+Before a generated run-result artifact exists, executable row-count and
+grain-key safety checks may populate bounded in-memory check results only
+according to the source/target privacy policy. Row-count checks may use bounded
+scalar counts and diffs internally; grain-key safety checks may use bounded
+failure counts internally. Terminal output and diagnostics must not expose raw
+keys, raw rows, row counts, diffs, relation names, query text, adapter errors,
+database errors, or rendered profile values unless the owning privacy policy
+explicitly allows that surface.
 
 ## First-boundary metadata reservations
 
@@ -101,9 +104,9 @@ Reserved metadata concepts:
 
 | Concept | Purpose | First-boundary behavior |
 | --- | --- | --- |
-| execution placement | Records the planned source-side and target-side operation locations. | May be represented as unset, not applicable, or blocked; no adapter execution or source/target query is allowed. |
+| execution placement | Records the planned source-side and target-side operation locations. | May be represented as unset, not applicable, executed by an owning execution phase, or blocked; this reservation alone does not authorize source/target queries. |
 | comparison placement | Records where source and target operation outputs would be compared. | May explain why no comparison ran; no Python fallback, same-context comparison, or external engine execution is implied. |
-| adapter or engine used | Names the adapter, execution context, or engine that actually ran a check. | Empty unless an earlier compiled artifact or in-memory fixture already supplies non-runtime metadata; no profile-backed lifecycle is started. |
+| adapter or engine used | Names the adapter, execution context, or engine that actually ran a check. | Empty unless an owning execution phase or in-memory fixture supplies runtime metadata; no profile-backed lifecycle is started by the result-model reservation alone. |
 | capability fit | Records required capabilities and capability mismatch reasons. | Capability mismatch may block or mark a result not executable, but it must not trigger fallback behavior. |
 | blocked or not-executable reason | Explains why a check did not run. | Must be visible through structured reason fields and diagnostics; a check that did not execute must not look like pass/fail comparison evidence. |
 | materialization policy | Records whether data movement, staging, or temporary objects were used. | Always absent, not applicable, or blocked until an explicit materialization phase defines movement, cleanup, and privacy rules. |
@@ -198,7 +201,7 @@ blocked dependent checks.
 `unsupported` and `not_yet_executable` are not top-level statuses. They are
 machine-readable reasons for `not_executable` results.
 
-First-boundary reason codes:
+Current reason codes:
 
 | Reason code | Required status | Meaning |
 | --- | --- | --- |
@@ -211,6 +214,11 @@ First-boundary reason codes:
 | `missing_engine_capability` | `not_executable` | Required engine or adapter capability is unavailable or not declared. |
 | `unsupported_execution_placement` | `not_executable` | Required operation or comparison placement is not implemented or allowed. |
 | `unsupported_materialization_policy` | `not_executable` | Required data movement, staging, or materialization policy is not implemented or allowed. |
+| `scan_estimate_unknown` | `not_executable` | Scan scope or estimate safety is unknown for a scan-heavy execution path. |
+| `scan_estimate_unsupported` | `not_executable` | Scan estimation is unavailable, unsupported, malformed, or incompatible. |
+| `scan_budget_exceeded` | `not_executable` | A scan-budget preflight says execution would exceed the allowed budget. |
+| `unsafe_scan_preflight` | `not_executable` | A proposed scan preflight would itself execute or otherwise be unsafe. |
+| `bounded_local_scan_required` | `not_executable` | The check did not pass the internal bounded local/dev relation-backed scan guard. |
 | `not_implemented_in_current_phase` | `not_executable` | The check or typed operation is valid and known to Recon but belongs to a later execution phase. |
 | `skipped_by_policy` | `skipped` | Explicit user or configuration policy skipped the check. Reserved until skip policy exists. |
 | `selected_out` | `skipped` | Future selector behavior excluded the check from the run. Reserved until selectors exist. |

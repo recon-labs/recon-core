@@ -21,11 +21,12 @@ artifact formats.
 | Evidence reports | `reports/` | HTML or other report formats | Planned, not implemented yet. |
 | State | `state/` and `target/sample_keys/` | TBD | Planned, not implemented yet. |
 
-The check-engine/result-model, row-count execution, grain-key safety execution,
-and aggregate metric execution phases do not by themselves add a generated
-artifact version. `target/run_results.json` remains future run-result artifact
-work, and failure details, evidence reports, and evidence links remain future
-evidence surfaces unless a later split explicitly changes those boundaries.
+The check-engine/result-model, row-count execution, bounded local/dev grain-key
+safety execution, and aggregate metric execution phases do not by themselves add
+a generated artifact version. `target/run_results.json` remains future
+run-result artifact work, and failure details, evidence reports, and evidence
+links remain future evidence surfaces unless a later split explicitly changes
+those boundaries.
 
 ## Compiled artifact lifecycle
 

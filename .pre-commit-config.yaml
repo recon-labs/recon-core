@@ -19,3 +19,12 @@ repos:
       - id: ruff
         args: ["--fix"]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: regression-capture
+        name: regression capture metadata
+        entry: python3 scripts/check_regression_capture.py
+        language: system
+        pass_filenames: false
+        files: ^(docs/compatibility/regression-capture/|scripts/check_regression_capture.py|tests/)

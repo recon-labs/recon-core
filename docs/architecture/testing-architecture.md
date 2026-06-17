@@ -146,6 +146,11 @@ type checks
 
 Adapter integration tests may run separately when external systems are required.
 
+Local validation also runs regression capture metadata validation through
+pre-commit. The regression capture decision script is advisory and belongs in
+review workflow and final branch validation, not hard CI, until its
+false-positive rate is understood.
+
 Production adapter repositories should run a shared adapter test kit in CI once
 the adapter API stabilizes.
 

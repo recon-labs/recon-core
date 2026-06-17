@@ -414,6 +414,17 @@ results. Locked codes:
 | `RC_RUNTIME_MISSING_ENGINE_CAPABILITY` | run | error | A compiled check requires an engine capability that is unavailable in the current check-engine boundary. |
 | `RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT` | run | error | Required operation or comparison placement is not implemented or allowed. |
 | `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY` | run | error | Required staging, movement, or materialization policy is not implemented or allowed. |
+| `RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN` | run | error | Scan scope or estimate safety is unknown, so a scan-heavy check is not executable. |
+| `RC_RUNTIME_SCAN_ESTIMATE_UNSUPPORTED` | run | error | Scan estimation is unavailable, unsupported, malformed, or incompatible. |
+| `RC_RUNTIME_SCAN_BUDGET_EXCEEDED` | run | error | Scan-budget preflight says execution would exceed the allowed budget. |
+| `RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT` | run | error | A proposed scan preflight would itself execute or otherwise be unsafe. |
+| `RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED` | run | error | The check did not pass the internal bounded local/dev relation-backed scan guard. |
+| `RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED` | run | info | A grain-key safety check executed only after the internal bounded local/dev relation-backed scan guard allowed it. |
+| `RC_RUNTIME_NULL_GRAIN_KEYS` | run | error | A null grain-key safety check executed and found null grain-key tuples. |
+| `RC_RUNTIME_DUPLICATE_GRAIN_KEYS` | run | error | A duplicate grain-key safety check executed and found duplicate fully non-null grain-key tuples. |
+| `RC_RUNTIME_MISSING_KEYS` | run | error | A missing-key coverage check executed and found distinct fully non-null source keys missing from target. |
+| `RC_RUNTIME_EXTRA_KEYS` | run | error | An extra-key coverage check executed and found distinct fully non-null target keys absent from source. |
+| `RC_RUNTIME_KEY_SAFETY_RESULT_INVALID` | run | error | A key-safety adapter query returned an invalid bounded count result. |
 | `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, was not executable, or is missing. |
 | `RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR` | run | error | An unexpected check-engine error occurred after sanitization. |
 
@@ -425,12 +436,11 @@ SQL, database engine error text, rendered profile values, credentials, DSN
 fragments, tracebacks, relation data, and source/target values. Close failures
 must not hide a primary execution failure.
 
-Future runtime, state, evidence, and key-safety phases may add or retain
-additional runtime-family codes for check execution errors, key safety failures,
-artifact writes, state writes, and evidence writes when those behaviors are
-implemented. Those later-phase codes are not part of the first check-engine
-boundary until their owning phase locks semantics, compatibility docs, and test
-coverage.
+Future runtime, state, and evidence phases may add or retain additional
+runtime-family codes for check execution errors, artifact writes, state writes,
+and evidence writes when those behaviors are implemented. Those later-phase
+codes are not part of the current check-engine boundary until their owning phase
+locks semantics, compatibility docs, and test coverage.
 
 These diagnostics explain non-execution; they are not reconciliation mismatch
 evidence. They must preserve safe code, severity, message, resource context,

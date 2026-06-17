@@ -1,0 +1,119 @@
+schema_version: 1
+area: check-engine
+captures:
+  - id: key-safety-shape-blocker-precedence
+    title: Key-safety shape blockers outrank missing scan-budget decisions
+    area: check-engine
+    bug_class: blocker_precedence
+    owner_surface: typed_check_plan
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_engine.py::test_engine_preserves_key_safety_shape_blocker_when_scan_budget_decision_is_missing
+      - tests/services/test_run_service.py::test_run_service_preserves_key_safety_shape_blocker_in_mixed_runtime_run
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: blocker_precedence
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: runtime_scan_policy
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: typed_check_plan_runtime_semantics
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Check engine boundary and result model
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+    notes: >
+      Unsupported typed-plan shapes must remain visible even when a mixed run
+      records scan-budget decisions only for executable runtime candidates.
+  - id: duplicate-key-excludes-null-containing-tuples
+    title: Duplicate-key checks ignore null-containing grain-key tuples
+    area: check-engine
+    bug_class: key_semantics
+    owner_surface: sql_rendering
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_sql_renderer.py::test_duplicate_key_excludes_null_containing_duplicate_candidates
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: grain_key_semantics
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: sql_comparison_semantics
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+      - docs/compatibility/adapter-api.md: SQL comparison semantics for future adapter test kit
+    notes: >
+      Duplicate-key failure counts consider only fully non-null grain-key
+      tuples; null-containing key tuples belong to null-key checks.
+  - id: key-safety-empty-grain-keys-shape-blocker
+    title: Key-safety typed plans reject empty grain-key identities
+    area: check-engine
+    bug_class: typed_check_plan
+    owner_surface: sql_rendering
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_key_safety_execution.py::test_execute_key_safety_check_rejects_empty_identity_keys_before_adapter_query
+      - tests/adapters/test_duckdb_sql_renderer.py::test_key_operation_rejects_empty_identity_keys
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: typed_plan_shape
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: sql_comparison_semantics
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: typed_check_plan_runtime_semantics
+    requirement_refs:
+      - docs/planning/milestone-7-3-prework.md: Acceptance And Conformance Matrix row `Check-pack and typed-plan input`
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+    notes: >
+      Empty grain-key identity lists are malformed typed-plan shapes, not
+      executable key-safety checks. They must be rejected before adapter queries
+      and before SQL rendering can produce empty key predicates.
+  - id: key-safety-invalid-relation-diagnostic-precedence
+    title: Key-safety malformed relation diagnostics outrank scan-budget blockers
+    area: check-engine
+    bug_class: blocker_precedence
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_engine.py::test_engine_preserves_key_safety_invalid_relation_before_scan_budget_block
+      - tests/services/test_run_service.py::test_run_service_preserves_key_safety_invalid_relation_before_profile_loading
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: blocker_precedence
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: typed_check_plan_runtime_semantics
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Check engine boundary and result model
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+    notes: >
+      Malformed relation endpoints in compiled artifacts are runtime artifact
+      errors, not scan-policy failures. Check execution must report the invalid
+      relation diagnostic before missing or disallowed scan-budget decisions can
+      hide the artifact shape problem.
+  - id: key-safety-prerequisites-block-dependent-checks
+    title: Key-safety prerequisites block dependent checks when unsafe
+    area: check-engine
+    bug_class: prerequisite_blocking
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_engine.py::test_engine_blocks_dependent_check_when_key_safety_prerequisite_fails
+      - tests/check_engine/test_engine.py::test_engine_blocks_check_when_prerequisite_is_not_executable
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: prerequisite_blocking
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Check engine boundary and result model
+      - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
+    notes: >
+      Dependent row-level checks must remain blocked when key-safety
+      prerequisites fail, error, are blocked, or are not executable so later
+      execution phases cannot produce misleading comparison evidence.

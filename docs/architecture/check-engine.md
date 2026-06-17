@@ -39,10 +39,10 @@ YAML or recompiling contracts. Run-result artifacts, evidence reports, failure
 details, and evidence links remain separate later surfaces unless a future split
 explicitly changes those boundaries.
 
-The first check-engine boundary is not an execution phase. It may define
-internal dispatch and blocker metadata that later execution needs, but it must
-not add public YAML placement syntax, adapter execution, generated run results,
-evidence reports, failure-detail export, state, sink writes, materialization, or
+The first check-engine boundary is not an execution phase by itself. It may
+define internal dispatch and blocker metadata that later execution needs, but it
+must not add public YAML placement syntax, generated run results, evidence
+reports, failure-detail export, state, sink writes, materialization, or
 probabilistic key-diff behavior.
 
 The same boundary may reserve in-memory metadata for future execution and output
@@ -153,13 +153,17 @@ exit category and top-level message belong to command plumbing. `RunResult`,
 diagnostics, and future artifact or sink references.
 
 The first non-executing run boundary may load already compiled checks and route
-them through internal dispatch. The current row-count execution boundary may
-also load matching compiled-contract metadata, selected runtime profiles,
-referenced connections, and supported adapters for relation-backed same-context
-DuckDB `row_count_diff` checks. It must still not parse authored YAML, compile
-contracts, execute query endpoints, execute key/aggregate/value checks, write
-generated artifacts, emit evidence, mutate state, write sinks, produce
-probabilistic summaries, or execute selector/subset scopes.
+them through internal dispatch. The current row-count and bounded local/dev
+grain-key safety execution boundaries may also load matching compiled-contract
+metadata, selected runtime profiles, referenced connections, and supported
+adapters for relation-backed same-context DuckDB `row_count_diff`, null-key,
+duplicate-key, missing-key, and extra-key checks. They must still not parse
+authored YAML, compile contracts, execute query endpoints, execute aggregate or
+row-level value checks, write generated artifacts, emit evidence, mutate state,
+write sinks, produce probabilistic summaries, or execute selector/subset scopes.
+The bounded local/dev key-safety guard is stricter than DuckDB file size: it
+also requires non-executing catalog metadata to show that both compiled relation
+endpoints are local base tables in the project-local DuckDB file.
 
 ## Adapter capability fit
 

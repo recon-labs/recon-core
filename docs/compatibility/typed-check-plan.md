@@ -34,11 +34,15 @@ Current state:
 - `recon compile --render-sql` renders currently emitted typed operations to
   DuckDB SQL for relation-backed contracts.
 - `recon run` can execute the current relation-backed same-context DuckDB
-  `row_count_diff` typed-plan shape from already compiled artifacts.
+  `row_count_diff` typed-plan shape and grain-key safety typed-plan shapes that
+  pass the internal bounded local/dev scan guard from already compiled
+  artifacts. The key-safety guard requires a project-local DuckDB file under the
+  size cap, no retained local DuckDB sidecars, and compiled relation endpoints
+  that resolve to local base tables.
 - No stable typed check-plan schema has been released.
-- No broader adapter execution, query endpoint execution, key-check execution,
-  aggregate execution, or external adapter execution compatibility claim has
-  been released.
+- No broader adapter execution, query endpoint execution, aggregate execution,
+  row-level value execution, or external adapter execution compatibility claim
+  has been released.
 - No public typed-plan placement, materialization, sink, or probabilistic
   key-summary schema has been released.
 
@@ -164,8 +168,11 @@ Adapters must not hide new reconciliation behavior in dialect-specific rendering
 
 Current adapter-aware rendering renders typed operations to SQL through
 adapters. Current run execution consumes compiled typed plans only for
-relation-backed same-context DuckDB `row_count_diff`; other typed-plan
-execution surfaces remain blocked or not executable.
+relation-backed same-context DuckDB `row_count_diff` checks and grain-key safety
+checks that pass the internal bounded local/dev scan guard; other typed-plan
+execution surfaces remain blocked or not executable. The key-safety guard fails
+closed for views, externally backed relations, missing catalog metadata, or
+metadata inspection failures.
 
 Execution is split by executable surface. Row-count typed-plan execution,
 grain-key safety typed-plan execution, and current aggregate metric typed-plan

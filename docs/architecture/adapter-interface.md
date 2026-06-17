@@ -275,17 +275,21 @@ adapter registration, capability validation, SQL rendering, and the first
 adapter test-kit shape without declaring a production adapter package.
 
 Current DuckDB behavior renders SQL for existing typed plans and executes the
-current relation-backed same-context `row_count_diff` path. It guards key/group
+current relation-backed same-context `row_count_diff` path plus grain-key safety
+paths allowed by the internal bounded local/dev scan guard. It guards key/group
 and aggregate comparison SQL against unsafe dialect coercion and rejects boolean
-inputs for current `sum` metric rendering because DuckDB treats `sum(boolean)`
-as a true-value count. It also rejects `UHUGEINT` aggregate inputs until exact
-aggregate behavior for that type is proven. Current rendering and row-count
-execution require source and target DuckDB connections to resolve to the same
-rendered connection config; cross-file or cross-connection execution remains
-future work. Connection lifecycle is implemented only for the supported
-row-count execution path. Metadata fetching, query endpoints, key execution,
-aggregate execution, broad metadata inspection, connection pooling, and broader
-check execution remain separate future surfaces.
+inputs for current `sum` metric rendering because DuckDB treats `sum(boolean)` as
+a true-value count. It also rejects `UHUGEINT` aggregate inputs until exact
+aggregate behavior for that type is proven. Current rendering, row-count
+execution, and bounded local/dev grain-key safety execution require source and
+target DuckDB connections to resolve to the same rendered connection config;
+cross-file or cross-connection execution remains future work. Connection
+lifecycle is implemented only for the supported row-count and bounded local/dev
+grain-key safety execution paths. The key-safety scan guard may use
+non-executing DuckDB catalog metadata to confirm that compiled relations are
+local base tables; general metadata fetching, query endpoints, aggregate
+execution, broad metadata inspection, connection pooling, and broader check
+execution remain separate future surfaces.
 
 Future check execution and shared adapter conformance tests must explicitly
 define empty aggregate result semantics before aggregate comparison execution is
@@ -296,10 +300,13 @@ evidence expose the distinction.
 
 ## Query endpoint boundary
 
-Current adapter-aware rendering and row-count execution are relation-backed
-only. Query endpoints can remain parseable, but adapter-aware rendering and
-relation-backed execution phases must return a clear unsupported diagnostic for
-`source.query` or `target.query` until query execution is explicitly designed.
+Current adapter-aware rendering and row-count execution are relation-backed only.
+Current grain-key safety execution is relation-backed and limited to the
+internal bounded local/dev scan classification, which excludes DuckDB views and
+externally backed relations. Query endpoints can remain parseable, but
+adapter-aware rendering and relation-backed execution phases must return a clear
+unsupported diagnostic for `source.query` or `target.query` until query execution
+is explicitly designed.
 
 Executable query endpoints require a later design for SELECT-only validation,
 single-statement handling, wrapping, artifact visibility, and adapter

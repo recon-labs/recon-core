@@ -1,0 +1,84 @@
+schema_version: 1
+area: parser-compiler
+captures:
+  - id: regression-capture-orphan-marker-guard
+    title: Regression-capture markers require matching capture metadata
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture.py::test_validator_rejects_regression_capture_markers_without_capture_rows
+      - tests/scripts/test_check_regression_capture.py::test_validator_rejects_regression_capture_markers_missing_from_current_tests
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Row Shape
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      Marked regression tests must not become disconnected from the capture
+      row and current-test metadata that future agents and shared suites use for
+      carryover decisions.
+  - id: regression-capture-decision-advisory-partial-surface-coverage
+    title: Regression-capture decision advisory reports uncovered surfaces per gate
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_reports_uncovered_surfaces_when_same_gate_has_existing_capture
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Advisory Decision Check
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      A capture row or no-capture rationale for one surface under a carryover
+      gate must not hide other changed surfaces that still need an explicit
+      regression-capture decision.
+  - id: regression-capture-decision-advisory-scan-budget-surface
+    title: Regression-capture decision advisory maps scan-budget policy to scan safety
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_scan_budget_module_to_scan_safety_surface
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Advisory Decision Check
+      - docs/compatibility/regression-capture/index.yml: adapter_testkit_regression_carryover
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      Scan-budget policy lives in the check-engine module but must still trigger
+      scan-safety carryover classification so future scan-budget-only changes
+      cannot bypass adapter test-kit regression-capture decisions.
+  - id: regression-capture-decision-advisory-branch-wide-mode
+    title: Regression-capture decision advisory has an explicit branch-wide mode
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture_decisions.py::test_changed_paths_from_git_includes_branch_diff_when_base_ref_is_set
+      - tests/scripts/test_check_regression_capture_decisions.py::test_main_base_ref_uses_branch_wide_changed_paths
+      - tests/scripts/test_check_regression_capture_decisions.py::test_main_base_ref_fails_when_ref_cannot_be_resolved
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Advisory Decision Check
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      The default advisory command is intentionally scoped to local WIP and
+      untracked files. Branch-wide reviews and final branch validation must use
+      an explicit, resolvable base ref so committed branch changes are not
+      missed or silently skipped.

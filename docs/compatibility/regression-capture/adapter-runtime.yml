@@ -1,0 +1,187 @@
+schema_version: 1
+area: adapter-runtime
+captures:
+  - id: hidden-bounded-local-fixture-marker-removed
+    title: Key-safety scan policy does not depend on hidden fixture markers
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_same_context_duckdb_without_local_fixture
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+      - docs/compatibility/adapter-api.md: SQL comparison semantics for future adapter test kit
+    notes: >
+      Core may allow local key-safety execution only through explicit internal
+      scan evidence: project-local DuckDB file, bounded size, relation-backed
+      endpoints, and local base-table catalog proof.
+  - id: duckdb-view-external-scan-guard
+    title: DuckDB file size alone does not prove bounded relation scans
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+    notes: >
+      Small local DuckDB databases can contain views over external data. Future
+      adapter conformance must prove truthful relation metadata or estimates;
+      database file size alone is not bounded scan evidence.
+  - id: duckdb-wal-sidecar-scan-guard
+    title: DuckDB sidecars do not satisfy bounded local scan classification
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+    notes: >
+      Core may allow bounded local/dev key-safety execution only when the local
+      DuckDB database footprint satisfies the internal guard. Retained sidecars
+      keep the bounded classification from proving the scanned footprint, so the
+      scan guard must fail closed before adapter setup.
+  - id: key-safety-duckdb-relative-path-project-root
+    title: Runtime DuckDB execution uses the same project-local file as the scan guard
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P1
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_resolves_relative_duckdb_profile_paths_from_project_root
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+    notes: >
+      Relative DuckDB profile paths must resolve consistently for both bounded
+      local/dev scan classification and adapter execution. The scan guard must
+      not approve one project-local database while execution opens a same-named
+      database from the process working directory.
+  - id: key-safety-duckdb-identifier-case-metadata
+    title: DuckDB scan guard matches base-table metadata using identifier semantics
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+    notes: >
+      DuckDB resolves identifiers case-insensitively, so bounded local scan
+      metadata checks must not reject project-local base tables only because
+      authored relation casing differs from information_schema casing.
+  - id: key-safety-duckdb-local-database-filename-suffix
+    title: DuckDB scan guard accepts valid project-local database filenames
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suffix
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+    notes: >
+      Bounded local DuckDB scan classification requires a project-local bounded
+      database file plus local base-table metadata proof, but it must not add a
+      hidden filename-extension requirement that DuckDB itself does not impose.
+  - id: key-safety-adapter-capability-preflight
+    title: Key-safety execution validates adapter capabilities before opening adapters
+    area: adapter-runtime
+    bug_class: adapter_capabilities
+    owner_surface: adapter_api
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_requires_key_safety_capability_before_connect
+      - tests/services/test_run_service.py::test_run_service_requires_each_key_safety_capability_before_connect
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_malformed_capability_before_connect
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: adapter_capabilities
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/capability-catalog.md: Capability catalog
+    notes: >
+      Core must validate key-safety adapter capability declarations and support
+      states before opening adapters or running source/target scans. Future
+      adapter conformance must preserve explicit capability blockers instead of
+      falling through to execution.
+  - id: key-safety-duckdb-metadata-open-failure-adapter-diagnostic
+    title: DuckDB metadata-open failures do not hide adapter dependency diagnostics
+    area: adapter-runtime
+    bug_class: adapter_diagnostics
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_reports_missing_duckdb_dependency_when_metadata_probe_cannot_import
+      - tests/services/test_run_service.py::test_run_service_reports_adapter_connection_when_metadata_probe_cannot_open_database
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: adapter_runtime_diagnostics
+      - gate: diagnostics_privacy_carryover
+        status: pending
+        expected_suite: runtime_adapter_diagnostics
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/implementation/errors-and-diagnostics.md: Runtime diagnostics
+    notes: >
+      Key-safety bounded local scan classification may probe DuckDB metadata,
+      but missing DuckDB dependencies or metadata-open failures must still
+      surface adapter setup or connection diagnostics instead of being reported
+      only as scan-budget non-execution.
+  - id: bounded-scan-docs-no-user-provided-classification
+    title: Public docs do not imply user-provided bounded scan classification
+    area: adapter-runtime
+    bug_class: docs_drift
+    owner_surface: public_compatibility_docs
+    severity: P3
+    current_tests:
+      - tests/docs/test_regression_capture_docs.py::test_public_docs_do_not_reintroduce_user_provided_bounded_scan_classification
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety_docs
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: scan_policy_public_contracts
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+      - docs/implementation/testing-plan.md: Scan-budget and query-plan safety
+    notes: >
+      Public docs may say scan scope and budget status must be explicit, but
+      must not imply users can supply the final bounded classification directly.
