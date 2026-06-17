@@ -65,9 +65,7 @@ def test_run_service_uses_neutral_runtime_safety_boundary() -> None:
         elif isinstance(node, ast.ImportFrom) and node.module is not None:
             imported_modules.add(node.module)
 
-    assert not any(
-        module.startswith("recon_core.adapters.duckdb") for module in imported_modules
-    )
+    assert not any(module.startswith("recon_core.adapters.duckdb") for module in imported_modules)
     assert "recon_core.adapters.runtime_safety" in imported_modules
 
 

@@ -161,7 +161,7 @@ def _duckdb_relations_are_local_base_tables(
                     local_catalog_names=local_catalog_names,
                 )
                 for relation in (source_relation_name, target_relation_name)
-            )
+            ),
         )
     except Exception:
         return RuntimeScanSafetyStatus(local_dev=True, bounded=False)

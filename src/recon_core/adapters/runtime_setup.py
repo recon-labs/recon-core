@@ -118,6 +118,7 @@ def prepare_runtime_adapter(
         capabilities=capabilities,
     )
 
+
 def _sanitize_runtime_diagnostics(
     diagnostics: tuple[Diagnostic, ...],
     *,
