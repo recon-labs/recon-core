@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 import yaml
 
+import recon_core.services.run as run_service_module
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
     AdapterCapabilities,
@@ -21,7 +22,9 @@ from recon_core.adapters import (
 from recon_core.adapters.duckdb import (
     ADAPTER_CLOSE_FAILED,
     ADAPTER_CONNECTION_FAILED,
+    ADAPTER_DEPENDENCY_MISSING,
     ADAPTER_QUERY_FAILED,
+    DuckDbAdapterFactory,
 )
 from recon_core.artifacts import LoadedCompiledChecksArtifact
 from recon_core.check_engine import (
@@ -2214,6 +2217,110 @@ profiles:
         "RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN"
     ]
     assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("key-safety-duckdb-metadata-open-failure-adapter-diagnostic")
+def test_run_service_reports_missing_duckdb_dependency_when_metadata_probe_cannot_import(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "warehouse.duckdb").write_bytes(b"not opened by metadata probe")
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(tmp_path)
+
+    real_import_module = run_service_module.import_module
+
+    def import_module_without_duckdb(name: str) -> Any:
+        if name == "duckdb":
+            raise ImportError("No module named duckdb")
+        return real_import_module(name)
+
+    monkeypatch.setattr(run_service_module, "import_module", import_module_without_duckdb)
+    registry = AdapterRegistry()
+    registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: False))
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.message == "Run adapter configuration failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_DEPENDENCY_MISSING]
+    assert BOUNDED_LOCAL_SCAN_REQUIRED not in _service_result_text(result)
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("key-safety-duckdb-metadata-open-failure-adapter-diagnostic")
+def test_run_service_reports_adapter_connection_when_metadata_probe_cannot_open_database(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "warehouse.duckdb").write_bytes(b"not opened by metadata probe")
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+            password: super-secret
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(tmp_path)
+
+    class FailingDuckDbModule:
+        def connect(self, database: str, *, read_only: bool = False) -> object:
+            raise RuntimeError(f"metadata open failed for {database} {read_only}")
+
+    real_import_module = run_service_module.import_module
+
+    def import_module_with_metadata_open_failure(name: str) -> Any:
+        if name == "duckdb":
+            return FailingDuckDbModule()
+        return real_import_module(name)
+
+    monkeypatch.setattr(
+        run_service_module,
+        "import_module",
+        import_module_with_metadata_open_failure,
+    )
+    factory = RecordingDuckDbFactory(
+        connect_error=RuntimeError("password=super-secret database=warehouse.duckdb")
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run adapter connection failed."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_CONNECTION_FAILED]
+    assert "super-secret" not in _service_result_text(result)
+    assert BOUNDED_LOCAL_SCAN_REQUIRED not in _service_result_text(result)
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 1
+    assert adapter.queries == []
     _assert_no_runtime_outputs(tmp_path)
 
 

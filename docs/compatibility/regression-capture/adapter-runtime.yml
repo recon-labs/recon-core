@@ -82,6 +82,30 @@ captures:
       states before opening adapters or running source/target scans. Future
       adapter conformance must preserve explicit capability blockers instead of
       falling through to execution.
+  - id: key-safety-duckdb-metadata-open-failure-adapter-diagnostic
+    title: DuckDB metadata-open failures do not hide adapter dependency diagnostics
+    area: adapter-runtime
+    bug_class: adapter_diagnostics
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_reports_missing_duckdb_dependency_when_metadata_probe_cannot_import
+      - tests/services/test_run_service.py::test_run_service_reports_adapter_connection_when_metadata_probe_cannot_open_database
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: adapter_runtime_diagnostics
+      - gate: diagnostics_privacy_carryover
+        status: pending
+        expected_suite: runtime_adapter_diagnostics
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/implementation/errors-and-diagnostics.md: Runtime diagnostics
+    notes: >
+      Key-safety bounded local scan classification may probe DuckDB metadata,
+      but missing DuckDB dependencies or metadata-open failures must still
+      surface adapter setup or connection diagnostics instead of being reported
+      only as scan-budget non-execution.
   - id: bounded-scan-docs-no-user-provided-classification
     title: Public docs do not imply user-provided bounded scan classification
     area: adapter-runtime

@@ -107,8 +107,10 @@ This project follows semantic versioning once public package releases begin.
 - `recon run` now resolves relative DuckDB profile database paths against the
   project root for both bounded key-safety scan classification and adapter
   execution, preventing same-named process-CWD databases from producing
-  misleading key-safety results, and preserves malformed relation endpoint
-  diagnostics ahead of scan-budget blockers.
+  misleading key-safety results, preserves malformed relation endpoint
+  diagnostics ahead of scan-budget blockers, and surfaces DuckDB adapter
+  dependency or connection diagnostics when metadata-open failures prevent the
+  bounded local scan guard from proving local base-table scope.
 - `render_check_sql` and `recon compile --render-sql` now enforce renderer-step
   `RenderedSql.required_capabilities`, validate explicit renderer
   `adapter_type` metadata before rendering, preserve diagnostics from

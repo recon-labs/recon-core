@@ -106,6 +106,24 @@ class _DuckDbRelationName:
 
 
 @dataclass(frozen=True, slots=True)
+class _RuntimeScanBudgetDecisions:
+    decisions_by_check_id: Mapping[str, ScanBudgetDecision]
+    adapter_setup_required_check_ids: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
+class _KeySafetyScanBudgetDecision:
+    decision: ScanBudgetDecision
+    requires_adapter_setup: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _BoundedDuckDbDatabaseStatus:
+    bounded: bool
+    metadata_open_failed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class RunService:
     """Service boundary for recon run."""
 
@@ -260,7 +278,8 @@ def _prepare_runtime_execution_dependencies(
     )
     adapter_candidates = _adapter_required_runtime_candidates(
         profile_candidates,
-        scan_budget_decisions_by_check_id=scan_budget_decisions,
+        scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
+        adapter_setup_required_check_ids=scan_budget_decisions.adapter_setup_required_check_ids,
     )
     required_capabilities_by_connection = _required_capabilities_by_connection(
         adapter_candidates,
@@ -308,7 +327,7 @@ def _prepare_runtime_execution_dependencies(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
             connections_by_name=connections_by_name,
-            scan_budget_decisions_by_check_id=scan_budget_decisions,
+            scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
         ),
         opened_adapters=open_result.opened_adapters,
     )
@@ -479,6 +498,7 @@ def _adapter_required_runtime_candidates(
     runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision],
+    adapter_setup_required_check_ids: frozenset[str],
 ) -> tuple[LoadedCompiledChecksArtifact, ...]:
     candidates: list[LoadedCompiledChecksArtifact] = []
     for artifact in runtime_candidates:
@@ -488,6 +508,7 @@ def _adapter_required_runtime_candidates(
             if _check_requires_adapter_setup(
                 check,
                 scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id,
+                adapter_setup_required_check_ids=adapter_setup_required_check_ids,
             )
         )
         if not candidate_checks:
@@ -512,8 +533,11 @@ def _check_requires_adapter_setup(
     check: LoadedCompiledCheck,
     *,
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision],
+    adapter_setup_required_check_ids: frozenset[str],
 ) -> bool:
     if not is_key_safety_check_type(check.check_type):
+        return True
+    if check.id in adapter_setup_required_check_ids:
         return True
     decision = scan_budget_decisions_by_check_id.get(check.id)
     return decision is not None and decision.allowed
@@ -598,8 +622,9 @@ def _scan_budget_decisions_by_check_id(
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     connections_by_name: Mapping[str, ConnectionConfig],
     project_root: Path,
-) -> dict[str, ScanBudgetDecision]:
+) -> _RuntimeScanBudgetDecisions:
     decisions: dict[str, ScanBudgetDecision] = {}
+    adapter_setup_required_check_ids: set[str] = set()
     for artifact in runtime_candidates:
         contract = contracts_by_name.get(artifact.contract_name)
         if contract is None:
@@ -607,12 +632,18 @@ def _scan_budget_decisions_by_check_id(
         for check in artifact.checks:
             if not is_key_safety_check_type(check.check_type):
                 continue
-            decisions[check.id] = _scan_budget_decision_for_key_safety(
+            prepared_decision = _scan_budget_decision_for_key_safety(
                 contract,
                 connections_by_name=connections_by_name,
                 project_root=project_root,
             )
-    return decisions
+            decisions[check.id] = prepared_decision.decision
+            if prepared_decision.requires_adapter_setup:
+                adapter_setup_required_check_ids.add(check.id)
+    return _RuntimeScanBudgetDecisions(
+        decisions_by_check_id=decisions,
+        adapter_setup_required_check_ids=frozenset(adapter_setup_required_check_ids),
+    )
 
 
 def _scan_budget_decision_for_key_safety(
@@ -620,7 +651,7 @@ def _scan_budget_decision_for_key_safety(
     *,
     connections_by_name: Mapping[str, ConnectionConfig],
     project_root: Path,
-) -> ScanBudgetDecision:
+) -> _KeySafetyScanBudgetDecision:
     relation_backed = contract.source.relation is not None and contract.target.relation is not None
     source_connection = connections_by_name.get(contract.source.connection)
     target_connection = connections_by_name.get(contract.target.connection)
@@ -628,12 +659,16 @@ def _scan_budget_decision_for_key_safety(
         source_connection,
         target_connection,
     )
-    bounded_local = local_dev and _has_bounded_local_duckdb_database(
-        source_connection,
-        contract=contract,
-        project_root=project_root,
+    bounded_status = (
+        _bounded_local_duckdb_database_status(
+            source_connection,
+            contract=contract,
+            project_root=project_root,
+        )
+        if local_dev
+        else _BoundedDuckDbDatabaseStatus(bounded=False)
     )
-    return classify_scan_budget(
+    decision = classify_scan_budget(
         ScanBudgetContext(
             environment=(
                 ScanExecutionEnvironment.LOCAL_DEV
@@ -641,9 +676,15 @@ def _scan_budget_decision_for_key_safety(
                 else ScanExecutionEnvironment.PRODUCTION
             ),
             relation_backed=relation_backed,
-            bounded=bounded_local,
+            bounded=bounded_status.bounded,
             estimate_state=ScanEstimateState.UNKNOWN,
         )
+    )
+    return _KeySafetyScanBudgetDecision(
+        decision=decision,
+        requires_adapter_setup=(
+            local_dev and bounded_status.metadata_open_failed and not decision.allowed
+        ),
     )
 
 
@@ -658,20 +699,18 @@ def _is_local_duckdb_context(
     return _same_connection_context(source_connection, target_connection)
 
 
-def _has_bounded_local_duckdb_database(
+def _bounded_local_duckdb_database_status(
     connection: ConnectionConfig | None,
     *,
     contract: LoadedCompiledContractArtifact,
     project_root: Path,
-) -> bool:
+) -> _BoundedDuckDbDatabaseStatus:
     if connection is None:
-        return False
+        return _BoundedDuckDbDatabaseStatus(bounded=False)
     database_path = _local_duckdb_database_path(connection, project_root)
-    return (
-        database_path is not None
-        and _is_bounded_local_file(database_path)
-        and _duckdb_relations_are_local_base_tables(database_path, contract)
-    )
+    if database_path is None or not _is_bounded_local_file(database_path):
+        return _BoundedDuckDbDatabaseStatus(bounded=False)
+    return _duckdb_relations_are_local_base_tables(database_path, contract)
 
 
 def _local_duckdb_database_path(
@@ -708,32 +747,34 @@ def _is_bounded_local_file(path: Path) -> bool:
 def _duckdb_relations_are_local_base_tables(
     database_path: Path,
     contract: LoadedCompiledContractArtifact,
-) -> bool:
+) -> _BoundedDuckDbDatabaseStatus:
     source_relation = _duckdb_relation_name_from_compiled_endpoint(contract.source.relation)
     target_relation = _duckdb_relation_name_from_compiled_endpoint(contract.target.relation)
     if source_relation is None or target_relation is None:
-        return False
+        return _BoundedDuckDbDatabaseStatus(bounded=False)
 
     try:
         duckdb = import_module("duckdb")
         connection = duckdb.connect(str(database_path), read_only=True)
     except Exception:
-        return False
+        return _BoundedDuckDbDatabaseStatus(bounded=False, metadata_open_failed=True)
 
     try:
         local_catalog_names = _local_duckdb_catalog_names(connection, database_path)
         if not local_catalog_names:
-            return False
-        return all(
-            _duckdb_relation_is_local_base_table(
-                connection,
-                relation,
-                local_catalog_names=local_catalog_names,
+            return _BoundedDuckDbDatabaseStatus(bounded=False)
+        return _BoundedDuckDbDatabaseStatus(
+            bounded=all(
+                _duckdb_relation_is_local_base_table(
+                    connection,
+                    relation,
+                    local_catalog_names=local_catalog_names,
+                )
+                for relation in (source_relation, target_relation)
             )
-            for relation in (source_relation, target_relation)
         )
     except Exception:
-        return False
+        return _BoundedDuckDbDatabaseStatus(bounded=False)
     finally:
         with suppress(Exception):
             connection.close()
