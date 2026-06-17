@@ -8,9 +8,11 @@ from typing import Any
 
 import yaml
 
-from recon_core.artifacts.compiled_contract_loader import LoadedCompiledContractArtifact
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
-from recon_core.parser.contracts import AuthoredContract
+from recon_core.profiles.connection_references import (
+    ContractConnectionReference,
+    connection_names_from_contracts,
+)
 from recon_core.profiles.models import ConnectionConfig, ProfileLoadResult, SelectedProfile
 from recon_core.project import ProjectContext
 
@@ -43,13 +45,13 @@ class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
 def load_selected_profile(
     context: ProjectContext,
     *,
-    contracts: tuple[AuthoredContract, ...],
+    contracts: tuple[ContractConnectionReference, ...],
     environ: Mapping[str, str] | None = None,
 ) -> ProfileLoadResult:
     """Load the selected profile target and referenced connection configs."""
     return load_selected_profile_for_connection_names(
         context,
-        referenced_connection_names=referenced_connection_names(contracts),
+        referenced_connection_names=connection_names_from_contracts(contracts),
         environ=environ,
     )
 
@@ -178,24 +180,18 @@ def load_selected_profile_for_connection_names(
     )
 
 
-def referenced_connection_names(contracts: tuple[AuthoredContract, ...]) -> tuple[str, ...]:
+def referenced_connection_names(
+    contracts: tuple[ContractConnectionReference, ...],
+) -> tuple[str, ...]:
     """Return connection names referenced by selected contracts."""
-    names: set[str] = set()
-    for contract in contracts:
-        names.add(contract.source.connection)
-        names.add(contract.target.connection)
-    return tuple(sorted(names))
+    return connection_names_from_contracts(contracts)
 
 
 def referenced_connection_names_from_compiled_contracts(
-    contracts: tuple[LoadedCompiledContractArtifact, ...],
+    contracts: tuple[ContractConnectionReference, ...],
 ) -> tuple[str, ...]:
     """Return connection names referenced by loaded compiled contracts."""
-    names: set[str] = set()
-    for contract in contracts:
-        names.add(contract.source.connection)
-        names.add(contract.target.connection)
-    return tuple(sorted(names))
+    return connection_names_from_contracts(contracts)
 
 
 def _normalized_connection_names(names: tuple[str, ...]) -> tuple[str, ...]:

@@ -53,8 +53,8 @@ from recon_core.check_engine.scan_budget import (
 )
 from recon_core.compiler.models import RenderingStatus
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
-from recon_core.profiles import (
-    load_selected_profile_for_connection_names,
+from recon_core.profiles import load_selected_profile_for_connection_names
+from recon_core.profiles.connection_references import (
     referenced_connection_names_from_compiled_contracts,
 )
 from recon_core.project import ProjectContext, load_project_context

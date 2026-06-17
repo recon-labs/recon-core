@@ -46,7 +46,8 @@ from recon_core.compiler import (
 )
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.parser import load_parsed_project
-from recon_core.profiles import load_selected_profile
+from recon_core.profiles import load_selected_profile_for_connection_names
+from recon_core.profiles.connection_references import referenced_connection_names
 from recon_core.profiles.models import ConnectionConfig, SelectedProfile
 from recon_core.project import load_project_context
 from recon_core.services.results import ExitCategory, ServiceResult
@@ -142,7 +143,10 @@ class CompileService:
                     diagnostics=compilation.diagnostics,
                 )
 
-            profile_result = load_selected_profile(context, contracts=parsed_project.contracts)
+            profile_result = load_selected_profile_for_connection_names(
+                context,
+                referenced_connection_names=referenced_connection_names(parsed_project.contracts),
+            )
             if not profile_result.succeeded:
                 return ServiceResult(
                     exit_category=ExitCategory.CONFIGURATION_ERROR,
