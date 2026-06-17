@@ -40,6 +40,26 @@ captures:
       A capture row or no-capture rationale for one surface under a carryover
       gate must not hide other changed surfaces that still need an explicit
       regression-capture decision.
+  - id: regression-capture-decision-advisory-scan-budget-surface
+    title: Regression-capture decision advisory maps scan-budget policy to scan safety
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_scan_budget_module_to_scan_safety_surface
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Advisory Decision Check
+      - docs/compatibility/regression-capture/index.yml: adapter_testkit_regression_carryover
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      Scan-budget policy lives in the check-engine module but must still trigger
+      scan-safety carryover classification so future scan-budget-only changes
+      cannot bypass adapter test-kit regression-capture decisions.
   - id: regression-capture-decision-advisory-branch-wide-mode
     title: Regression-capture decision advisory has an explicit branch-wide mode
     area: parser-compiler

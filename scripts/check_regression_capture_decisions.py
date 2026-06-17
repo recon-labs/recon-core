@@ -24,6 +24,7 @@ class BaseRefResolutionError(Exception):
 EXACT_PATH_SURFACES: dict[str, set[str]] = {
     "src/recon_core/services/run.py": {"adapter_runtime", "scan_safety"},
     "tests/services/test_run_service.py": {"adapter_runtime", "scan_safety"},
+    "src/recon_core/check_engine/scan_budget.py": {"scan_safety"},
     "src/recon_core/adapters/duckdb/adapter.py": {
         "adapter_runtime",
         "adapter_capabilities",

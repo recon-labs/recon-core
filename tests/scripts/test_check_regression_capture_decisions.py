@@ -107,6 +107,30 @@ captures:
     assert findings == []
 
 
+@pytest.mark.regression_capture("regression-capture-decision-advisory-scan-budget-surface")
+def test_advisory_maps_scan_budget_module_to_scan_safety_surface(tmp_path: Path) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=["src/recon_core/check_engine/scan_budget.py"],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == ("scan_safety",)
+    assert findings[0].paths == ("src/recon_core/check_engine/scan_budget.py",)
+
+
 @pytest.mark.regression_capture("regression-capture-decision-advisory-partial-surface-coverage")
 def test_advisory_reports_uncovered_surfaces_when_same_gate_has_existing_capture(
     tmp_path: Path,
