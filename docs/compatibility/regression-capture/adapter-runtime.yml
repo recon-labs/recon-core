@@ -60,6 +60,25 @@ captures:
       local/dev scan classification and adapter execution. The scan guard must
       not approve one project-local database while execution opens a same-named
       database from the process working directory.
+  - id: key-safety-duckdb-identifier-case-metadata
+    title: DuckDB scan guard matches base-table metadata using identifier semantics
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+    notes: >
+      DuckDB resolves identifiers case-insensitively, so bounded local scan
+      metadata checks must not reject project-local base tables only because
+      authored relation casing differs from information_schema casing.
   - id: key-safety-adapter-capability-preflight
     title: Key-safety execution validates adapter capabilities before opening adapters
     area: adapter-runtime

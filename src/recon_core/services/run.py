@@ -828,7 +828,7 @@ def _local_duckdb_catalog_names(connection: Any, database_path: Path) -> frozens
             continue
         try:
             if Path(catalog_path).resolve() == resolved_database_path:
-                catalog_names.add(catalog_name)
+                catalog_names.add(_duckdb_identifier_key(catalog_name))
         except OSError:
             continue
     return frozenset(catalog_names)
@@ -840,13 +840,13 @@ def _duckdb_relation_is_local_base_table(
     *,
     local_catalog_names: frozenset[str],
 ) -> bool:
-    predicates = ["table_name = ?"]
+    predicates = ["lower(table_name) = lower(?)"]
     parameters: list[str] = [relation.identifier]
     if relation.schema is not None:
-        predicates.append("table_schema = ?")
+        predicates.append("lower(table_schema) = lower(?)")
         parameters.append(relation.schema)
     if relation.catalog is not None:
-        predicates.append("table_catalog = ?")
+        predicates.append("lower(table_catalog) = lower(?)")
         parameters.append(relation.catalog)
 
     rows = connection.execute(
@@ -862,13 +862,17 @@ def _duckdb_relation_is_local_base_table(
             isinstance(row, tuple)
             and len(row) >= 4
             and isinstance(row[0], str)
-            and row[0] in local_catalog_names
+            and _duckdb_identifier_key(row[0]) in local_catalog_names
         )
     )
     if len(rows) != 1 or len(local_rows) != 1:
         return False
     table_type = local_rows[0][3]
     return isinstance(table_type, str) and table_type.upper() == "BASE TABLE"
+
+
+def _duckdb_identifier_key(identifier: str) -> str:
+    return identifier.casefold()
 
 
 def _connection_names_to_open(

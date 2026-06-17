@@ -486,6 +486,36 @@ def test_run_service_executes_actual_duckdb_key_safety_all_checks_pass(
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("key-safety-duckdb-identifier-case-metadata")
+def test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    _write_mixed_case_duckdb_key_safety_tables(
+        duckdb,
+        database,
+        source_rows=((1, "north"),),
+        target_rows=((1, "north"),),
+    )
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=_all_key_safety_checks(keys=("customer_id", "region")),
+    )
+
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    public_text = _service_result_text(result)
+    assert "north" not in public_text
+    assert "Source_Customers" not in public_text
+    assert "Target_Customers" not in public_text
+    _assert_no_runtime_outputs(tmp_path)
+
+
 @pytest.mark.regression_capture("duckdb-view-external-scan-guard")
 def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup(
     tmp_path: Path,
@@ -3047,6 +3077,28 @@ def _write_duckdb_key_safety_tables(
         )
         _insert_duckdb_rows(connection, "qa.source_customers", source_rows)
         _insert_duckdb_rows(connection, "qa.target_customers", target_rows)
+    finally:
+        connection.close()
+
+
+def _write_mixed_case_duckdb_key_safety_tables(
+    duckdb: Any,
+    database: Path,
+    *,
+    source_rows: tuple[tuple[object, ...], ...],
+    target_rows: tuple[tuple[object, ...], ...],
+) -> None:
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute('create schema "Qa"')
+        connection.execute(
+            'create table "Qa"."Source_Customers"("Customer_ID" integer, "Region" varchar)'
+        )
+        connection.execute(
+            'create table "Qa"."Target_Customers"("Customer_ID" integer, "Region" varchar)'
+        )
+        _insert_duckdb_rows(connection, '"Qa"."Source_Customers"', source_rows)
+        _insert_duckdb_rows(connection, '"Qa"."Target_Customers"', target_rows)
     finally:
         connection.close()
 
