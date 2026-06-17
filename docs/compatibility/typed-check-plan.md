@@ -37,7 +37,8 @@ Current state:
   `row_count_diff` typed-plan shape and grain-key safety typed-plan shapes that
   pass the internal bounded local/dev scan guard from already compiled
   artifacts. The key-safety guard requires a project-local DuckDB file under the
-  size cap and compiled relation endpoints that resolve to local base tables.
+  size cap, no retained local DuckDB sidecars, and compiled relation endpoints
+  that resolve to local base tables.
 - No stable typed check-plan schema has been released.
 - No broader adapter execution, query endpoint execution, aggregate execution,
   row-level value execution, or external adapter execution compatibility claim

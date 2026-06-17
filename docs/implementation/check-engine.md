@@ -234,12 +234,13 @@ open the supported adapter connection, classify scan-budget safety for key
 checks, and pass an explicit execution context to the check engine. The current
 key-safety path is allowed only when the internal local/dev scan guard
 classifies the relation-backed input as bounded: the DuckDB database file must
-be project-local and under the size cap, and the compiled source and target
-relations must resolve through non-executing catalog metadata to local base
-tables. Views, externally backed relations, missing metadata, or metadata
-inspection failures fail closed before adapter setup. The service must close
-adapters it opened. It must not open adapters for checks that are not in the
-supported row-count or bounded local/dev grain-key safety execution shapes, and
+be project-local and under the size cap, retained local DuckDB sidecars must be
+absent, and the compiled source and target relations must resolve through
+non-executing catalog metadata to local base tables. Retained sidecars, views,
+externally backed relations, missing metadata, or metadata inspection failures
+fail closed before adapter setup. The service must close adapters it opened. It
+must not open adapters for checks that are not in the supported row-count or
+bounded local/dev grain-key safety execution shapes, and
 aggregate or row-level value checks must remain `not_executable` or blocked
 until their owning execution phases exist.
 

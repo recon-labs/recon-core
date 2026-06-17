@@ -442,8 +442,9 @@ Cross-cutting gate assignments:
   malformed, unsafe, or over-budget scan preflight outcomes are
   `not_executable`, not data failures.
   The bounded local/dev exception is allowed only when the internal scan guard
-  classifies the input as local, relation-backed, file-size bounded, and backed
-  by local DuckDB base tables rather than views or external data sources.
+  classifies the input as local, relation-backed, file-size bounded with no
+  retained DuckDB sidecars, and backed by local DuckDB base tables rather than
+  views or external data sources.
   Milestone 7.3 must not add contract YAML scan-budget settings or broad
   user-facing budget configuration. If
   probabilistic, Bloom, or sketch-based key coverage is proposed, Gate 4K must

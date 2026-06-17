@@ -588,6 +588,56 @@ def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_ada
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("duckdb-wal-sidecar-scan-guard")
+def test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup(
+    tmp_path: Path,
+) -> None:
+    duckdb = _duckdb_module()
+    live_directory = tmp_path / "live"
+    live_directory.mkdir()
+    live_database = live_directory / "warehouse.duckdb"
+    database = tmp_path / "warehouse.duckdb"
+    connection = duckdb.connect(str(live_database))
+    try:
+        connection.execute("set checkpoint_threshold='1GB'")
+        connection.execute("create schema qa")
+        connection.execute(
+            "create table qa.source_customers as "
+            "select i as customer_id, 'secret-wal' as region from range(1000) tbl(i)"
+        )
+        connection.execute(
+            "create table qa.target_customers as "
+            "select i as customer_id, 'secret-wal' as region from range(1000) tbl(i)"
+        )
+        for sidecar_source in live_directory.iterdir():
+            (tmp_path / sidecar_source.name).write_bytes(sidecar_source.read_bytes())
+    finally:
+        connection.close()
+    assert database.stat().st_size <= run_service_module._MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+    assert (tmp_path / "warehouse.duckdb.wal").is_file()
+    write_duckdb_key_safety_run_inputs(
+        tmp_path,
+        database,
+        checks=[_key_safety_payload_for("missing_keys", keys=("customer_id", "region"))],
+    )
+    factory = RecordingDuckDbFactory(
+        result=QueryResult(columns=("failure_count",), rows=((0,),), row_count=1)
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    public_text = _service_result_text(result)
+    assert "secret-wal" not in public_text
+    assert "warehouse.duckdb.wal" not in public_text
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
 @pytest.mark.parametrize(
     (
         "check_type",

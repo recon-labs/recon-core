@@ -140,7 +140,8 @@ adapter API is stable.
 Current adapter-aware rendering and row-count execution are relation-backed
 only. Current grain-key safety execution is relation-backed and limited to
 bounded local/dev scan classification over a project-local DuckDB file whose
-compiled relation endpoints resolve to local base tables. The `queries`
+retained local sidecars are absent and whose compiled relation endpoints resolve
+to local base tables. The `queries`
 capability is reserved for future executable query endpoint support and is not
 required by current relation-backed rendering or execution. Relation-backed
 row-count execution requires `row_count` and `cte_support`; bounded local/dev

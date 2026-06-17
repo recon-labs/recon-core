@@ -40,6 +40,26 @@ captures:
       Small local DuckDB databases can contain views over external data. Future
       adapter conformance must prove truthful relation metadata or estimates;
       database file size alone is not bounded scan evidence.
+  - id: duckdb-wal-sidecar-scan-guard
+    title: DuckDB sidecars do not satisfy bounded local scan classification
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: scan_safety
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
+      - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
+    notes: >
+      Core may allow bounded local/dev key-safety execution only when the local
+      DuckDB database footprint satisfies the internal guard. Retained sidecars
+      keep the bounded classification from proving the scanned footprint, so the
+      scan guard must fail closed before adapter setup.
   - id: key-safety-duckdb-relative-path-project-root
     title: Runtime DuckDB execution uses the same project-local file as the scan guard
     area: adapter-runtime

@@ -208,6 +208,7 @@ _KEY_SAFETY_RUNTIME_REQUIRED_CAPABILITIES = {
     "duplicate_key": ("duplicate_key",),
 }
 _MAX_BOUNDED_LOCAL_DUCKDB_BYTES = 64 * 1024 * 1024
+_DUCKDB_LOCAL_SIDECAR_SUFFIXES = (".wal", ".tmp")
 _RUNTIME_BLOCKING_RENDERING_STATUSES = frozenset(
     {
         RenderingStatus.BLOCKED.value,
@@ -749,9 +750,31 @@ def _local_duckdb_database_path(
 
 def _is_bounded_local_file(path: Path) -> bool:
     try:
-        return path.is_file() and path.stat().st_size <= _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+        return (
+            path.is_file()
+            and not _duckdb_local_sidecar_exists(path)
+            and path.stat().st_size <= _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+        )
     except OSError:
         return False
+
+
+def _duckdb_local_sidecar_exists(path: Path) -> bool:
+    for sidecar_path in _duckdb_local_sidecar_paths(path):
+        try:
+            sidecar_path.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError:
+            return True
+        return True
+    return False
+
+
+def _duckdb_local_sidecar_paths(path: Path) -> tuple[Path, ...]:
+    return tuple(
+        path.with_name(f"{path.name}{suffix}") for suffix in _DUCKDB_LOCAL_SIDECAR_SUFFIXES
+    )
 
 
 def _duckdb_relations_are_local_base_tables(

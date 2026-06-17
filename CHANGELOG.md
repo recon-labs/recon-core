@@ -112,8 +112,9 @@ This project follows semantic versioning once public package releases begin.
   DuckDB adapter dependency or connection diagnostics when metadata-open
   failures prevent the bounded local scan guard from proving local base-table
   scope, while matching DuckDB base-table metadata using DuckDB identifier
-  casing semantics and accepting valid project-local DuckDB database filenames
-  without requiring a `.duckdb` suffix.
+  casing semantics, failing closed when retained DuckDB sidecars are present,
+  and accepting valid project-local DuckDB database filenames without requiring
+  a `.duckdb` suffix.
 - `render_check_sql` and `recon compile --render-sql` now enforce renderer-step
   `RenderedSql.required_capabilities`, validate explicit renderer
   `adapter_type` metadata before rendering, preserve diagnostics from
