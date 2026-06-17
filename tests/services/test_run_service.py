@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 import yaml
 
-import recon_core.services.run as run_service_module
+import recon_core.adapters.duckdb.runtime_scan_guard as duckdb_scan_guard_module
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
     AdapterCapabilities,
@@ -613,7 +613,7 @@ def test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup(
             (tmp_path / sidecar_source.name).write_bytes(sidecar_source.read_bytes())
     finally:
         connection.close()
-    assert database.stat().st_size <= run_service_module._MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+    assert database.stat().st_size <= duckdb_scan_guard_module._MAX_BOUNDED_LOCAL_DUCKDB_BYTES
     assert (tmp_path / "warehouse.duckdb.wal").is_file()
     write_duckdb_key_safety_run_inputs(
         tmp_path,
@@ -2374,14 +2374,14 @@ profiles:
     write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
     write_compiled_contract(tmp_path)
 
-    real_import_module = run_service_module.import_module
+    real_import_module = duckdb_scan_guard_module.import_module
 
     def import_module_without_duckdb(name: str) -> Any:
         if name == "duckdb":
             raise ImportError("No module named duckdb")
         return real_import_module(name)
 
-    monkeypatch.setattr(run_service_module, "import_module", import_module_without_duckdb)
+    monkeypatch.setattr(duckdb_scan_guard_module, "import_module", import_module_without_duckdb)
     registry = AdapterRegistry()
     registry.register("duckdb", DuckDbAdapterFactory(dependency_available=lambda: False))
 
@@ -2423,7 +2423,7 @@ profiles:
         def connect(self, database: str, *, read_only: bool = False) -> object:
             raise RuntimeError(f"metadata open failed for {database} {read_only}")
 
-    real_import_module = run_service_module.import_module
+    real_import_module = duckdb_scan_guard_module.import_module
 
     def import_module_with_metadata_open_failure(name: str) -> Any:
         if name == "duckdb":
@@ -2431,7 +2431,7 @@ profiles:
         return real_import_module(name)
 
     monkeypatch.setattr(
-        run_service_module,
+        duckdb_scan_guard_module,
         "import_module",
         import_module_with_metadata_open_failure,
     )
