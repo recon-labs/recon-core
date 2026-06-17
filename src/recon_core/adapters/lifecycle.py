@@ -1,0 +1,4 @@
+"""Adapter lifecycle diagnostic codes shared by runtime and adapters."""
+
+ADAPTER_CONNECTION_FAILED = "RC_ADAPTER_CONNECTION_FAILED"
+ADAPTER_CLOSE_FAILED = "RC_ADAPTER_CLOSE_FAILED"

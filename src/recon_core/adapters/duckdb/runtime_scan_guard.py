@@ -6,19 +6,14 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from recon_core.artifacts import LoadedCompiledContractArtifact
+from recon_core.adapters.runtime_safety import (
+    RuntimeSafetyCheckRequest,
+    RuntimeScanSafetyStatus,
+)
 from recon_core.profiles import ConnectionConfig
 
 _MAX_BOUNDED_LOCAL_DUCKDB_BYTES = 64 * 1024 * 1024
 _DUCKDB_LOCAL_SIDECAR_SUFFIXES = (".wal", ".tmp")
-
-
-@dataclass(frozen=True, slots=True)
-class BoundedLocalDuckDbScanStatus:
-    """Internal DuckDB scan guard classification for one local database."""
-
-    bounded: bool
-    metadata_open_failed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,18 +34,42 @@ def is_local_duckdb_context(
     return _same_connection_context(source_connection, target_connection)
 
 
+class DuckDbBoundedLocalScanSafetyCheck:
+    """DuckDB implementation of the runtime scan safety-check boundary."""
+
+    def scan_safety_status(
+        self,
+        request: RuntimeSafetyCheckRequest,
+    ) -> RuntimeScanSafetyStatus:
+        if request.source_relation is None or request.target_relation is None:
+            return RuntimeScanSafetyStatus()
+        if not is_local_duckdb_context(request.source_connection, request.target_connection):
+            return RuntimeScanSafetyStatus()
+        return bounded_local_duckdb_scan_status(
+            request.source_connection,
+            source_relation=request.source_relation,
+            target_relation=request.target_relation,
+            project_root=request.project_root,
+        )
+
+
 def bounded_local_duckdb_scan_status(
     connection: ConnectionConfig | None,
     *,
-    contract: LoadedCompiledContractArtifact,
+    source_relation: str | None,
+    target_relation: str | None,
     project_root: Path,
-) -> BoundedLocalDuckDbScanStatus:
+) -> RuntimeScanSafetyStatus:
     if connection is None:
-        return BoundedLocalDuckDbScanStatus(bounded=False)
+        return RuntimeScanSafetyStatus()
     database_path = _local_duckdb_database_path(connection, project_root)
     if database_path is None or not _is_bounded_local_file(database_path):
-        return BoundedLocalDuckDbScanStatus(bounded=False)
-    return _duckdb_relations_are_local_base_tables(database_path, contract)
+        return RuntimeScanSafetyStatus(local_dev=True, bounded=False)
+    return _duckdb_relations_are_local_base_tables(
+        database_path,
+        source_relation=source_relation,
+        target_relation=target_relation,
+    )
 
 
 def _same_connection_context(left: ConnectionConfig, right: ConnectionConfig) -> bool:
@@ -110,41 +129,48 @@ def _duckdb_local_sidecar_paths(path: Path) -> tuple[Path, ...]:
 
 def _duckdb_relations_are_local_base_tables(
     database_path: Path,
-    contract: LoadedCompiledContractArtifact,
-) -> BoundedLocalDuckDbScanStatus:
-    source_relation = _duckdb_relation_name_from_compiled_endpoint(contract.source.relation)
-    target_relation = _duckdb_relation_name_from_compiled_endpoint(contract.target.relation)
-    if source_relation is None or target_relation is None:
-        return BoundedLocalDuckDbScanStatus(bounded=False)
+    *,
+    source_relation: str | None,
+    target_relation: str | None,
+) -> RuntimeScanSafetyStatus:
+    source_relation_name = _duckdb_relation_name(source_relation)
+    target_relation_name = _duckdb_relation_name(target_relation)
+    if source_relation_name is None or target_relation_name is None:
+        return RuntimeScanSafetyStatus(local_dev=True, bounded=False)
 
     try:
         duckdb: Any = import_module("duckdb")
         connection = duckdb.connect(str(database_path), read_only=True)
     except Exception:
-        return BoundedLocalDuckDbScanStatus(bounded=False, metadata_open_failed=True)
+        return RuntimeScanSafetyStatus(
+            local_dev=True,
+            bounded=False,
+            metadata_open_failed=True,
+        )
 
     try:
         local_catalog_names = _local_duckdb_catalog_names(connection, database_path)
         if not local_catalog_names:
-            return BoundedLocalDuckDbScanStatus(bounded=False)
-        return BoundedLocalDuckDbScanStatus(
+            return RuntimeScanSafetyStatus(local_dev=True, bounded=False)
+        return RuntimeScanSafetyStatus(
+            local_dev=True,
             bounded=all(
                 _duckdb_relation_is_local_base_table(
                     connection,
                     relation,
                     local_catalog_names=local_catalog_names,
                 )
-                for relation in (source_relation, target_relation)
+                for relation in (source_relation_name, target_relation_name)
             )
         )
     except Exception:
-        return BoundedLocalDuckDbScanStatus(bounded=False)
+        return RuntimeScanSafetyStatus(local_dev=True, bounded=False)
     finally:
         with suppress(Exception):
             connection.close()
 
 
-def _duckdb_relation_name_from_compiled_endpoint(
+def _duckdb_relation_name(
     relation_name: str | None,
 ) -> _DuckDbRelationName | None:
     parts = _relation_name_parts(relation_name)

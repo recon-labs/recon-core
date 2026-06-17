@@ -4,10 +4,10 @@ from dataclasses import dataclass
 
 from recon_core.adapters.base import BaseAdapter
 from recon_core.adapters.capabilities import AdapterCapabilities, validate_required_capabilities
+from recon_core.adapters.default_registry import default_adapter_registry
 from recon_core.adapters.diagnostic_redaction import (
     sanitize_profile_backed_adapter_diagnostics,
 )
-from recon_core.adapters.duckdb import DuckDbAdapterFactory
 from recon_core.adapters.registry import (
     AdapterRegistry,
     resolve_adapter_type,
@@ -46,7 +46,7 @@ def prepare_runtime_adapter(
     registry: AdapterRegistry | None = None,
 ) -> RuntimeAdapterSetupResult:
     """Resolve and validate an adapter without opening a connection."""
-    resolved_registry = registry if registry is not None else _default_runtime_adapter_registry()
+    resolved_registry = registry if registry is not None else default_adapter_registry()
     resolution = resolved_registry.resolve(connection)
     if resolution.diagnostics or resolution.adapter is None:
         return RuntimeAdapterSetupResult(
@@ -117,13 +117,6 @@ def prepare_runtime_adapter(
         adapter_type=adapter_type,
         capabilities=capabilities,
     )
-
-
-def _default_runtime_adapter_registry() -> AdapterRegistry:
-    registry = AdapterRegistry()
-    registry.register("duckdb", DuckDbAdapterFactory())
-    return registry
-
 
 def _sanitize_runtime_diagnostics(
     diagnostics: tuple[Diagnostic, ...],

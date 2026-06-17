@@ -14,11 +14,11 @@ from recon_core.adapters import (
     prepare_runtime_adapter,
 )
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
-from recon_core.adapters.duckdb import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
-from recon_core.adapters.duckdb.runtime_scan_guard import (
-    BoundedLocalDuckDbScanStatus,
-    bounded_local_duckdb_scan_status,
-    is_local_duckdb_context,
+from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
+from recon_core.adapters.runtime_safety import (
+    RuntimeSafetyCheckRegistry,
+    RuntimeSafetyCheckRequest,
+    default_runtime_safety_check_registry,
 )
 from recon_core.artifacts import (
     NO_COMPILED_CHECKS,
@@ -259,11 +259,13 @@ def _prepare_runtime_execution_dependencies(
         profile_result.profile.connections,
         project_root=context.project_root,
     )
+    runtime_safety_checks = default_runtime_safety_check_registry()
     scan_budget_decisions = _scan_budget_decisions_by_check_id(
         profile_candidates,
         contracts_by_name=contracts_by_name,
         connections_by_name=connections_by_name,
         project_root=context.project_root,
+        runtime_safety_checks=runtime_safety_checks,
     )
     adapter_candidates = _adapter_required_runtime_candidates(
         profile_candidates,
@@ -623,6 +625,7 @@ def _scan_budget_decisions_by_check_id(
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     connections_by_name: Mapping[str, ConnectionConfig],
     project_root: Path,
+    runtime_safety_checks: RuntimeSafetyCheckRegistry,
 ) -> _RuntimeScanBudgetDecisions:
     decisions: dict[str, ScanBudgetDecision] = {}
     adapter_setup_required_check_ids: set[str] = set()
@@ -637,6 +640,7 @@ def _scan_budget_decisions_by_check_id(
                 contract,
                 connections_by_name=connections_by_name,
                 project_root=project_root,
+                runtime_safety_checks=runtime_safety_checks,
             )
             decisions[check.id] = prepared_decision.decision
             if prepared_decision.requires_adapter_setup:
@@ -652,23 +656,21 @@ def _scan_budget_decision_for_key_safety(
     *,
     connections_by_name: Mapping[str, ConnectionConfig],
     project_root: Path,
+    runtime_safety_checks: RuntimeSafetyCheckRegistry,
 ) -> _KeySafetyScanBudgetDecision:
     relation_backed = contract.source.relation is not None and contract.target.relation is not None
     source_connection = connections_by_name.get(contract.source.connection)
     target_connection = connections_by_name.get(contract.target.connection)
-    local_dev = relation_backed and is_local_duckdb_context(
-        source_connection,
-        target_connection,
-    )
-    bounded_status = (
-        bounded_local_duckdb_scan_status(
-            source_connection,
-            contract=contract,
+    scan_safety_status = runtime_safety_checks.scan_safety_status(
+        RuntimeSafetyCheckRequest(
+            source_connection=source_connection,
+            target_connection=target_connection,
+            source_relation=contract.source.relation,
+            target_relation=contract.target.relation,
             project_root=project_root,
         )
-        if local_dev
-        else BoundedLocalDuckDbScanStatus(bounded=False)
     )
+    local_dev = relation_backed and scan_safety_status.local_dev
     decision = classify_scan_budget(
         ScanBudgetContext(
             environment=(
@@ -677,14 +679,14 @@ def _scan_budget_decision_for_key_safety(
                 else ScanExecutionEnvironment.PRODUCTION
             ),
             relation_backed=relation_backed,
-            bounded=bounded_status.bounded,
+            bounded=scan_safety_status.bounded,
             estimate_state=ScanEstimateState.UNKNOWN,
         )
     )
     return _KeySafetyScanBudgetDecision(
         decision=decision,
         requires_adapter_setup=(
-            local_dev and bounded_status.metadata_open_failed and not decision.allowed
+            local_dev and scan_safety_status.metadata_open_failed and not decision.allowed
         ),
     )
 

@@ -1,3 +1,4 @@
+import ast
 import importlib
 import os
 from pathlib import Path
@@ -7,6 +8,7 @@ import pytest
 import yaml
 
 import recon_core.adapters.duckdb.runtime_scan_guard as duckdb_scan_guard_module
+import recon_core.services.run as run_service_module
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
     AdapterCapabilities,
@@ -51,6 +53,22 @@ def write_bounded_local_duckdb_fixture(
         source_rows=(),
         target_rows=(),
     )
+
+
+def test_run_service_uses_neutral_runtime_safety_boundary() -> None:
+    source = Path(run_service_module.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imported_modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            imported_modules.add(node.module)
+
+    assert not any(
+        module.startswith("recon_core.adapters.duckdb") for module in imported_modules
+    )
+    assert "recon_core.adapters.runtime_safety" in imported_modules
 
 
 def test_run_service_reports_missing_compiled_artifacts(tmp_path: Path) -> None:
