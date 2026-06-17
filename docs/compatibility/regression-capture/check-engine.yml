@@ -81,6 +81,7 @@ captures:
     severity: P2
     current_tests:
       - tests/check_engine/test_engine.py::test_engine_preserves_key_safety_invalid_relation_before_scan_budget_block
+      - tests/services/test_run_service.py::test_run_service_preserves_key_safety_invalid_relation_before_profile_loading
     carryover_gates:
       - gate: check_engine_semantics_carryover
         status: pending

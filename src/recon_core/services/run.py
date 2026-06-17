@@ -490,8 +490,20 @@ def _requires_runtime_profile_for_contract(
     if check.check_type == "row_count_diff":
         return True
     if is_key_safety_check_type(check.check_type):
-        return key_safety_identity_matches_contract(check, contract)
+        return key_safety_identity_matches_contract(
+            check,
+            contract,
+        ) and _contract_has_valid_relation_endpoint_shape(contract)
     return False
+
+
+def _contract_has_valid_relation_endpoint_shape(
+    contract: LoadedCompiledContractArtifact,
+) -> bool:
+    return (
+        _relation_name_parts(contract.source.relation) is not None
+        and _relation_name_parts(contract.target.relation) is not None
+    )
 
 
 def _adapter_required_runtime_candidates(
@@ -783,17 +795,24 @@ def _duckdb_relations_are_local_base_tables(
 def _duckdb_relation_name_from_compiled_endpoint(
     relation_name: str | None,
 ) -> _DuckDbRelationName | None:
-    if relation_name is None:
-        return None
-    raw_parts = relation_name.split(".")
-    parts = tuple(part for part in raw_parts if part)
-    if len(parts) not in {1, 2, 3} or len(parts) != len(raw_parts):
+    parts = _relation_name_parts(relation_name)
+    if parts is None:
         return None
     if len(parts) == 1:
         return _DuckDbRelationName(identifier=parts[0])
     if len(parts) == 2:
         return _DuckDbRelationName(schema=parts[0], identifier=parts[1])
     return _DuckDbRelationName(catalog=parts[0], schema=parts[1], identifier=parts[2])
+
+
+def _relation_name_parts(relation_name: str | None) -> tuple[str, ...] | None:
+    if relation_name is None:
+        return None
+    raw_parts = relation_name.split(".")
+    parts = tuple(part for part in raw_parts if part)
+    if len(parts) not in {1, 2, 3} or len(parts) != len(raw_parts):
+        return None
+    return parts
 
 
 def _local_duckdb_catalog_names(connection: Any, database_path: Path) -> frozenset[str]:

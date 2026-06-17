@@ -846,6 +846,27 @@ def test_run_service_preserves_key_safety_shape_blocker_for_query_endpoint_contr
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("key-safety-invalid-relation-diagnostic-precedence")
+def test_run_service_preserves_key_safety_invalid_relation_before_profile_loading(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="missing_profile")
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(tmp_path, source_relation="bad..name")
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run failed during check-engine evaluation."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_ADAPTER_INVALID_RELATION"]
+    assert "RC_CONFIG" not in _service_result_text(result)
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
 def test_run_service_does_not_mutate_stale_outputs_during_actual_key_safety(
     tmp_path: Path,
 ) -> None:
