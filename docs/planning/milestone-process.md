@@ -50,6 +50,28 @@ out-of-scope decision with rationale. Example-only coverage is not sufficient,
 and examples do not prove coverage unless relevant dimensions and sibling
 variants are enumerated.
 
+## Implementation responsibility map
+
+For high-risk milestones and public-surface changes, the implementation map must
+include a responsibility map before coding starts. A source map says which files
+may change; the responsibility map says what each module or component may own.
+
+The responsibility map must list:
+
+- module or component,
+- allowed responsibilities,
+- forbidden responsibilities,
+- allowed dependencies or concrete coupling,
+- expected helper boundaries,
+- refactor triggers before phase exit,
+- tests protecting the boundary.
+
+The map should prevent behavior-heavy work from accumulating in one file simply
+because the source map named that file. If implementation discovers a module
+absorbing responsibilities outside its mapped boundary, pause before phase exit
+and either complete a same-scope refactor or record why a broader refactor is
+blocked and needs separate confirmation.
+
 ## Carryover Gates
 
 Before milestone prework, implementation, or phase exit claims a high-risk or
@@ -118,6 +140,12 @@ For phased high-risk work, each phase exit should compare completed behavior,
 tests, docs, newly discovered requirements, and remaining work against the
 matrix before the next phase starts.
 
+High-risk phase exits must also include a design-integrity review against the
+responsibility map. The review should report material module growth, new
+concrete adapter or infrastructure coupling, service or orchestrator boundary
+leaks, duplicated helper logic, test-helper bloat, and whether a same-branch
+low-risk refactor is required before the milestone can be considered complete.
+
 ## Milestone splits
 
 Every milestone or equivalent roadmap work must include a split-or-justify
@@ -163,17 +191,18 @@ sub-milestone and these columns:
 - required ADRs or decisions,
 - required docs updates,
 - required acceptance/conformance matrix rows,
+- required responsibility-map rows,
 - required BDD or workflow scenarios,
 - required tests,
 - public contract impact,
 - phase-exit review requirements,
 - blockers before coding.
 
-No gate, ADR, docs update, matrix row, BDD scenario, public contract concern,
-test requirement, or phase-exit requirement may remain assigned only to the
-umbrella milestone. If an item applies to multiple sub-milestones, list it in
-each affected row. If ownership is unclear, block implementation instead of
-guessing.
+No gate, ADR, docs update, matrix row, responsibility-map row, BDD scenario,
+public contract concern, test requirement, or phase-exit requirement may remain
+assigned only to the umbrella milestone. If an item applies to multiple
+sub-milestones, list it in each affected row. If ownership is unclear, block
+implementation instead of guessing.
 
 ## Split workflow
 
@@ -182,7 +211,7 @@ Use a stepwise split workflow for high-risk milestones:
 1. Audit milestone scope, high-risk surfaces, gates, docs, ADRs, tests, and
    current implementation.
 2. Propose implementation-bearing sub-milestones.
-3. Build the Split Assignment Matrix.
+3. Build the Split Assignment Matrix, including responsibility-map ownership.
 4. Run the orphan check.
 5. Update planning/docs after the split and assignments are internally
    consistent.

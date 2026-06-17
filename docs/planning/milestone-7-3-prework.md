@@ -906,6 +906,20 @@ Planned source changes:
 | `src/recon_core/compiler/check_packs.py` | No planned behavior change. Current `recon_core.basic_equivalence` already emits row count, missing, extra, null, and duplicate checks. Change only if implementation discovers a concrete mismatch with the matrix. | Authored `checks: [...]`, new check-pack config, and runtime recompilation remain out of scope. |
 | `src/recon_core/compiler/models.py` | No planned behavior change. Current typed operations and capabilities already include `key_diff`, `null_key`, and `duplicate_key`. Change only if implementation discovers a concrete typed-plan validation gap. | No typed check-plan version or artifact schema change is planned. |
 
+### Post-Implementation Ownership Note
+
+The original source map above intentionally captured the behavioral work needed
+for Milestone 7.3, but it did not define internal responsibility boundaries in
+enough detail. Future maintenance should not treat the `key_safety.py` row as
+permission for one module to own every part of the vertical execution path.
+
+Keep key-safety orchestration, query construction or wrapping, result-shape
+parsing, diagnostics, and adapter-specific bounded-local scan guards in focused
+helpers or modules when changes touch those areas. If a future change expands a
+module across several of those responsibilities, perform a design-integrity
+review and either complete the low-risk refactor in the same branch or document
+the broader refactor as separate work before marking the phase complete.
+
 ### Test-First Map
 
 Write or update tests in this order before source changes:
