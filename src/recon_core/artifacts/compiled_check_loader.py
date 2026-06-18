@@ -10,8 +10,8 @@ import yaml
 from recon_core._yaml import load_yaml_with_unique_keys
 from recon_core.artifacts._paths import reject_symlinked_path_components
 from recon_core.artifacts.compiled_check_writer import COMPILED_CHECKS_DIR_NAME
+from recon_core.compiled_artifact_schema import typed_operation_payload_fields
 from recon_core.compiler.models import (
-    _OPERATION_ALLOWED_FIELDS,
     COMPILED_ARTIFACT_VERSION,
     IdentityKind,
     KeyDiffDirection,
@@ -417,7 +417,7 @@ def _reject_unexpected_known_operation_fields(
     *,
     path: str,
 ) -> None:
-    allowed_payload_fields = _OPERATION_ALLOWED_FIELDS.get(typed_operation, frozenset())
+    allowed_payload_fields = typed_operation_payload_fields(typed_operation.value) or frozenset()
     allowed_fields = (
         _OPERATION_BASE_FIELDS | allowed_payload_fields | _RESERVED_OPERATION_METADATA_FIELDS
     )

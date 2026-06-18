@@ -93,6 +93,7 @@ captures:
     current_tests:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_uses_path_surface_routing_from_index
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_yaml_and_profile_modules_to_carryover_surfaces
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_compiled_artifact_schema_modules_to_carryover_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_runtime_safety_modules_to_scan_safety_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_is_missing
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_names_unknown_surface

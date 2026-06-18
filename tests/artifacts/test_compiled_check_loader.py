@@ -1,9 +1,11 @@
+import ast
 from pathlib import Path
 from typing import cast
 
 import pytest
 import yaml
 
+import recon_core.artifacts.compiled_check_loader as compiled_check_loader_module
 from recon_core.artifacts import CompiledCheckLoader, CompiledCheckWriter
 from recon_core.compiler.models import (
     CheckOrigin,
@@ -21,6 +23,20 @@ from recon_core.compiler.models import (
     OperationSide,
     TypedOperation,
 )
+
+
+def test_loader_does_not_import_compiler_private_schema_names() -> None:
+    tree = ast.parse(Path(compiled_check_loader_module.__file__).read_text(encoding="utf-8"))
+
+    private_imports = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "recon_core.compiler.models"
+        for alias in node.names
+        if alias.name.startswith("_")
+    }
+
+    assert private_imports == set()
 
 
 def test_loader_loads_compiled_check_artifact_written_by_writer(tmp_path: Path) -> None:

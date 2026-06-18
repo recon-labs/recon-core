@@ -66,6 +66,14 @@ path_surface_routing:
       surfaces:
         - diagnostics
         - redaction
+    - path: src/recon_core/compiled_artifact_schema.py
+      surfaces:
+        - artifact_lifecycle
+        - generated_artifacts
+        - typed_check_plan
+    - path: src/recon_core/compiler/models.py
+      surfaces:
+        - typed_check_plan
     - path: src/recon_core/parser/yaml_loader.py
       surfaces:
         - contract_yaml
@@ -141,6 +149,7 @@ gates:
     trigger_surfaces:
       - contract_yaml
       - parser
+      - typed_check_plan
 """.lstrip()
     )
     (capture_root / "adapter-runtime.yml").write_text(capture_body)
@@ -320,6 +329,55 @@ captures: []
     ],
 )
 def test_advisory_maps_yaml_and_profile_modules_to_carryover_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate, (changed_path,)
+    )
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/compiled_artifact_schema.py",
+            {
+                "artifact_publication_carryover": (
+                    "artifact_lifecycle",
+                    "generated_artifacts",
+                ),
+                "parser_compiler_contract_carryover": ("typed_check_plan",),
+            },
+        ),
+        (
+            "src/recon_core/compiler/models.py",
+            {
+                "parser_compiler_contract_carryover": ("typed_check_plan",),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_compiled_artifact_schema_modules_to_carryover_surfaces(
     tmp_path: Path,
     changed_path: str,
     expected_surfaces_by_gate: dict[str, tuple[str, ...]],

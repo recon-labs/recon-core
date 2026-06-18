@@ -40,6 +40,14 @@ path_surface_routing:
       surfaces:
         - diagnostics
         - redaction
+    - path: src/recon_core/compiled_artifact_schema.py
+      surfaces:
+        - artifact_lifecycle
+        - generated_artifacts
+        - typed_check_plan
+    - path: src/recon_core/compiler/models.py
+      surfaces:
+        - typed_check_plan
     - path: src/recon_core/parser/yaml_loader.py
       surfaces:
         - contract_yaml
