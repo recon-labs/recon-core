@@ -60,6 +60,28 @@ captures:
       Scan-budget policy lives in the check-engine module but must still trigger
       scan-safety carryover classification so future scan-budget-only changes
       cannot bypass adapter test-kit regression-capture decisions.
+  - id: regression-capture-decision-advisory-metadata-routing
+    title: Regression-capture decision advisory path routing is metadata-driven
+    area: parser-compiler
+    bug_class: regression_capture_metadata
+    owner_surface: compatibility_validation_tooling
+    severity: P2
+    current_tests:
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_uses_path_surface_routing_from_index
+      - tests/scripts/test_check_regression_capture.py::test_validator_rejects_invalid_path_surface_routing
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: regression_capture_metadata
+    requirement_refs:
+      - docs/compatibility/regression-capture/README.md: Advisory Decision Check
+      - docs/compatibility/regression-capture/index.yml: path_surface_routing
+      - docs/implementation/testing-plan.md: Regression capture metadata validation
+    notes: >
+      Path-to-surface routing belongs in regression-capture metadata, not in
+      Python script constants. The advisory must load routing from `index.yml`,
+      and the hard metadata validator must reject routes that name unknown
+      trigger surfaces.
   - id: regression-capture-decision-advisory-branch-wide-mode
     title: Regression-capture decision advisory has an explicit branch-wide mode
     area: parser-compiler

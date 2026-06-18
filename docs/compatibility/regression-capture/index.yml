@@ -24,6 +24,72 @@ capture_files:
   - path: parser-compiler.yml
     area: parser-compiler
     description: Parser, compiler, contract YAML, check-pack, typed-plan, and validation-default behavior.
+path_surface_routing:
+  exact:
+    - path: src/recon_core/services/run.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/services/test_run_service.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: src/recon_core/check_engine/scan_budget.py
+      surfaces:
+        - scan_safety
+    - path: src/recon_core/adapters/duckdb/adapter.py
+      surfaces:
+        - adapter_runtime
+        - adapter_capabilities
+        - sql_rendering
+    - path: tests/adapters/test_duckdb_sql_renderer.py
+      surfaces:
+        - sql_rendering
+  prefixes:
+    - prefix: src/recon_core/adapters/
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+    - prefix: tests/adapters/
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+    - prefix: src/recon_core/check_engine/
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+        - typed_check_plan
+    - prefix: tests/check_engine/
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+        - typed_check_plan
+    - prefix: src/recon_core/cli/
+      surfaces:
+        - cli
+        - terminal_output
+        - exit_codes
+    - prefix: tests/cli/
+      surfaces:
+        - cli
+        - terminal_output
+        - exit_codes
+    - prefix: src/recon_core/artifacts/
+      surfaces:
+        - generated_artifacts
+        - artifact_lifecycle
+    - prefix: tests/artifacts/
+      surfaces:
+        - generated_artifacts
+        - artifact_lifecycle
+    - prefix: src/recon_core/evidence
+      surfaces:
+        - evidence
+    - prefix: tests/evidence
+      surfaces:
+        - evidence
 gates:
   adapter_testkit_regression_carryover:
     primary_milestone: adapter_test_kit_and_package_split

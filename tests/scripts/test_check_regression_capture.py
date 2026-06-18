@@ -33,6 +33,15 @@ capture_files:
   - path: adapter-runtime.yml
     area: adapter-runtime
     description: Adapter runtime captures.
+path_surface_routing:
+  exact:
+    - path: src/recon_core/services/run.py
+      surfaces:
+        - adapter_runtime
+  prefixes:
+    - prefix: src/recon_core/adapters/
+      surfaces:
+        - adapter_runtime
 gates:
   adapter_testkit_regression_carryover:
     primary_milestone: adapter_test_kit_and_package_split
@@ -160,6 +169,24 @@ captures:
     assert any("missing required field 'owner_surface'" in error for error in errors)
     assert any("unknown carryover gate 'missing_gate'" in error for error in errors)
     assert any("invalid status 'invalid_status'" in error for error in errors)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+def test_validator_rejects_invalid_path_surface_routing(tmp_path: Path) -> None:
+    capture_root = write_capture_project(tmp_path, valid_capture_body())
+    index_path = capture_root / "index.yml"
+    index_path.write_text(
+        index_path.read_text().replace(
+            "        - adapter_runtime",
+            "        - missing_surface",
+            1,
+        )
+    )
+    script = load_script()
+
+    errors = script.validate(capture_root=capture_root, repo_root=tmp_path)
+
+    assert any("unknown trigger surface 'missing_surface'" in error for error in errors)
 
 
 def test_validator_rejects_stale_pytest_node_references(tmp_path: Path) -> None:

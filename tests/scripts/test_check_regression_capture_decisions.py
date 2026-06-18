@@ -36,6 +36,25 @@ capture_files:
   - path: adapter-runtime.yml
     area: adapter-runtime
     description: Adapter runtime captures.
+path_surface_routing:
+  exact:
+    - path: src/recon_core/services/run.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: src/recon_core/check_engine/scan_budget.py
+      surfaces:
+        - scan_safety
+    - path: src/recon_core/adapters/duckdb/adapter.py
+      surfaces:
+        - adapter_runtime
+        - adapter_capabilities
+        - sql_rendering
+  prefixes:
+    - prefix: src/recon_core/adapters/
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
 gates:
   adapter_testkit_regression_carryover:
     primary_milestone: adapter_test_kit_and_package_split
@@ -129,6 +148,43 @@ captures: []
     assert findings[0].gate == "adapter_testkit_regression_carryover"
     assert findings[0].surfaces == ("scan_safety",)
     assert findings[0].paths == ("src/recon_core/check_engine/scan_budget.py",)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+def test_advisory_uses_path_surface_routing_from_index(tmp_path: Path) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+    index_path = capture_root / "index.yml"
+    index_text = index_path.read_text()
+    index_path.write_text(
+        index_text.replace(
+            "  exact:\n",
+            """  exact:
+    - path: custom/runtime_policy.py
+      surfaces:
+        - scan_safety
+""",
+            1,
+        )
+    )
+
+    findings = script.evaluate(
+        changed_paths=["custom/runtime_policy.py"],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == ("scan_safety",)
+    assert findings[0].paths == ("custom/runtime_policy.py",)
 
 
 @pytest.mark.regression_capture("regression-capture-decision-advisory-partial-surface-coverage")
