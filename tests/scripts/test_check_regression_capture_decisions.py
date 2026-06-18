@@ -130,6 +130,9 @@ path_surface_routing:
       surfaces:
         - adapter_api
         - adapter_capabilities
+    - prefix: docs/compatibility/regression-capture/
+      surfaces:
+        - regression_capture_metadata
     - prefix: tests/scripts/
       surfaces:
         - regression_capture_metadata
@@ -459,6 +462,40 @@ captures: []
     ],
 )
 def test_advisory_maps_regression_capture_tooling_to_metadata_surface(
+    tmp_path: Path,
+    changed_path: str,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "parser_compiler_contract_carryover"
+    assert findings[0].surfaces == ("regression_capture_metadata",)
+    assert findings[0].paths == (changed_path,)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    "changed_path",
+    [
+        "docs/compatibility/regression-capture/index.yml",
+        "docs/compatibility/regression-capture/parser-compiler.yml",
+    ],
+)
+def test_advisory_maps_regression_capture_metadata_files_to_metadata_surface(
     tmp_path: Path,
     changed_path: str,
 ) -> None:

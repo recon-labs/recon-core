@@ -155,6 +155,9 @@ path_surface_routing:
     - prefix: tests/evidence
       surfaces:
         - evidence
+    - prefix: docs/compatibility/regression-capture/
+      surfaces:
+        - regression_capture_metadata
     - prefix: tests/scripts/
       surfaces:
         - regression_capture_metadata
