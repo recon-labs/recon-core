@@ -3,10 +3,11 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import yaml
 
+from recon_core._yaml import load_yaml_with_unique_keys
 from recon_core.artifacts._paths import reject_symlinked_path_components
 from recon_core.artifacts.compiled_check_loader import LoadedCompiledChecksArtifact
 from recon_core.artifacts.compiled_contract_writer import COMPILED_CONTRACTS_DIR_NAME
@@ -15,10 +16,6 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 COMPILED_CONTRACT_ARTIFACT_NOT_FOUND = "RC_RUNTIME_COMPILED_CONTRACT_ARTIFACT_NOT_FOUND"
 COMPILED_CONTRACT_ARTIFACT_INVALID = "RC_RUNTIME_COMPILED_CONTRACT_ARTIFACT_INVALID"
-
-
-class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
-    """YAML safe loader that rejects duplicate mapping keys."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,44 +222,8 @@ def _is_safe_artifact_name_stem(value: str) -> bool:
 
 
 def _read_yaml_mapping(path: Path) -> dict[str, object]:
-    loaded: object = yaml.load(path.read_text(encoding="utf-8"), Loader=_UniqueKeySafeLoader)
+    loaded = load_yaml_with_unique_keys(path.read_text(encoding="utf-8"))
     return dict(_as_mapping(loaded, "artifact root"))
-
-
-def _construct_mapping_without_duplicate_keys(
-    loader: _UniqueKeySafeLoader, node: yaml.MappingNode, deep: bool = False
-) -> dict[Any, Any]:
-    loader.flatten_mapping(node)
-    mapping: dict[Any, Any] = {}
-
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        try:
-            hash(key)
-        except TypeError as error:
-            raise yaml.constructor.ConstructorError(
-                "while constructing a mapping",
-                node.start_mark,
-                f"Unsupported YAML mapping key: {key}",
-                key_node.start_mark,
-            ) from error
-
-        if key in mapping:
-            raise yaml.constructor.ConstructorError(
-                "while constructing a mapping",
-                node.start_mark,
-                f"Duplicate YAML key: {key}",
-                key_node.start_mark,
-            )
-        mapping[key] = loader.construct_object(value_node, deep=deep)
-
-    return mapping
-
-
-_UniqueKeySafeLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-    _construct_mapping_without_duplicate_keys,
-)
 
 
 def _symlinked_artifact_path_diagnostic(path: Path) -> Diagnostic | None:

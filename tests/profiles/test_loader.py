@@ -706,6 +706,78 @@ profiles:
     assert "password" not in diagnostic_text
 
 
+def test_load_selected_profile_rejects_duplicate_yaml_keys_without_leak(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    target: prod-secret
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile(
+        context_result.context,
+        contracts=(contract(source_connection="legacy", target_connection="legacy"),),
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_YAML"
+    ]
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.message == "Invalid YAML in profile file."
+    assert diagnostic.line is not None
+    assert diagnostic.column is not None
+    diagnostic_text = f"{diagnostic.message} {diagnostic.hint}"
+    assert "target" not in diagnostic_text
+    assert "prod-secret" not in diagnostic_text
+
+
+def test_load_selected_profile_rejects_unhashable_yaml_mapping_key_without_leak(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+? [profiles, alias]
+: local
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile(
+        context_result.context,
+        contracts=(contract(source_connection="legacy", target_connection="legacy"),),
+    )
+
+    assert not result.succeeded
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_CONFIG_INVALID_PROFILE_YAML"
+    ]
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.message == "Invalid YAML in profile file."
+    assert diagnostic.line is not None
+    assert diagnostic.column is not None
+    diagnostic_text = f"{diagnostic.message} {diagnostic.hint}"
+    assert "alias" not in diagnostic_text
+
+
 def write_project(tmp_path: Path, *, profile: str | None = "local") -> None:
     profile_yaml = f"profile: {profile}\n" if profile is not None else ""
     tmp_path.joinpath("recon_project.yml").write_text(
