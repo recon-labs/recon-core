@@ -7,7 +7,6 @@ from recon_core.adapters.capabilities import (
     CapabilitySupport,
     validate_required_capabilities,
 )
-from recon_core.adapters.default_registry import default_adapter_registry
 from recon_core.adapters.diagnostic_redaction import ADAPTER_DIAGNOSTIC_CODE_SUPPRESSED
 from recon_core.adapters.models import (
     ADAPTER_API_VERSION,
@@ -43,6 +42,14 @@ from recon_core.adapters.runtime_setup import (
     prepare_runtime_adapter,
 )
 from recon_core.profiles import ConnectionConfig
+
+
+def default_adapter_registry() -> AdapterRegistry:
+    """Return the built-in adapter registry without importing concrete adapters eagerly."""
+    from recon_core.adapters.default_registry import default_adapter_registry as _default_registry
+
+    return _default_registry()
+
 
 __all__ = [
     "ADAPTER_API_VERSION",

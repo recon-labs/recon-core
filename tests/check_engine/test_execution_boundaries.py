@@ -16,6 +16,8 @@ def test_key_safety_does_not_import_row_count_execution_module() -> None:
 def test_execution_support_does_not_import_duckdb_adapter_module() -> None:
     imported_modules = _imported_modules(Path(execution_support_module.__file__))
 
+    assert "recon_core.artifacts" not in imported_modules
+    assert "recon_core.adapters" not in imported_modules
     assert "recon_core.adapters.duckdb" not in imported_modules
     assert "recon_core.adapters.duckdb.adapter" not in imported_modules
 

@@ -37,6 +37,18 @@ path_surface_routing:
     - path: src/recon_core/check_engine/scan_budget.py
       surfaces:
         - scan_safety
+    - path: src/recon_core/adapters/runtime_safety.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: src/recon_core/adapters/duckdb/runtime_scan_guard.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/adapters/test_runtime_safety.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
     - path: src/recon_core/adapters/duckdb/adapter.py
       surfaces:
         - adapter_runtime

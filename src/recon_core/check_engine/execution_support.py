@@ -5,12 +5,15 @@ from collections.abc import Mapping
 from numbers import Integral
 from typing import Any
 
-from recon_core.adapters import ADAPTER_INVALID_RELATION, ConnectionConfig, Relation
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
 from recon_core.adapters.lifecycle import ADAPTER_QUERY_FAILED
-from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
+from recon_core.adapters.models import Relation
+from recon_core.adapters.rendering import ADAPTER_INVALID_RELATION
+from recon_core.artifacts.compiled_check_loader import LoadedCompiledCheck
+from recon_core.artifacts.compiled_contract_loader import LoadedCompiledContractArtifact
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
+from recon_core.profiles.models import ConnectionConfig
 
 ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED = "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
 
