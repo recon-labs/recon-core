@@ -112,9 +112,11 @@ captures:
       Python script constants. The advisory must load routing from `index.yml`,
       fail closed when that routing is missing or malformed, and the hard
       metadata validator must reject routes that name unknown trigger surfaces.
-      Runtime safety and scan-guard paths must route to scan-safety carryover,
-      and regression-capture tooling paths must route to metadata carryover, so
-      future changes cannot fall through to unrelated or missing surfaces.
+      Profile connection-reference paths must route to profile diagnostics and
+      secret-handling carryover, runtime safety and scan-guard paths must route
+      to scan-safety carryover, and regression-capture tooling paths must route
+      to metadata carryover so future changes cannot fall through to unrelated
+      or missing surfaces.
   - id: regression-capture-decision-advisory-branch-wide-mode
     title: Regression-capture decision advisory has an explicit branch-wide mode
     area: parser-compiler

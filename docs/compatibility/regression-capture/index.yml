@@ -60,6 +60,11 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/profiles/connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: scripts/check_regression_capture.py
       surfaces:
         - regression_capture_metadata
@@ -100,6 +105,11 @@ path_surface_routing:
     - path: tests/adapters/test_duckdb_sql_renderer.py
       surfaces:
         - sql_rendering
+    - path: tests/profiles/test_connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
   prefixes:
     - prefix: src/recon_core/adapters/
       surfaces:

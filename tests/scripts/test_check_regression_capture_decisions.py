@@ -86,6 +86,11 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/profiles/connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: scripts/check_regression_capture.py
       surfaces:
         - regression_capture_metadata
@@ -115,6 +120,11 @@ path_surface_routing:
         - adapter_runtime
         - adapter_capabilities
         - sql_rendering
+    - path: tests/profiles/test_connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
   prefixes:
     - prefix: src/recon_core/adapters/
       surfaces:
@@ -331,6 +341,26 @@ captures: []
         ),
         (
             "src/recon_core/profiles/loader.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/profiles/connection_references.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "tests/profiles/test_connection_references.py",
             {
                 "diagnostics_privacy_carryover": (
                     "diagnostics",
