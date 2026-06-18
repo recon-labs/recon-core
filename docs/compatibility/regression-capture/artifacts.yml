@@ -1,3 +1,27 @@
 schema_version: 1
 area: artifacts
-captures: []
+captures:
+  - id: compiled-artifact-yaml-loader-diagnostics
+    title: Compiled artifact YAML loader failures stay artifact-level and safe
+    area: artifacts
+    bug_class: generated_artifacts
+    owner_surface: artifact_lifecycle
+    severity: P2
+    current_tests:
+      - tests/artifacts/test_compiled_check_loader.py::test_loader_reports_invalid_yaml_without_raw_artifact_content
+      - tests/artifacts/test_compiled_check_loader.py::test_loader_rejects_duplicate_yaml_keys_in_compiled_artifact
+      - tests/artifacts/test_compiled_contract_loader.py::test_loader_reports_invalid_yaml_without_raw_artifact_content
+      - tests/artifacts/test_compiled_contract_loader.py::test_loader_rejects_duplicate_yaml_keys_in_compiled_artifact
+    carryover_gates:
+      - gate: artifact_publication_carryover
+        status: pending
+        expected_suite: artifact_lifecycle
+    requirement_refs:
+      - docs/compatibility/artifact-versions.md: Artifact version rules
+      - docs/implementation/compiled-artifacts.md: Runtime execution consumes compiled artifacts as inputs
+      - docs/implementation/errors-and-diagnostics.md: Low-level exception diagnostic sanitization
+    notes: >
+      Runtime compiled artifact loaders must reject malformed or duplicate-key
+      compiled YAML with artifact-level diagnostics. Loader refactors must not
+      leak raw artifact content, reinterpret generated artifact schemas, change
+      artifact paths, or bypass artifact lifecycle carryover review.
