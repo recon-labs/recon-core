@@ -109,7 +109,9 @@ required rationale or references.
 `scripts/check_regression_capture_decisions.py` maps changed paths through
 `index.yml` `path_surface_routing` to known `trigger_surfaces` and reports
 likely missing capture decisions. With no path arguments, it checks local WIP
-and untracked files only. It is advisory until false positives are understood:
+and untracked files only. Before evaluating paths, it validates the routing
+metadata it depends on and exits with an error if the routing is missing or
+malformed. It is advisory until false positives are understood:
 
 ```bash
 python3 scripts/check_regression_capture_decisions.py

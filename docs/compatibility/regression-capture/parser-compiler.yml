@@ -68,6 +68,8 @@ captures:
     severity: P2
     current_tests:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_uses_path_surface_routing_from_index
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_is_missing
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_names_unknown_surface
       - tests/scripts/test_check_regression_capture.py::test_validator_rejects_invalid_path_surface_routing
     carryover_gates:
       - gate: parser_compiler_contract_carryover
@@ -80,8 +82,8 @@ captures:
     notes: >
       Path-to-surface routing belongs in regression-capture metadata, not in
       Python script constants. The advisory must load routing from `index.yml`,
-      and the hard metadata validator must reject routes that name unknown
-      trigger surfaces.
+      fail closed when that routing is missing or malformed, and the hard
+      metadata validator must reject routes that name unknown trigger surfaces.
   - id: regression-capture-decision-advisory-branch-wide-mode
     title: Regression-capture decision advisory has an explicit branch-wide mode
     area: parser-compiler

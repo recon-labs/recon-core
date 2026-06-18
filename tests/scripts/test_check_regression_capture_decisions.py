@@ -187,6 +187,84 @@ captures: []
     assert findings[0].paths == ("custom/runtime_policy.py",)
 
 
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+def test_advisory_fails_when_path_surface_routing_is_missing(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+    index_path = capture_root / "index.yml"
+    index_path.write_text(
+        index_path.read_text().replace(
+            "path_surface_routing:",
+            "missing_path_surface_routing:",
+            1,
+        )
+    )
+
+    result = script.main(
+        [
+            "--capture-root",
+            str(capture_root),
+            "--repo-root",
+            str(tmp_path),
+            "src/recon_core/services/run.py",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "path_surface_routing must be a mapping" in captured.err
+    assert "no missing decisions found" not in captured.out
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+def test_advisory_fails_when_path_surface_routing_names_unknown_surface(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+    index_path = capture_root / "index.yml"
+    index_path.write_text(
+        index_path.read_text().replace(
+            "        - adapter_runtime",
+            "        - missing_surface",
+            1,
+        )
+    )
+
+    result = script.main(
+        [
+            "--capture-root",
+            str(capture_root),
+            "--repo-root",
+            str(tmp_path),
+            "src/recon_core/services/run.py",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "unknown trigger surface 'missing_surface'" in captured.err
+    assert "no missing decisions found" not in captured.out
+
+
 @pytest.mark.regression_capture("regression-capture-decision-advisory-partial-surface-coverage")
 def test_advisory_reports_uncovered_surfaces_when_same_gate_has_existing_capture(
     tmp_path: Path,

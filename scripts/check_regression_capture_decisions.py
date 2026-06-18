@@ -8,6 +8,16 @@ from typing import Any, NamedTuple
 
 import yaml
 
+try:
+    import regression_capture_metadata as capture_metadata
+except ModuleNotFoundError:
+    from scripts import regression_capture_metadata as capture_metadata
+
+_as_list = capture_metadata.as_list
+_gate_trigger_surfaces = capture_metadata.gate_trigger_surfaces
+_normalize_surface = capture_metadata.normalize_surface
+_string_list = capture_metadata.string_list
+
 
 class Finding(NamedTuple):
     gate: str
@@ -21,11 +31,6 @@ class BaseRefResolutionError(Exception):
         self.base_ref = base_ref
 
 
-class PathSurfaceRouting(NamedTuple):
-    exact: dict[str, set[str]]
-    prefixes: tuple[tuple[str, set[str]], ...]
-
-
 def _load_yaml(path: Path) -> Any:
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -33,49 +38,7 @@ def _load_yaml(path: Path) -> Any:
         return None
 
 
-def _as_list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
-
-
-def _string_list(value: Any) -> list[str]:
-    return [item for item in _as_list(value) if isinstance(item, str) and item]
-
-
-def _normalize_surface(value: str) -> str:
-    return value.replace("-", "_")
-
-
-def _normalize_path(value: str) -> str:
-    return value.replace("\\", "/")
-
-
-def _path_surface_routing(index_data: dict[str, Any]) -> PathSurfaceRouting:
-    routing_data = index_data.get("path_surface_routing")
-    if not isinstance(routing_data, dict):
-        return PathSurfaceRouting(exact={}, prefixes=())
-
-    exact: dict[str, set[str]] = {}
-    for entry in _as_list(routing_data.get("exact")):
-        if not isinstance(entry, dict):
-            continue
-        path = entry.get("path")
-        surfaces = {_normalize_surface(surface) for surface in _string_list(entry.get("surfaces"))}
-        if isinstance(path, str) and path and surfaces:
-            exact[_normalize_path(path)] = surfaces
-
-    prefixes: list[tuple[str, set[str]]] = []
-    for entry in _as_list(routing_data.get("prefixes")):
-        if not isinstance(entry, dict):
-            continue
-        prefix = entry.get("prefix")
-        surfaces = {_normalize_surface(surface) for surface in _string_list(entry.get("surfaces"))}
-        if isinstance(prefix, str) and prefix and surfaces:
-            prefixes.append((_normalize_path(prefix), surfaces))
-
-    return PathSurfaceRouting(exact=exact, prefixes=tuple(prefixes))
-
-
-def surfaces_for_path(path: str, routing: PathSurfaceRouting) -> set[str]:
+def surfaces_for_path(path: str, routing: capture_metadata.PathSurfaceRouting) -> set[str]:
     normalized = path.replace("\\", "/")
     surfaces = set(routing.exact.get(normalized, set()))
     for prefix, prefix_surfaces in routing.prefixes:
@@ -96,22 +59,6 @@ def _capture_row_surfaces(row: dict[str, Any]) -> set[str]:
 def _load_index(capture_root: Path) -> dict[str, Any]:
     data = _load_yaml(capture_root / "index.yml")
     return data if isinstance(data, dict) else {}
-
-
-def _gate_trigger_surfaces(index_data: dict[str, Any]) -> dict[str, set[str]]:
-    gates = index_data.get("gates")
-    if not isinstance(gates, dict):
-        return {}
-
-    trigger_surfaces: dict[str, set[str]] = {}
-    for gate, gate_data in gates.items():
-        if not isinstance(gate, str) or not isinstance(gate_data, dict):
-            continue
-        trigger_surfaces[gate] = {
-            _normalize_surface(surface)
-            for surface in _string_list(gate_data.get("trigger_surfaces"))
-        }
-    return trigger_surfaces
 
 
 def _capture_files(index_data: dict[str, Any]) -> list[str]:
@@ -220,7 +167,10 @@ def evaluate(
     repo_root = repo_root or script_root
     capture_root = capture_root or repo_root / "docs" / "compatibility" / "regression-capture"
     index_data = _load_index(capture_root)
-    path_routing = _path_surface_routing(index_data)
+    path_routing = capture_metadata.parse_path_surface_routing(
+        index_data,
+        index_path=capture_root / "index.yml",
+    )
     gate_surfaces = _gate_trigger_surfaces(index_data)
     captured_surfaces = _captured_surfaces_by_gate(capture_root, index_data)
     not_required = _capture_not_required_decisions(decision_file)
@@ -319,12 +269,18 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
-    findings = evaluate(
-        changed_paths=changed_paths,
-        capture_root=args.capture_root,
-        repo_root=repo_root,
-        decision_file=args.decision_file,
-    )
+    try:
+        findings = evaluate(
+            changed_paths=changed_paths,
+            capture_root=args.capture_root,
+            repo_root=repo_root,
+            decision_file=args.decision_file,
+        )
+    except capture_metadata.RegressionCaptureMetadataError as exc:
+        print("Regression capture decision advisory metadata is invalid:", file=sys.stderr)
+        for error in exc.errors:
+            print(f"- {error}", file=sys.stderr)
+        return 1
     if findings:
         print("Regression capture decision advisory found potential missing decisions:")
         for finding in findings:

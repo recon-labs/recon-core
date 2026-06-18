@@ -8,6 +8,13 @@ from typing import Any
 
 import yaml
 
+try:
+    import regression_capture_metadata as capture_metadata
+except ModuleNotFoundError:
+    from scripts import regression_capture_metadata as capture_metadata
+
+_string_list = capture_metadata.string_list
+
 REQUIRED_CAPTURE_FIELDS = {
     "id",
     "title",
@@ -35,16 +42,6 @@ def _as_mapping(value: Any, path: Path, errors: list[str]) -> dict[str, Any] | N
         return value
     errors.append(f"{path}: expected YAML mapping")
     return None
-
-
-def _string_list(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [item for item in value if isinstance(item, str) and item]
-
-
-def _normalize_surface(value: str) -> str:
-    return value.replace("-", "_")
 
 
 def _strip_param_suffix(node_part: str) -> str:
@@ -298,47 +295,6 @@ def _validate_gate_entry(
             errors.append(f"{row_context}: status 'migrated' requires migrated_tests")
 
 
-def _validate_path_surface_routing(
-    index_data: dict[str, Any],
-    *,
-    index_path: Path,
-    known_trigger_surfaces: set[str],
-    errors: list[str],
-) -> None:
-    routing_data = index_data.get("path_surface_routing")
-    if not isinstance(routing_data, dict):
-        errors.append(f"{index_path}: path_surface_routing must be a mapping")
-        return
-
-    route_count = 0
-    for section, path_field in (("exact", "path"), ("prefixes", "prefix")):
-        entries = routing_data.get(section)
-        if not isinstance(entries, list):
-            errors.append(f"{index_path}: path_surface_routing.{section} must be a list")
-            continue
-        for index, entry in enumerate(entries):
-            route_context = f"{index_path}: path_surface_routing.{section}[{index}]"
-            if not isinstance(entry, dict):
-                errors.append(f"{route_context}: entry must be a mapping")
-                continue
-            route_path = entry.get(path_field)
-            if not isinstance(route_path, str) or not route_path:
-                errors.append(f"{route_context}: missing non-empty string '{path_field}'")
-            surfaces = {
-                _normalize_surface(surface) for surface in _string_list(entry.get("surfaces"))
-            }
-            if not surfaces:
-                errors.append(f"{route_context}: surfaces must be a non-empty string list")
-                continue
-            unknown_surfaces = surfaces - known_trigger_surfaces
-            for surface in sorted(unknown_surfaces):
-                errors.append(f"{route_context}: unknown trigger surface '{surface}'")
-            route_count += 1
-
-    if route_count == 0:
-        errors.append(f"{index_path}: path_surface_routing must define at least one route")
-
-
 def _validate_capture_row(
     row: Any,
     *,
@@ -421,22 +377,10 @@ def validate(
     if not isinstance(gates, dict) or not gates:
         errors.append(f"{index_path}: gates must be a non-empty mapping")
         known_gates: set[str] = set()
-        known_trigger_surfaces: set[str] = set()
     else:
         known_gates = {gate for gate in gates if isinstance(gate, str) and gate}
-        known_trigger_surfaces = {
-            _normalize_surface(surface)
-            for gate_data in gates.values()
-            if isinstance(gate_data, dict)
-            for surface in _string_list(gate_data.get("trigger_surfaces"))
-        }
 
-    _validate_path_surface_routing(
-        index_data,
-        index_path=index_path,
-        known_trigger_surfaces=known_trigger_surfaces,
-        errors=errors,
-    )
+    errors.extend(capture_metadata.validate_path_surface_routing(index_data, index_path=index_path))
 
     capture_file_entries = index_data.get("capture_files")
     if not isinstance(capture_file_entries, list) or not capture_file_entries:
