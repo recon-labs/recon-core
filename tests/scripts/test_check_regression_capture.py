@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -8,12 +9,18 @@ import pytest
 
 
 def load_script() -> ModuleType:
-    script_path = Path(__file__).resolve().parents[2] / "scripts" / "check_regression_capture.py"
+    script_dir = Path(__file__).resolve().parents[2] / "scripts"
+    script_path = script_dir / "check_regression_capture.py"
     spec = importlib.util.spec_from_file_location("check_regression_capture", script_path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(script_dir))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_sys_path
     return module
 
 

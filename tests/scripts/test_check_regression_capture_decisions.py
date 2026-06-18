@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from subprocess import CompletedProcess
 from types import ModuleType
@@ -9,14 +10,18 @@ import pytest
 
 
 def load_script() -> ModuleType:
-    script_path = (
-        Path(__file__).resolve().parents[2] / "scripts" / "check_regression_capture_decisions.py"
-    )
+    script_dir = Path(__file__).resolve().parents[2] / "scripts"
+    script_path = script_dir / "check_regression_capture_decisions.py"
     spec = importlib.util.spec_from_file_location("check_regression_capture_decisions", script_path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(script_dir))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_sys_path
     return module
 
 
@@ -232,7 +237,7 @@ captures: []
 @pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
 def test_advisory_fails_when_path_surface_routing_is_missing(
     tmp_path: Path,
-    capsys,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     script = load_script()
     capture_root = write_capture_project(
@@ -271,7 +276,7 @@ captures: []
 @pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
 def test_advisory_fails_when_path_surface_routing_names_unknown_surface(
     tmp_path: Path,
-    capsys,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     script = load_script()
     capture_root = write_capture_project(
@@ -381,7 +386,7 @@ capture_not_required:
     assert findings == []
 
 
-def test_main_is_advisory_by_default(tmp_path: Path, capsys) -> None:
+def test_main_is_advisory_by_default(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     script = load_script()
     capture_root = write_capture_project(
         tmp_path,
@@ -481,7 +486,7 @@ def test_changed_paths_from_git_includes_branch_diff_when_base_ref_is_set(
 def test_main_base_ref_uses_branch_wide_changed_paths(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     script = load_script()
     capture_root = write_capture_project(
@@ -519,7 +524,7 @@ captures: []
 def test_main_base_ref_fails_when_ref_cannot_be_resolved(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     script = load_script()
     capture_root = write_capture_project(

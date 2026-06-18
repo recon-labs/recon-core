@@ -6,12 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import regression_capture_metadata as capture_metadata
 import yaml
-
-try:
-    import regression_capture_metadata as capture_metadata
-except ModuleNotFoundError:
-    from scripts import regression_capture_metadata as capture_metadata
 
 _string_list = capture_metadata.string_list
 

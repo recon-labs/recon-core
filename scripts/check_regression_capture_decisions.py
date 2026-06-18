@@ -6,12 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any, NamedTuple
 
+import regression_capture_metadata as capture_metadata
 import yaml
-
-try:
-    import regression_capture_metadata as capture_metadata
-except ModuleNotFoundError:
-    from scripts import regression_capture_metadata as capture_metadata
 
 _as_list = capture_metadata.as_list
 _gate_trigger_surfaces = capture_metadata.gate_trigger_surfaces
