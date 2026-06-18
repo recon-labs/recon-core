@@ -86,6 +86,15 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: scripts/check_regression_capture.py
+      surfaces:
+        - regression_capture_metadata
+    - path: scripts/check_regression_capture_decisions.py
+      surfaces:
+        - regression_capture_metadata
+    - path: scripts/regression_capture_metadata.py
+      surfaces:
+        - regression_capture_metadata
     - path: src/recon_core/services/run.py
       surfaces:
         - adapter_runtime
@@ -111,6 +120,9 @@ path_surface_routing:
       surfaces:
         - adapter_api
         - adapter_capabilities
+    - prefix: tests/scripts/
+      surfaces:
+        - regression_capture_metadata
 gates:
   artifact_publication_carryover:
     primary_milestone: runner_and_results
@@ -149,6 +161,7 @@ gates:
     trigger_surfaces:
       - contract_yaml
       - parser
+      - regression_capture_metadata
       - typed_check_plan
 """.lstrip()
     )
@@ -402,6 +415,43 @@ captures: []
     assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
         expected_surfaces_by_gate, (changed_path,)
     )
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    "changed_path",
+    [
+        "scripts/check_regression_capture.py",
+        "scripts/check_regression_capture_decisions.py",
+        "scripts/regression_capture_metadata.py",
+        "tests/scripts/test_check_regression_capture.py",
+        "tests/scripts/test_check_regression_capture_decisions.py",
+    ],
+)
+def test_advisory_maps_regression_capture_tooling_to_metadata_surface(
+    tmp_path: Path,
+    changed_path: str,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "parser_compiler_contract_carryover"
+    assert findings[0].surfaces == ("regression_capture_metadata",)
+    assert findings[0].paths == (changed_path,)
 
 
 @pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")

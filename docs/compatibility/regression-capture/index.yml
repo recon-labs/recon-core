@@ -60,6 +60,15 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: scripts/check_regression_capture.py
+      surfaces:
+        - regression_capture_metadata
+    - path: scripts/check_regression_capture_decisions.py
+      surfaces:
+        - regression_capture_metadata
+    - path: scripts/regression_capture_metadata.py
+      surfaces:
+        - regression_capture_metadata
     - path: src/recon_core/services/run.py
       surfaces:
         - adapter_runtime
@@ -136,6 +145,9 @@ path_surface_routing:
     - prefix: tests/evidence
       surfaces:
         - evidence
+    - prefix: tests/scripts/
+      surfaces:
+        - regression_capture_metadata
 gates:
   adapter_testkit_regression_carryover:
     primary_milestone: adapter_test_kit_and_package_split
@@ -238,5 +250,6 @@ gates:
       - compiler
       - contract_yaml
       - check_packs
+      - regression_capture_metadata
       - typed_check_plan
       - validation_defaults

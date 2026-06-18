@@ -95,6 +95,7 @@ captures:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_yaml_and_profile_modules_to_carryover_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_compiled_artifact_schema_modules_to_carryover_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_runtime_safety_modules_to_scan_safety_surface
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_tooling_to_metadata_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_is_missing
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_names_unknown_surface
       - tests/scripts/test_check_regression_capture.py::test_validator_rejects_invalid_path_surface_routing
@@ -111,9 +112,9 @@ captures:
       Python script constants. The advisory must load routing from `index.yml`,
       fail closed when that routing is missing or malformed, and the hard
       metadata validator must reject routes that name unknown trigger surfaces.
-      Runtime safety and scan-guard paths must route to scan-safety carryover
-      so future scan-safety behavior changes cannot fall through to generic
-      adapter API/capability surfaces only.
+      Runtime safety and scan-guard paths must route to scan-safety carryover,
+      and regression-capture tooling paths must route to metadata carryover, so
+      future changes cannot fall through to unrelated or missing surfaces.
   - id: regression-capture-decision-advisory-branch-wide-mode
     title: Regression-capture decision advisory has an explicit branch-wide mode
     area: parser-compiler
