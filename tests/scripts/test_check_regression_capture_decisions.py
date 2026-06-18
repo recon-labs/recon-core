@@ -41,8 +41,43 @@ capture_files:
   - path: adapter-runtime.yml
     area: adapter-runtime
     description: Adapter runtime captures.
+  - path: parser-compiler.yml
+    area: parser-compiler
+    description: Parser and compiler captures.
+  - path: diagnostics-privacy.yml
+    area: diagnostics-privacy
+    description: Diagnostic privacy captures.
+  - path: artifacts.yml
+    area: artifacts
+    description: Artifact captures.
 path_surface_routing:
   exact:
+    - path: src/recon_core/_yaml.py
+      surfaces:
+        - artifact_lifecycle
+        - contract_yaml
+        - diagnostics
+        - generated_artifacts
+        - parser
+        - profile_secrets
+        - redaction
+        - source_target_privacy
+    - path: src/recon_core/config/project_config.py
+      surfaces:
+        - diagnostics
+        - redaction
+    - path: src/recon_core/parser/yaml_loader.py
+      surfaces:
+        - contract_yaml
+        - diagnostics
+        - parser
+        - redaction
+        - source_target_privacy
+    - path: src/recon_core/profiles/loader.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: src/recon_core/services/run.py
       surfaces:
         - adapter_runtime
@@ -69,6 +104,24 @@ path_surface_routing:
         - adapter_api
         - adapter_capabilities
 gates:
+  artifact_publication_carryover:
+    primary_milestone: runner_and_results
+    primary_milestone_title: Runner and results
+    applies_to:
+      - any generated artifact writer or cleanup surface
+    trigger_surfaces:
+      - artifact_lifecycle
+      - generated_artifacts
+  diagnostics_privacy_carryover:
+    primary_milestone: runner_and_results
+    primary_milestone_title: Runner and results
+    applies_to:
+      - any diagnostic, log, failure-detail, evidence, or debug surface
+    trigger_surfaces:
+      - diagnostics
+      - profile_secrets
+      - redaction
+      - source_target_privacy
   adapter_testkit_regression_carryover:
     primary_milestone: adapter_test_kit_and_package_split
     primary_milestone_title: Adapter test kit and adapter package split
@@ -80,9 +133,26 @@ gates:
       - adapter_capabilities
       - sql_rendering
       - scan_safety
+  parser_compiler_contract_carryover:
+    primary_milestone: aggregate_metrics_expansion
+    primary_milestone_title: Aggregate metrics expansion
+    applies_to:
+      - any YAML schema, validation default, check-pack expansion, or typed-plan change
+    trigger_surfaces:
+      - contract_yaml
+      - parser
 """.lstrip()
     )
     (capture_root / "adapter-runtime.yml").write_text(capture_body)
+    (capture_root / "artifacts.yml").write_text(
+        "schema_version: 1\narea: artifacts\ncaptures: []\n"
+    )
+    (capture_root / "diagnostics-privacy.yml").write_text(
+        "schema_version: 1\narea: diagnostics-privacy\ncaptures: []\n"
+    )
+    (capture_root / "parser-compiler.yml").write_text(
+        "schema_version: 1\narea: parser-compiler\ncaptures: []\n"
+    )
     return capture_root
 
 
@@ -195,6 +265,85 @@ captures: []
     assert findings[0].gate == "adapter_testkit_regression_carryover"
     assert "scan_safety" in findings[0].surfaces
     assert findings[0].paths == (changed_path,)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/_yaml.py",
+            {
+                "artifact_publication_carryover": (
+                    "artifact_lifecycle",
+                    "generated_artifacts",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                    "source_target_privacy",
+                ),
+                "parser_compiler_contract_carryover": ("contract_yaml", "parser"),
+            },
+        ),
+        (
+            "src/recon_core/config/project_config.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/parser/yaml_loader.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "redaction",
+                    "source_target_privacy",
+                ),
+                "parser_compiler_contract_carryover": ("contract_yaml", "parser"),
+            },
+        ),
+        (
+            "src/recon_core/profiles/loader.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_yaml_and_profile_modules_to_carryover_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate, (changed_path,)
+    )
 
 
 @pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")

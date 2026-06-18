@@ -670,6 +670,8 @@ profiles:
     assert "lower" not in diagnostic_text
 
 
+@pytest.mark.regression_capture("yaml-diagnostic-redaction")
+@pytest.mark.regression_capture("yaml-profile-and-source-privacy")
 def test_load_selected_profile_sanitizes_invalid_yaml_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -706,6 +708,8 @@ profiles:
     assert "password" not in diagnostic_text
 
 
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
+@pytest.mark.regression_capture("yaml-profile-and-source-privacy")
 def test_load_selected_profile_rejects_duplicate_yaml_keys_without_leak(
     tmp_path: Path,
 ) -> None:
@@ -746,6 +750,8 @@ profiles:
     assert "prod-secret" not in diagnostic_text
 
 
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
+@pytest.mark.regression_capture("yaml-profile-and-source-privacy")
 def test_load_selected_profile_rejects_unhashable_yaml_mapping_key_without_leak(
     tmp_path: Path,
 ) -> None:

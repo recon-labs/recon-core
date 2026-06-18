@@ -26,6 +26,32 @@ capture_files:
     description: Parser, compiler, contract YAML, check-pack, typed-plan, and validation-default behavior.
 path_surface_routing:
   exact:
+    - path: src/recon_core/_yaml.py
+      surfaces:
+        - artifact_lifecycle
+        - contract_yaml
+        - diagnostics
+        - generated_artifacts
+        - parser
+        - profile_secrets
+        - redaction
+        - source_target_privacy
+    - path: src/recon_core/config/project_config.py
+      surfaces:
+        - diagnostics
+        - redaction
+    - path: src/recon_core/parser/yaml_loader.py
+      surfaces:
+        - contract_yaml
+        - diagnostics
+        - parser
+        - redaction
+        - source_target_privacy
+    - path: src/recon_core/profiles/loader.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: src/recon_core/services/run.py
       surfaces:
         - adapter_runtime
@@ -148,6 +174,7 @@ gates:
       - any diagnostic, log, failure-detail, evidence, or debug surface
     trigger_surfaces:
       - diagnostics
+      - profile_secrets
       - redaction
       - source_target_privacy
       - adapter_diagnostics

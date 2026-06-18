@@ -1,3 +1,48 @@
 schema_version: 1
 area: diagnostics-privacy
-captures: []
+captures:
+  - id: yaml-diagnostic-redaction
+    title: YAML diagnostics use safe summaries instead of raw parser text
+    area: diagnostics-privacy
+    bug_class: diagnostics
+    owner_surface: redaction
+    severity: P2
+    current_tests:
+      - tests/parser/test_yaml_loader.py::test_load_yaml_text_reports_invalid_yaml
+      - tests/config/test_project_config.py::test_load_project_config_reports_invalid_yaml
+      - tests/profiles/test_loader.py::test_load_selected_profile_sanitizes_invalid_yaml_diagnostics
+    carryover_gates:
+      - gate: diagnostics_privacy_carryover
+        status: pending
+        expected_suite: diagnostic_sanitization
+    requirement_refs:
+      - docs/implementation/errors-and-diagnostics.md: Low-level exception diagnostic sanitization
+      - docs/compatibility/public-contract-inventory.md: Low-level exception diagnostic sanitization
+    notes: >
+      YAML parse failures can include authored snippets. Parser, project
+      config, and profile YAML diagnostics must preserve safe summaries instead
+      of exposing raw parser exception text.
+  - id: yaml-profile-and-source-privacy
+    title: YAML diagnostics protect profile secrets and source-target text
+    area: diagnostics-privacy
+    bug_class: profile_secrets
+    owner_surface: source_target_privacy
+    severity: P2
+    current_tests:
+      - tests/parser/test_yaml_loader.py::test_load_yaml_text_reports_invalid_yaml
+      - tests/profiles/test_loader.py::test_load_selected_profile_sanitizes_invalid_yaml_diagnostics
+      - tests/profiles/test_loader.py::test_load_selected_profile_rejects_duplicate_yaml_keys_without_leak
+      - tests/profiles/test_loader.py::test_load_selected_profile_rejects_unhashable_yaml_mapping_key_without_leak
+    carryover_gates:
+      - gate: diagnostics_privacy_carryover
+        status: pending
+        expected_suite: diagnostic_sanitization
+    requirement_refs:
+      - docs/implementation/errors-and-diagnostics.md: Parse diagnostics
+      - docs/implementation/errors-and-diagnostics.md: Configuration diagnostics
+      - docs/compatibility/public-contract-inventory.md: Profile and secret handling
+    notes: >
+      Resource YAML can contain source/target query text, and profile YAML can
+      contain credentials or rendered values. Duplicate-key and invalid-key
+      protections must not leak authored keys, profile targets, credentials, or
+      source/target snippets through diagnostics.

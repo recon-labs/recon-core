@@ -1,6 +1,30 @@
 schema_version: 1
 area: parser-compiler
 captures:
+  - id: yaml-loader-duplicate-key-protection
+    title: YAML loading rejects duplicate and unsupported mapping keys
+    area: parser-compiler
+    bug_class: contract_yaml
+    owner_surface: parser
+    severity: P2
+    current_tests:
+      - tests/parser/test_yaml_loader.py::test_load_yaml_text_reports_duplicate_yaml_keys
+      - tests/parser/test_yaml_loader.py::test_load_yaml_text_reports_unhashable_mapping_keys
+      - tests/config/test_project_config.py::test_load_project_config_reports_duplicate_yaml_keys
+      - tests/config/test_project_config.py::test_load_project_config_reports_unhashable_yaml_mapping_key
+      - tests/profiles/test_loader.py::test_load_selected_profile_rejects_duplicate_yaml_keys_without_leak
+      - tests/profiles/test_loader.py::test_load_selected_profile_rejects_unhashable_yaml_mapping_key_without_leak
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: yaml_loading
+    requirement_refs:
+      - docs/implementation/errors-and-diagnostics.md: Parse diagnostics
+      - docs/implementation/errors-and-diagnostics.md: Configuration diagnostics
+    notes: >
+      Shared YAML-loader refactors must preserve duplicate-key rejection and
+      unsupported mapping-key rejection across resource, project config, and
+      profile YAML without changing public parser/config diagnostic ownership.
   - id: regression-capture-orphan-marker-guard
     title: Regression-capture markers require matching capture metadata
     area: parser-compiler
@@ -68,6 +92,7 @@ captures:
     severity: P2
     current_tests:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_uses_path_surface_routing_from_index
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_yaml_and_profile_modules_to_carryover_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_runtime_safety_modules_to_scan_safety_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_is_missing
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_names_unknown_surface
