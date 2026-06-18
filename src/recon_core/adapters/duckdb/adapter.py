@@ -9,7 +9,11 @@ from typing import Any
 from recon_core._version import get_version
 from recon_core.adapters.base import BaseAdapter, SqlRenderer
 from recon_core.adapters.capabilities import AdapterCapabilities, CapabilitySupport
-from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
+from recon_core.adapters.lifecycle import (
+    ADAPTER_CLOSE_FAILED,
+    ADAPTER_CONNECTION_FAILED,
+    ADAPTER_QUERY_FAILED,
+)
 from recon_core.adapters.models import (
     ADAPTER_API_VERSION,
     AdapterResolutionResult,
@@ -22,7 +26,6 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
 
 ADAPTER_DEPENDENCY_MISSING = "RC_ADAPTER_DEPENDENCY_MISSING"
-ADAPTER_QUERY_FAILED = "RC_ADAPTER_QUERY_FAILED"
 
 
 class AdapterLifecycleError(RuntimeError):

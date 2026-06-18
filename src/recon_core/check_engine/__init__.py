@@ -16,10 +16,12 @@ from recon_core.check_engine.engine import (
     CheckExecutionContext,
 )
 from recon_core.check_engine.execution import (
-    ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
     ROW_COUNT_RESULT_INVALID,
     execute_row_count_check,
     is_supported_row_count_plan_shape,
+)
+from recon_core.check_engine.execution_support import (
+    ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
 )
 from recon_core.check_engine.models import (
     CheckReason,
