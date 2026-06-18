@@ -159,8 +159,8 @@ must remain blockers.
 Adapters should register by connection type.
 
 ```python
-registry.register("postgres", PostgresAdapter)
-registry.register("snowflake", SnowflakeAdapter)
+registry.register("postgres", PostgresAdapterFactory())
+registry.register("snowflake", SnowflakeAdapterFactory())
 registry.register("duckdb", DuckDbAdapterFactory())
 ```
 
