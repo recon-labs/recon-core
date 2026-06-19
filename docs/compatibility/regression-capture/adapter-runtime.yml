@@ -9,6 +9,7 @@ captures:
     severity: P2
     current_tests:
       - tests/services/test_run_service.py::test_run_service_blocks_key_safety_same_context_duckdb_without_local_fixture
+      - tests/services/test_run_service.py::test_run_service_scan_safety_blocks_key_safety_with_full_capabilities
       - tests/services/test_run_service.py::test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture
     carryover_gates:
       - gate: adapter_testkit_regression_carryover

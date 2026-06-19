@@ -1511,6 +1511,50 @@ profiles:
 
 
 @pytest.mark.regression_capture("hidden-bounded-local-fixture-marker-removed")
+def test_run_service_scan_safety_blocks_key_safety_with_full_capabilities(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_key_safety_check_payload()])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory(
+        capabilities=AdapterCapabilities(
+            {
+                "key_diff": CapabilitySupport.FULL,
+                "null_key": CapabilitySupport.FULL,
+                "duplicate_key": CapabilitySupport.FULL,
+                "cte_support": CapabilitySupport.FULL,
+            }
+        ),
+        connect_error=RuntimeError("opened adapter before scan safety allowed execution"),
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("hidden-bounded-local-fixture-marker-removed")
 def test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture(
     tmp_path: Path,
 ) -> None:
@@ -2132,6 +2176,79 @@ profiles:
     assert adapter.connect_count == 1
     assert adapter.close_count == 1
     assert len(adapter.queries) == 1
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_service_keeps_aggregate_not_executable_with_full_capability(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(
+                check_id="check.ecommerce_recon.customer_revenue.sum_diff",
+                name="sum_diff",
+                check_type="sum_diff",
+                operations=[
+                    {
+                        "type": "aggregate",
+                        "side": "source",
+                        "aggregate": "sum",
+                        "column": "revenue",
+                    },
+                    {
+                        "type": "aggregate",
+                        "side": "target",
+                        "aggregate": "sum",
+                        "column": "revenue",
+                    },
+                    {"type": "compare_aggregates"},
+                ],
+                required_capabilities=["aggregate", "cte_support"],
+            )
+        ],
+    )
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory(
+        capabilities=AdapterCapabilities(
+            {
+                "aggregate": CapabilitySupport.FULL,
+                "cte_support": CapabilitySupport.FULL,
+                "row_count": CapabilitySupport.FULL,
+                "key_diff": CapabilitySupport.FULL,
+                "null_key": CapabilitySupport.FULL,
+                "duplicate_key": CapabilitySupport.FULL,
+            }
+        ),
+        connect_error=RuntimeError("opened aggregate adapter before runtime phase exists"),
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
+    ]
+    assert "aggregate" in result.diagnostics[0].message
+    assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 
