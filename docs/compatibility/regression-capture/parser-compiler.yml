@@ -95,6 +95,7 @@ captures:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_yaml_and_profile_modules_to_carryover_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_compiled_artifact_schema_modules_to_carryover_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_runtime_safety_modules_to_scan_safety_surface
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_duckdb_renderer_modules_to_sql_rendering_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_tooling_to_metadata_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_metadata_files_to_metadata_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_is_missing

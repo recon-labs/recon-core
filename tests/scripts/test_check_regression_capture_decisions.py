@@ -119,6 +119,14 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - adapter_capabilities
+    - path: src/recon_core/adapters/duckdb/renderer.py
+      surfaces:
+        - sql_rendering
+    - path: src/recon_core/adapters/duckdb/renderer_operations.py
+      surfaces:
+        - sql_rendering
+    - path: src/recon_core/adapters/duckdb/renderer_sql.py
+      surfaces:
         - sql_rendering
     - path: tests/profiles/test_connection_references.py
       surfaces:
@@ -299,6 +307,41 @@ captures: []
     assert len(findings) == 1
     assert findings[0].gate == "adapter_testkit_regression_carryover"
     assert "scan_safety" in findings[0].surfaces
+    assert findings[0].paths == (changed_path,)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    "changed_path",
+    [
+        "src/recon_core/adapters/duckdb/renderer.py",
+        "src/recon_core/adapters/duckdb/renderer_operations.py",
+        "src/recon_core/adapters/duckdb/renderer_sql.py",
+    ],
+)
+def test_advisory_maps_duckdb_renderer_modules_to_sql_rendering_surface(
+    tmp_path: Path,
+    changed_path: str,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities", "sql_rendering")
     assert findings[0].paths == (changed_path,)
 
 
@@ -672,7 +715,7 @@ captures:
 
     assert len(findings) == 1
     assert findings[0].gate == "adapter_testkit_regression_carryover"
-    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities", "sql_rendering")
+    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities")
     assert findings[0].paths == ("src/recon_core/adapters/duckdb/adapter.py",)
 
 

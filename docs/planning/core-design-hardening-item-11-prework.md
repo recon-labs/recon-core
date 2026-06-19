@@ -331,7 +331,12 @@ A local DuckDB renderer test pass is insufficient if the implementation still:
 Applicable regression-capture routing:
 
 - `src/recon_core/adapters/duckdb/adapter.py` maps to `adapter_runtime`,
-  `adapter_capabilities`, and `sql_rendering`.
+  `adapter_capabilities`, and the generic adapter API/capability prefix.
+- The split DuckDB renderer modules map to `sql_rendering` plus the generic
+  adapter API/capability prefix:
+  - `src/recon_core/adapters/duckdb/renderer.py`,
+  - `src/recon_core/adapters/duckdb/renderer_operations.py`,
+  - `src/recon_core/adapters/duckdb/renderer_sql.py`.
 - `tests/adapters/test_duckdb_sql_renderer.py` maps to `sql_rendering`.
 - The matching carryover gate is `adapter_testkit_regression_carryover`.
 - Matching current rows include:
