@@ -7,6 +7,8 @@ from typing import Any
 import pytest
 import yaml
 
+import recon_core.adapters as adapters_module
+import recon_core.adapters.default_renderers as default_renderers_module
 import recon_core.adapters.duckdb.runtime_scan_guard as duckdb_scan_guard_module
 import recon_core.services.run as run_service_module
 from recon_core.adapters import (
@@ -43,6 +45,32 @@ BOUNDED_LOCAL_SCAN_ALLOWED = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED"
 BOUNDED_LOCAL_SCAN_REQUIRED = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
 
 
+def _imported_modules_from(module_file: str | None) -> set[str]:
+    assert module_file is not None
+    source = Path(module_file).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imported_modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            imported_modules.add(node.module)
+    return imported_modules
+
+
+def _top_level_imported_modules_from(module_file: str | None) -> set[str]:
+    assert module_file is not None
+    source = Path(module_file).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imported_modules: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            imported_modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            imported_modules.add(node.module)
+    return imported_modules
+
+
 def write_bounded_local_duckdb_fixture(
     path: Path,
     database_name: str = "warehouse.duckdb",
@@ -56,17 +84,56 @@ def write_bounded_local_duckdb_fixture(
 
 
 def test_run_service_uses_neutral_runtime_safety_boundary() -> None:
-    source = Path(run_service_module.__file__).read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    imported_modules: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            imported_modules.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
-            imported_modules.add(node.module)
+    imported_modules = _imported_modules_from(run_service_module.__file__)
 
     assert not any(module.startswith("recon_core.adapters.duckdb") for module in imported_modules)
+    assert "recon_core.adapters.default_renderers" in imported_modules
     assert "recon_core.adapters.runtime_safety" in imported_modules
+
+
+def test_default_runtime_renderer_helper_stays_internal_and_lazy() -> None:
+    imported_modules = _top_level_imported_modules_from(default_renderers_module.__file__)
+
+    assert "default_runtime_renderers_by_adapter_type" not in adapters_module.__all__
+    assert not any(module.startswith("recon_core.adapters.duckdb") for module in imported_modules)
+
+
+def test_run_service_provides_default_duckdb_renderer_in_execution_context(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: duckdb
+            database: warehouse.duckdb
+""",
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(tmp_path)
+    registry = AdapterRegistry()
+    registry.register("duckdb", RecordingDuckDbFactory())
+    engine = _CapturingPassEngine()
+
+    result = RunService(
+        start_path=tmp_path,
+        adapter_registry=registry,
+        engine=engine,
+    ).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.execution_context is not None
+    renderer = engine.execution_context.renderers_by_adapter_type.get("duckdb")
+    assert renderer is not None
+    assert getattr(renderer, "adapter_type", None) == "duckdb"
+    _assert_no_runtime_outputs(tmp_path)
 
 
 def test_run_service_reports_missing_compiled_artifacts(tmp_path: Path) -> None:
@@ -2951,6 +3018,44 @@ class _FailingEngine:
             executed=True,
             source_value=10,
             target_value=11,
+        )
+        contract_result = ContractResult.from_check_results(
+            contract_name="customer_revenue",
+            check_results=(check_result,),
+        )
+        return RunResult.from_contract_results(
+            run_id=run_id,
+            project_name=project_name or artifacts[0].project_name,
+            started_at=started_at,
+            finished_at=finished_at,
+            contract_results=(contract_result,),
+        )
+
+
+class _CapturingPassEngine:
+    def __init__(self) -> None:
+        self.execution_context: CheckExecutionContext | None = None
+
+    def run(
+        self,
+        artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+        *,
+        run_id: str,
+        started_at: str,
+        finished_at: str,
+        project_name: str | None = None,
+        execution_context: CheckExecutionContext | None = None,
+    ) -> RunResult:
+        self.execution_context = execution_context
+        check_result = CheckResult(
+            check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+            name="row_count_diff",
+            check_type="row_count_diff",
+            contract_name="customer_revenue",
+            status=CheckStatus.PASS,
+            executed=True,
+            source_value=10,
+            target_value=10,
         )
         contract_result = ContractResult.from_check_results(
             contract_name="customer_revenue",

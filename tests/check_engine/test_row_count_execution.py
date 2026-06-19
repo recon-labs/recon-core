@@ -1,9 +1,12 @@
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
+    ADAPTER_RENDERER_METADATA_INVALID,
     AdapterCapabilities,
     BaseAdapter,
     CapabilitySupport,
@@ -11,8 +14,13 @@ from recon_core.adapters import (
     ConnectionConfig,
     QueryResult,
     Relation,
+    RenderedSql,
 )
-from recon_core.adapters.duckdb import ADAPTER_QUERY_FAILED, AdapterLifecycleError
+from recon_core.adapters.duckdb import (
+    ADAPTER_QUERY_FAILED,
+    AdapterLifecycleError,
+    DuckDbSqlRenderer,
+)
 from recon_core.artifacts import (
     LoadedCheckPlan,
     LoadedCompiledCheck,
@@ -32,7 +40,12 @@ def test_execute_row_count_check_passes_with_equal_counts() -> None:
         )
     )
 
-    result = execute_row_count_check(_row_count_check(), _contract(), adapter)
+    result = execute_row_count_check(
+        _row_count_check(),
+        _contract(),
+        adapter,
+        renderer=_duckdb_renderer(),
+    )
 
     assert result.status is CheckStatus.PASS
     assert result.executed
@@ -59,7 +72,12 @@ def test_execute_row_count_check_fails_with_unequal_counts() -> None:
         )
     )
 
-    result = execute_row_count_check(_row_count_check(), _contract(), adapter)
+    result = execute_row_count_check(
+        _row_count_check(),
+        _contract(),
+        adapter,
+        renderer=_duckdb_renderer(),
+    )
 
     assert result.status is CheckStatus.FAIL
     assert result.executed
@@ -91,6 +109,7 @@ def test_execute_row_count_check_allows_explicit_no_materialization_policy() -> 
         ),
         _contract(),
         adapter,
+        renderer=_duckdb_renderer(),
     )
 
     assert result.status is CheckStatus.PASS
@@ -131,7 +150,12 @@ def test_execute_row_count_check_allows_explicit_no_materialization_policy() -> 
 def test_execute_row_count_check_reports_malformed_result_shape(query_result: QueryResult) -> None:
     adapter = RecordingAdapter(result=query_result)
 
-    result = execute_row_count_check(_row_count_check(), _contract(), adapter)
+    result = execute_row_count_check(
+        _row_count_check(),
+        _contract(),
+        adapter,
+        renderer=_duckdb_renderer(),
+    )
 
     assert result.status is CheckStatus.ERROR
     assert not result.executed
@@ -161,7 +185,12 @@ def test_execute_row_count_check_preserves_sanitized_adapter_query_error() -> No
         )
     )
 
-    result = execute_row_count_check(_row_count_check(), _contract(), adapter)
+    result = execute_row_count_check(
+        _row_count_check(),
+        _contract(),
+        adapter,
+        renderer=_duckdb_renderer(),
+    )
 
     assert result.status is CheckStatus.ERROR
     assert not result.executed
@@ -194,7 +223,12 @@ def test_execute_row_count_check_suppresses_leaky_adapter_query_diagnostic() -> 
         ),
     )
 
-    result = execute_row_count_check(_row_count_check(), _contract(), adapter)
+    result = execute_row_count_check(
+        _row_count_check(),
+        _contract(),
+        adapter,
+        renderer=_duckdb_renderer(),
+    )
 
     diagnostic_text = _diagnostic_text(result.diagnostics)
 
@@ -220,6 +254,7 @@ def test_execute_row_count_check_allows_same_context_connection_aliases() -> Non
         _row_count_check(),
         _contract(source_connection="warehouse", target_connection="replica"),
         adapter,
+        renderer=_duckdb_renderer(),
         connections_by_name={
             "warehouse": connection,
             "replica": ConnectionConfig(
@@ -233,6 +268,55 @@ def test_execute_row_count_check_allows_same_context_connection_aliases() -> Non
     assert result.status is CheckStatus.PASS
     assert result.executed
     assert len(adapter.queries) == 1
+
+
+def test_execute_row_count_check_requires_explicit_renderer_before_adapter_query() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_row_count_check(_row_count_check(), _contract(), adapter)
+
+    assert result.status is CheckStatus.ERROR
+    assert not result.executed
+    assert result.reason_code is None
+    assert result.diagnostics[-1].code == ADAPTER_RENDERER_METADATA_INVALID
+    assert "source_customers" not in _diagnostic_text(result.diagnostics)
+    assert "target_customers" not in _diagnostic_text(result.diagnostics)
+    assert adapter.queries == []
+
+
+def test_execute_row_count_check_blocks_mismatched_renderer_before_rendering_and_query() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_row_count_check(
+        _row_count_check(),
+        _contract(),
+        adapter,
+        renderer=MismatchedRenderer(),
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.reason_code is CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT
+    assert result.diagnostics[-1].code == "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT"
+    assert adapter.queries == []
+
+
+def test_execute_row_count_check_blocks_raising_renderer_metadata_before_query() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_row_count_check(
+        _row_count_check(),
+        _contract(),
+        adapter,
+        renderer=RaisingRendererMetadata(),
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.reason_code is CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT
+    assert result.diagnostics[-1].code == "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT"
+    assert "super-secret renderer metadata" not in _diagnostic_text(result.diagnostics)
+    assert adapter.queries == []
 
 
 def test_execute_row_count_check_blocks_other_check_types_before_adapter_execution() -> None:
@@ -402,6 +486,34 @@ class RecordingAdapter(BaseAdapter):
         )
 
 
+class MismatchedRenderer(DuckDbSqlRenderer):
+    adapter_type = "warehouse"
+
+    def render_plan(
+        self,
+        operations: tuple[Mapping[str, Any], ...],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> tuple[RenderedSql, ...]:
+        raise AssertionError("render_plan should not run for mismatched renderers")
+
+
+class RaisingRendererMetadata(DuckDbSqlRenderer):
+    @property
+    def adapter_type(self) -> str:
+        raise RuntimeError("super-secret renderer metadata")
+
+    def render_plan(
+        self,
+        operations: tuple[Mapping[str, Any], ...],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> tuple[RenderedSql, ...]:
+        raise AssertionError("render_plan should not run for malformed renderer metadata")
+
+
 def _row_count_check(
     *,
     check_type: str = "row_count_diff",
@@ -453,6 +565,10 @@ def _contract(
             query=target_query,
         ),
     )
+
+
+def _duckdb_renderer() -> DuckDbSqlRenderer:
+    return DuckDbSqlRenderer()
 
 
 def _diagnostic_text(diagnostics: tuple[Diagnostic, ...]) -> str:

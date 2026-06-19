@@ -8,7 +8,10 @@ from typing import Any
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
 from recon_core.adapters.lifecycle import ADAPTER_QUERY_FAILED
 from recon_core.adapters.models import Relation
-from recon_core.adapters.rendering import ADAPTER_INVALID_RELATION
+from recon_core.adapters.rendering import (
+    ADAPTER_INVALID_RELATION,
+    ADAPTER_RENDERER_METADATA_INVALID,
+)
 from recon_core.artifacts.compiled_check_loader import LoadedCompiledCheck
 from recon_core.artifacts.compiled_contract_loader import LoadedCompiledContractArtifact
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
@@ -114,6 +117,28 @@ def error_result(
         message=message,
         diagnostics=check.diagnostics + contract.diagnostics + diagnostics,
     )
+
+
+def missing_sql_renderer_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    *,
+    execution_label: str,
+) -> CheckResult:
+    """Return a standard error result for missing explicit SQL renderer wiring."""
+    message = f"{execution_label} execution requires an explicit SQL renderer."
+    diagnostic = Diagnostic(
+        code=ADAPTER_RENDERER_METADATA_INVALID,
+        severity=DiagnosticSeverity.ERROR,
+        message=message,
+        resource_type="compiled_check",
+        resource_name=f"{check.contract_name}.{check.name}",
+        hint=(
+            "Provide a renderer for the adapter type in the runtime execution context before "
+            "running this check."
+        ),
+    )
+    return error_result(check, contract, message=message, diagnostics=(diagnostic,))
 
 
 def relation_from_name(
