@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -8,12 +9,18 @@ import pytest
 
 
 def load_script() -> ModuleType:
-    script_path = Path(__file__).resolve().parents[2] / "scripts" / "check_regression_capture.py"
+    script_dir = Path(__file__).resolve().parents[2] / "scripts"
+    script_path = script_dir / "check_regression_capture.py"
     spec = importlib.util.spec_from_file_location("check_regression_capture", script_path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(script_dir))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_sys_path
     return module
 
 
@@ -33,6 +40,15 @@ capture_files:
   - path: adapter-runtime.yml
     area: adapter-runtime
     description: Adapter runtime captures.
+path_surface_routing:
+  exact:
+    - path: src/recon_core/services/run.py
+      surfaces:
+        - adapter_runtime
+  prefixes:
+    - prefix: src/recon_core/adapters/
+      surfaces:
+        - adapter_runtime
 gates:
   adapter_testkit_regression_carryover:
     primary_milestone: adapter_test_kit_and_package_split
@@ -160,6 +176,24 @@ captures:
     assert any("missing required field 'owner_surface'" in error for error in errors)
     assert any("unknown carryover gate 'missing_gate'" in error for error in errors)
     assert any("invalid status 'invalid_status'" in error for error in errors)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+def test_validator_rejects_invalid_path_surface_routing(tmp_path: Path) -> None:
+    capture_root = write_capture_project(tmp_path, valid_capture_body())
+    index_path = capture_root / "index.yml"
+    index_path.write_text(
+        index_path.read_text().replace(
+            "        - adapter_runtime",
+            "        - missing_surface",
+            1,
+        )
+    )
+    script = load_script()
+
+    errors = script.validate(capture_root=capture_root, repo_root=tmp_path)
+
+    assert any("unknown trigger surface 'missing_surface'" in error for error in errors)
 
 
 def test_validator_rejects_stale_pytest_node_references(tmp_path: Path) -> None:

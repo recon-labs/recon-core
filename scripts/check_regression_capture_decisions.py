@@ -6,7 +6,13 @@ import sys
 from pathlib import Path
 from typing import Any, NamedTuple
 
+import regression_capture_metadata as capture_metadata
 import yaml
+
+_as_list = capture_metadata.as_list
+_gate_trigger_surfaces = capture_metadata.gate_trigger_surfaces
+_normalize_surface = capture_metadata.normalize_surface
+_string_list = capture_metadata.string_list
 
 
 class Finding(NamedTuple):
@@ -21,38 +27,6 @@ class BaseRefResolutionError(Exception):
         self.base_ref = base_ref
 
 
-EXACT_PATH_SURFACES: dict[str, set[str]] = {
-    "src/recon_core/services/run.py": {"adapter_runtime", "scan_safety"},
-    "tests/services/test_run_service.py": {"adapter_runtime", "scan_safety"},
-    "src/recon_core/check_engine/scan_budget.py": {"scan_safety"},
-    "src/recon_core/adapters/duckdb/adapter.py": {
-        "adapter_runtime",
-        "adapter_capabilities",
-        "sql_rendering",
-    },
-    "tests/adapters/test_duckdb_sql_renderer.py": {"sql_rendering"},
-}
-
-PREFIX_PATH_SURFACES: tuple[tuple[str, set[str]], ...] = (
-    ("src/recon_core/adapters/", {"adapter_api", "adapter_capabilities"}),
-    ("tests/adapters/", {"adapter_api", "adapter_capabilities"}),
-    (
-        "src/recon_core/check_engine/",
-        {"check_engine", "execution_result", "prerequisite_blocking", "typed_check_plan"},
-    ),
-    (
-        "tests/check_engine/",
-        {"check_engine", "execution_result", "prerequisite_blocking", "typed_check_plan"},
-    ),
-    ("src/recon_core/cli/", {"cli", "terminal_output", "exit_codes"}),
-    ("tests/cli/", {"cli", "terminal_output", "exit_codes"}),
-    ("src/recon_core/artifacts/", {"generated_artifacts", "artifact_lifecycle"}),
-    ("tests/artifacts/", {"generated_artifacts", "artifact_lifecycle"}),
-    ("src/recon_core/evidence", {"evidence"}),
-    ("tests/evidence", {"evidence"}),
-)
-
-
 def _load_yaml(path: Path) -> Any:
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -60,22 +34,10 @@ def _load_yaml(path: Path) -> Any:
         return None
 
 
-def _as_list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
-
-
-def _string_list(value: Any) -> list[str]:
-    return [item for item in _as_list(value) if isinstance(item, str) and item]
-
-
-def _normalize_surface(value: str) -> str:
-    return value.replace("-", "_")
-
-
-def surfaces_for_path(path: str) -> set[str]:
+def surfaces_for_path(path: str, routing: capture_metadata.PathSurfaceRouting) -> set[str]:
     normalized = path.replace("\\", "/")
-    surfaces = set(EXACT_PATH_SURFACES.get(normalized, set()))
-    for prefix, prefix_surfaces in PREFIX_PATH_SURFACES:
+    surfaces = set(routing.exact.get(normalized, set()))
+    for prefix, prefix_surfaces in routing.prefixes:
         if normalized.startswith(prefix):
             surfaces.update(prefix_surfaces)
     return surfaces
@@ -93,22 +55,6 @@ def _capture_row_surfaces(row: dict[str, Any]) -> set[str]:
 def _load_index(capture_root: Path) -> dict[str, Any]:
     data = _load_yaml(capture_root / "index.yml")
     return data if isinstance(data, dict) else {}
-
-
-def _gate_trigger_surfaces(index_data: dict[str, Any]) -> dict[str, set[str]]:
-    gates = index_data.get("gates")
-    if not isinstance(gates, dict):
-        return {}
-
-    trigger_surfaces: dict[str, set[str]] = {}
-    for gate, gate_data in gates.items():
-        if not isinstance(gate, str) or not isinstance(gate_data, dict):
-            continue
-        trigger_surfaces[gate] = {
-            _normalize_surface(surface)
-            for surface in _string_list(gate_data.get("trigger_surfaces"))
-        }
-    return trigger_surfaces
 
 
 def _capture_files(index_data: dict[str, Any]) -> list[str]:
@@ -217,6 +163,10 @@ def evaluate(
     repo_root = repo_root or script_root
     capture_root = capture_root or repo_root / "docs" / "compatibility" / "regression-capture"
     index_data = _load_index(capture_root)
+    path_routing = capture_metadata.parse_path_surface_routing(
+        index_data,
+        index_path=capture_root / "index.yml",
+    )
     gate_surfaces = _gate_trigger_surfaces(index_data)
     captured_surfaces = _captured_surfaces_by_gate(capture_root, index_data)
     not_required = _capture_not_required_decisions(decision_file)
@@ -224,7 +174,7 @@ def evaluate(
     matched_surfaces_by_gate: dict[str, set[str]] = {}
     paths_by_gate_surface: dict[str, dict[str, set[str]]] = {}
     for path in changed_paths:
-        changed_surfaces = surfaces_for_path(path)
+        changed_surfaces = surfaces_for_path(path, path_routing)
         if not changed_surfaces:
             continue
         for gate, trigger_surfaces in gate_surfaces.items():
@@ -315,12 +265,18 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
-    findings = evaluate(
-        changed_paths=changed_paths,
-        capture_root=args.capture_root,
-        repo_root=repo_root,
-        decision_file=args.decision_file,
-    )
+    try:
+        findings = evaluate(
+            changed_paths=changed_paths,
+            capture_root=args.capture_root,
+            repo_root=repo_root,
+            decision_file=args.decision_file,
+        )
+    except capture_metadata.RegressionCaptureMetadataError as exc:
+        print("Regression capture decision advisory metadata is invalid:", file=sys.stderr)
+        for error in exc.errors:
+            print(f"- {error}", file=sys.stderr)
+        return 1
     if findings:
         print("Regression capture decision advisory found potential missing decisions:")
         for finding in findings:

@@ -24,6 +24,143 @@ capture_files:
   - path: parser-compiler.yml
     area: parser-compiler
     description: Parser, compiler, contract YAML, check-pack, typed-plan, and validation-default behavior.
+path_surface_routing:
+  exact:
+    - path: src/recon_core/_yaml.py
+      surfaces:
+        - artifact_lifecycle
+        - contract_yaml
+        - diagnostics
+        - generated_artifacts
+        - parser
+        - profile_secrets
+        - redaction
+        - source_target_privacy
+    - path: src/recon_core/config/project_config.py
+      surfaces:
+        - diagnostics
+        - redaction
+    - path: src/recon_core/compiled_artifact_schema.py
+      surfaces:
+        - artifact_lifecycle
+        - generated_artifacts
+        - typed_check_plan
+    - path: src/recon_core/compiler/models.py
+      surfaces:
+        - typed_check_plan
+    - path: src/recon_core/parser/yaml_loader.py
+      surfaces:
+        - contract_yaml
+        - diagnostics
+        - parser
+        - redaction
+        - source_target_privacy
+    - path: src/recon_core/profiles/loader.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: scripts/check_regression_capture.py
+      surfaces:
+        - regression_capture_metadata
+    - path: scripts/check_regression_capture_decisions.py
+      surfaces:
+        - regression_capture_metadata
+    - path: scripts/regression_capture_metadata.py
+      surfaces:
+        - regression_capture_metadata
+    - path: src/recon_core/services/run.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/services/test_run_service.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: src/recon_core/check_engine/scan_budget.py
+      surfaces:
+        - scan_safety
+    - path: src/recon_core/adapters/runtime_safety.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: src/recon_core/adapters/duckdb/runtime_scan_guard.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/adapters/test_runtime_safety.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: src/recon_core/adapters/duckdb/adapter.py
+      surfaces:
+        - adapter_runtime
+        - adapter_capabilities
+        - sql_rendering
+    - path: tests/adapters/test_duckdb_sql_renderer.py
+      surfaces:
+        - sql_rendering
+    - path: tests/profiles/test_connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+  prefixes:
+    - prefix: src/recon_core/adapters/
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+    - prefix: tests/adapters/
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+    - prefix: src/recon_core/check_engine/
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+        - typed_check_plan
+    - prefix: tests/check_engine/
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+        - typed_check_plan
+    - prefix: src/recon_core/cli/
+      surfaces:
+        - cli
+        - terminal_output
+        - exit_codes
+    - prefix: tests/cli/
+      surfaces:
+        - cli
+        - terminal_output
+        - exit_codes
+    - prefix: src/recon_core/artifacts/
+      surfaces:
+        - generated_artifacts
+        - artifact_lifecycle
+    - prefix: tests/artifacts/
+      surfaces:
+        - generated_artifacts
+        - artifact_lifecycle
+    - prefix: src/recon_core/evidence
+      surfaces:
+        - evidence
+    - prefix: tests/evidence
+      surfaces:
+        - evidence
+    - prefix: docs/compatibility/regression-capture/
+      surfaces:
+        - regression_capture_metadata
+    - prefix: tests/scripts/
+      surfaces:
+        - regression_capture_metadata
 gates:
   adapter_testkit_regression_carryover:
     primary_milestone: adapter_test_kit_and_package_split
@@ -70,6 +207,7 @@ gates:
       - any diagnostic, log, failure-detail, evidence, or debug surface
     trigger_surfaces:
       - diagnostics
+      - profile_secrets
       - redaction
       - source_target_privacy
       - adapter_diagnostics
@@ -125,5 +263,6 @@ gates:
       - compiler
       - contract_yaml
       - check_packs
+      - regression_capture_metadata
       - typed_check_plan
       - validation_defaults

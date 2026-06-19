@@ -199,6 +199,7 @@ def test_loader_rejects_dangling_symlinked_referenced_compiled_contract_artifact
     assert "symlink" in diagnostic.message
 
 
+@pytest.mark.regression_capture("compiled-artifact-yaml-loader-diagnostics")
 def test_loader_reports_invalid_yaml_without_raw_artifact_content(tmp_path: Path) -> None:
     artifact_path = tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml"
     artifact_path.parent.mkdir(parents=True)
@@ -217,6 +218,7 @@ def test_loader_reports_invalid_yaml_without_raw_artifact_content(tmp_path: Path
     assert "super-secret" not in diagnostic.to_dict()["message"]
 
 
+@pytest.mark.regression_capture("compiled-artifact-yaml-loader-diagnostics")
 def test_loader_rejects_duplicate_yaml_keys_in_compiled_artifact(tmp_path: Path) -> None:
     artifact_path = tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml"
     artifact_path.parent.mkdir(parents=True)

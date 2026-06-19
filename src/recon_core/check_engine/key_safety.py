@@ -21,17 +21,19 @@ from recon_core.check_engine.dispatch import (
     UNSUPPORTED_MATERIALIZATION_POLICY,
     UNSUPPORTED_TYPED_OPERATION,
 )
-from recon_core.check_engine.execution import (
+from recon_core.check_engine.execution_support import (
     ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
-    _adapter_exception_diagnostic,
-    _error_result,
-    _exception_hint,
-    _identity_label,
-    _not_executable_result,
-    _relation_from_name,
-    _safe_string_attribute,
-    _same_connection_context,
-    _strict_int,
+    adapter_exception_diagnostic,
+    error_result,
+    exception_hint,
+    has_materialization_policy,
+    has_reserved_value,
+    identity_label,
+    not_executable_result,
+    relation_from_name,
+    safe_string_attribute,
+    same_connection_context,
+    strict_int,
 )
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.check_engine.scan_budget import ScanBudgetDecision
@@ -43,7 +45,6 @@ DUPLICATE_GRAIN_KEYS: Final = "RC_RUNTIME_DUPLICATE_GRAIN_KEYS"
 MISSING_KEYS: Final = "RC_RUNTIME_MISSING_KEYS"
 EXTRA_KEYS: Final = "RC_RUNTIME_EXTRA_KEYS"
 
-_EMPTY_MATERIALIZATION_POLICY_VALUES = {"none", "not_applicable"}
 _EXPECTED_KEY_OPERATION_BY_CHECK_TYPE: Final[dict[str, dict[str, str]]] = {
     "null_source_keys": {"type": "null_key", "side": "source"},
     "null_target_keys": {"type": "null_key", "side": "target"},
@@ -73,7 +74,7 @@ def execute_key_safety_check(
 ) -> CheckResult:
     """Execute one loaded grain-key safety check through a bounded count query."""
     if check.check_type not in _EXPECTED_KEY_OPERATION_BY_CHECK_TYPE:
-        return _not_executable_result(
+        return not_executable_result(
             check,
             contract,
             reason=CheckReason.UNSUPPORTED_CHECK_TYPE,
@@ -84,7 +85,7 @@ def execute_key_safety_check(
 
     metadata_blocker = _reserved_metadata_blocker(check)
     if metadata_blocker is not None:
-        return _not_executable_result(
+        return not_executable_result(
             check,
             contract,
             reason=metadata_blocker.reason,
@@ -143,12 +144,12 @@ def execute_key_safety_check(
     try:
         query_result = adapter.execute(rendered_query)
     except Exception as exc:
-        diagnostic = _adapter_exception_diagnostic(
+        diagnostic = adapter_exception_diagnostic(
             exc,
             connection=adapter.connection,
             contract=contract,
         )
-        return _error_result(
+        return error_result(
             check,
             contract,
             message="Key-safety execution failed before a trustworthy result was produced.",
@@ -157,7 +158,7 @@ def execute_key_safety_check(
 
     parsed_result = _parse_key_safety_count_result(query_result)
     if isinstance(parsed_result, Diagnostic):
-        return _error_result(
+        return error_result(
             check,
             contract,
             message="Key-safety execution returned an invalid result shape.",
@@ -180,7 +181,7 @@ def execute_key_safety_check(
         contract_name=check.contract_name,
         status=status,
         executed=True,
-        identity=_identity_label(check),
+        identity=identity_label(check),
         message=message,
         failure_count=parsed_result,
         diagnostics=diagnostics,
@@ -279,7 +280,7 @@ class _ReservedMetadataBlocker:
 def _reserved_metadata_blocker(check: LoadedCompiledCheck) -> _ReservedMetadataBlocker | None:
     for operation in check.plan.operations:
         if any(
-            _has_reserved_value(operation.get(key))
+            has_reserved_value(operation.get(key))
             for key in ("execution_placement", "comparison_location")
         ):
             return _ReservedMetadataBlocker(
@@ -288,7 +289,7 @@ def _reserved_metadata_blocker(check: LoadedCompiledCheck) -> _ReservedMetadataB
                 message="Key-safety execution placement metadata is not supported.",
             )
         materialization_policy = operation.get("materialization_policy")
-        if _has_materialization_policy(materialization_policy):
+        if has_materialization_policy(materialization_policy):
             return _ReservedMetadataBlocker(
                 reason=CheckReason.UNSUPPORTED_MATERIALIZATION_POLICY,
                 diagnostic_code=UNSUPPORTED_MATERIALIZATION_POLICY,
@@ -308,11 +309,11 @@ def _operation_matches_key_safety_shape(
     if not _has_identity_keys(identity):
         return False
     if any(
-        _has_reserved_value(operation.get(key))
+        has_reserved_value(operation.get(key))
         for key in ("execution_placement", "comparison_location")
     ):
         return False
-    if _has_materialization_policy(operation.get("materialization_policy")):
+    if has_materialization_policy(operation.get("materialization_policy")):
         return False
 
     allowed_fields = set(expected_operation) | {
@@ -352,7 +353,7 @@ def _identity_mismatch_not_executable_result(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
 ) -> CheckResult:
-    return _not_executable_result(
+    return not_executable_result(
         check,
         contract,
         reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
@@ -368,7 +369,7 @@ def _unsupported_plan_shape_not_executable_result(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
 ) -> CheckResult:
-    return _not_executable_result(
+    return not_executable_result(
         check,
         contract,
         reason=CheckReason.UNSUPPORTED_TYPED_OPERATION,
@@ -382,7 +383,7 @@ def _query_endpoint_not_executable_result(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
 ) -> CheckResult:
-    return _not_executable_result(
+    return not_executable_result(
         check,
         contract,
         reason=CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT,
@@ -396,12 +397,12 @@ def _key_safety_relation_endpoints(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
 ) -> tuple[Relation | None, Relation | None, CheckResult | None]:
-    source_relation, source_diagnostic = _relation_from_name(
+    source_relation, source_diagnostic = relation_from_name(
         contract.source.relation,
         side="source",
         contract_name=contract.contract_name,
     )
-    target_relation, target_diagnostic = _relation_from_name(
+    target_relation, target_diagnostic = relation_from_name(
         contract.target.relation,
         side="target",
         contract_name=contract.contract_name,
@@ -415,7 +416,7 @@ def _key_safety_relation_endpoints(
         return (
             None,
             None,
-            _error_result(
+            error_result(
                 check,
                 contract,
                 message="Key-safety execution could not resolve relation endpoints.",
@@ -444,9 +445,9 @@ def _context_blocker(
     target_connection = connections_by_name.get(contract.target.connection)
     if source_connection is None or target_connection is None:
         return _connection_context_not_executable_result(check, contract)
-    if not _same_connection_context(source_connection, target_connection):
+    if not same_connection_context(source_connection, target_connection):
         return _connection_context_not_executable_result(check, contract)
-    if not _same_connection_context(adapter.connection, source_connection):
+    if not same_connection_context(adapter.connection, source_connection):
         return _connection_context_not_executable_result(check, contract)
     return None
 
@@ -455,7 +456,7 @@ def _connection_context_not_executable_result(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
 ) -> CheckResult:
-    return _not_executable_result(
+    return not_executable_result(
         check,
         contract,
         reason=CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT,
@@ -479,7 +480,7 @@ def _scan_budget_not_executable_result(
         status=CheckStatus.NOT_EXECUTABLE,
         executed=False,
         reason_code=reason,
-        identity=_identity_label(check),
+        identity=identity_label(check),
         message=decision.message,
         diagnostics=check.diagnostics + contract.diagnostics + decision.diagnostics,
     )
@@ -491,11 +492,11 @@ def _renderer_blocker(
     adapter: BaseAdapter,
     renderer: SqlRenderer,
 ) -> CheckResult | None:
-    adapter_type = _safe_string_attribute(adapter, "adapter_type")
-    renderer_adapter_type = _safe_string_attribute(renderer, "adapter_type")
+    adapter_type = safe_string_attribute(adapter, "adapter_type")
+    renderer_adapter_type = safe_string_attribute(renderer, "adapter_type")
     if adapter_type == "duckdb" and renderer_adapter_type == "duckdb":
         return None
-    return _not_executable_result(
+    return not_executable_result(
         check,
         contract,
         reason=CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT,
@@ -521,7 +522,7 @@ def _render_key_safety_count_query(
             target_relation=target_relation,
         )
     except Exception as exc:
-        return _error_result(
+        return error_result(
             check,
             contract,
             message="Key-safety execution could not render a SQL query.",
@@ -532,14 +533,14 @@ def _render_key_safety_count_query(
                     message="Adapter SQL rendering failed for key-safety execution.",
                     resource_type="compiled_check",
                     resource_name=f"{check.contract_name}.{check.name}",
-                    hint=_exception_hint("Renderer", exc),
+                    hint=exception_hint("Renderer", exc),
                 ),
             ),
         )
 
     expected_operation_type = operation.get("type")
     if rendered_step.operation_type != expected_operation_type:
-        return _error_result(
+        return error_result(
             check,
             contract,
             message="Key-safety execution did not receive a key-safety SQL step.",
@@ -556,7 +557,7 @@ def _render_key_safety_count_query(
         )
     rendered_sql = rendered_step.sql.strip()
     if rendered_sql == "":
-        return _error_result(
+        return error_result(
             check,
             contract,
             message="Key-safety execution did not receive a SQL query.",
@@ -587,7 +588,7 @@ def _parse_key_safety_count_result(result: QueryResult) -> int | Diagnostic:
     if len(row) != 1:
         return _invalid_result_diagnostic("Key-safety query returned an unexpected row shape.")
 
-    failure_count = _strict_int(row[0])
+    failure_count = strict_int(row[0])
     if failure_count is None:
         return _invalid_result_diagnostic("Key-safety query returned a non-integer count.")
     if failure_count < 0:
@@ -615,13 +616,3 @@ def _failure_diagnostic(check: LoadedCompiledCheck) -> Diagnostic:
         resource_name=f"{check.contract_name}.{check.name}",
         hint="Raw key values and failure details are not emitted by this execution phase.",
     )
-
-
-def _has_reserved_value(value: object) -> bool:
-    return value is not None and value != ""
-
-
-def _has_materialization_policy(value: object) -> bool:
-    if not _has_reserved_value(value):
-        return False
-    return not isinstance(value, str) or value not in _EMPTY_MATERIALIZATION_POLICY_VALUES

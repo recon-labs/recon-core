@@ -28,7 +28,7 @@ files without capture metadata.
 ## Files
 
 - `index.yml` defines carryover gates, status values, capture files, milestone
-  anchors, and trigger surfaces.
+  anchors, trigger surfaces, and advisory path-to-surface routing.
 - `adapter-runtime.yml` captures adapter runtime, scan-safety, capability, and
   cross-repo adapter cases.
 - `check-engine.yml` captures check-engine semantics, blocker/dependency
@@ -106,10 +106,12 @@ required rationale or references.
 
 ## Advisory Decision Check
 
-`scripts/check_regression_capture_decisions.py` maps changed paths to known
-`trigger_surfaces` and reports likely missing capture decisions. With no path
-arguments, it checks local WIP and untracked files only. It is advisory until
-false positives are understood:
+`scripts/check_regression_capture_decisions.py` maps changed paths through
+`index.yml` `path_surface_routing` to known `trigger_surfaces` and reports
+likely missing capture decisions. With no path arguments, it checks local WIP
+and untracked files only. Before evaluating paths, it validates the routing
+metadata it depends on and exits with an error if the routing is missing or
+malformed. It is advisory until false positives are understood:
 
 ```bash
 python3 scripts/check_regression_capture_decisions.py

@@ -8,9 +8,12 @@ from typing import Any
 
 import yaml
 
-from recon_core.artifacts.compiled_contract_loader import LoadedCompiledContractArtifact
+from recon_core._yaml import load_yaml_with_unique_keys, yaml_error_position
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
-from recon_core.parser.contracts import AuthoredContract
+from recon_core.profiles.connection_references import (
+    ContractConnectionReference,
+    connection_names_from_contracts,
+)
 from recon_core.profiles.models import ConnectionConfig, ProfileLoadResult, SelectedProfile
 from recon_core.project import ProjectContext
 
@@ -36,20 +39,16 @@ _ENV_VAR_CALL_PATTERN = re.compile(r"\benv_var\s*\(")
 _TEMPLATE_MARKERS = ("{{", "}}", "{%", "%}", "{#", "#}")
 
 
-class _UniqueKeySafeLoader(yaml.SafeLoader):  # type: ignore[misc]
-    """YAML safe loader that rejects duplicate mapping keys."""
-
-
 def load_selected_profile(
     context: ProjectContext,
     *,
-    contracts: tuple[AuthoredContract, ...],
+    contracts: tuple[ContractConnectionReference, ...],
     environ: Mapping[str, str] | None = None,
 ) -> ProfileLoadResult:
     """Load the selected profile target and referenced connection configs."""
     return load_selected_profile_for_connection_names(
         context,
-        referenced_connection_names=referenced_connection_names(contracts),
+        referenced_connection_names=connection_names_from_contracts(contracts),
         environ=environ,
     )
 
@@ -178,24 +177,18 @@ def load_selected_profile_for_connection_names(
     )
 
 
-def referenced_connection_names(contracts: tuple[AuthoredContract, ...]) -> tuple[str, ...]:
+def referenced_connection_names(
+    contracts: tuple[ContractConnectionReference, ...],
+) -> tuple[str, ...]:
     """Return connection names referenced by selected contracts."""
-    names: set[str] = set()
-    for contract in contracts:
-        names.add(contract.source.connection)
-        names.add(contract.target.connection)
-    return tuple(sorted(names))
+    return connection_names_from_contracts(contracts)
 
 
 def referenced_connection_names_from_compiled_contracts(
-    contracts: tuple[LoadedCompiledContractArtifact, ...],
+    contracts: tuple[ContractConnectionReference, ...],
 ) -> tuple[str, ...]:
     """Return connection names referenced by loaded compiled contracts."""
-    names: set[str] = set()
-    for contract in contracts:
-        names.add(contract.source.connection)
-        names.add(contract.target.connection)
-    return tuple(sorted(names))
+    return connection_names_from_contracts(contracts)
 
 
 def _normalized_connection_names(names: tuple[str, ...]) -> tuple[str, ...]:
@@ -230,11 +223,9 @@ def _load_profile_yaml(profile_file: Path, display_path: str) -> _YamlLoadResult
         )
 
     try:
-        data: object = yaml.load(raw_content, Loader=_UniqueKeySafeLoader)
+        data = load_yaml_with_unique_keys(raw_content)
     except yaml.YAMLError as error:
-        mark = getattr(error, "problem_mark", None)
-        line = mark.line + 1 if mark is not None else None
-        column = mark.column + 1 if mark is not None else None
+        line, column = yaml_error_position(error)
         return _YamlLoadResult(
             diagnostics=(
                 _diagnostic(
@@ -527,44 +518,6 @@ def _template_marker_positions(value: str, marker: str) -> tuple[int, ...]:
 
 def _position_in_spans(position: int, spans: tuple[tuple[int, int], ...]) -> bool:
     return any(start <= position < end for start, end in spans)
-
-
-def _construct_mapping_without_duplicate_keys(
-    loader: _UniqueKeySafeLoader,
-    node: yaml.MappingNode,
-    deep: bool = False,
-) -> dict[Any, Any]:
-    loader.flatten_mapping(node)
-    mapping: dict[Any, Any] = {}
-
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        try:
-            hash(key)
-        except TypeError as error:
-            raise yaml.constructor.ConstructorError(
-                "while constructing a mapping",
-                node.start_mark,
-                f"Unsupported YAML mapping key: {key}",
-                key_node.start_mark,
-            ) from error
-
-        if key in mapping:
-            raise yaml.constructor.ConstructorError(
-                "while constructing a mapping",
-                node.start_mark,
-                f"Duplicate YAML key: {key}",
-                key_node.start_mark,
-            )
-        mapping[key] = loader.construct_object(value_node, deep=deep)
-
-    return mapping
-
-
-_UniqueKeySafeLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-    _construct_mapping_without_duplicate_keys,
-)
 
 
 def _invalid_profile_result(

@@ -468,9 +468,10 @@ validation.
 
 ## Semi-structured adapters
 
-MongoDB and similar systems are important later.
+Document and semi-structured systems are important later.
 
-They require document projection, nested fields, arrays, ObjectId handling, schema drift, and CDC operation metadata.
+They require document projection, nested fields, arrays, document identifier
+handling, schema drift, and CDC operation metadata.
 
 Recon should compare canonical projections, not raw documents blindly.
 

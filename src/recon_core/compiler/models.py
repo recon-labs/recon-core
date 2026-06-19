@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import NotRequired, TypedDict
 
+from recon_core.compiled_artifact_schema import typed_operation_payload_fields
 from recon_core.diagnostics import Diagnostic, DiagnosticDict
 
 COMPILED_ARTIFACT_VERSION = 1
@@ -120,19 +121,6 @@ class AdapterCapability(StrEnum):
     JSON_PATH = "json_path"
     SEMI_STRUCTURED_PROJECTION = "semi_structured_projection"
     SCHEMA_METADATA = "schema_metadata"
-
-
-_OPERATION_ALLOWED_FIELDS: dict[OperationType, frozenset[str]] = {
-    OperationType.ROW_COUNT: frozenset({"side"}),
-    OperationType.COMPARE_COUNTS: frozenset(),
-    OperationType.KEY_DIFF: frozenset({"direction", "identity"}),
-    OperationType.NULL_KEY: frozenset({"side", "identity"}),
-    OperationType.DUPLICATE_KEY: frozenset({"side", "identity"}),
-    OperationType.AGGREGATE: frozenset({"side", "aggregate", "column"}),
-    OperationType.GROUPED_AGGREGATE: frozenset({"side", "aggregate", "column", "group_by"}),
-    OperationType.COMPARE_AGGREGATES: frozenset(),
-    OperationType.COMPARE_GROUPED_AGGREGATES: frozenset(),
-}
 
 
 class IdentityDict(TypedDict):
@@ -550,7 +538,7 @@ class TypedOperation:
         return operation
 
     def _validate(self) -> None:
-        allowed_fields = _OPERATION_ALLOWED_FIELDS.get(self.type)
+        allowed_fields = typed_operation_payload_fields(self.type.value)
         if allowed_fields is None:
             raise ValueError(
                 f"{self.type.value} operation is not implemented by the typed operation model"

@@ -1,5 +1,9 @@
 """Connection profile loading."""
 
+from recon_core.profiles.connection_references import (
+    referenced_connection_names,
+    referenced_connection_names_from_compiled_contracts,
+)
 from recon_core.profiles.loader import (
     INVALID_PROFILE_CONFIG,
     INVALID_PROFILE_YAML,
@@ -11,8 +15,6 @@ from recon_core.profiles.loader import (
     PROFILE_TARGET_NOT_FOUND,
     load_selected_profile,
     load_selected_profile_for_connection_names,
-    referenced_connection_names,
-    referenced_connection_names_from_compiled_contracts,
 )
 from recon_core.profiles.models import ConnectionConfig, ProfileLoadResult, SelectedProfile
 

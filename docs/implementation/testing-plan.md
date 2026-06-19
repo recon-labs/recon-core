@@ -49,7 +49,9 @@ validator script change.
 during branch-wide reviews, high-risk or public-contract fixes, and final branch
 validation, but do not make it a blocking gate until false positives are
 understood. The default command checks local WIP and untracked files. Use
-`--base-ref origin/main` for branch-wide or final branch validation.
+`--base-ref origin/main` for branch-wide or final branch validation. The
+advisory validates its `path_surface_routing` metadata before evaluating changed
+paths and fails closed if routing metadata is missing or malformed.
 
 ### Unit tests
 

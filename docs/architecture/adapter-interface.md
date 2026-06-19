@@ -245,7 +245,8 @@ Adapters should not claim safe hash compatibility unless it is intentionally imp
 
 ## Semi-structured systems
 
-MongoDB and semi-structured sources may require projection-based comparison rather than raw document comparison.
+Document and semi-structured sources may require projection-based comparison
+rather than raw document comparison.
 
 Adapters should expose canonical projections where possible.
 

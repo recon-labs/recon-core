@@ -16,6 +16,11 @@ from recon_core.check_engine.execution import (
     is_supported_row_count_plan_shape,
     row_count_query_endpoint_not_executable_result,
 )
+from recon_core.check_engine.execution_support import (
+    identity_label,
+    safe_string_attribute,
+    same_connection_context,
+)
 from recon_core.check_engine.key_safety import (
     execute_key_safety_check,
     is_key_safety_check_type,
@@ -290,7 +295,7 @@ def _rendering_blocked_result_if_needed(check: LoadedCompiledCheck) -> CheckResu
         contract_name=check.contract_name,
         status=CheckStatus.ERROR,
         executed=False,
-        identity=_identity_label(check),
+        identity=identity_label(check),
         message=message,
         diagnostics=check.diagnostics,
     )
@@ -403,7 +408,7 @@ def _key_safety_connection_context_blocker_if_needed(
     target_connection = execution_context.connections_by_name.get(contract.target.connection)
     if source_connection is None or target_connection is None:
         return key_safety_connection_context_not_executable_result(check, contract)
-    if not _same_connection_context(source_connection, target_connection):
+    if not same_connection_context(source_connection, target_connection):
         return key_safety_connection_context_not_executable_result(check, contract)
     return None
 
@@ -423,7 +428,7 @@ def _renderer_for_adapter(
     adapter: BaseAdapter,
     execution_context: CheckExecutionContext,
 ) -> SqlRenderer | None:
-    adapter_type = _safe_string_attribute(adapter, "adapter_type")
+    adapter_type = safe_string_attribute(adapter, "adapter_type")
     if adapter_type is None:
         return None
     return execution_context.renderers_by_adapter_type.get(adapter_type)
@@ -431,10 +436,6 @@ def _renderer_for_adapter(
 
 def _contract_has_query_endpoint(contract: LoadedCompiledContractArtifact) -> bool:
     return contract.source.query is not None or contract.target.query is not None
-
-
-def _same_connection_context(left: ConnectionConfig, right: ConnectionConfig) -> bool:
-    return left.type == right.type and left.config == right.config
 
 
 def _index_checks(
@@ -477,7 +478,7 @@ def _blocked_result(
         status=CheckStatus.BLOCKED,
         executed=False,
         reason_code=reason,
-        identity=_identity_label(check),
+        identity=identity_label(check),
         message=message,
         blocked_by=blocked_by,
         diagnostics=check.diagnostics + (diagnostic,),
@@ -551,22 +552,3 @@ def _internal_error_result(check: LoadedCompiledCheck) -> CheckResult:
         message=message,
         diagnostics=check.diagnostics + (diagnostic,),
     )
-
-
-def _identity_label(check: LoadedCompiledCheck) -> str | None:
-    payload = check.payload
-    if payload is None:
-        return None
-    identity = payload.get("identity")
-    if not isinstance(identity, dict):
-        return None
-    kind = identity.get("kind")
-    return kind if isinstance(kind, str) else None
-
-
-def _safe_string_attribute(instance: object, attribute_name: str) -> str | None:
-    try:
-        value = getattr(instance, attribute_name)
-    except Exception:
-        return None
-    return value if isinstance(value, str) and value else None

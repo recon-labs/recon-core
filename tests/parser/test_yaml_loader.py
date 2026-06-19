@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from recon_core.diagnostics import DiagnosticSeverity
 from recon_core.parser import SourceLocation, load_yaml_file, load_yaml_text
 
@@ -44,6 +46,8 @@ def test_load_yaml_file_reads_utf8_file(tmp_path: Path) -> None:
     assert result.diagnostics == ()
 
 
+@pytest.mark.regression_capture("yaml-diagnostic-redaction")
+@pytest.mark.regression_capture("yaml-profile-and-source-privacy")
 def test_load_yaml_text_reports_invalid_yaml() -> None:
     result = load_yaml_text(
         "name: customer_revenue\nsource: select * from customers where ssn: secret-ssn\n",
@@ -66,6 +70,7 @@ def test_load_yaml_text_reports_invalid_yaml() -> None:
     assert "select * from customers" not in diagnostic.message
 
 
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
 def test_load_yaml_text_reports_duplicate_yaml_keys() -> None:
     result = load_yaml_text(
         """
@@ -88,6 +93,7 @@ name: duplicate_customer_revenue
     assert diagnostic.message == "Invalid YAML in resource file: duplicate YAML key."
 
 
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
 def test_load_yaml_text_reports_unhashable_mapping_keys() -> None:
     result = load_yaml_text(
         """

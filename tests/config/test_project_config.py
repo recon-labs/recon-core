@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from recon_core.config import ConfiguredPath, PathOrigin, ProjectConfig, load_project_config
 from recon_core.diagnostics import DiagnosticSeverity
 
@@ -169,6 +171,7 @@ state-path: build/state
     assert result.config.state_path == "build/state"
 
 
+@pytest.mark.regression_capture("yaml-diagnostic-redaction")
 def test_load_project_config_reports_invalid_yaml(tmp_path: Path) -> None:
     project_file = write_project_config(
         tmp_path, "name: ecommerce_recon\nprofile: local: secret-profile\n"
@@ -191,6 +194,7 @@ def test_load_project_config_reports_invalid_yaml(tmp_path: Path) -> None:
     assert "secret-profile" not in diagnostic.message
 
 
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
 def test_load_project_config_reports_duplicate_yaml_keys(tmp_path: Path) -> None:
     project_file = write_project_config(
         tmp_path,
@@ -215,6 +219,7 @@ name: finance_recon
     assert diagnostic.message == "Invalid YAML in project config: duplicate YAML key."
 
 
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
 def test_load_project_config_reports_unhashable_yaml_mapping_key(tmp_path: Path) -> None:
     project_file = write_project_config(
         tmp_path,

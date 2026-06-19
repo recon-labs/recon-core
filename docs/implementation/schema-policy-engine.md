@@ -61,8 +61,8 @@ CDC and ingestion tools add technical columns.
 Examples:
 
 ```text
-_dms_operation
-_dms_timestamp
+_change_operation
+_change_timestamp
 _loaded_at
 _file_name
 _row_hash
@@ -84,8 +84,8 @@ The schema engine should compare logical compatibility rather than raw physical 
 Example:
 
 ```text
-SQL Server decimal -> Snowflake number
-Postgres varchar -> BigQuery string
+source DECIMAL -> target NUMERIC
+source VARCHAR -> target STRING
 ```
 
 ## Precision and scale

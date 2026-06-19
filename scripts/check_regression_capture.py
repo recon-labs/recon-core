@@ -6,7 +6,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import regression_capture_metadata as capture_metadata
 import yaml
+
+_string_list = capture_metadata.string_list
 
 REQUIRED_CAPTURE_FIELDS = {
     "id",
@@ -35,12 +38,6 @@ def _as_mapping(value: Any, path: Path, errors: list[str]) -> dict[str, Any] | N
         return value
     errors.append(f"{path}: expected YAML mapping")
     return None
-
-
-def _string_list(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [item for item in value if isinstance(item, str) and item]
 
 
 def _strip_param_suffix(node_part: str) -> str:
@@ -378,6 +375,8 @@ def validate(
         known_gates: set[str] = set()
     else:
         known_gates = {gate for gate in gates if isinstance(gate, str) and gate}
+
+    errors.extend(capture_metadata.validate_path_surface_routing(index_data, index_path=index_path))
 
     capture_file_entries = index_data.get("capture_files")
     if not isinstance(capture_file_entries, list) or not capture_file_entries:
