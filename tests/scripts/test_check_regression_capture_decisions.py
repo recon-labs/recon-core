@@ -41,6 +41,9 @@ capture_files:
   - path: adapter-runtime.yml
     area: adapter-runtime
     description: Adapter runtime captures.
+  - path: check-engine.yml
+    area: check-engine
+    description: Check-engine captures.
   - path: parser-compiler.yml
     area: parser-compiler
     description: Parser and compiler captures.
@@ -107,6 +110,22 @@ path_surface_routing:
     - path: src/recon_core/check_engine/scan_budget.py
       surfaces:
         - scan_safety
+    - path: src/recon_core/check_engine/prerequisites.py
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+    - path: src/recon_core/check_engine/result_metadata.py
+      surfaces:
+        - check_engine
+        - execution_result
+    - path: src/recon_core/check_engine/runtime.py
+      surfaces:
+        - adapter_runtime
+        - check_engine
+        - execution_result
+        - scan_safety
+        - typed_check_plan
     - path: src/recon_core/adapters/runtime_safety.py
       surfaces:
         - adapter_runtime
@@ -174,6 +193,17 @@ gates:
       - adapter_capabilities
       - sql_rendering
       - scan_safety
+  check_engine_semantics_carryover:
+    primary_milestone: aggregate_metric_execution
+    primary_milestone_title: Aggregate metric execution
+    applies_to:
+      - any new executable check type
+      - any blocker or dependency semantic change
+    trigger_surfaces:
+      - check_engine
+      - execution_result
+      - prerequisite_blocking
+      - typed_check_plan
   parser_compiler_contract_carryover:
     primary_milestone: aggregate_metrics_expansion
     primary_milestone_title: Aggregate metrics expansion
@@ -187,6 +217,9 @@ gates:
 """.lstrip()
     )
     (capture_root / "adapter-runtime.yml").write_text(capture_body)
+    (capture_root / "check-engine.yml").write_text(
+        "schema_version: 1\narea: check-engine\ncaptures: []\n"
+    )
     (capture_root / "artifacts.yml").write_text(
         "schema_version: 1\narea: artifacts\ncaptures: []\n"
     )
@@ -274,6 +307,74 @@ captures: []
     assert findings[0].gate == "adapter_testkit_regression_carryover"
     assert findings[0].surfaces == ("scan_safety",)
     assert findings[0].paths == ("src/recon_core/check_engine/scan_budget.py",)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/check_engine/prerequisites.py",
+            {
+                "check_engine_semantics_carryover": (
+                    "check_engine",
+                    "execution_result",
+                    "prerequisite_blocking",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/check_engine/result_metadata.py",
+            {
+                "check_engine_semantics_carryover": (
+                    "check_engine",
+                    "execution_result",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/check_engine/runtime.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_runtime",
+                    "scan_safety",
+                ),
+                "check_engine_semantics_carryover": (
+                    "check_engine",
+                    "execution_result",
+                    "typed_check_plan",
+                ),
+                "parser_compiler_contract_carryover": ("typed_check_plan",),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_check_engine_split_modules_to_owned_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate,
+        (changed_path,),
+    )
 
 
 @pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
@@ -455,12 +556,14 @@ captures: []
                     "artifact_lifecycle",
                     "generated_artifacts",
                 ),
+                "check_engine_semantics_carryover": ("typed_check_plan",),
                 "parser_compiler_contract_carryover": ("typed_check_plan",),
             },
         ),
         (
             "src/recon_core/compiler/models.py",
             {
+                "check_engine_semantics_carryover": ("typed_check_plan",),
                 "parser_compiler_contract_carryover": ("typed_check_plan",),
             },
         ),

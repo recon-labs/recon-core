@@ -85,6 +85,22 @@ path_surface_routing:
     - path: src/recon_core/check_engine/scan_budget.py
       surfaces:
         - scan_safety
+    - path: src/recon_core/check_engine/prerequisites.py
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+    - path: src/recon_core/check_engine/result_metadata.py
+      surfaces:
+        - check_engine
+        - execution_result
+    - path: src/recon_core/check_engine/runtime.py
+      surfaces:
+        - adapter_runtime
+        - check_engine
+        - execution_result
+        - scan_safety
+        - typed_check_plan
     - path: src/recon_core/adapters/runtime_safety.py
       surfaces:
         - adapter_runtime

@@ -15,6 +15,7 @@ from recon_core.adapters.rendering import (
 from recon_core.artifacts.compiled_check_loader import LoadedCompiledCheck
 from recon_core.artifacts.compiled_contract_loader import LoadedCompiledContractArtifact
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
+from recon_core.check_engine.result_metadata import identity_label
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles.models import ConnectionConfig
 
@@ -169,18 +170,6 @@ def relation_from_name(
     if len(parts) == 2:
         return Relation(schema=parts[0], identifier=parts[1]), None
     return Relation(catalog=parts[0], schema=parts[1], identifier=parts[2]), None
-
-
-def identity_label(check: LoadedCompiledCheck) -> str | None:
-    """Return the check identity kind for result display."""
-    payload = check.payload
-    if payload is None:
-        return None
-    identity = payload.get("identity")
-    if not isinstance(identity, Mapping):
-        return None
-    kind = identity.get("kind")
-    return kind if isinstance(kind, str) else None
 
 
 def has_reserved_value(value: object) -> bool:

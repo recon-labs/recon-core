@@ -27,7 +27,6 @@ from recon_core.check_engine.execution_support import (
     exception_hint,
     has_materialization_policy,
     has_reserved_value,
-    identity_label,
     missing_sql_renderer_result,
     not_executable_result,
     relation_from_name,
@@ -36,6 +35,7 @@ from recon_core.check_engine.execution_support import (
     strict_int,
 )
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
+from recon_core.check_engine.result_metadata import identity_label
 from recon_core.check_engine.scan_budget import ScanBudgetDecision
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
