@@ -92,6 +92,26 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/profiles/_diagnostics.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_profile_yaml.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_rendering.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_selection.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: src/recon_core/profiles/connection_references.py
       surfaces:
         - diagnostics
@@ -205,6 +225,11 @@ path_surface_routing:
       surfaces:
         - sql_rendering
     - path: tests/profiles/test_connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: tests/profiles/test_loader_boundaries.py
       surfaces:
         - diagnostics
         - profile_secrets
@@ -566,6 +591,46 @@ captures: []
             },
         ),
         (
+            "src/recon_core/profiles/_diagnostics.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/profiles/_profile_yaml.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/profiles/_rendering.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/profiles/_selection.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
             "src/recon_core/profiles/connection_references.py",
             {
                 "diagnostics_privacy_carryover": (
@@ -577,6 +642,16 @@ captures: []
         ),
         (
             "tests/profiles/test_connection_references.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "tests/profiles/test_loader_boundaries.py",
             {
                 "diagnostics_privacy_carryover": (
                     "diagnostics",
