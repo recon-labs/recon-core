@@ -65,6 +65,60 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/services/compile.py
+      surfaces:
+        - adapter_capabilities
+        - adapter_runtime
+        - artifact_lifecycle
+        - cli
+        - compiler
+        - diagnostics
+        - exit_codes
+        - generated_artifacts
+        - parser
+        - profile_secrets
+        - redaction
+        - sql_rendering
+        - terminal_output
+    - path: src/recon_core/services/_compile_adapter_setup.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - adapter_diagnostics
+        - adapter_runtime
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/services/_compile_artifacts.py
+      surfaces:
+        - artifact_lifecycle
+        - diagnostics
+        - generated_artifacts
+    - path: src/recon_core/services/_compile_diagnostic_privacy.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/services/_compile_diagnostics.py
+      surfaces:
+        - diagnostics
+    - path: src/recon_core/services/_compile_render_sql.py
+      surfaces:
+        - adapter_capabilities
+        - adapter_diagnostics
+        - adapter_runtime
+        - diagnostics
+        - generated_artifacts
+        - profile_secrets
+        - redaction
+        - sql_rendering
+    - path: src/recon_core/services/_compile_rendering_metadata.py
+      surfaces:
+        - artifact_lifecycle
+        - diagnostics
+        - generated_artifacts
+        - sql_rendering
     - path: scripts/check_regression_capture.py
       surfaces:
         - regression_capture_metadata

@@ -1565,6 +1565,7 @@ def test_render_sql_compile_replaces_resource_type_when_message_triggers_sanitiz
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+@pytest.mark.regression_capture("compile-diagnostic-render-sql-precedence")
 def test_render_sql_compile_reports_compile_validation_before_profile_errors(
     tmp_path: Path,
 ) -> None:
@@ -1591,6 +1592,7 @@ def test_render_sql_compile_reports_compile_validation_before_profile_errors(
     assert not (tmp_path / "target" / "compiled_sql").exists()
 
 
+@pytest.mark.regression_capture("compile-diagnostic-render-sql-precedence")
 def test_render_sql_compile_marks_renderable_checks_blocked_when_compile_validation_fails(
     tmp_path: Path,
 ) -> None:
@@ -1986,7 +1988,7 @@ def test_render_sql_compile_marks_renderer_failures_without_sql_artifacts(
             return str(relation)
 
     monkeypatch.setattr(
-        "recon_core.services.compile.DuckDbSqlRenderer",
+        "recon_core.services._compile_render_sql.DuckDbSqlRenderer",
         BrokenDuckDbSqlRenderer,
     )
 
@@ -2033,7 +2035,7 @@ def test_render_sql_compile_sanitizes_renderer_failure_artifacts(
             raise ValueError("password=super-secret")
 
     monkeypatch.setattr(
-        "recon_core.services.compile.DuckDbSqlRenderer",
+        "recon_core.services._compile_render_sql.DuckDbSqlRenderer",
         SecretLeakingDuckDbSqlRenderer,
     )
 
@@ -2087,7 +2089,7 @@ def test_render_sql_compile_marks_empty_renderer_output_failed_without_sql_artif
             return str(relation)
 
     monkeypatch.setattr(
-        "recon_core.services.compile.DuckDbSqlRenderer",
+        "recon_core.services._compile_render_sql.DuckDbSqlRenderer",
         EmptyDuckDbSqlRenderer,
     )
 
@@ -2186,7 +2188,7 @@ def test_render_sql_compile_marks_malformed_renderer_output_failed_without_crash
             return str(relation)
 
     monkeypatch.setattr(
-        "recon_core.services.compile.DuckDbSqlRenderer",
+        "recon_core.services._compile_render_sql.DuckDbSqlRenderer",
         MalformedDuckDbSqlRenderer,
     )
 

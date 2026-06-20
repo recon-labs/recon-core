@@ -25,6 +25,28 @@ captures:
       Shared YAML-loader refactors must preserve duplicate-key rejection and
       unsupported mapping-key rejection across resource, project config, and
       profile YAML without changing public parser/config diagnostic ownership.
+  - id: compile-diagnostic-render-sql-precedence
+    title: Compile diagnostics block render-sql before profile or adapter setup
+    area: parser-compiler
+    bug_class: compiler
+    owner_surface: compiler
+    severity: P2
+    current_tests:
+      - tests/services/test_compile_service.py::test_render_sql_compile_reports_compile_validation_before_profile_errors
+      - tests/services/test_compile_service.py::test_render_sql_compile_marks_renderable_checks_blocked_when_compile_validation_fails
+    carryover_gates:
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: compile_diagnostics
+    requirement_refs:
+      - docs/implementation/contract-compiler-and-validation.md: Compiler output model
+      - docs/implementation/cli-services.md: Compile service boundary
+    notes: >
+      `recon compile --render-sql` must preserve compiler diagnostic
+      precedence. When compile validation already produced diagnostics, render
+      SQL should mark compiled checks blocked where artifacts exist, write no
+      SQL files, and avoid profile loading, adapter setup, and renderer
+      selection.
   - id: regression-capture-orphan-marker-guard
     title: Regression-capture markers require matching capture metadata
     area: parser-compiler
@@ -97,6 +119,7 @@ captures:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_runtime_safety_modules_to_scan_safety_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_duckdb_renderer_modules_to_sql_rendering_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_check_engine_split_modules_to_owned_surfaces
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_compile_service_split_modules_to_owned_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_tooling_to_metadata_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_metadata_files_to_metadata_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_is_missing

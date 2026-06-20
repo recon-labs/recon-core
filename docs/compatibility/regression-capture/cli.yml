@@ -1,3 +1,26 @@
 schema_version: 1
 area: cli
-captures: []
+captures:
+  - id: compile-command-terminal-contract
+    title: Compile command preserves render-sql flag wiring and terminal outcomes
+    area: cli
+    bug_class: terminal_output
+    owner_surface: exit_codes
+    severity: P2
+    current_tests:
+      - tests/cli/test_main.py::test_compile_command_passes_render_sql_flag
+      - tests/cli/test_main.py::test_compile_command_writes_compiled_artifacts_for_project
+      - tests/cli/test_main.py::test_compile_render_sql_prints_diagnostic_message_for_profile_errors
+    carryover_gates:
+      - gate: cli_behavior_carryover
+        status: pending
+        expected_suite: compile_cli
+    requirement_refs:
+      - docs/architecture/cli-architecture.md: Service result mapping
+      - docs/implementation/cli-services.md: Compile service boundary
+    notes: >
+      Compile service refactors must preserve public command wiring, render-sql
+      option propagation, terminal summaries, diagnostic printing, and exit
+      categories. Moving compile logic into helpers must not change the CLI
+      contract or hide profile/configuration diagnostics behind generic
+      compile messages.
