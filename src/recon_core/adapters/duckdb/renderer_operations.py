@@ -284,9 +284,7 @@ def render_compare_grouped_aggregates(
     source_relation: Relation,
     target_relation: Relation,
 ) -> RenderedSql:
-    source_operation, target_operation = side_operations(
-        previous_operations, "grouped_aggregate"
-    )
+    source_operation, target_operation = side_operations(previous_operations, "grouped_aggregate")
     aggregate = required_string(source_operation, "aggregate")
     column = required_string(source_operation, "column")
     group_by = required_string_tuple(source_operation, "group_by")

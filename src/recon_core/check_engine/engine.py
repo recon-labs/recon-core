@@ -144,11 +144,14 @@ class CheckEngine:
 
         try:
             dispatch_result = self._dispatcher.dispatch(check)
-            result = runtime_execution_result_if_available(
-                check,
-                dispatch_result,
-                execution_context,
-            ) or dispatch_result
+            result = (
+                runtime_execution_result_if_available(
+                    check,
+                    dispatch_result,
+                    execution_context,
+                )
+                or dispatch_result
+            )
         except Exception:
             result = _internal_error_result(check)
 

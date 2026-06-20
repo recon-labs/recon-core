@@ -44,8 +44,7 @@ def selected_profile_target(
                     resource_type="profile",
                     resource_name=selected_profile_name,
                     hint=(
-                        "Add the profile under `profiles` or update `profile` in "
-                        "recon_project.yml."
+                        "Add the profile under `profiles` or update `profile` in recon_project.yml."
                     ),
                 ),
             )

@@ -108,9 +108,7 @@ def render_aggregate_input_type_check_statement(
     left_relation_sql = render_relation(left_relation)
     right_relation_sql = render_relation(right_relation)
     source_input_type = f"typeof((select {column_expression} from {left_relation_sql} limit 1))"
-    target_input_type = (
-        f"typeof((select {column_expression} from {right_relation_sql} limit 1))"
-    )
+    target_input_type = f"typeof((select {column_expression} from {right_relation_sql} limit 1))"
     predicate = (
         f"{source_input_type} = {target_input_type}\n"
         "        and "

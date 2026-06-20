@@ -60,8 +60,7 @@ def test_prerequisite_helper_keeps_runtime_dependencies_out() -> None:
     assert "recon_core.services.run" not in imported_modules
     assert "recon_core.adapters" not in imported_modules
     assert not any(
-        imported_module.startswith("recon_core.adapters.")
-        for imported_module in imported_modules
+        imported_module.startswith("recon_core.adapters.") for imported_module in imported_modules
     )
 
 
@@ -81,8 +80,7 @@ def test_result_metadata_helper_keeps_runtime_dependencies_out() -> None:
     assert "recon_core.services.run" not in imported_modules
     assert "recon_core.adapters" not in imported_modules
     assert not any(
-        imported_module.startswith("recon_core.adapters.")
-        for imported_module in imported_modules
+        imported_module.startswith("recon_core.adapters.") for imported_module in imported_modules
     )
 
 
@@ -94,8 +92,7 @@ def test_scan_budget_policy_stays_isolated_from_runtime_dependencies() -> None:
     assert "recon_core.services.run" not in imported_modules
     assert "recon_core.adapters" not in imported_modules
     assert not any(
-        imported_module.startswith("recon_core.adapters.")
-        for imported_module in imported_modules
+        imported_module.startswith("recon_core.adapters.") for imported_module in imported_modules
     )
 
 

@@ -103,17 +103,14 @@ def runtime_execution_result_if_available(
     """Return a supported runtime execution result for an otherwise non-executable check."""
     if execution_context is None:
         return None
-    return (
-        _row_count_execution_result_if_available(
-            check,
-            dispatch_result,
-            execution_context,
-        )
-        or _key_safety_execution_result_if_available(
-            check,
-            dispatch_result,
-            execution_context,
-        )
+    return _row_count_execution_result_if_available(
+        check,
+        dispatch_result,
+        execution_context,
+    ) or _key_safety_execution_result_if_available(
+        check,
+        dispatch_result,
+        execution_context,
     )
 
 
