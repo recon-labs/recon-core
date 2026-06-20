@@ -120,6 +120,7 @@ captures:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_duckdb_renderer_modules_to_sql_rendering_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_check_engine_split_modules_to_owned_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_compile_service_split_modules_to_owned_surfaces
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_adapter_redaction_helpers_to_diagnostic_privacy_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_tooling_to_metadata_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_metadata_files_to_metadata_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_fails_when_path_surface_routing_is_missing

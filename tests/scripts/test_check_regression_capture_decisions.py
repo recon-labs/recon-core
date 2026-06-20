@@ -171,6 +171,30 @@ path_surface_routing:
         - diagnostics
         - generated_artifacts
         - sql_rendering
+    - path: src/recon_core/adapters/_diagnostic_redaction_core.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/_diagnostic_redaction_matching.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/_diagnostic_redaction_tokens.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/diagnostic_redaction.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: scripts/check_regression_capture.py
       surfaces:
         - regression_capture_metadata
@@ -224,6 +248,12 @@ path_surface_routing:
     - path: src/recon_core/adapters/duckdb/renderer_sql.py
       surfaces:
         - sql_rendering
+    - path: tests/adapters/test_diagnostic_redaction.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: tests/profiles/test_connection_references.py
       surfaces:
         - diagnostics
@@ -837,6 +867,110 @@ captures: []
     ],
 )
 def test_advisory_maps_compile_service_split_modules_to_owned_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate, (changed_path,)
+    )
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/adapters/_diagnostic_redaction_core.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/adapters/_diagnostic_redaction_matching.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/adapters/_diagnostic_redaction_tokens.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/adapters/diagnostic_redaction.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "tests/adapters/test_diagnostic_redaction.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_adapter_redaction_helpers_to_diagnostic_privacy_surfaces(
     tmp_path: Path,
     changed_path: str,
     expected_surfaces_by_gate: dict[str, tuple[str, ...]],

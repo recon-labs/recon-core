@@ -139,6 +139,30 @@ path_surface_routing:
         - diagnostics
         - generated_artifacts
         - sql_rendering
+    - path: src/recon_core/adapters/_diagnostic_redaction_core.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/_diagnostic_redaction_matching.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/_diagnostic_redaction_tokens.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/diagnostic_redaction.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: scripts/check_regression_capture.py
       surfaces:
         - regression_capture_metadata
@@ -187,6 +211,12 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: tests/adapters/test_diagnostic_redaction.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: src/recon_core/adapters/duckdb/adapter.py
       surfaces:
         - adapter_runtime
