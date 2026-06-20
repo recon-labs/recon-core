@@ -126,8 +126,10 @@ Generated artifacts and diagnostics may include profile name, target name,
 adapter type, and non-secret relation identifiers. They must not include
 secrets or fully rendered credential payloads.
 
-Current implementation loads profiles for `recon compile --render-sql` only.
-Plain parse and compile do not require `connections/profiles.yml`.
+Current implementation loads profiles for `recon compile --render-sql` and for
+relation-backed `recon run` execution paths that require runtime adapter
+connections. Plain parse and plain compile do not require
+`connections/profiles.yml`.
 Adapter-aware rendering requires referenced source and target connections to
 resolve to the same adapter type and rendered connection config. Distinct
 connection configs are blocked rather than implicitly bridged.
