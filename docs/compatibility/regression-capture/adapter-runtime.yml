@@ -8,9 +8,9 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_same_context_duckdb_without_local_fixture
-      - tests/services/test_run_service.py::test_run_service_scan_safety_blocks_key_safety_with_full_capabilities
-      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_blocks_key_safety_same_context_duckdb_without_local_fixture
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_scan_safety_blocks_key_safety_with_full_capabilities
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending
@@ -29,7 +29,7 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending
@@ -48,7 +48,7 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending
@@ -68,7 +68,7 @@ captures:
     owner_surface: core_runtime_policy
     severity: P1
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_resolves_relative_duckdb_profile_paths_from_project_root
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_resolves_relative_duckdb_profile_paths_from_project_root
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending
@@ -88,7 +88,7 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending
@@ -107,7 +107,7 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suffix
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suffix
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending
@@ -126,9 +126,9 @@ captures:
     owner_surface: adapter_api
     severity: P2
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_requires_key_safety_capability_before_connect
-      - tests/services/test_run_service.py::test_run_service_requires_each_key_safety_capability_before_connect
-      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_malformed_capability_before_connect
+      - tests/services/test_run_service_adapter_lifecycle.py::test_run_service_requires_key_safety_capability_before_connect
+      - tests/services/test_run_service_adapter_lifecycle.py::test_run_service_requires_each_key_safety_capability_before_connect
+      - tests/services/test_run_service_adapter_lifecycle.py::test_run_service_blocks_key_safety_malformed_capability_before_connect
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending
@@ -173,8 +173,8 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_reports_missing_duckdb_dependency_when_metadata_probe_cannot_import
-      - tests/services/test_run_service.py::test_run_service_reports_adapter_connection_when_metadata_probe_cannot_open_database
+      - tests/services/test_run_service_adapter_lifecycle.py::test_run_service_reports_missing_duckdb_dependency_when_metadata_probe_cannot_import
+      - tests/services/test_run_service_adapter_lifecycle.py::test_run_service_reports_adapter_connection_when_metadata_probe_cannot_open_database
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending

@@ -9,7 +9,7 @@ captures:
     severity: P2
     current_tests:
       - tests/check_engine/test_engine.py::test_engine_preserves_key_safety_shape_blocker_when_scan_budget_decision_is_missing
-      - tests/services/test_run_service.py::test_run_service_preserves_key_safety_shape_blocker_in_mixed_runtime_run
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_preserves_key_safety_shape_blocker_in_mixed_runtime_run
     carryover_gates:
       - gate: check_engine_semantics_carryover
         status: pending
@@ -81,7 +81,7 @@ captures:
     severity: P2
     current_tests:
       - tests/check_engine/test_engine.py::test_engine_preserves_key_safety_invalid_relation_before_scan_budget_block
-      - tests/services/test_run_service.py::test_run_service_preserves_key_safety_invalid_relation_before_profile_loading
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_preserves_key_safety_invalid_relation_before_profile_loading
     carryover_gates:
       - gate: check_engine_semantics_carryover
         status: pending

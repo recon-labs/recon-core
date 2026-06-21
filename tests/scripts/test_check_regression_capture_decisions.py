@@ -226,6 +226,21 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: tests/services/_run_service_fixtures.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/services/test_run_service.py
+      surfaces:
+        - adapter_runtime
+    - path: tests/services/test_run_service_adapter_lifecycle.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/services/test_run_service_duckdb_execution.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
     - path: src/recon_core/check_engine/scan_budget.py
       surfaces:
         - scan_safety
@@ -1023,6 +1038,49 @@ captures: []
     assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
         expected_surfaces_by_gate, (changed_path,)
     )
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces"),
+    [
+        ("tests/services/test_run_service.py", ("adapter_runtime",)),
+        (
+            "tests/services/test_run_service_duckdb_execution.py",
+            ("adapter_runtime", "scan_safety"),
+        ),
+        (
+            "tests/services/test_run_service_adapter_lifecycle.py",
+            ("adapter_runtime", "scan_safety"),
+        ),
+        ("tests/services/_run_service_fixtures.py", ("adapter_runtime", "scan_safety")),
+    ],
+)
+def test_advisory_maps_run_service_split_tests_to_owned_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces: tuple[str, ...],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == expected_surfaces
+    assert findings[0].paths == (changed_path,)
 
 
 @pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")

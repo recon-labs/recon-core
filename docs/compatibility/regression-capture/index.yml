@@ -247,7 +247,18 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: tests/services/_run_service_fixtures.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
     - path: tests/services/test_run_service.py
+      surfaces:
+        - adapter_runtime
+    - path: tests/services/test_run_service_adapter_lifecycle.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/services/test_run_service_duckdb_execution.py
       surfaces:
         - adapter_runtime
         - scan_safety

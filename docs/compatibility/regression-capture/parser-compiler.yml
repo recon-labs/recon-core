@@ -32,8 +32,8 @@ captures:
     owner_surface: compiler
     severity: P2
     current_tests:
-      - tests/services/test_compile_service.py::test_render_sql_compile_reports_compile_validation_before_profile_errors
-      - tests/services/test_compile_service.py::test_render_sql_compile_marks_renderable_checks_blocked_when_compile_validation_fails
+      - tests/services/test_compile_service_render_sql.py::test_render_sql_compile_reports_compile_validation_before_profile_errors
+      - tests/services/test_compile_service_render_sql.py::test_render_sql_compile_marks_renderable_checks_blocked_when_compile_validation_fails
     carryover_gates:
       - gate: parser_compiler_contract_carryover
         status: pending
@@ -122,6 +122,7 @@ captures:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_duckdb_renderer_modules_to_sql_rendering_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_check_engine_split_modules_to_owned_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_compile_service_split_modules_to_owned_surfaces
+      - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_run_service_split_tests_to_owned_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_adapter_redaction_helpers_to_diagnostic_privacy_surfaces
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_tooling_to_metadata_surface
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_regression_capture_metadata_files_to_metadata_surface

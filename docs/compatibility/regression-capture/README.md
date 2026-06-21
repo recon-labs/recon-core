@@ -55,7 +55,7 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
-      - tests/services/test_run_service.py::test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup
+      - tests/services/test_run_service_duckdb_execution.py::test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: pending
