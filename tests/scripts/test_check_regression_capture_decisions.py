@@ -68,6 +68,24 @@ path_surface_routing:
         - profile_secrets
         - redaction
         - source_target_privacy
+    - path: src/recon_core/__init__.py
+      surfaces:
+        - python_package_imports
+    - path: src/recon_core/adapters/__init__.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - python_package_imports
+    - path: src/recon_core/compiler/__init__.py
+      surfaces:
+        - check_packs
+        - compiler
+        - python_package_imports
+        - typed_check_plan
+        - validation_defaults
+    - path: tests/compatibility/test_python_package_exports.py
+      surfaces:
+        - python_package_imports
     - path: src/recon_core/config/project_config.py
       surfaces:
         - diagnostics
@@ -314,6 +332,7 @@ gates:
       - adapter_capabilities
       - sql_rendering
       - scan_safety
+      - python_package_imports
   check_engine_semantics_carryover:
     primary_milestone: aggregate_metric_execution
     primary_milestone_title: Aggregate metric execution
@@ -332,10 +351,12 @@ gates:
       - any YAML schema, validation default, check-pack expansion, or typed-plan change
     trigger_surfaces:
       - contract_yaml
+      - check_packs
       - compiler
       - parser
       - regression_capture_metadata
       - typed_check_plan
+      - validation_defaults
   cli_behavior_carryover:
     primary_milestone: runner_and_results
     primary_milestone_title: Runner and results
@@ -575,6 +596,75 @@ captures: []
     assert findings[0].gate == "adapter_testkit_regression_carryover"
     assert findings[0].surfaces == ("adapter_api", "adapter_capabilities")
     assert findings[0].paths == (changed_path,)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/__init__.py",
+            {
+                "adapter_testkit_regression_carryover": ("python_package_imports",),
+            },
+        ),
+        (
+            "src/recon_core/adapters/__init__.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                    "python_package_imports",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/compiler/__init__.py",
+            {
+                "adapter_testkit_regression_carryover": ("python_package_imports",),
+                "check_engine_semantics_carryover": ("typed_check_plan",),
+                "parser_compiler_contract_carryover": (
+                    "check_packs",
+                    "compiler",
+                    "typed_check_plan",
+                    "validation_defaults",
+                ),
+            },
+        ),
+        (
+            "tests/compatibility/test_python_package_exports.py",
+            {
+                "adapter_testkit_regression_carryover": ("python_package_imports",),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_python_package_import_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate,
+        (changed_path,),
+    )
 
 
 @pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")

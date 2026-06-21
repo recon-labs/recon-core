@@ -12,7 +12,7 @@ adapter test kit, Hub metadata, and integrations.
 
 | Component or surface | Current version or status | Compatibility position |
 | --- | --- | --- |
-| `recon-core` package | `0.0.0`, pre-alpha | No stable public API guarantee yet. |
+| `recon-core` package | `0.0.0`, pre-alpha | No stable public API guarantee yet. Current package facades are classified and tested as pre-alpha import surfaces: existing imports may remain compatibility aliases, adapter/test-kit-facing imports require compatibility review before narrowing, and neutral facades must not import concrete optional adapters or expose private runtime wiring as generic public API. |
 | Python runtime | `>=3.11` | Declared in `pyproject.toml`. |
 | Contract YAML | Authored contract `version: 1` parser scope | Implemented parser scope, not frozen before 1.0. |
 | Contract schema stabilization | Planned | Schema freeze, machine-readable schema reference, deprecation lifecycle, and migration policy are gated before 1.0. |
@@ -100,6 +100,8 @@ Update this matrix when any of the following change:
 
 - supported Python versions,
 - supported `recon-core` versions,
+- package-level import paths, package `__all__`, or adapter/test-kit-facing
+  import compatibility,
 - contract schema compatibility,
 - artifact schema versions,
 - artifact freshness or cache semantics,

@@ -58,6 +58,9 @@ This project follows semantic versioning once public package releases begin.
   `RelationMetadataAdapter` interface instead of a required `BaseAdapter`
   responsibility; `BaseAdapter` keeps compatibility shims and
   `ADAPTER_API_VERSION` remains `1`.
+- Python package import facades are now classified as pre-alpha compatibility
+  surfaces, with tests guarding current package `__all__` exports and ensuring
+  neutral adapter imports do not eagerly load concrete optional adapters.
 - Regression-capture decision validation now has an explicit branch-wide mode
   with `scripts/check_regression_capture_decisions.py --base-ref origin/main`;
   the no-argument advisory remains scoped to local WIP and untracked files, and

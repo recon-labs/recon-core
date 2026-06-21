@@ -36,6 +36,77 @@ path_surface_routing:
         - profile_secrets
         - redaction
         - source_target_privacy
+    - path: src/recon_core/__init__.py
+      surfaces:
+        - python_package_imports
+    - path: src/recon_core/adapters/__init__.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - python_package_imports
+    - path: src/recon_core/adapters/duckdb/__init__.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - python_package_imports
+        - sql_rendering
+    - path: src/recon_core/artifacts/__init__.py
+      surfaces:
+        - artifact_lifecycle
+        - generated_artifacts
+        - python_package_imports
+    - path: src/recon_core/check_engine/__init__.py
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+        - python_package_imports
+        - typed_check_plan
+    - path: src/recon_core/cli/__init__.py
+      surfaces:
+        - cli
+        - exit_codes
+        - python_package_imports
+        - terminal_output
+    - path: src/recon_core/compiler/__init__.py
+      surfaces:
+        - check_packs
+        - compiler
+        - python_package_imports
+        - typed_check_plan
+        - validation_defaults
+    - path: src/recon_core/config/__init__.py
+      surfaces:
+        - diagnostics
+        - python_package_imports
+        - redaction
+    - path: src/recon_core/diagnostics/__init__.py
+      surfaces:
+        - diagnostics
+        - python_package_imports
+    - path: src/recon_core/parser/__init__.py
+      surfaces:
+        - contract_yaml
+        - parser
+        - python_package_imports
+    - path: src/recon_core/profiles/__init__.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - python_package_imports
+        - redaction
+    - path: src/recon_core/project/__init__.py
+      surfaces:
+        - python_package_imports
+    - path: src/recon_core/services/__init__.py
+      surfaces:
+        - cli
+        - exit_codes
+        - python_package_imports
+        - terminal_output
+    - path: tests/compatibility/test_python_package_exports.py
+      surfaces:
+        - python_package_imports
     - path: src/recon_core/config/project_config.py
       surfaces:
         - diagnostics
@@ -320,6 +391,7 @@ gates:
       - sql_rendering
       - scan_safety
       - cross_repo_compatibility
+      - python_package_imports
   check_engine_semantics_carryover:
     primary_milestone: aggregate_metric_execution
     primary_milestone_title: Aggregate metric execution

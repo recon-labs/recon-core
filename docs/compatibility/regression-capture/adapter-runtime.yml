@@ -141,6 +141,31 @@ captures:
       states before opening adapters or running source/target scans. Future
       adapter conformance must preserve explicit capability blockers instead of
       falling through to execution.
+  - id: python-package-import-surface-guard
+    title: Package import facades stay classified and adapter imports stay lazy
+    area: adapter-runtime
+    bug_class: python_package_imports
+    owner_surface: cross_repo_compatibility
+    severity: P2
+    current_tests:
+      - tests/compatibility/test_python_package_exports.py::test_package_exports_match_classified_import_surface
+      - tests/compatibility/test_python_package_exports.py::test_neutral_adapter_facade_excludes_concrete_and_internal_exports
+      - tests/compatibility/test_python_package_exports.py::test_neutral_adapter_facade_import_does_not_import_duckdb_modules
+      - tests/compatibility/test_python_package_exports.py::test_default_adapter_registry_call_remains_available
+      - tests/compatibility/test_python_package_exports.py::test_concrete_duckdb_exports_remain_on_concrete_package
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: python_package_imports
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Python package import surface
+      - docs/compatibility/compatibility-matrix.md: recon-core package
+    notes: >
+      Package-level imports are pre-alpha, but future adapter packages,
+      compatibility tests, and embedding code may still depend on them. Facade
+      `__all__` changes must be classified, and neutral facades such as
+      `recon_core.adapters` must not make concrete adapter packages or internal
+      renderer wiring look like generic public API.
   - id: key-safety-duckdb-metadata-open-failure-adapter-diagnostic
     title: DuckDB metadata-open failures do not hide adapter dependency diagnostics
     area: adapter-runtime
