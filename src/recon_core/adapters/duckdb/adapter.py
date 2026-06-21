@@ -17,9 +17,7 @@ from recon_core.adapters.lifecycle import (
 from recon_core.adapters.models import (
     ADAPTER_API_VERSION,
     AdapterResolutionResult,
-    ColumnMetadata,
     QueryResult,
-    Relation,
 )
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
@@ -107,12 +105,6 @@ class DuckDbAdapter(BaseAdapter):
                     exc=exc,
                 )
             ) from None
-
-    def relation_exists(self, relation: Relation) -> bool:
-        raise NotImplementedError("DuckDB metadata access is implemented in a later phase.")
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
-        raise NotImplementedError("DuckDB metadata access is implemented in a later phase.")
 
     def capabilities(self) -> AdapterCapabilities:
         return AdapterCapabilities(

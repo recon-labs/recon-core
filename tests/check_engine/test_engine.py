@@ -11,10 +11,8 @@ from recon_core.adapters import (
     AdapterCapabilities,
     BaseAdapter,
     CapabilitySupport,
-    ColumnMetadata,
     ConnectionConfig,
     QueryResult,
-    Relation,
     SqlRenderer,
 )
 from recon_core.adapters.duckdb import DuckDbSqlRenderer
@@ -1267,12 +1265,6 @@ class _RecordingDuckDbAdapter(BaseAdapter):
         if len(self.results) > 1:
             return self.results.pop(0)
         return self.results[0]
-
-    def relation_exists(self, relation: Relation) -> bool:
-        return False
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
-        return ()
 
     def capabilities(self) -> AdapterCapabilities:
         return AdapterCapabilities(

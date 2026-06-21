@@ -101,11 +101,16 @@ Recon will separate the adapter boundary into two concepts:
 
 ```text
 BaseAdapter
+RelationMetadataAdapter
 SqlRenderer
 ```
 
-`BaseAdapter` owns adapter metadata, connection lifecycle, metadata access,
-query execution, and adapter capability declarations.
+`BaseAdapter` owns adapter metadata, connection lifecycle, query execution, and
+adapter capability declarations.
+
+`RelationMetadataAdapter` owns optional relation metadata access. ADR 0023
+supersedes the earlier ADR 0020 wording that placed relation metadata access on
+the minimum `BaseAdapter` boundary.
 
 `SqlRenderer` owns dialect-specific rendering of Recon typed check-plan
 operations into SQL.
@@ -125,7 +130,7 @@ Adapters own:
 
 - connection lifecycle,
 - relation and identifier rendering,
-- metadata retrieval,
+- metadata retrieval when they implement the relation metadata interface,
 - dialect SQL rendering,
 - execution details,
 - type mapping,

@@ -54,6 +54,10 @@ This project follows semantic versioning once public package releases begin.
 - Compatibility docs now clarify future adapter ecosystem gates for
   DSN-component redaction, explicit adapter/renderer binding, rendered SQL
   step capability enforcement, and adapter/test-kit compatibility claims.
+- The pre-alpha adapter API now treats relation metadata access as an optional
+  `RelationMetadataAdapter` interface instead of a required `BaseAdapter`
+  responsibility; `BaseAdapter` keeps compatibility shims and
+  `ADAPTER_API_VERSION` remains `1`.
 - Regression-capture decision validation now has an explicit branch-wide mode
   with `scripts/check_regression_capture_decisions.py --base-ref origin/main`;
   the no-argument advisory remains scoped to local WIP and untracked files, and

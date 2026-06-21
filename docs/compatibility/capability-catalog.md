@@ -174,6 +174,13 @@ query endpoints also requires the future `queries` capability design,
 query execution validation, and source/target privacy rules for query text
 before it can be implemented.
 
+Relation metadata capabilities do not imply metadata-call permission by
+themselves. Future callers that need relation existence or column metadata must
+require the nominal `RelationMetadataAdapter` interface and the relevant
+metadata capability, such as `metadata_columns`, before calling metadata
+methods. Method presence or inherited compatibility shims on `BaseAdapter` are
+not support signals.
+
 Future tolerance or normalization execution may require additional granular
 capabilities after typed policy payloads are implemented. ADR 0009 locks
 limited regex replacement as an MVP policy surface, so the implementation phase

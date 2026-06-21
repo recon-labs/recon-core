@@ -22,10 +22,14 @@ Current state:
 - ADR 0021 locks execution placement and comparison-engine ownership,
 - ADR 0022 locks result/evidence sink placement, privacy, and write-status
   ownership,
+- ADR 0023 splits optional relation metadata access from the minimum
+  `BaseAdapter` boundary,
 - `ADAPTER_API_VERSION = "1"` exists in code as a pre-alpha adapter boundary,
 - the in-core DuckDB local development adapter renders current typed check
   plans to SQL,
-- adapter execution, metadata fetching, materialization/staging,
+- current relation-backed DuckDB row-count and bounded local/dev grain-key
+  safety execution are implemented,
+- metadata fetching, materialization/staging,
   probabilistic key-diff, and result/evidence sink writes are not implemented
   yet.
 
@@ -129,6 +133,15 @@ compiled-check artifact output even when they share the same diagnostic code,
 adapter type, or hint. Adapter setup diagnostics must also be reported alongside
 render diagnostics from otherwise resolvable contracts in the same
 adapter-aware compile invocation.
+
+Relation metadata is a separate nominal adapter interface. A future metadata
+caller must require `RelationMetadataAdapter` and the relevant metadata
+capability, such as `metadata_columns`, before calling `relation_exists()` or
+`get_columns()`. Inherited pre-alpha compatibility shims on `BaseAdapter` and
+method presence alone are not metadata support. Capability support alone is not
+metadata-call permission. The current DuckDB local development adapter keeps
+`metadata_columns: not_implemented` and does not claim relation metadata
+support through the nominal interface.
 
 Compile validation failures that prevent adapter rendering from starting are a
 core artifact conformance case. When `recon compile --render-sql` is requested
@@ -338,11 +351,13 @@ The first adapter boundary separates:
 
 ```text
 BaseAdapter
+RelationMetadataAdapter
 SqlRenderer
 ```
 
-`BaseAdapter` owns connection lifecycle, metadata, execution, adapter metadata,
-capability declarations, and future approved write/staging mechanics.
+`BaseAdapter` owns connection lifecycle, query execution, adapter metadata, and
+capability declarations. `RelationMetadataAdapter` owns optional relation
+metadata access.
 `SqlRenderer` owns dialect rendering for Core typed operations.
 
 ## Execution, Placement, And Sink Compatibility

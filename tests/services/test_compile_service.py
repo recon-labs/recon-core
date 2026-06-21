@@ -12,7 +12,6 @@ from recon_core.adapters import (
     AdapterResolutionResult,
     BaseAdapter,
     CapabilitySupport,
-    ColumnMetadata,
     QueryResult,
     Relation,
     RenderedSql,
@@ -2275,12 +2274,6 @@ class FakeAdapter(BaseAdapter):
         raise NotImplementedError
 
     def execute(self, query: str) -> QueryResult:
-        raise NotImplementedError
-
-    def relation_exists(self, relation: Relation) -> bool:
-        raise NotImplementedError
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
         raise NotImplementedError
 
     def capabilities(self) -> AdapterCapabilities:

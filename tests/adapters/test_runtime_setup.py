@@ -7,10 +7,8 @@ from recon_core.adapters import (
     AdapterResolutionResult,
     BaseAdapter,
     CapabilitySupport,
-    ColumnMetadata,
     ConnectionConfig,
     QueryResult,
-    Relation,
 )
 from recon_core.adapters.runtime_setup import prepare_runtime_adapter
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -33,12 +31,6 @@ class CompatibleAdapter(BaseAdapter):
 
     def execute(self, query: str) -> QueryResult:
         return QueryResult(columns=(), rows=(), row_count=0)
-
-    def relation_exists(self, relation: Relation) -> bool:
-        return False
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
-        return ()
 
     def capabilities(self) -> AdapterCapabilities:
         return AdapterCapabilities(

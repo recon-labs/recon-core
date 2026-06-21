@@ -19,14 +19,13 @@ Adapters should implement:
 
 - connection lifecycle,
 - query execution,
-- relation existence checks,
-- metadata fetching,
 - adapter metadata,
-- type normalization,
 - capability declaration.
 
-SQL-capable adapters should also implement a dialect renderer for typed check
-plan operations. Core defines the operations; adapters define dialect rendering.
+Adapters that support relation metadata should also implement the nominal
+relation metadata interface. SQL-capable adapters should implement a dialect
+renderer for typed check plan operations. Core defines the operations; adapters
+define dialect rendering.
 
 Adapters do not own reconciliation semantics, execution placement, evidence
 meaning, privacy classification, failure-detail bounds, or sink/result
@@ -44,16 +43,29 @@ class BaseAdapter:
     def connect(self) -> None: ...
     def close(self) -> None: ...
     def execute(self, query: str) -> QueryResult: ...
-    def relation_exists(self, relation: Relation) -> bool: ...
-    def get_columns(self, relation: Relation) -> list[ColumnMetadata]: ...
     def capabilities(self) -> AdapterCapabilities: ...
 ```
 
-`get_columns` is required for ADR 0019 all-column expansion and physical
-column/type validation.
+The base adapter may retain pre-alpha compatibility shims for relation metadata
+method lookup, but those inherited methods are not metadata support.
 
-The API separates connection/metadata/execution from SQL rendering. This avoids
-forcing non-SQL adapters to implement SQL helper methods.
+Relation metadata adapter:
+
+```python
+class RelationMetadataAdapter(BaseAdapter):
+    def relation_exists(self, relation: Relation) -> bool: ...
+    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]: ...
+```
+
+`get_columns` is required for ADR 0019 all-column expansion and physical
+column/type validation, but only for adapters that implement the metadata
+interface and declare the relevant metadata capability, such as
+`metadata_columns`. Capability support alone must not be treated as permission
+to call metadata methods.
+
+The API separates connection/execution/capability declaration, optional
+metadata access, and SQL rendering. This avoids forcing adapters to implement
+unused metadata or SQL helper methods.
 
 SQL renderer:
 

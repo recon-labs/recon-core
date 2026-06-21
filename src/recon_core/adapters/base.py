@@ -31,6 +31,32 @@ class BaseAdapter(ABC):
     def execute(self, query: str) -> QueryResult:
         """Execute a query."""
 
+    def relation_exists(self, relation: Relation) -> bool:
+        """Return whether a relation exists.
+
+        Relation metadata support is optional. Metadata-capable adapters should
+        implement RelationMetadataAdapter; this default exists for pre-alpha
+        compatibility with callers that still probe the old base method.
+        """
+        raise NotImplementedError("Relation metadata access is not implemented by this adapter.")
+
+    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
+        """Return relation column metadata.
+
+        Relation metadata support is optional. Metadata-capable adapters should
+        implement RelationMetadataAdapter; this default exists for pre-alpha
+        compatibility with callers that still probe the old base method.
+        """
+        raise NotImplementedError("Relation column metadata is not implemented by this adapter.")
+
+    @abstractmethod
+    def capabilities(self) -> AdapterCapabilities:
+        """Return declared adapter capabilities."""
+
+
+class RelationMetadataAdapter(BaseAdapter):
+    """Adapter interface for relation metadata access."""
+
     @abstractmethod
     def relation_exists(self, relation: Relation) -> bool:
         """Return whether a relation exists."""
@@ -38,10 +64,6 @@ class BaseAdapter(ABC):
     @abstractmethod
     def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
         """Return relation column metadata."""
-
-    @abstractmethod
-    def capabilities(self) -> AdapterCapabilities:
-        """Return declared adapter capabilities."""
 
 
 class SqlRenderer(ABC):

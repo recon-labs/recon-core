@@ -231,6 +231,14 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: src/recon_core/adapters/base.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+    - path: tests/adapters/test_base_adapter.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
     - path: src/recon_core/adapters/duckdb/runtime_scan_guard.py
       surfaces:
         - adapter_runtime
@@ -532,6 +540,40 @@ captures: []
     assert len(findings) == 1
     assert findings[0].gate == "adapter_testkit_regression_carryover"
     assert "scan_safety" in findings[0].surfaces
+    assert findings[0].paths == (changed_path,)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    "changed_path",
+    [
+        "src/recon_core/adapters/base.py",
+        "tests/adapters/test_base_adapter.py",
+    ],
+)
+def test_advisory_maps_base_adapter_interface_to_adapter_api_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities")
     assert findings[0].paths == (changed_path,)
 
 

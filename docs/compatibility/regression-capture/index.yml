@@ -203,6 +203,14 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: src/recon_core/adapters/base.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+    - path: tests/adapters/test_base_adapter.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
     - path: src/recon_core/adapters/duckdb/runtime_scan_guard.py
       surfaces:
         - adapter_runtime

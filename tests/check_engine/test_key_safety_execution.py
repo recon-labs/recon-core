@@ -9,7 +9,6 @@ from recon_core.adapters import (
     AdapterCapabilities,
     BaseAdapter,
     CapabilitySupport,
-    ColumnMetadata,
     ConnectionConfig,
     QueryResult,
     Relation,
@@ -647,12 +646,6 @@ class DuckDbExecutionAdapter(BaseAdapter):
         rows = tuple(tuple(row) for row in cursor.fetchall())
         return QueryResult(columns=columns, rows=rows, row_count=len(rows))
 
-    def relation_exists(self, relation: Relation) -> bool:
-        return False
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
-        return ()
-
     def capabilities(self) -> AdapterCapabilities:
         return _key_safety_capabilities()
 
@@ -685,12 +678,6 @@ class RecordingAdapter(BaseAdapter):
         if self.error is not None:
             raise self.error
         return self.result
-
-    def relation_exists(self, relation: Relation) -> bool:
-        return False
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
-        return ()
 
     def capabilities(self) -> AdapterCapabilities:
         return _key_safety_capabilities()

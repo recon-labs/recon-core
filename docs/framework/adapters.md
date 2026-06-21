@@ -8,7 +8,9 @@ Adapters allow Recon Core to work with different databases, warehouses, document
 
 ## Definition
 
-An adapter handles connection, SQL dialect, identifier quoting, metadata queries, limit syntax, timestamp syntax, numeric casting, hashing syntax, temporary objects, schema introspection, and capability declaration.
+An adapter handles connection, SQL dialect, identifier quoting, optional metadata
+queries, limit syntax, timestamp syntax, numeric casting, hashing syntax,
+temporary objects, schema introspection, and capability declaration.
 
 Connectors are user-facing connection config entries. Adapters are the code
 packages that implement those connector types.
@@ -38,7 +40,9 @@ such as `recon-postgres` and `recon-snowflake`.
 
 `recon-core` owns CLI, project loading, contract parsing, check planning, result model, evidence generation, base adapter interface, extension mechanism, and framework-level validation rules.
 
-Adapters own connection implementation, SQL compilation details, metadata access, dialect-specific functions, capability reporting, and adapter-specific tests.
+Adapters own connection implementation, SQL compilation details, optional
+metadata access, dialect-specific functions, capability reporting, and
+adapter-specific tests.
 
 Core owns comparison meaning. Adapters own system-specific execution.
 
@@ -105,7 +109,8 @@ In local repository development, use `pip install -e ".[dev,duckdb]"`.
 
 ## Interface concepts
 
-The first adapter boundary separates base adapter behavior from SQL rendering:
+The adapter boundary separates minimum adapter behavior, optional relation
+metadata access, and SQL rendering:
 
 ```python
 class BaseAdapter:
@@ -116,9 +121,12 @@ class BaseAdapter:
     def connect(self): ...
     def close(self): ...
     def execute(self, sql: str): ...
+    def capabilities(self) -> AdapterCapabilities: ...
+
+
+class RelationMetadataAdapter(BaseAdapter):
     def relation_exists(self, relation: str) -> bool: ...
     def get_columns(self, relation: str) -> list[Column]: ...
-    def capabilities(self) -> AdapterCapabilities: ...
 
 
 class SqlRenderer:
@@ -129,7 +137,10 @@ class SqlRenderer:
 ```
 
 Core owns the typed operation payload. The renderer owns dialect SQL for that
-payload.
+payload. Relation metadata is optional and nominal: future metadata callers
+should require `RelationMetadataAdapter` plus the relevant metadata capability
+before reading metadata. Inherited pre-alpha metadata method shims on
+`BaseAdapter` are not a support signal.
 
 ## Capabilities
 
@@ -199,7 +210,10 @@ Adapters should also declare the adapter API version they support.
 If an adapter cannot run a requested check, Recon should fail during
 compile/validation when possible.
 
-If metadata is unavailable, the compiled plan should mark validation as deferred.
+If metadata is unavailable, the compiled plan should mark validation as
+deferred. `metadata_columns` support means column metadata can satisfy a
+metadata request only when the adapter also implements the relation metadata
+interface; capability support alone must not authorize metadata calls.
 
 Compile without an adapter can still produce typed plans with
 `rendering.status: not_rendered`. Adapter-aware rendering must validate adapter
@@ -464,7 +478,8 @@ type, physical type, nullable, precision, scale, and timezone behavior when
 known.
 
 This supports schema checks, ADR 0019 all-column expansion, and column/type
-validation.
+validation. Relation metadata access belongs to `RelationMetadataAdapter`, not
+the minimum `BaseAdapter` lifecycle/execution boundary.
 
 ## Semi-structured adapters
 
