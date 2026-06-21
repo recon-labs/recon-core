@@ -422,4 +422,3 @@ Item 16 prework is complete when:
 - regression-capture decision advisory is checked,
 - formatting/diff checks pass,
 - the companion brain dump records the prework and next task.
-
