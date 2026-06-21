@@ -5,8 +5,8 @@ from recon_core.adapters.duckdb.adapter import (
     AdapterLifecycleError,
     DuckDbAdapter,
     DuckDbAdapterFactory,
-    DuckDbSqlRenderer,
 )
+from recon_core.adapters.duckdb.renderer import DuckDbSqlRenderer
 from recon_core.adapters.lifecycle import (
     ADAPTER_CLOSE_FAILED,
     ADAPTER_CONNECTION_FAILED,

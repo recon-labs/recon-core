@@ -36,6 +36,77 @@ path_surface_routing:
         - profile_secrets
         - redaction
         - source_target_privacy
+    - path: src/recon_core/__init__.py
+      surfaces:
+        - python_package_imports
+    - path: src/recon_core/adapters/__init__.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - python_package_imports
+    - path: src/recon_core/adapters/duckdb/__init__.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - python_package_imports
+        - sql_rendering
+    - path: src/recon_core/artifacts/__init__.py
+      surfaces:
+        - artifact_lifecycle
+        - generated_artifacts
+        - python_package_imports
+    - path: src/recon_core/check_engine/__init__.py
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+        - python_package_imports
+        - typed_check_plan
+    - path: src/recon_core/cli/__init__.py
+      surfaces:
+        - cli
+        - exit_codes
+        - python_package_imports
+        - terminal_output
+    - path: src/recon_core/compiler/__init__.py
+      surfaces:
+        - check_packs
+        - compiler
+        - python_package_imports
+        - typed_check_plan
+        - validation_defaults
+    - path: src/recon_core/config/__init__.py
+      surfaces:
+        - diagnostics
+        - python_package_imports
+        - redaction
+    - path: src/recon_core/diagnostics/__init__.py
+      surfaces:
+        - diagnostics
+        - python_package_imports
+    - path: src/recon_core/parser/__init__.py
+      surfaces:
+        - contract_yaml
+        - parser
+        - python_package_imports
+    - path: src/recon_core/profiles/__init__.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - python_package_imports
+        - redaction
+    - path: src/recon_core/project/__init__.py
+      surfaces:
+        - python_package_imports
+    - path: src/recon_core/services/__init__.py
+      surfaces:
+        - cli
+        - exit_codes
+        - python_package_imports
+        - terminal_output
+    - path: tests/compatibility/test_python_package_exports.py
+      surfaces:
+        - python_package_imports
     - path: src/recon_core/config/project_config.py
       surfaces:
         - diagnostics
@@ -60,8 +131,106 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/profiles/_diagnostics.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_profile_yaml.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_rendering.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_selection.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: src/recon_core/profiles/connection_references.py
       surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/services/compile.py
+      surfaces:
+        - adapter_capabilities
+        - adapter_runtime
+        - artifact_lifecycle
+        - cli
+        - compiler
+        - diagnostics
+        - exit_codes
+        - generated_artifacts
+        - parser
+        - profile_secrets
+        - redaction
+        - sql_rendering
+        - terminal_output
+    - path: src/recon_core/services/_compile_adapter_setup.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - adapter_diagnostics
+        - adapter_runtime
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/services/_compile_artifacts.py
+      surfaces:
+        - artifact_lifecycle
+        - diagnostics
+        - generated_artifacts
+    - path: src/recon_core/services/_compile_diagnostic_privacy.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/services/_compile_diagnostics.py
+      surfaces:
+        - diagnostics
+    - path: src/recon_core/services/_compile_render_sql.py
+      surfaces:
+        - adapter_capabilities
+        - adapter_diagnostics
+        - adapter_runtime
+        - diagnostics
+        - generated_artifacts
+        - profile_secrets
+        - redaction
+        - sql_rendering
+    - path: src/recon_core/services/_compile_rendering_metadata.py
+      surfaces:
+        - artifact_lifecycle
+        - diagnostics
+        - generated_artifacts
+        - sql_rendering
+    - path: src/recon_core/adapters/_diagnostic_redaction_core.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/_diagnostic_redaction_matching.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/_diagnostic_redaction_tokens.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/diagnostic_redaction.py
+      surfaces:
+        - adapter_diagnostics
         - diagnostics
         - profile_secrets
         - redaction
@@ -78,17 +247,52 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: tests/services/_run_service_fixtures.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
     - path: tests/services/test_run_service.py
+      surfaces:
+        - adapter_runtime
+    - path: tests/services/test_run_service_adapter_lifecycle.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/services/test_run_service_duckdb_execution.py
       surfaces:
         - adapter_runtime
         - scan_safety
     - path: src/recon_core/check_engine/scan_budget.py
       surfaces:
         - scan_safety
+    - path: src/recon_core/check_engine/prerequisites.py
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+    - path: src/recon_core/check_engine/result_metadata.py
+      surfaces:
+        - check_engine
+        - execution_result
+    - path: src/recon_core/check_engine/runtime.py
+      surfaces:
+        - adapter_runtime
+        - check_engine
+        - execution_result
+        - scan_safety
+        - typed_check_plan
     - path: src/recon_core/adapters/runtime_safety.py
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: src/recon_core/adapters/base.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+    - path: tests/adapters/test_base_adapter.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
     - path: src/recon_core/adapters/duckdb/runtime_scan_guard.py
       surfaces:
         - adapter_runtime
@@ -97,15 +301,34 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: tests/adapters/test_diagnostic_redaction.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: src/recon_core/adapters/duckdb/adapter.py
       surfaces:
         - adapter_runtime
         - adapter_capabilities
+    - path: src/recon_core/adapters/duckdb/renderer.py
+      surfaces:
+        - sql_rendering
+    - path: src/recon_core/adapters/duckdb/renderer_operations.py
+      surfaces:
+        - sql_rendering
+    - path: src/recon_core/adapters/duckdb/renderer_sql.py
+      surfaces:
         - sql_rendering
     - path: tests/adapters/test_duckdb_sql_renderer.py
       surfaces:
         - sql_rendering
     - path: tests/profiles/test_connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: tests/profiles/test_loader_boundaries.py
       surfaces:
         - diagnostics
         - profile_secrets
@@ -179,6 +402,7 @@ gates:
       - sql_rendering
       - scan_safety
       - cross_repo_compatibility
+      - python_package_imports
   check_engine_semantics_carryover:
     primary_milestone: aggregate_metric_execution
     primary_milestone_title: Aggregate metric execution

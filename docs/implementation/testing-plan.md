@@ -291,6 +291,12 @@ from the resolved adapter type, and adapter factory exceptions, adapter metadata
 exceptions, and capability declaration exceptions become sanitized structured
 diagnostics instead of raw exceptions that can leak rendered profile keys or
 values.
+It should also verify adapter interface segregation: a minimal `BaseAdapter`
+does not need relation metadata methods, relation metadata access requires the
+nominal `RelationMetadataAdapter` interface, inherited compatibility shims or
+method presence alone do not make an adapter metadata-capable, and
+`metadata_columns` support does not authorize metadata calls without that
+interface.
 Malformed renderer-output coverage must include invalid later rendered steps
 and case-insensitive output collisions, and artifact writer tests must prove
 direct empty or malformed rendered SQL writer requests and later empty or

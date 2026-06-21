@@ -84,6 +84,7 @@ def test_cli_commands_delegate_to_services(
         (["compile", "--render-sql"], True),
     ],
 )
+@pytest.mark.regression_capture("compile-command-terminal-contract")
 def test_compile_command_passes_render_sql_flag(
     args: list[str],
     expected_render_sql: bool,
@@ -120,6 +121,7 @@ def test_parse_command_writes_manifest_for_project() -> None:
         assert manifest["diagnostics"] == []
 
 
+@pytest.mark.regression_capture("compile-command-terminal-contract")
 def test_compile_command_writes_compiled_artifacts_for_project() -> None:
     runner = CliRunner()
 
@@ -177,6 +179,7 @@ def test_run_command_duckdb_check_failure_does_not_print_private_counts_or_relat
     assert "warehouse.duckdb" not in result.output
 
 
+@pytest.mark.regression_capture("compile-command-terminal-contract")
 def test_compile_render_sql_prints_diagnostic_message_for_profile_errors() -> None:
     runner = CliRunner()
 

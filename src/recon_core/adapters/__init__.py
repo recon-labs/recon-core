@@ -1,6 +1,6 @@
 """Adapter interfaces and registry."""
 
-from recon_core.adapters.base import BaseAdapter, SqlRenderer
+from recon_core.adapters.base import BaseAdapter, RelationMetadataAdapter, SqlRenderer
 from recon_core.adapters.capabilities import (
     ADAPTER_CAPABILITY_UNSUPPORTED,
     AdapterCapabilities,
@@ -77,6 +77,7 @@ __all__ = [
     "ConnectionConfig",
     "QueryResult",
     "Relation",
+    "RelationMetadataAdapter",
     "RenderedSql",
     "RenderedCheckSql",
     "SqlRenderer",

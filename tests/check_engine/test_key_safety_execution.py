@@ -5,10 +5,10 @@ import pytest
 
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
+    ADAPTER_RENDERER_METADATA_INVALID,
     AdapterCapabilities,
     BaseAdapter,
     CapabilitySupport,
-    ColumnMetadata,
     ConnectionConfig,
     QueryResult,
     Relation,
@@ -234,6 +234,7 @@ def test_execute_key_safety_check_passes_without_violations(
         _key_check(check_type, operation),
         _contract(),
         adapter,
+        renderer=DuckDbSqlRenderer(),
         scan_budget_decision=_allowed_scan_budget(),
     )
 
@@ -327,6 +328,7 @@ def test_execute_key_safety_check_fails_with_count_only(
         _key_check(check_type, operation),
         _contract(),
         adapter,
+        renderer=DuckDbSqlRenderer(),
         scan_budget_decision=_allowed_scan_budget(),
     )
 
@@ -361,6 +363,7 @@ def test_execute_key_safety_check_passes_on_empty_sides(
         _key_check(check_type, operation),
         _contract(),
         adapter,
+        renderer=DuckDbSqlRenderer(),
         scan_budget_decision=_allowed_scan_budget(),
     )
 
@@ -387,6 +390,7 @@ def test_execute_key_safety_check_reports_malformed_count_result(
         _key_check("missing_keys", _KEY_CHECK_OPERATIONS[4][1]),
         _contract(),
         adapter,
+        renderer=DuckDbSqlRenderer(),
         scan_budget_decision=_allowed_scan_budget(),
     )
 
@@ -419,6 +423,62 @@ def test_execute_key_safety_check_reports_renderer_failure_without_querying_adap
     assert adapter.queries == []
 
 
+def test_execute_key_safety_check_requires_explicit_renderer_before_adapter_query() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_key_safety_check(
+        _key_check("missing_keys", _KEY_CHECK_OPERATIONS[4][1]),
+        _contract(),
+        adapter,
+        scan_budget_decision=_allowed_scan_budget(),
+    )
+
+    assert result.status is CheckStatus.ERROR
+    assert not result.executed
+    assert result.reason_code is None
+    assert result.diagnostics[-1].code == ADAPTER_RENDERER_METADATA_INVALID
+    assert "source_table" not in _diagnostic_text(result.diagnostics)
+    assert "target_table" not in _diagnostic_text(result.diagnostics)
+    assert adapter.queries == []
+
+
+def test_execute_key_safety_check_blocks_mismatched_renderer_before_rendering_and_query() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_key_safety_check(
+        _key_check("missing_keys", _KEY_CHECK_OPERATIONS[4][1]),
+        _contract(),
+        adapter,
+        renderer=MismatchedRenderer(),
+        scan_budget_decision=_allowed_scan_budget(),
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.reason_code is CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT
+    assert result.diagnostics[-1].code == "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT"
+    assert adapter.queries == []
+
+
+def test_execute_key_safety_check_blocks_raising_renderer_metadata_before_query() -> None:
+    adapter = RecordingAdapter()
+
+    result = execute_key_safety_check(
+        _key_check("missing_keys", _KEY_CHECK_OPERATIONS[4][1]),
+        _contract(),
+        adapter,
+        renderer=RaisingRendererMetadata(),
+        scan_budget_decision=_allowed_scan_budget(),
+    )
+
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.reason_code is CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT
+    assert result.diagnostics[-1].code == "RC_RUNTIME_UNSUPPORTED_EXECUTION_PLACEMENT"
+    assert "super-secret renderer metadata" not in _diagnostic_text(result.diagnostics)
+    assert adapter.queries == []
+
+
 def test_execute_key_safety_check_suppresses_leaky_adapter_query_diagnostic() -> None:
     adapter = RecordingAdapter(
         connection=ConnectionConfig(
@@ -446,6 +506,7 @@ def test_execute_key_safety_check_suppresses_leaky_adapter_query_diagnostic() ->
         _key_check("missing_keys", _KEY_CHECK_OPERATIONS[4][1]),
         _contract(),
         adapter,
+        renderer=DuckDbSqlRenderer(),
         scan_budget_decision=_allowed_scan_budget(),
     )
 
@@ -585,12 +646,6 @@ class DuckDbExecutionAdapter(BaseAdapter):
         rows = tuple(tuple(row) for row in cursor.fetchall())
         return QueryResult(columns=columns, rows=rows, row_count=len(rows))
 
-    def relation_exists(self, relation: Relation) -> bool:
-        return False
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
-        return ()
-
     def capabilities(self) -> AdapterCapabilities:
         return _key_safety_capabilities()
 
@@ -624,14 +679,36 @@ class RecordingAdapter(BaseAdapter):
             raise self.error
         return self.result
 
-    def relation_exists(self, relation: Relation) -> bool:
-        return False
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
-        return ()
-
     def capabilities(self) -> AdapterCapabilities:
         return _key_safety_capabilities()
+
+
+class MismatchedRenderer(DuckDbSqlRenderer):
+    adapter_type = "warehouse"
+
+    def render_operation(
+        self,
+        operation: dict[str, Any],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> RenderedSql:
+        raise AssertionError("render_operation should not run for mismatched renderers")
+
+
+class RaisingRendererMetadata(DuckDbSqlRenderer):
+    @property
+    def adapter_type(self) -> str:
+        raise RuntimeError("super-secret renderer metadata")
+
+    def render_operation(
+        self,
+        operation: dict[str, Any],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> RenderedSql:
+        raise AssertionError("render_operation should not run for malformed renderer metadata")
 
 
 class RaisingRenderer(DuckDbSqlRenderer):

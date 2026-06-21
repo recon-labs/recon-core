@@ -1,17 +1,21 @@
+import ast
 from pathlib import Path
 
 import pytest
 
+import recon_core.check_engine.execution as row_count_execution_module
+import recon_core.check_engine.key_safety as key_safety_execution_module
 from recon_core.adapters import (
     ADAPTER_API_VERSION,
+    ADAPTER_RENDERER_METADATA_INVALID,
     AdapterCapabilities,
     BaseAdapter,
     CapabilitySupport,
-    ColumnMetadata,
     ConnectionConfig,
     QueryResult,
-    Relation,
+    SqlRenderer,
 )
+from recon_core.adapters.duckdb import DuckDbSqlRenderer
 from recon_core.artifacts import (
     LoadedCheckPlan,
     LoadedCompiledCheck,
@@ -71,6 +75,16 @@ def test_engine_assembles_run_and_contract_results_without_execution(tmp_path: P
     assert check.sink_refs == ()
 
 
+def test_check_execution_helpers_do_not_import_duckdb_renderer() -> None:
+    for module in (row_count_execution_module, key_safety_execution_module):
+        imported_modules = _imported_modules_from(module.__file__)
+
+        assert not any(
+            imported_module.startswith("recon_core.adapters.duckdb")
+            for imported_module in imported_modules
+        )
+
+
 def test_engine_executes_row_count_when_execution_context_is_present(tmp_path: Path) -> None:
     check = _check(
         operations=_row_count_operations(),
@@ -94,6 +108,7 @@ def test_engine_executes_row_count_when_execution_context_is_present(tmp_path: P
         execution_context=CheckExecutionContext(
             contracts_by_name={contract.contract_name: contract},
             adapters_by_connection={contract.source.connection: adapter},
+            renderers_by_adapter_type=_duckdb_renderers(),
         ),
     )
 
@@ -116,6 +131,74 @@ def test_engine_executes_row_count_when_execution_context_is_present(tmp_path: P
     assert check_result.sink_refs == ()
     assert check_result.diagnostics == ()
     assert len(adapter.queries) == 1
+
+
+def test_engine_requires_renderer_entry_for_duckdb_row_count_execution(
+    tmp_path: Path,
+) -> None:
+    check = _check(
+        operations=_row_count_operations(),
+        required_capabilities=("row_count",),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+    contract = _compiled_contract(tmp_path)
+    adapter = _RecordingDuckDbAdapter()
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+        ),
+    )
+
+    check_result = result.contract_results[0].check_results[0]
+    assert result.status is RunStatus.ERROR
+    assert check_result.status is CheckStatus.ERROR
+    assert not check_result.executed
+    assert check_result.reason_code is None
+    assert check_result.diagnostics[-1].code == ADAPTER_RENDERER_METADATA_INVALID
+    assert adapter.queries == []
+
+
+def test_engine_requires_renderer_entry_for_duckdb_key_safety_execution(
+    tmp_path: Path,
+) -> None:
+    check = _check(
+        check_id="check.ecommerce_recon.customer_revenue.missing_keys",
+        name="missing_keys",
+        check_type="missing_keys",
+        operations=(_key_diff_operation("source_minus_target"),),
+        required_capabilities=("key_diff", "cte_support"),
+    )
+    artifact = _artifact(tmp_path, checks=(check,))
+    contract = _compiled_contract(tmp_path)
+    adapter = _RecordingDuckDbAdapter(
+        result=QueryResult(columns=("failure_count",), rows=((0,),), row_count=1)
+    )
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at="2026-06-11T10:00:00Z",
+        finished_at="2026-06-11T10:00:01Z",
+        execution_context=CheckExecutionContext(
+            contracts_by_name={contract.contract_name: contract},
+            adapters_by_connection={contract.source.connection: adapter},
+            scan_budget_decisions_by_check_id={check.id: _allowed_scan_budget()},
+        ),
+    )
+
+    check_result = result.contract_results[0].check_results[0]
+    assert result.status is RunStatus.ERROR
+    assert check_result.status is CheckStatus.ERROR
+    assert not check_result.executed
+    assert check_result.reason_code is None
+    assert check_result.diagnostics[-1].code == ADAPTER_RENDERER_METADATA_INVALID
+    assert adapter.queries == []
 
 
 def test_engine_executes_row_count_when_connection_aliases_share_context(
@@ -162,6 +245,7 @@ def test_engine_executes_row_count_when_connection_aliases_share_context(
                 source_connection.name: source_connection,
                 target_connection.name: target_connection,
             },
+            renderers_by_adapter_type=_duckdb_renderers(),
         ),
     )
 
@@ -205,6 +289,7 @@ def test_engine_mixes_executable_row_count_and_key_safety_checks(tmp_path: Path)
         execution_context=CheckExecutionContext(
             contracts_by_name={contract.contract_name: contract},
             adapters_by_connection={contract.source.connection: adapter},
+            renderers_by_adapter_type=_duckdb_renderers(),
             scan_budget_decisions_by_check_id={
                 missing_keys.id: _allowed_scan_budget(),
             },
@@ -343,6 +428,7 @@ def test_engine_blocks_dependent_check_when_row_count_prerequisite_fails(
         execution_context=CheckExecutionContext(
             contracts_by_name={contract.contract_name: contract},
             adapters_by_connection={contract.source.connection: adapter},
+            renderers_by_adapter_type=_duckdb_renderers(),
         ),
     )
 
@@ -390,6 +476,7 @@ def test_engine_blocks_dependent_check_when_key_safety_prerequisite_fails(
         execution_context=CheckExecutionContext(
             contracts_by_name={contract.contract_name: contract},
             adapters_by_connection={contract.source.connection: adapter},
+            renderers_by_adapter_type=_duckdb_renderers(),
             scan_budget_decisions_by_check_id={
                 duplicate_source_keys.id: _allowed_scan_budget(),
             },
@@ -584,6 +671,7 @@ def test_engine_preserves_key_safety_shape_blocker_when_scan_budget_decision_is_
         execution_context=CheckExecutionContext(
             contracts_by_name={contract.contract_name: contract},
             adapters_by_connection={contract.source.connection: adapter},
+            renderers_by_adapter_type=_duckdb_renderers(),
             scan_budget_decisions_by_check_id={},
         ),
     )
@@ -1013,6 +1101,23 @@ class _RaisingDispatcher:
         )
 
 
+def _imported_modules_from(module_file: str | None) -> set[str]:
+    assert module_file is not None
+    source = Path(module_file).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imported_modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            imported_modules.add(node.module)
+    return imported_modules
+
+
+def _duckdb_renderers() -> dict[str, SqlRenderer]:
+    return {"duckdb": DuckDbSqlRenderer()}
+
+
 def _artifact(
     tmp_path: Path,
     *,
@@ -1160,12 +1265,6 @@ class _RecordingDuckDbAdapter(BaseAdapter):
         if len(self.results) > 1:
             return self.results.pop(0)
         return self.results[0]
-
-    def relation_exists(self, relation: Relation) -> bool:
-        return False
-
-    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]:
-        return ()
 
     def capabilities(self) -> AdapterCapabilities:
         return AdapterCapabilities(

@@ -131,6 +131,18 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
     return _bounded_local_required_decision()
 
 
+def missing_scan_budget_decision() -> ScanBudgetDecision:
+    """Return the fail-closed decision used when no key-safety scan decision exists."""
+    return classify_scan_budget(
+        ScanBudgetContext(
+            environment=ScanExecutionEnvironment.PRODUCTION,
+            relation_backed=True,
+            bounded=False,
+            estimate_state=ScanEstimateState.UNKNOWN,
+        )
+    )
+
+
 def _bounded_local_required_decision() -> ScanBudgetDecision:
     return _blocked_decision(
         reason=CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,

@@ -13,6 +13,7 @@ from recon_core.adapters import (
     ConnectionConfig,
     prepare_runtime_adapter,
 )
+from recon_core.adapters.default_renderers import default_runtime_renderers_by_adapter_type
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
 from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
 from recon_core.adapters.runtime_safety import (
@@ -318,6 +319,7 @@ def _prepare_runtime_execution_dependencies(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
             connections_by_name=connections_by_name,
+            renderers_by_adapter_type=default_runtime_renderers_by_adapter_type(),
             scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
         ),
         opened_adapters=open_result.opened_adapters,

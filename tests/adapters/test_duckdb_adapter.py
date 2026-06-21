@@ -1,3 +1,4 @@
+import ast
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +16,9 @@ from recon_core.adapters.duckdb import (
     DuckDbSqlRenderer,
 )
 from recon_core.adapters.duckdb import adapter as duckdb_adapter_module
+from recon_core.adapters.duckdb import renderer as duckdb_renderer_module
+from recon_core.adapters.duckdb import renderer_operations as duckdb_renderer_operations_module
+from recon_core.adapters.duckdb import renderer_sql as duckdb_renderer_sql_module
 
 
 def test_duckdb_optional_extra_is_declared() -> None:
@@ -22,6 +26,33 @@ def test_duckdb_optional_extra_is_declared() -> None:
 
     assert "duckdb" in pyproject["project"]["optional-dependencies"]
     assert pyproject["project"]["optional-dependencies"]["duckdb"] == ["duckdb>=1.0"]
+
+
+def test_duckdb_renderer_imports_remain_compatible() -> None:
+    from recon_core.adapters.duckdb import DuckDbSqlRenderer as PackageRenderer
+    from recon_core.adapters.duckdb.adapter import DuckDbSqlRenderer as AdapterModuleRenderer
+    from recon_core.adapters.duckdb.renderer import DuckDbSqlRenderer as RendererModuleRenderer
+
+    assert PackageRenderer is RendererModuleRenderer
+    assert AdapterModuleRenderer is RendererModuleRenderer
+    assert PackageRenderer().adapter_type == "duckdb"
+
+
+def test_duckdb_renderer_modules_do_not_import_optional_duckdb_dependency() -> None:
+    for module in (
+        duckdb_renderer_module,
+        duckdb_renderer_operations_module,
+        duckdb_renderer_sql_module,
+    ):
+        module_path = getattr(module, "__file__", None)
+        assert module_path is not None
+
+        imported_modules = _imported_modules_from(Path(module_path))
+
+        assert "duckdb" not in imported_modules
+        assert not any(
+            imported_module.startswith("duckdb.") for imported_module in imported_modules
+        )
 
 
 def test_duckdb_factory_reports_missing_optional_dependency() -> None:
@@ -225,3 +256,14 @@ def test_duckdb_renderer_quotes_identifiers_and_relations_deterministically() ->
         renderer.render_relation(Relation(catalog="warehouse", schema="qa", identifier="customers"))
         == '"warehouse"."qa"."customers"'
     )
+
+
+def _imported_modules_from(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imported_modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            imported_modules.add(node.module)
+    return imported_modules

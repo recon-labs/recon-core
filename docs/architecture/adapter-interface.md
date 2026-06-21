@@ -14,8 +14,8 @@ Adapters should handle:
 - query execution,
 - SQL dialect,
 - identifier quoting,
-- relation metadata,
-- column metadata,
+- optional relation metadata,
+- optional column metadata,
 - type mapping,
 - timestamp behavior,
 - hash behavior,
@@ -88,8 +88,8 @@ optional `recon-core[duckdb]` extra while it remains in-core.
 
 ## Base interface
 
-The current API boundary separates base adapter behavior from SQL dialect
-rendering:
+The current API boundary separates minimum adapter behavior, optional relation
+metadata access, and SQL dialect rendering:
 
 ```python
 class BaseAdapter:
@@ -100,9 +100,12 @@ class BaseAdapter:
     def connect(self) -> None: ...
     def close(self) -> None: ...
     def execute(self, query: str) -> QueryResult: ...
-    def relation_exists(self, relation: Relation) -> bool: ...
-    def get_columns(self, relation: Relation) -> list[ColumnMetadata]: ...
     def capabilities(self) -> AdapterCapabilities: ...
+
+
+class RelationMetadataAdapter(BaseAdapter):
+    def relation_exists(self, relation: Relation) -> bool: ...
+    def get_columns(self, relation: Relation) -> tuple[ColumnMetadata, ...]: ...
 
 
 class SqlRenderer:
@@ -129,6 +132,12 @@ class SqlRenderer:
 Core owns the typed operation payload and required capabilities. `SqlRenderer`
 owns dialect SQL for those payloads. Production implementations may refine
 method names, but they must preserve this ownership boundary.
+
+`BaseAdapter` may retain pre-alpha compatibility shims for relation metadata
+method lookup, but those inherited methods are not a support signal. Future
+callers that need relation metadata must require the nominal
+`RelationMetadataAdapter` interface and the relevant metadata capability before
+calling metadata methods.
 
 ## Capabilities
 
@@ -236,6 +245,10 @@ timezone
 ```
 
 Some adapters may not know all fields. Missing metadata should be explicit.
+Column metadata access belongs to `RelationMetadataAdapter`, and
+`metadata_columns` capability support is required before Core may call
+`get_columns`. Capability support alone is not enough if the adapter does not
+implement the metadata interface.
 
 ## Hashing
 

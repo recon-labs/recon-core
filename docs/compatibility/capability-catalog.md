@@ -88,6 +88,27 @@ Capability support is represented by support state:
 Required capabilities are satisfied only by `full`, or by `versioned` after the
 version condition is validated.
 
+Capability support is not the same thing as execution permission. A capability
+declares an adapter mechanic. The surface that requires that mechanic still
+owns the decision to render, execute, publish, or block:
+
+- compiled check-plan requirements describe mechanics needed by the typed
+  operation sequence,
+- rendered SQL step requirements describe mechanics needed before SQL artifacts
+  can be published,
+- runtime operation requirements describe mechanics needed before an approved
+  execution phase opens an adapter and executes a bounded result shape,
+- runtime safety checks describe whether a scan-heavy execution attempt may
+  proceed under Core's safety policy.
+
+Runtime safety checks are not adapter operation capabilities. A passed scan
+safety check does not satisfy `row_count`, `key_diff`, `aggregate`, or any
+other operation capability, and an operation capability does not bypass scan
+classification, placement, materialization, privacy, or result-surface gates.
+Until a runtime execution phase owns a check family, a `full` operation
+capability can support rendering or future mechanics without making that check
+family executable through `recon run`.
+
 Compile without an adapter may produce typed plans with
 `rendering.status: not_rendered`. Adapter-aware rendering and runtime execution
 must validate support states before rendering or executing required operations.
@@ -152,6 +173,13 @@ or externally backed relations as supported. Counting rows or keys for authored
 query endpoints also requires the future `queries` capability design,
 query execution validation, and source/target privacy rules for query text
 before it can be implemented.
+
+Relation metadata capabilities do not imply metadata-call permission by
+themselves. Future callers that need relation existence or column metadata must
+require the nominal `RelationMetadataAdapter` interface and the relevant
+metadata capability, such as `metadata_columns`, before calling metadata
+methods. Method presence or inherited compatibility shims on `BaseAdapter` are
+not support signals.
 
 Future tolerance or normalization execution may require additional granular
 capabilities after typed policy payloads are implemented. ADR 0009 locks

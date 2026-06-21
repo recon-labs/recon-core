@@ -5,6 +5,7 @@ from typing import Final
 
 from recon_core.artifacts import LoadedCompiledCheck
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
+from recon_core.check_engine.result_metadata import identity_label
 from recon_core.compiler.models import CompiledCheckType, OperationType
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -45,7 +46,7 @@ class CheckDispatcher:
             status=CheckStatus.NOT_EXECUTABLE,
             executed=False,
             reason_code=classification.reason,
-            identity=_identity_label(check),
+            identity=identity_label(check),
             message=classification.message,
             diagnostics=check.diagnostics + (diagnostic,),
         )
@@ -162,17 +163,6 @@ def _first_unsupported_operation_type(check: LoadedCompiledCheck) -> str | None:
         if operation_type not in _KNOWN_TYPED_OPERATION_TYPES:
             return operation_type
     return None
-
-
-def _identity_label(check: LoadedCompiledCheck) -> str | None:
-    payload = check.payload
-    if payload is None:
-        return None
-    identity = payload.get("identity")
-    if not isinstance(identity, dict):
-        return None
-    kind = identity.get("kind")
-    return kind if isinstance(kind, str) else None
 
 
 def _diagnostic_for(

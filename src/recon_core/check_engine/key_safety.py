@@ -13,7 +13,6 @@ from recon_core.adapters import (
     Relation,
     SqlRenderer,
 )
-from recon_core.adapters.duckdb import DuckDbSqlRenderer
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
 from recon_core.check_engine.dispatch import (
     UNSUPPORTED_CHECK_TYPE,
@@ -28,7 +27,7 @@ from recon_core.check_engine.execution_support import (
     exception_hint,
     has_materialization_policy,
     has_reserved_value,
-    identity_label,
+    missing_sql_renderer_result,
     not_executable_result,
     relation_from_name,
     safe_string_attribute,
@@ -36,6 +35,7 @@ from recon_core.check_engine.execution_support import (
     strict_int,
 )
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
+from recon_core.check_engine.result_metadata import identity_label
 from recon_core.check_engine.scan_budget import ScanBudgetDecision
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -124,17 +124,17 @@ def execute_key_safety_check(
     if not scan_budget_decision.allowed:
         return _scan_budget_not_executable_result(check, contract, scan_budget_decision)
 
-    resolved_renderer = renderer if renderer is not None else DuckDbSqlRenderer()
-    renderer_blocker = _renderer_blocker(check, contract, adapter, resolved_renderer)
+    renderer_blocker = _renderer_blocker(check, contract, adapter, renderer)
     if renderer_blocker is not None:
         return renderer_blocker
+    assert renderer is not None
 
     operation = check.plan.operations[0]
     rendered_query = _render_key_safety_count_query(
         check,
         contract,
         operation=operation,
-        renderer=resolved_renderer,
+        renderer=renderer,
         source_relation=source_relation,
         target_relation=target_relation,
     )
@@ -490,9 +490,25 @@ def _renderer_blocker(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
     adapter: BaseAdapter,
-    renderer: SqlRenderer,
+    renderer: SqlRenderer | None,
 ) -> CheckResult | None:
     adapter_type = safe_string_attribute(adapter, "adapter_type")
+    if renderer is None:
+        if adapter_type == "duckdb":
+            return missing_sql_renderer_result(
+                check,
+                contract,
+                execution_label="Key-safety",
+            )
+        return not_executable_result(
+            check,
+            contract,
+            reason=CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT,
+            diagnostic_code=UNSUPPORTED_EXECUTION_PLACEMENT,
+            message="Key-safety execution currently supports DuckDB adapter execution only.",
+            hint="Use a DuckDB adapter and DuckDB SQL renderer for this execution phase.",
+        )
+
     renderer_adapter_type = safe_string_attribute(renderer, "adapter_type")
     if adapter_type == "duckdb" and renderer_adapter_type == "duckdb":
         return None

@@ -41,6 +41,9 @@ capture_files:
   - path: adapter-runtime.yml
     area: adapter-runtime
     description: Adapter runtime captures.
+  - path: check-engine.yml
+    area: check-engine
+    description: Check-engine captures.
   - path: parser-compiler.yml
     area: parser-compiler
     description: Parser and compiler captures.
@@ -50,6 +53,9 @@ capture_files:
   - path: artifacts.yml
     area: artifacts
     description: Artifact captures.
+  - path: cli.yml
+    area: cli
+    description: CLI captures.
 path_surface_routing:
   exact:
     - path: src/recon_core/_yaml.py
@@ -62,6 +68,24 @@ path_surface_routing:
         - profile_secrets
         - redaction
         - source_target_privacy
+    - path: src/recon_core/__init__.py
+      surfaces:
+        - python_package_imports
+    - path: src/recon_core/adapters/__init__.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - python_package_imports
+    - path: src/recon_core/compiler/__init__.py
+      surfaces:
+        - check_packs
+        - compiler
+        - python_package_imports
+        - typed_check_plan
+        - validation_defaults
+    - path: tests/compatibility/test_python_package_exports.py
+      surfaces:
+        - python_package_imports
     - path: src/recon_core/config/project_config.py
       surfaces:
         - diagnostics
@@ -86,8 +110,106 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/profiles/_diagnostics.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_profile_yaml.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_rendering.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/profiles/_selection.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: src/recon_core/profiles/connection_references.py
       surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/services/compile.py
+      surfaces:
+        - adapter_capabilities
+        - adapter_runtime
+        - artifact_lifecycle
+        - cli
+        - compiler
+        - diagnostics
+        - exit_codes
+        - generated_artifacts
+        - parser
+        - profile_secrets
+        - redaction
+        - sql_rendering
+        - terminal_output
+    - path: src/recon_core/services/_compile_adapter_setup.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+        - adapter_diagnostics
+        - adapter_runtime
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/services/_compile_artifacts.py
+      surfaces:
+        - artifact_lifecycle
+        - diagnostics
+        - generated_artifacts
+    - path: src/recon_core/services/_compile_diagnostic_privacy.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/services/_compile_diagnostics.py
+      surfaces:
+        - diagnostics
+    - path: src/recon_core/services/_compile_render_sql.py
+      surfaces:
+        - adapter_capabilities
+        - adapter_diagnostics
+        - adapter_runtime
+        - diagnostics
+        - generated_artifacts
+        - profile_secrets
+        - redaction
+        - sql_rendering
+    - path: src/recon_core/services/_compile_rendering_metadata.py
+      surfaces:
+        - artifact_lifecycle
+        - diagnostics
+        - generated_artifacts
+        - sql_rendering
+    - path: src/recon_core/adapters/_diagnostic_redaction_core.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/_diagnostic_redaction_matching.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/_diagnostic_redaction_tokens.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: src/recon_core/adapters/diagnostic_redaction.py
+      surfaces:
+        - adapter_diagnostics
         - diagnostics
         - profile_secrets
         - redaction
@@ -104,13 +226,52 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: tests/services/_run_service_fixtures.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/services/test_run_service.py
+      surfaces:
+        - adapter_runtime
+    - path: tests/services/test_run_service_adapter_lifecycle.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/services/test_run_service_duckdb_execution.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
     - path: src/recon_core/check_engine/scan_budget.py
       surfaces:
         - scan_safety
+    - path: src/recon_core/check_engine/prerequisites.py
+      surfaces:
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+    - path: src/recon_core/check_engine/result_metadata.py
+      surfaces:
+        - check_engine
+        - execution_result
+    - path: src/recon_core/check_engine/runtime.py
+      surfaces:
+        - adapter_runtime
+        - check_engine
+        - execution_result
+        - scan_safety
+        - typed_check_plan
     - path: src/recon_core/adapters/runtime_safety.py
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: src/recon_core/adapters/base.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
+    - path: tests/adapters/test_base_adapter.py
+      surfaces:
+        - adapter_api
+        - adapter_capabilities
     - path: src/recon_core/adapters/duckdb/runtime_scan_guard.py
       surfaces:
         - adapter_runtime
@@ -119,8 +280,27 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - adapter_capabilities
+    - path: src/recon_core/adapters/duckdb/renderer.py
+      surfaces:
         - sql_rendering
+    - path: src/recon_core/adapters/duckdb/renderer_operations.py
+      surfaces:
+        - sql_rendering
+    - path: src/recon_core/adapters/duckdb/renderer_sql.py
+      surfaces:
+        - sql_rendering
+    - path: tests/adapters/test_diagnostic_redaction.py
+      surfaces:
+        - adapter_diagnostics
+        - diagnostics
+        - profile_secrets
+        - redaction
     - path: tests/profiles/test_connection_references.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+    - path: tests/profiles/test_loader_boundaries.py
       surfaces:
         - diagnostics
         - profile_secrets
@@ -155,6 +335,7 @@ gates:
       - profile_secrets
       - redaction
       - source_target_privacy
+      - adapter_diagnostics
   adapter_testkit_regression_carryover:
     primary_milestone: adapter_test_kit_and_package_split
     primary_milestone_title: Adapter test kit and adapter package split
@@ -166,6 +347,18 @@ gates:
       - adapter_capabilities
       - sql_rendering
       - scan_safety
+      - python_package_imports
+  check_engine_semantics_carryover:
+    primary_milestone: aggregate_metric_execution
+    primary_milestone_title: Aggregate metric execution
+    applies_to:
+      - any new executable check type
+      - any blocker or dependency semantic change
+    trigger_surfaces:
+      - check_engine
+      - execution_result
+      - prerequisite_blocking
+      - typed_check_plan
   parser_compiler_contract_carryover:
     primary_milestone: aggregate_metrics_expansion
     primary_milestone_title: Aggregate metrics expansion
@@ -173,18 +366,34 @@ gates:
       - any YAML schema, validation default, check-pack expansion, or typed-plan change
     trigger_surfaces:
       - contract_yaml
+      - check_packs
+      - compiler
       - parser
       - regression_capture_metadata
       - typed_check_plan
+      - validation_defaults
+  cli_behavior_carryover:
+    primary_milestone: runner_and_results
+    primary_milestone_title: Runner and results
+    applies_to:
+      - any CLI command, option, terminal output, or exit-code change
+    trigger_surfaces:
+      - cli
+      - exit_codes
+      - terminal_output
 """.lstrip()
     )
     (capture_root / "adapter-runtime.yml").write_text(capture_body)
+    (capture_root / "check-engine.yml").write_text(
+        "schema_version: 1\narea: check-engine\ncaptures: []\n"
+    )
     (capture_root / "artifacts.yml").write_text(
         "schema_version: 1\narea: artifacts\ncaptures: []\n"
     )
     (capture_root / "diagnostics-privacy.yml").write_text(
         "schema_version: 1\narea: diagnostics-privacy\ncaptures: []\n"
     )
+    (capture_root / "cli.yml").write_text("schema_version: 1\narea: cli\ncaptures: []\n")
     (capture_root / "parser-compiler.yml").write_text(
         "schema_version: 1\narea: parser-compiler\ncaptures: []\n"
     )
@@ -270,6 +479,74 @@ captures: []
 
 @pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
 @pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/check_engine/prerequisites.py",
+            {
+                "check_engine_semantics_carryover": (
+                    "check_engine",
+                    "execution_result",
+                    "prerequisite_blocking",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/check_engine/result_metadata.py",
+            {
+                "check_engine_semantics_carryover": (
+                    "check_engine",
+                    "execution_result",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/check_engine/runtime.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_runtime",
+                    "scan_safety",
+                ),
+                "check_engine_semantics_carryover": (
+                    "check_engine",
+                    "execution_result",
+                    "typed_check_plan",
+                ),
+                "parser_compiler_contract_carryover": ("typed_check_plan",),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_check_engine_split_modules_to_owned_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate,
+        (changed_path,),
+    )
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
     "changed_path",
     [
         "src/recon_core/adapters/runtime_safety.py",
@@ -299,6 +576,144 @@ captures: []
     assert len(findings) == 1
     assert findings[0].gate == "adapter_testkit_regression_carryover"
     assert "scan_safety" in findings[0].surfaces
+    assert findings[0].paths == (changed_path,)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    "changed_path",
+    [
+        "src/recon_core/adapters/base.py",
+        "tests/adapters/test_base_adapter.py",
+    ],
+)
+def test_advisory_maps_base_adapter_interface_to_adapter_api_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities")
+    assert findings[0].paths == (changed_path,)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/__init__.py",
+            {
+                "adapter_testkit_regression_carryover": ("python_package_imports",),
+            },
+        ),
+        (
+            "src/recon_core/adapters/__init__.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                    "python_package_imports",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/compiler/__init__.py",
+            {
+                "adapter_testkit_regression_carryover": ("python_package_imports",),
+                "check_engine_semantics_carryover": ("typed_check_plan",),
+                "parser_compiler_contract_carryover": (
+                    "check_packs",
+                    "compiler",
+                    "typed_check_plan",
+                    "validation_defaults",
+                ),
+            },
+        ),
+        (
+            "tests/compatibility/test_python_package_exports.py",
+            {
+                "adapter_testkit_regression_carryover": ("python_package_imports",),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_python_package_import_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate,
+        (changed_path,),
+    )
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    "changed_path",
+    [
+        "src/recon_core/adapters/duckdb/renderer.py",
+        "src/recon_core/adapters/duckdb/renderer_operations.py",
+        "src/recon_core/adapters/duckdb/renderer_sql.py",
+    ],
+)
+def test_advisory_maps_duckdb_renderer_modules_to_sql_rendering_surface(
+    tmp_path: Path,
+    changed_path: str,
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities", "sql_rendering")
     assert findings[0].paths == (changed_path,)
 
 
@@ -353,6 +768,46 @@ captures: []
             },
         ),
         (
+            "src/recon_core/profiles/_diagnostics.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/profiles/_profile_yaml.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/profiles/_rendering.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/profiles/_selection.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
             "src/recon_core/profiles/connection_references.py",
             {
                 "diagnostics_privacy_carryover": (
@@ -364,6 +819,16 @@ captures: []
         ),
         (
             "tests/profiles/test_connection_references.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "tests/profiles/test_loader_boundaries.py",
             {
                 "diagnostics_privacy_carryover": (
                     "diagnostics",
@@ -412,18 +877,290 @@ captures: []
                     "artifact_lifecycle",
                     "generated_artifacts",
                 ),
+                "check_engine_semantics_carryover": ("typed_check_plan",),
                 "parser_compiler_contract_carryover": ("typed_check_plan",),
             },
         ),
         (
             "src/recon_core/compiler/models.py",
             {
+                "check_engine_semantics_carryover": ("typed_check_plan",),
                 "parser_compiler_contract_carryover": ("typed_check_plan",),
             },
         ),
     ],
 )
 def test_advisory_maps_compiled_artifact_schema_modules_to_carryover_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate, (changed_path,)
+    )
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/services/compile.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_capabilities",
+                    "adapter_runtime",
+                    "sql_rendering",
+                ),
+                "artifact_publication_carryover": (
+                    "artifact_lifecycle",
+                    "generated_artifacts",
+                ),
+                "cli_behavior_carryover": ("cli", "exit_codes", "terminal_output"),
+                "diagnostics_privacy_carryover": (
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+                "parser_compiler_contract_carryover": ("compiler", "parser"),
+            },
+        ),
+        (
+            "src/recon_core/services/_compile_adapter_setup.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                    "adapter_runtime",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/services/_compile_artifacts.py",
+            {
+                "artifact_publication_carryover": (
+                    "artifact_lifecycle",
+                    "generated_artifacts",
+                ),
+                "diagnostics_privacy_carryover": ("diagnostics",),
+            },
+        ),
+        (
+            "src/recon_core/services/_compile_diagnostic_privacy.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/services/_compile_diagnostics.py",
+            {"diagnostics_privacy_carryover": ("diagnostics",)},
+        ),
+        (
+            "src/recon_core/services/_compile_render_sql.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_capabilities",
+                    "adapter_runtime",
+                    "sql_rendering",
+                ),
+                "artifact_publication_carryover": ("generated_artifacts",),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/services/_compile_rendering_metadata.py",
+            {
+                "adapter_testkit_regression_carryover": ("sql_rendering",),
+                "artifact_publication_carryover": (
+                    "artifact_lifecycle",
+                    "generated_artifacts",
+                ),
+                "diagnostics_privacy_carryover": ("diagnostics",),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_compile_service_split_modules_to_owned_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces_by_gate: dict[str, tuple[str, ...]],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert {finding.gate: finding.surfaces for finding in findings} == expected_surfaces_by_gate
+    assert {finding.gate: finding.paths for finding in findings} == dict.fromkeys(
+        expected_surfaces_by_gate, (changed_path,)
+    )
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces"),
+    [
+        ("tests/services/test_run_service.py", ("adapter_runtime",)),
+        (
+            "tests/services/test_run_service_duckdb_execution.py",
+            ("adapter_runtime", "scan_safety"),
+        ),
+        (
+            "tests/services/test_run_service_adapter_lifecycle.py",
+            ("adapter_runtime", "scan_safety"),
+        ),
+        ("tests/services/_run_service_fixtures.py", ("adapter_runtime", "scan_safety")),
+    ],
+)
+def test_advisory_maps_run_service_split_tests_to_owned_surfaces(
+    tmp_path: Path,
+    changed_path: str,
+    expected_surfaces: tuple[str, ...],
+) -> None:
+    script = load_script()
+    capture_root = write_capture_project(
+        tmp_path,
+        """
+schema_version: 1
+area: adapter-runtime
+captures: []
+""".lstrip(),
+    )
+
+    findings = script.evaluate(
+        changed_paths=[changed_path],
+        capture_root=capture_root,
+        repo_root=tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].gate == "adapter_testkit_regression_carryover"
+    assert findings[0].surfaces == expected_surfaces
+    assert findings[0].paths == (changed_path,)
+
+
+@pytest.mark.regression_capture("regression-capture-decision-advisory-metadata-routing")
+@pytest.mark.parametrize(
+    ("changed_path", "expected_surfaces_by_gate"),
+    [
+        (
+            "src/recon_core/adapters/_diagnostic_redaction_core.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/adapters/_diagnostic_redaction_matching.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/adapters/_diagnostic_redaction_tokens.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "src/recon_core/adapters/diagnostic_redaction.py",
+            {
+                "adapter_testkit_regression_carryover": (
+                    "adapter_api",
+                    "adapter_capabilities",
+                ),
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+        (
+            "tests/adapters/test_diagnostic_redaction.py",
+            {
+                "diagnostics_privacy_carryover": (
+                    "adapter_diagnostics",
+                    "diagnostics",
+                    "profile_secrets",
+                    "redaction",
+                ),
+            },
+        ),
+    ],
+)
+def test_advisory_maps_adapter_redaction_helpers_to_diagnostic_privacy_surfaces(
     tmp_path: Path,
     changed_path: str,
     expected_surfaces_by_gate: dict[str, tuple[str, ...]],
@@ -672,7 +1409,7 @@ captures:
 
     assert len(findings) == 1
     assert findings[0].gate == "adapter_testkit_regression_carryover"
-    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities", "sql_rendering")
+    assert findings[0].surfaces == ("adapter_api", "adapter_capabilities")
     assert findings[0].paths == ("src/recon_core/adapters/duckdb/adapter.py",)
 
 
