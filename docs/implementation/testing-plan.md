@@ -28,6 +28,27 @@ When a milestone is split into decimal sub-milestones, each sub-milestone needs
 its own test plan and, when high-risk, its own conformance matrix. Do not use the
 umbrella milestone as the implementation test boundary.
 
+## Proof preservation for fixes
+
+Bug fixes and code-review fixes must keep proving the original finding or
+missed requirement. A fix is incomplete when tests are made easier to pass by
+deleting the failing assertion, loosening expected diagnostics,
+over-broadening accepted outputs, or moving coverage away from the behavior
+that failed.
+
+When practical, the new or changed test should fail against the original bug,
+finding, or missed requirement and pass because the behavior is corrected. If
+the implementation needs a same-scope refactor, preserve the behavioral
+assertion while moving helper-level coverage to the new owner boundary.
+
+When a test with a `@pytest.mark.regression_capture("<id>")` marker is moved,
+split, renamed, or meaningfully changed, update the matching capture row and
+rationale at the same time, preserving the marker-to-row pairing enforced by
+the regression-capture validator. If the changed test no longer proves the
+capture row's requirement, point `current_tests` at the test that does, add
+replacement coverage, or update the relevant carryover-gate status and
+rationale according to the regression-capture README.
+
 ## Test layers
 
 ### Regression capture metadata validation

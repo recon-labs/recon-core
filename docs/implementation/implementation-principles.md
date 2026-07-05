@@ -104,6 +104,45 @@ Tests should assert framework behavior:
 - check results produce expected artifacts,
 - unsafe assumptions are blocked.
 
+## Avoid Recon anti-patterns
+
+A bug fix, code-review fix, or feature change should preserve the owner boundary
+of the behavior it touches. The right fix is the smallest design-conformant
+change, not the shortest patch that makes a local assertion pass.
+
+Treat these patterns as fix triggers:
+
+- scattered validation: the same contract, policy, or capability rule is checked
+  in multiple layers instead of at the owning boundary,
+- duplicated policy logic: reconciliation semantics, safety checks, or evidence
+  rules are copied instead of shared through the owning model, helper, or
+  service,
+- exception swallowing: parse, compile, execution, adapter, or artifact failures
+  are hidden behind quiet defaults or broad catches,
+- boolean blindness: a bare true/false result replaces a typed result,
+  diagnostic, reason code, or evidence detail that callers need,
+- leaky abstraction: parser, compiler, runner, adapter, CLI, or artifact code
+  reaches through another layer instead of using its public model or interface,
+- wrong-layer adapter coupling: core behavior depends on concrete database
+  drivers, dialect quirks, or adapter internals instead of adapter interfaces
+  and typed plans,
+- god service or module growth: one service accumulates parsing, validation,
+  compilation, execution, and artifact responsibilities without a documented
+  boundary,
+- hidden fallback: Recon silently substitutes default behavior when the authored
+  contract, adapter capability, schema, or evidence request is unsupported,
+- weakened tests: assertions are deleted, loosened, or broadened so a change
+  passes without still proving the required behavior,
+- regression-memory drift: a reusable regression or public-surface requirement
+  is fixed in code but not preserved in regression-capture metadata when it
+  should carry forward.
+
+If avoiding one of these patterns requires a same-scope refactor inside the
+touched boundary, include that refactor with the fix. If the required refactor
+crosses public contracts, adapter APIs, generated artifacts, or broad module
+ownership, do not hide it inside a local fix; complete the required design or
+planning decision before changing behavior.
+
 ## Avoid convenience that weakens trust
 
 Do not add convenience behavior that can make Recon produce misleading evidence.
