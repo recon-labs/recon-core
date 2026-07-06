@@ -14,15 +14,15 @@ compatibility.
 This artifact records the public scope and safety boundaries for the milestone,
 including the dimension-expanded acceptance/conformance matrix, BDD workflow
 scenarios, detailed test plan, implementation source map, and responsibility
-map, and docs drift alignment. Implementation must not start until the
-remaining high-risk prework artifact is complete: final phase-exit review
-alignment.
+map, docs drift alignment, and final phase-exit validation. Implementation may
+start only in a later coding session that rehydrates the required context,
+confirms no new drift, and follows this prework.
 
 Split Decision: Already Split / Follow Existing Split.
 
 ## Status
 
-Prework is in progress.
+Prework is complete for a later implementation session.
 
 Current status:
 
@@ -33,7 +33,9 @@ Current status:
 - the matrix, BDD scenarios, detailed test plan, source map, and responsibility
   map are defined here;
 - docs drift alignment is complete for the current prework;
-- implementation remains blocked until final phase-exit review is complete.
+- final phase-exit validation is complete for this prework;
+- runtime/source/test implementation has not started and must happen in a later
+  coding session.
 
 ## Scope
 
@@ -635,9 +637,9 @@ The implementation must preserve these owner boundaries.
 
 ## Regression Capture Carryover Review
 
-This source-map update does not add or update regression-capture rows because
-it changes only planning documentation and does not fix a bug or add executable
-behavior.
+These prework documentation updates do not add or update regression-capture
+rows because they change only planning documentation and do not fix a bug or add
+executable behavior.
 
 regression_capture_decision: not-required.
 
@@ -705,8 +707,9 @@ final Milestone 7.4 matrix and confirm:
 
 ## Implementation Readiness
 
-Implementation is not ready yet.
+Implementation prework is ready for a later coding session.
 
-The implementation source map, responsibility map, and docs drift alignment are
-now complete for the current prework. Next prework must complete final
-phase-exit validation before any runtime/source/test code changes.
+The implementation source map, responsibility map, docs drift alignment, and
+final phase-exit validation are complete for the current prework. A later
+runtime/source/test implementation session must rehydrate the required context,
+confirm no new drift, and follow this artifact before coding.
