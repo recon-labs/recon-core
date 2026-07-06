@@ -105,11 +105,17 @@ query endpoints, and macro-assisted behavior.
 ## Research Before Lock
 
 Before locking a future gate or future milestone prework for implementation,
-perform a milestone-specific research pass. The research should cover mature
-open-source tools and patterns, available integration tools, relevant
-warehouse, orchestrator, catalog, cloud-native, standard, specification, or
-protocol surfaces, and current engineering pain points when those inputs are
-relevant to the milestone.
+perform a milestone-specific research decision pass. Research is not a broad
+background-reading requirement. Start from the concrete Recon decision area that
+remains unresolved. If existing Recon docs, ADRs, gates, compatibility docs, and
+implementation constraints already lock the decision, record
+`research_decision: not-required` and continue.
+
+When research is needed, select only the outside source categories relevant to
+the unresolved decision, such as mature open-source tools and patterns,
+available integration tools, relevant warehouse, orchestrator, catalog,
+cloud-native, standard, specification, or protocol surfaces, and current
+engineering pain points.
 
 Convert the research into Recon-native decisions before coding:
 
@@ -125,9 +131,88 @@ Convert the research into Recon-native decisions before coding:
 - future integration notes.
 
 Detailed source attribution, source links, comparison tables, named
-borrow/avoid notes, vendor-specific rationale, and source-specific research
-summaries belong in the private companion repository. Public durable docs should
-state the final Recon decisions in Recon-native terms.
+borrow/adapt/avoid/defer/reject notes, vendor-specific rationale, and
+source-specific research summaries belong in the private companion repository.
+Public durable docs should state the final Recon decisions in Recon-native
+terms.
+
+Private research notes must record a Recon-fit judgment before any finding can
+influence public prework, tests, gates, docs, ADRs, compatibility impact,
+security/privacy impact, future integration notes, or implementation planning.
+Use this decision shape in the companion repository:
+
+```text
+decision_area:
+current_recon_authority:
+unresolved_question:
+research_needed: yes | no
+source_and_access_date:
+observed_pattern:
+recon_fit_judgment:
+outcome: borrow | adapt | avoid | defer | reject
+why_this_fits_or_does_not_fit_recon:
+resulting_action: scope | non-goal | matrix-row | test | gate | ADR/docs-update | compatibility-impact | security/privacy-impact | implementation-constraint | future-integration-note | no-action
+public_docs_impact:
+matrix_or_test_impact:
+ADR_or_gate_impact:
+compatibility_impact:
+security_privacy_impact:
+future_integration_note:
+implementation_constraint:
+```
+
+The resulting public prework should contain only the final Recon-native decision
+and its effect on scope, non-goals, gates, matrix rows, tests, compatibility,
+security/privacy, docs, ADRs, future integration notes, or implementation
+constraints.
+
+## Milestone Step Plans
+
+When milestone work is divided into executable steps, design the plan around the
+decisions that must be locked, not only around files to edit.
+
+Each step must be small enough to complete in one `do step N` request and must
+include:
+
+- objective,
+- step type (`prework`, `research`, `docs-alignment`, `implementation`,
+  `validation`, or `review`),
+- decision questions to resolve,
+- research applicability and `research_decision` status when the step may
+  involve milestone prework research,
+- expected public docs, private companion docs, code, or test changes,
+- required reads with exact files and sections,
+- validation,
+- dependencies,
+- stop conditions,
+- commit or companion-update expectations.
+
+Milestone prework step plans must follow this flow:
+
+1. identify every Recon decision area that must be locked,
+2. name the current Recon authority for each area,
+3. decide whether targeted research is needed for unresolved areas,
+4. convert research into Recon-fit judgments and final Recon-native decisions,
+5. map those decisions into scope, non-goals, gates, matrix rows, tests, docs,
+   ADR impact, compatibility impact, security/privacy impact,
+   source/responsibility maps, future integration notes, and implementation
+   constraints,
+6. validate that no gate, matrix row, BDD/workflow scenario, test requirement,
+   docs update, public contract concern, phase-exit requirement, or blocker is
+   orphaned.
+
+For any prework step that may involve research, record one of:
+
+```text
+research_decision: not-required
+research_decision: completed
+research_decision: blocked
+```
+
+If research is completed, the step must name the private companion artifact that
+stores source-specific findings and explain how the findings feed the next
+public prework, matrix, test, gate, ADR/docs, compatibility, security/privacy,
+future integration note, or implementation-map step.
 
 ## Test planning
 

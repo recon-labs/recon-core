@@ -14,10 +14,24 @@ review. This checklist is a process guide; it is not a CI gate.
 
 - [ ] Confirmed any milestone implementation has current lightweight prework
       matching `docs/planning/milestone-process.md`.
+- [ ] Confirmed any milestone step plan covers applicable prework or
+      implementation steps
+      with decision questions, research applicability, exact required reads,
+      validation, dependencies, stop conditions, and update expectations.
 - [ ] For high-risk milestones or public-surface changes, added or updated a
       dimension-expanded acceptance/conformance matrix before implementation.
 - [ ] Mapped every required conformance matrix row to a new test, existing test,
       or explicit out-of-scope rationale.
+- [ ] Recorded `research_decision: not-required`, `completed`, or `blocked`
+      when milestone prework evaluates research applicability before lock.
+- [ ] When research was completed, stored source-specific findings in the private
+      companion repository and converted every material finding through a
+      Recon-fit judgment before it influenced scope, non-goals, gates, matrix
+      rows, tests, ADR/docs impact, compatibility impact, security/privacy
+      impact, future integration notes, or implementation constraints.
+- [ ] Checked that public docs contain only final Recon-native decisions and no
+      source-specific research attribution, comparison tables, or
+      borrow/adapt/avoid/defer/reject notes.
 - [ ] Checked whether the requested milestone is too broad, spans multiple
       high-risk surfaces, or should be dissolved into decimal sub-milestones such
       as `Milestone N.1`, `Milestone N.2`, and `Milestone N.3`.
