@@ -16,6 +16,14 @@ Definition of Done, and phase-exit checklist are complete.
 
 Split Decision: Already Split / Follow Existing Split.
 
+## Current Implementation Note
+
+Milestone 7.3 grain-key safety execution has since been implemented in the
+current repository. This file remains the pre-implementation planning and
+phase-exit record for that work. Sections that describe implementation as a
+future task are historical Step 8 closeout wording unless this note or current
+compatibility docs state otherwise.
+
 ## Scope
 
 Milestone 7.3 builds the first grain-key safety execution path for already
@@ -1120,8 +1128,8 @@ feat: execute grain-key safety checks
 
 Split Decision: Already Split / Follow Existing Split.
 
-Readiness status after Step 8: implementation prework complete for future
-Milestone 7.3 coding.
+Readiness status after Step 8: implementation prework was complete for the
+then-pending Milestone 7.3 coding.
 
 This artifact now locks the public behavior, planning controls, and future
 implementation plan for Milestone 7.3:
@@ -1155,9 +1163,10 @@ implementation plan for Milestone 7.3:
 - remaining blockers.
 
 No known design, gate, public-doc alignment, source-map, test-map, sequencing,
-prompt/docs drift, or final-validation blocker remains after Step 8.
-Implementation remains a separate future task and must start from this prework,
-the companion closeout, and the required routed context reads before coding.
+prompt/docs drift, or final-validation blocker remained after Step 8.
+Implementation was a separate coding task after this prework and had to start
+from this prework, the companion closeout, and the required routed context reads
+before coding.
 
 ## Definition Of Done
 
@@ -1211,8 +1220,9 @@ Milestone 7.3 implementation is complete only when:
 
 ## Remaining Blockers
 
-No prework blockers remain for Milestone 7.3 after Step 8.
+No prework blockers remained for Milestone 7.3 after Step 8.
 
-Implementation remains a separate future coding session. It must still follow
-the test-first implementation sequence, required routed instructions, public
-contract review, and phase-exit validation in this artifact.
+The implementation session that followed this prework had to follow the
+test-first implementation sequence, required routed instructions, public
+contract review, and phase-exit validation in this artifact. Current behavior
+is tracked by the implementation docs, compatibility docs, and tests.

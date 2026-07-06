@@ -32,11 +32,12 @@ Diagnostics
 
 The check engine is introduced in split stages. The first boundary owns the
 result status model, internal dispatch, and prerequisite/blocking
-representation. Later execution phases add row count, grain-key safety, and
-current aggregate metric execution. Execution phases that need source/target
-metadata must consume compiled-contract artifacts rather than parsing authored
-YAML or recompiling contracts. Run-result artifacts, evidence reports, failure
-details, and evidence links remain separate later surfaces unless a future split
+representation. Current execution phases add row count and grain-key safety.
+A later aggregate execution phase adds execution for current compiled aggregate
+metric typed-plan shapes. Execution phases that need source/target metadata must
+consume compiled-contract artifacts rather than parsing authored YAML or
+recompiling contracts. Run-result artifacts, evidence reports, failure details,
+and evidence links remain separate later surfaces unless a future split
 explicitly changes those boundaries.
 
 The first check-engine boundary is not an execution phase by itself. It may
@@ -96,7 +97,7 @@ Placement decisions must be gate-backed per executable surface:
 
 - row-count placement,
 - grain-key safety placement,
-- current aggregate metric placement,
+- aggregate metric placement for current compiled aggregate plans,
 - result artifacts, evidence, failure details, sinks, sampling, CDC, and
   advanced stores before those behaviors can execute.
 

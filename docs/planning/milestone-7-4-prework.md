@@ -14,8 +14,9 @@ compatibility.
 This artifact records the public scope and safety boundaries for the milestone,
 including the dimension-expanded acceptance/conformance matrix, BDD workflow
 scenarios, detailed test plan, implementation source map, and responsibility
-map. Implementation must not start until the remaining high-risk prework
-artifacts are complete: docs drift check and final phase-exit review alignment.
+map, and docs drift alignment. Implementation must not start until the
+remaining high-risk prework artifact is complete: final phase-exit review
+alignment.
 
 Split Decision: Already Split / Follow Existing Split.
 
@@ -31,8 +32,8 @@ Current status:
 - research_decision: not-required;
 - the matrix, BDD scenarios, detailed test plan, source map, and responsibility
   map are defined here;
-- implementation remains blocked until docs drift alignment and final phase-exit
-  review are complete.
+- docs drift alignment is complete for the current prework;
+- implementation remains blocked until final phase-exit review is complete.
 
 ## Scope
 
@@ -706,6 +707,6 @@ final Milestone 7.4 matrix and confirm:
 
 Implementation is not ready yet.
 
-The implementation source map and responsibility map are now defined here. Next
-prework must complete docs drift alignment and final phase-exit validation
-before any runtime/source/test code changes.
+The implementation source map, responsibility map, and docs drift alignment are
+now complete for the current prework. Next prework must complete final
+phase-exit validation before any runtime/source/test code changes.

@@ -40,10 +40,10 @@ check-engine boundary, status model, internal dispatch, and
 prerequisite/blocking representation. The current row-count and grain-key safety
 execution stages add relation-backed same-context DuckDB execution for the
 supported `row_count_diff`, null-key, duplicate-key, missing-key, and extra-key
-typed-plan shapes. Later execution stages add current aggregate metric
-execution. Execution stages must join each executable compiled check to its
-matching compiled-contract metadata before any profile, adapter, or query work
-starts.
+typed-plan shapes. A later aggregate execution stage adds execution for current
+compiled aggregate metric typed-plan shapes. Execution stages must join each
+executable compiled check to its matching compiled-contract metadata before any
+profile, adapter, or query work starts.
 `target/run_results.json`, evidence reports, failure details, and evidence links
 remain separate later surfaces unless a later split explicitly changes those
 boundaries.
@@ -209,7 +209,7 @@ dispatch.
 
 Every `blocked`, `not_executable`, or `skipped` result must set
 `executed=false`, preserve safe diagnostics, leave source/target values empty,
-and avoid artifact, evidence, failure-detail, state, or sink references unless a
+and omit artifact, evidence, failure-detail, state, or sink references unless a
 later owning phase actually produced them.
 
 Run and contract aggregate statuses are defined by the result model. They must

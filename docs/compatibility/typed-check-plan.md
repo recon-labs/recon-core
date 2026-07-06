@@ -66,8 +66,8 @@ plan:
 Typed operation payloads should be modeled explicitly in Python. They must not
 be arbitrary dictionaries passed through the compiler.
 
-Implemented typed operation models must reject payload fields that are not valid
-for their operation type. For example, comparison operations such as
+Implemented typed operation models must fail validation for payload fields that
+are not valid for their operation type. For example, comparison operations such as
 `compare_counts` must not serialize side-specific fields, and side-specific
 operations such as `row_count` must not serialize aggregate or column fields.
 
@@ -174,11 +174,12 @@ execution surfaces remain blocked or not executable. The key-safety guard fails
 closed for views, externally backed relations, missing catalog metadata, or
 metadata inspection failures.
 
-Execution is split by executable surface. Row-count typed-plan execution,
-grain-key safety typed-plan execution, and current aggregate metric typed-plan
-execution each resolve comparison placement for their assigned operations
-before implementation and must not silently fall back to Python, adapter dialect
-casts, inferred mappings, or unsupported comparison behavior.
+Execution is split by executable surface. Current row-count typed-plan execution
+and grain-key safety typed-plan execution each resolve comparison placement for
+their assigned operations. The planned aggregate metric execution surface must
+resolve comparison placement for its current aggregate operations before
+implementation. No execution surface may silently fall back to Python, adapter
+dialect casts, inferred mappings, or unsupported comparison behavior.
 
 Rendered SQL belongs under:
 
