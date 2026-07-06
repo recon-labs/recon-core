@@ -13,10 +13,9 @@ compatibility.
 
 This artifact records the public scope and safety boundaries for the milestone,
 including the dimension-expanded acceptance/conformance matrix, BDD workflow
-scenarios, and detailed test plan. Implementation must not start until the
-remaining high-risk prework artifacts are complete: the implementation source
-map, implementation responsibility map, docs drift check, and final phase-exit
-review alignment.
+scenarios, detailed test plan, implementation source map, and responsibility
+map. Implementation must not start until the remaining high-risk prework
+artifacts are complete: docs drift check and final phase-exit review alignment.
 
 Split Decision: Already Split / Follow Existing Split.
 
@@ -30,9 +29,10 @@ Current status:
   Milestone 7.4;
 - the milestone stays limited to current compiled `sum` aggregate plans;
 - research_decision: not-required;
-- the matrix, BDD scenarios, and detailed test plan are defined here;
-- implementation remains blocked until this prework is expanded with the source
-  map, responsibility map, and docs drift alignment.
+- the matrix, BDD scenarios, detailed test plan, source map, and responsibility
+  map are defined here;
+- implementation remains blocked until docs drift alignment and final phase-exit
+  review are complete.
 
 ## Scope
 
@@ -422,7 +422,7 @@ existing test, or explicit out-of-scope rationale before coding starts.
 | Diagnostics and source/target privacy | Pass, fail, error, not executable, adapter setup failure, database error, raw adapter/runtime exception text, relation names, aggregate values, grouped keys, query text, rendered SQL, rendered profile values. | Public output, diagnostics, logs, and test snapshots stay sanitized. Aggregate values, grouped keys, relation names, source/target identifiers, query text, rendered SQL, database errors, and rendered profile values do not leak unless a later policy admits that surface. | New privacy tests for aggregate pass/fail/error/not-executable paths and raw exception sanitization. Existing profile/diagnostic redaction tests remain carryover protection for profile secrets. | Gate 6; ADR 0022; diagnostics privacy carryover; public contract inventory row `Source/target data privacy and public output`. | Evidence/report/failure-detail redaction and controlled value export remain later phases. |
 | Public output and generated artifacts | Terminal output; logs; `target/run_results.json`; evidence reports; failure details; state; result/evidence sinks; compiled SQL writes from `recon run`. | M7.4 returns in-memory results only and does not write generated run-result, evidence, report, failure-detail, state, or sink artifacts. `recon run` does not write compiled SQL artifacts. Artifact and sink refs remain empty. | New negative tests for absent `target/run_results.json`, report/evidence/failure-detail/state/sink outputs, empty artifact refs, empty sink refs, and no `recon run` compiled SQL publication. | ADR 0022; generated artifact lifecycle; result-model boundary; M8/M9 ownership. | Durable run results belong to Milestone 8; evidence and failure details belong to Milestone 9. |
 | Result aggregation and mixed outcomes | Mixed pass/fail aggregate checks; aggregate check plus not-executable check; aggregate check plus error; empty check scope; executed false for blockers. | Run and contract aggregate status precedence remains `error > fail > blocked > not_executable > warn > pass > skipped`; `no_checks` is not pass. Non-executed checks use `executed=false`, reason codes, safe messages, and no source/target values or artifact refs. | Existing check-engine aggregation tests remain applicable; new M7.4 tests cover mixed aggregate execution results and aggregate-specific not-executable/error interactions. | Result-model docs; check-engine semantics carryover. | Stable generated result schema remains future runner/results work. |
-| Future adapter/test-kit and carryover coverage | Pending carryover rows for check-engine semantics, adapter runtime scan policy, diagnostics privacy, parser/compiler contract behavior, and adapter test-kit SQL comparison conformance. | M7.4 implementation must review applicable pending rows and either map them to current tests, migrate them to future shared suites, defer them with rationale, or mark them not applicable. M7.4 docs-only Step 3 does not change capture row status. | `python3 scripts/check_regression_capture.py` during prework validation; implementation must add/update test mappings where current M7.4 behavior covers a carryover row. | `docs/compatibility/regression-capture/index.yml`; compatibility matrix row `Regression capture carryover gates`. | Adapter test-kit, production adapter packages, and broad aggregate metrics expansion remain later gated surfaces. |
+| Future adapter/test-kit and carryover coverage | Pending carryover rows for check-engine semantics, adapter runtime scan policy, diagnostics privacy, parser/compiler contract behavior, and adapter test-kit SQL comparison conformance. | M7.4 implementation must review applicable pending rows and either map them to current tests, migrate them to future shared suites, defer them with rationale, or mark them not applicable. Docs-only prework updates do not change capture row status. | `python3 scripts/check_regression_capture.py` during prework validation; implementation must add/update test mappings where current M7.4 behavior covers a carryover row. | `docs/compatibility/regression-capture/index.yml`; compatibility matrix row `Regression capture carryover gates`. | Adapter test-kit, production adapter packages, and broad aggregate metrics expansion remain later gated surfaces. |
 
 ## BDD Workflow Scenarios
 
@@ -567,10 +567,76 @@ must cover these groups.
      migrated, deferred, or marked not applicable before implementation is
      called complete.
 
+## Implementation Source Map
+
+These rows constrain later implementation. A source-map row is not permission
+for one module to absorb another boundary's work. If implementation discovers a
+needed source surface outside this map, stop and update this prework before
+coding that surface.
+
+| Surface | Files | Allowed Milestone 7.4 implementation changes | Required tests | Explicitly forbidden in Milestone 7.4 |
+| --- | --- | --- | --- | --- |
+| Compiler aggregate plan source | `src/recon_core/compiler/metrics.py` | Only fix a discovered mismatch between the existing current `sum_diff` or `grouped_aggregate_diff` typed-plan shape and this prework. Keep the current `sum` metric catalog and current operation names. | `tests/compiler/test_metrics.py`, `tests/compiler/test_compile.py` | New metric types, new authored YAML syntax, inferred aggregate checks, source/target column guessing, new typed operation names, or compiler-owned runtime comparison semantics. |
+| Run-service runtime admission and dependencies | `src/recon_core/services/run.py` | Admit only current compiled aggregate checks after compiled-check to compiled-contract joining, relation-backed same-context validation, runtime capability classification, and scan/cost safety classification. Add aggregate required-capability mapping equivalent to `aggregate` plus `cte_support` for ungrouped checks and `grouped_aggregate` plus `cte_support` for grouped checks. Open adapters only for admitted checks that are not hard-blocked. | `tests/services/test_run_service.py`, `tests/services/test_run_service_adapter_lifecycle.py`, `tests/services/test_run_service_duckdb_execution.py`, `tests/services/_run_service_fixtures.py` | YAML parsing, recompilation, aggregate pass/fail calculation, SQL rendering, raw row or grouped-result fetching, generated artifact writing, evidence/report/failure-detail output, concrete adapter imports, or adapter setup after a hard scan blocker when avoidable. |
+| Runtime execution router | `src/recon_core/check_engine/runtime.py` | Add aggregate routing only after dispatcher classification and existing hard-block checks. Route valid current aggregate plans to the aggregate execution helper and preserve `not_executable` blockers for missing capabilities, unsupported placement, malformed plans, or unsafe scan contexts. | `tests/check_engine/test_engine.py`, `tests/check_engine/test_execution_boundaries.py`, new aggregate runtime tests | Profile loading, adapter lifecycle, scan probing, SQL semantics, tolerance math, result privacy policy, broad orchestration changes, or embedding aggregate family logic directly in `CheckEngine.run()`. |
+| Aggregate execution helper | New `src/recon_core/check_engine/aggregate.py` | Own aggregate-family plan-shape validation, relation/query-endpoint rejection, renderer invocation, adapter query invocation, result-row shape validation, `sum` empty-result semantics, numeric absolute tolerance comparison, grouped pass/fail summary classification, and sanitized aggregate execution diagnostics. Re-export from `src/recon_core/check_engine/__init__.py` only if following the existing compatibility convenience pattern and updating import-surface tests. | New `tests/check_engine/test_aggregate_execution.py`, `tests/compatibility/test_python_package_exports.py` if exported | Public YAML behavior, compiler behavior, adapter capability declaration, dialect SQL generation, unbounded grouped details in Core memory, public grouped-key or value details, artifact references, sink references, evidence output, or concrete adapter imports. |
+| Shared execution support and scan policy | `src/recon_core/check_engine/execution_support.py`, `src/recon_core/check_engine/scan_budget.py` | Reuse existing diagnostic, relation, reserved-metadata, materialization-policy, strict-result, and connection-context helpers. Generalize scan-budget wording only if aggregate diagnostics cannot otherwise stay accurate; any generalized helper must preserve key-safety behavior. | `tests/check_engine/test_key_safety_execution.py`, new aggregate execution tests, `tests/check_engine/test_execution_boundaries.py` | Moving aggregate semantics into generic helpers, duplicating divergent scan policy, emitting key-safety-specific messages for aggregate blockers, exposing user-facing scan-budget settings, or weakening existing key-safety guards. |
+| Check-engine orchestration and result aggregation | `src/recon_core/check_engine/engine.py`, `src/recon_core/check_engine/models.py` | No broad change expected. Preserve current status taxonomy, prerequisite blocking, dispatcher ordering, runtime-router boundary, and result aggregation semantics. | `tests/check_engine/test_engine.py`, `tests/check_engine/test_models.py`, `tests/check_engine/test_aggregation.py` | New statuses, generated run-result schema, direct aggregate execution inside the engine loop, changed status precedence without compatibility review, or artifact/sink fields populated for this phase. |
+| DuckDB aggregate SQL rendering | `src/recon_core/adapters/duckdb/renderer_operations.py`, `src/recon_core/adapters/duckdb/renderer.py`, `src/recon_core/adapters/duckdb/renderer_sql.py` | Render dialect SQL and type guards for existing aggregate operations only. Change renderer output shape only when required to enforce bounded aggregate execution, current type guarantees, or current step-level capability requirements. | `tests/adapters/test_duckdb_sql_renderer.py` | Pass/fail decisions, tolerance math, hidden casts, Python fallback, adapter-owned reconciliation semantics, new capabilities, new operations, query endpoint execution, materialization/staging, or public output/privacy decisions. |
+| Adapter API and capability boundary | `src/recon_core/adapters/`, `src/recon_core/compiler/artifacts.py` only if a capability-shape bug is discovered | Preserve current capability names and support-state validation. M7.4 should consume existing `aggregate`, `grouped_aggregate`, and `cte_support` mechanics rather than inventing adapter API surface. | `tests/adapters/test_capabilities.py`, `tests/services/test_run_service_adapter_lifecycle.py`, compatibility import/export tests if touched | New adapter capability names, adapter API version changes, external adapter compatibility claims, shared adapter test-kit claims, or narrowing existing pre-alpha import aliases without compatibility review. |
+| Public docs and compatibility records | `docs/planning/milestone-7-4-prework.md`, `docs/implementation/mvp-build-order.md`, `docs/implementation/testing-plan.md`, `docs/compatibility/*` | Update only when implementation discovers behavior drift or a compatibility-impacting decision that must be recorded before coding continues. Public docs must describe Recon-native decisions, not research attribution. | Docs drift check, `python3 scripts/check_regression_capture.py`, `python3 scripts/check_regression_capture_decisions.py --base-ref origin/main` during branch-wide/final validation | Runtime behavior that contradicts the matrix, stale milestone assignment, public mature-project attribution, or generated artifact/result/evidence claims before those surfaces exist. |
+| Tests and fixtures | `tests/services/_run_service_fixtures.py`, new aggregate test helpers, existing check-engine/service/adapter tests | Add focused aggregate fixtures and table setups that make source/target relation, capability, scan, tolerance, empty, type, privacy, and no-output behavior explicit. | All aggregate tests listed in the Detailed Test Plan plus regression-capture checks | Fixture helpers that hide assertions, broad unrelated fixture rewrites, tests that pass by relying on hidden Python fallback, unbounded grouped-row transfer, or generated outputs. |
+
+## Implementation Responsibility Map
+
+The implementation must preserve these owner boundaries.
+
+| Component boundary | Owns | Must not own | Allowed dependencies | Refactor trigger | Boundary-protecting tests |
+| --- | --- | --- | --- | --- | --- |
+| Compiler metric planner | Current aggregate typed-plan construction for authored `sum` metrics. | Runtime admission, adapter lifecycle, scan policy, pass/fail calculation, tolerance execution, or result privacy. | Compiler model enums and operation builders. | Only if the existing emitted plan cannot represent the in-scope current aggregate behavior. | Compiler aggregate tests and compile artifact tests. |
+| Run service | Runtime candidate selection, profile-backed adapter dependency preparation, connection opening, capability preflight, scan/cost preflight, and passing aggregate context into `CheckExecutionContext`. | Aggregate semantics, SQL rendering, raw result interpretation, generated outputs, or evidence/report behavior. | Compiled artifacts, adapter registry/setup APIs, scan-budget helpers, check-engine context. | If aggregate admission would otherwise duplicate row-count/key-safety lifecycle logic in a way that hides hard blockers or opens adapters too early. | Service lifecycle, no-adapter-on-blocker, and DuckDB run-service tests. |
+| Runtime router | Turning dispatch output plus execution context into an aggregate execution attempt or a structured non-execution result. | Adapter setup, profile rendering, scan probing, tolerance math, grouped summary parsing, or generated output. | Dispatcher output, compiled checks/contracts, context adapters/renderers, aggregate helper. | If aggregate routing needs more than small family-specific routing helpers, create or extend the aggregate helper instead of growing the router. | Runtime/router tests and execution-boundary import tests. |
+| Aggregate helper | Aggregate-family execution semantics for current compiled plans: plan validation, relation-backed checks, renderer invocation, adapter query execution, bounded result validation, empty/null semantics, tolerance comparison, grouped summary status, and sanitized errors. | Compiler changes, adapter lifecycle, dialect SQL construction, capability declarations, scan probing ownership, evidence output, or public result schema. | Shared execution support helpers, renderer interface, adapter query interface, compiled plan models, check-result models. | If grouped execution would require unbounded group movement, materialization, staging, or failure-detail export, block the behavior and update prework instead of expanding the helper. | New aggregate helper tests, privacy tests, boundary tests. |
+| Shared execution support and scan policy | Generic relation parsing, safe diagnostics, strict scalar extraction, connection-context checks, and reusable scan classification primitives. | Aggregate pass/fail semantics, metric-specific rules, key-safety-only wording for aggregate blockers, or user-facing scan policy. | Check-engine models and adapter interfaces only. | If two check families need the same helper and copied code would drift, extract a narrow helper with tests for both families. | Key-safety regression tests plus aggregate helper tests. |
+| Check-engine orchestrator | Stable execution flow, prerequisite blocking, dispatcher invocation, runtime-router invocation, and status aggregation. | Check-family semantics, aggregate result parsing, SQL rendering, service dependency setup, or generated artifacts. | Dispatcher, runtime router, result models. | If aggregate execution needs direct orchestration changes, first prove the existing runtime-router boundary is insufficient and update prework. | Engine, model, and aggregation tests. |
+| DuckDB renderer | Dialect-specific SQL for existing aggregate typed operations, exact type-guard SQL, and rendered-step capability declarations. | Core comparison semantics, tolerance rules, scan/cost decisions, result privacy, hidden fallback behavior, or pass/fail classification. | Typed-operation payloads and renderer SQL helpers. | If current renderer SQL would require unbounded grouped data movement into Core, add a bounded renderer operation or block execution with a clear non-execution result before changing placement. | DuckDB renderer operation tests and service/runtime integration tests. |
+| Adapter API/capability surface | Declaring and validating existing adapter mechanics. | New M7.4-specific public capabilities, stable external adapter claims, shared adapter test-kit behavior, or public result/evidence schema. | Existing adapter capability catalog and renderer/query interfaces. | If M7.4 cannot be implemented with existing `aggregate`, `grouped_aggregate`, and `cte_support`, stop for compatibility review. | Capability tests, adapter lifecycle tests, package export tests if touched. |
+| Test fixtures | Minimal setup data and fake adapters/renderers that expose each required case. | Production behavior, hidden fallback, broad refactors, or silently changing public contracts. | Existing service/check-engine fixture patterns. | If aggregate tests need repeated setup across service and helper tests, extract a small helper with explicit assertions at call sites. | The aggregate test suite and regression-capture scripts. |
+
+## Future Implementation Constraints
+
+- Implementation must be test-first from the matrix and BDD scenarios in this
+  document.
+- Only current compiled `sum_diff` and `grouped_aggregate_diff` checks may
+  execute in this milestone.
+- Aggregate runtime must consume compiled artifacts. It must not parse authored
+  YAML or invoke compilation during `recon run`.
+- Aggregate execution must use adapter pushdown for aggregate mechanics and a
+  Core-owned comparison decision for tolerance, empty/null semantics, and final
+  status.
+- Grouped aggregate execution must not fetch or store unbounded grouped details
+  in Core. If bounded grouped summary execution cannot be proven with current
+  SQL and result shapes, grouped execution must remain `not_executable` and this
+  prework must be updated.
+- Renderer code may render dialect SQL and type guards, but it must not decide
+  aggregate pass/fail, tolerance, privacy, scan safety, or fallback behavior.
+- Missing, unsupported, unknown, malformed, incompatible, or not-implemented
+  capabilities must block execution clearly.
+- Unsafe, unclassified, unavailable, unsupported, malformed, or over-budget scan
+  contexts must block execution clearly.
+- The implementation must not add public YAML schema, CLI behavior, generated
+  artifacts, evidence, reports, failure details, state, sink output, adapter API
+  versions, or adapter capability names unless compatibility review stops and
+  expands the prework.
+- Regression-capture rows must be added or updated only when implementation
+  fixes a reusable bug, covers a pending row, or changes executable behavior
+  covered by the capture process.
+
 ## Regression Capture Carryover Review
 
-Step 3 does not add or update regression-capture rows because it changes only
-planning documentation and does not fix a bug or add executable behavior.
+This source-map update does not add or update regression-capture rows because
+it changes only planning documentation and does not fix a bug or add executable
+behavior.
 
 regression_capture_decision: not-required.
 
@@ -640,6 +706,6 @@ final Milestone 7.4 matrix and confirm:
 
 Implementation is not ready yet.
 
-Next prework must add the implementation source map, implementation
-responsibility map, and docs drift alignment before any runtime/source/test code
-changes.
+The implementation source map and responsibility map are now defined here. Next
+prework must complete docs drift alignment and final phase-exit validation
+before any runtime/source/test code changes.
