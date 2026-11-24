@@ -493,8 +493,7 @@ def _runtime_execution_candidates(
         candidate_checks = tuple(
             check
             for check in artifact.checks
-            if _is_runtime_execution_candidate(check)
-            and check.id not in excluded_check_ids
+            if _is_runtime_execution_candidate(check) and check.id not in excluded_check_ids
         )
         if not candidate_checks:
             continue
