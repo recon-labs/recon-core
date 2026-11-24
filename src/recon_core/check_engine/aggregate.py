@@ -436,15 +436,20 @@ def _validated_runtime_plan(plan: object, check: LoadedCompiledCheck) -> _Aggreg
     operation = "compare_grouped_aggregates" if grouped else "compare_aggregates"
     kind = "grouped_aggregate" if grouped else "aggregate"
     capabilities = {kind, "cte_support"}
-    names = ("group-key-types", "aggregate-input-types") if grouped else ("aggregate-input-types",)
+    names: tuple[str, ...] = (
+        ("group-key-types", "aggregate-input-types") if grouped else ("aggregate-input-types",)
+    )
     names += ("aggregate-native-domain", "aggregate-exact-result", "aggregate-floating-result")
     if (
         type(plan) is not _AggregateRuntimePlan
         or type(plan.columns) is not tuple
+        or any(type(column) is not str for column in plan.columns)
         or plan.columns != (_SUMMARY_COLUMNS if grouped else _SCALAR_COLUMNS)
         or type(plan.type_guards) is not tuple
         or len(plan.type_guards) != len(names) - 3
         or type(plan.required_capabilities) is not tuple
+        or len(plan.required_capabilities) != len(capabilities)
+        or any(type(capability) is not str for capability in plan.required_capabilities)
         or set(plan.required_capabilities) != capabilities
     ):
         raise _InvalidAggregateResultError
@@ -454,9 +459,13 @@ def _validated_runtime_plan(plan: object, check: LoadedCompiledCheck) -> _Aggreg
             type(step) is not RenderedSql
             or type(step.sql) is not str
             or not step.sql.strip()
+            or type(step.operation_type) is not str
             or step.operation_type != operation
+            or type(step.step_name) is not str
             or step.step_name != name
             or type(step.required_capabilities) is not tuple
+            or len(step.required_capabilities) != len(capabilities)
+            or any(type(capability) is not str for capability in step.required_capabilities)
             or set(step.required_capabilities) != capabilities
         ):
             raise _InvalidAggregateResultError
@@ -467,6 +476,7 @@ def _guard_integer(result: object, column: str) -> int:
     if (
         type(result) is not _AggregateQueryResult
         or type(result.columns) is not tuple
+        or any(type(name) is not str for name in result.columns)
         or result.columns != (column,)
         or type(result.domains) is not tuple
         or len(result.domains) != 1
@@ -477,6 +487,32 @@ def _guard_integer(result: object, column: str) -> int:
     ):
         raise _InvalidAggregateResultError
     return result.row[0]
+
+
+def _aggregate_collaborator_blocker(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    renderer: object,
+) -> CheckResult | None:
+    try:
+        valid = (
+            renderer is not None
+            and safe_string_attribute(renderer, "adapter_type")
+            == safe_string_attribute(adapter, "adapter_type")
+            and callable(getattr(renderer, "render_plan", None))
+            and callable(getattr(adapter, "_execute_aggregate_query", None))
+        )
+    except Exception:
+        valid = False
+    if valid:
+        return None
+    return _aggregate_runtime_error(
+        check,
+        contract,
+        ADAPTER_RENDERER_METADATA_INVALID,
+        "Aggregate execution requires verified private runtime collaborators.",
+    )
 
 
 def _execute_aggregate_check(
@@ -506,20 +542,11 @@ def _execute_aggregate_check(
     if scan_blocker is not None:
         return scan_blocker
 
-    render = getattr(renderer, "render_plan", None)
-    execute = getattr(adapter, "_execute_aggregate_query", None)
-    if (
-        renderer is None
-        or safe_string_attribute(renderer, "adapter_type") != adapter_type
-        or not callable(render)
-        or not callable(execute)
-    ):
-        return _aggregate_runtime_error(
-            check,
-            contract,
-            ADAPTER_RENDERER_METADATA_INVALID,
-            "Aggregate execution requires verified private runtime collaborators.",
-        )
+    collaborator_blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer)
+    if collaborator_blocker is not None:
+        return collaborator_blocker
+    render = getattr(renderer, "render_plan")
+    execute = getattr(adapter, "_execute_aggregate_query")
     source, source_error = relation_from_name(
         contract.source.relation, side="source", contract_name=contract.contract_name
     )

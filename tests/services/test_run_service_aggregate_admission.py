@@ -457,7 +457,9 @@ def test_aggregate_service_executes_bounded_same_context(tmp_path: Path, grouped
 
 
 @pytest.mark.parametrize("grouped", [False, True])
-def test_aggregate_missing_prerequisite_blocks_before_profile(tmp_path: Path, grouped: bool) -> None:
+def test_aggregate_missing_prerequisite_blocks_before_profile(
+    tmp_path: Path, grouped: bool
+) -> None:
     check = _aggregate_check(grouped=grouped)
     check["prerequisites"] = ["check.ecommerce_recon.customer_revenue.missing"]
     result = _run_without_profile(tmp_path, check)

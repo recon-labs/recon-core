@@ -187,15 +187,17 @@ def _blocked_decision(
 
 def _aggregate_scan_budget_decision(decision: ScanBudgetDecision) -> ScanBudgetDecision:
     """Reconstruct safe aggregate wording using the shared classification policy."""
-    if decision.allowed and decision.classification == "bounded_local" and decision.reason is None:
-        return _classify_scan_budget(
-            ScanBudgetContext(
-                environment=ScanExecutionEnvironment.LOCAL_DEV,
-                relation_backed=True,
-                bounded=True,
-            ),
-            label="Aggregate",
-        )
+    bounded_context = ScanBudgetContext(
+        environment=ScanExecutionEnvironment.LOCAL_DEV,
+        relation_backed=True,
+        bounded=True,
+    )
+    if (
+        type(decision) is ScanBudgetDecision
+        and decision.allowed is True
+        and decision == classify_scan_budget(bounded_context)
+    ):
+        return _classify_scan_budget(bounded_context, label="Aggregate")
     states: dict[CheckReason | None, ScanEstimateState] = {
         CheckReason.SCAN_ESTIMATE_UNKNOWN: ScanEstimateState.UNKNOWN,
         CheckReason.SCAN_ESTIMATE_UNSUPPORTED: ScanEstimateState.UNSUPPORTED,
@@ -208,7 +210,10 @@ def _aggregate_scan_budget_decision(decision: ScanBudgetDecision) -> ScanBudgetD
             environment=ScanExecutionEnvironment.PRODUCTION,
             relation_backed=True,
             bounded=False,
-            estimate_state=states.get(decision.reason, ScanEstimateState.UNKNOWN),
+            estimate_state=states.get(
+                decision.reason if type(decision.reason) is CheckReason else None,
+                ScanEstimateState.UNKNOWN,
+            ),
         ),
         label="Aggregate",
     )

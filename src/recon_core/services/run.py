@@ -50,6 +50,7 @@ from recon_core.check_engine import (
 )
 from recon_core.check_engine.aggregate import (
     _aggregate_capability_blocker,
+    _aggregate_collaborator_blocker,
     _aggregate_required_capabilities,
     aggregate_admission,
     is_aggregate_check_type,
@@ -240,7 +241,17 @@ def _prepare_runtime_execution_dependencies(
         for artifact in check_artifacts
         for check in artifact.checks
     )
-    runtime_candidates = _runtime_execution_candidates(check_artifacts)
+    known_check_ids = {check.id for artifact in check_artifacts for check in artifact.checks}
+    missing_prerequisite_ids = frozenset(
+        check.id
+        for artifact in check_artifacts
+        for check in artifact.checks
+        if is_aggregate_check_type(check.check_type)
+        and any(prerequisite not in known_check_ids for prerequisite in check.prerequisites)
+    )
+    runtime_candidates = _runtime_execution_candidates(
+        check_artifacts, excluded_check_ids=missing_prerequisite_ids
+    )
     if not runtime_candidates:
         if has_aggregate_checks or _has_key_safety_checks(check_artifacts):
             return _RuntimeExecutionDependencies(
@@ -338,6 +349,17 @@ def _prepare_runtime_execution_dependencies(
         connections_by_name=connections_by_name,
         capabilities_by_connection=capabilities_by_connection,
     )
+    aggregate_renderers = _default_aggregate_runtime_renderers() if has_aggregate_checks else {}
+    for artifact in adapter_candidates:
+        contract = contracts_by_name[artifact.contract_name]
+        for check in artifact.checks:
+            if not is_aggregate_check_type(check.check_type) or check.id in aggregate_blockers:
+                continue
+            adapter = adapters_by_connection[contract.source.connection]
+            renderer = aggregate_renderers.get(connections_by_name[contract.source.connection].type)
+            blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer)
+            if blocker is not None:
+                aggregate_blockers[check.id] = blocker
     open_candidates = _runtime_execution_candidates(
         adapter_candidates, excluded_check_ids=frozenset(aggregate_blockers)
     )
@@ -363,9 +385,7 @@ def _prepare_runtime_execution_dependencies(
             scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
             tolerance_states=tolerance_states if has_aggregate_checks else None,
             aggregate_blockers_by_check_id=aggregate_blockers,
-            aggregate_renderers_by_adapter_type=(
-                _default_aggregate_runtime_renderers() if has_aggregate_checks else None
-            ),
+            aggregate_renderers_by_adapter_type=aggregate_renderers,
         ),
         opened_adapters=open_result.opened_adapters,
     )
