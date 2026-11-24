@@ -199,9 +199,9 @@ def test_runtime_renderer_empty_group_key_mismatch(adapter: DuckDbAdapter) -> No
 def test_runtime_renderer_composite_null_keys_and_alias_collisions(adapter: DuckDbAdapter) -> None:
     _tables(
         adapter,
-        'SELECT * FROM (VALUES (NULL,1,4),(2,NULL,1),(3,3,NULL),'
+        "SELECT * FROM (VALUES (NULL,1,4),(2,NULL,1),(3,3,NULL),"
         '(4,4,NULL),(5,5,1)) q("aggregate_value","source_present",v)',
-        'SELECT * FROM (VALUES (NULL,1,1),(2,NULL,4),(3,3,NULL),'
+        "SELECT * FROM (VALUES (NULL,1,1),(2,NULL,4),(3,3,NULL),"
         '(4,4,1),(6,6,NULL)) q("aggregate_value","source_present",v)',
     )
     result = _result(adapter, _plan(("aggregate_value", "source_present")))
@@ -213,8 +213,7 @@ def test_runtime_renderer_invalid_precedes_presence_and_null(adapter: DuckDbAdap
         adapter,
         "SELECT * FROM (VALUES (1,'NaN'::DOUBLE),(2,'Infinity'::DOUBLE),"
         "(3,1e308::DOUBLE),(4,4::DOUBLE)) q(k,v)",
-        "SELECT * FROM (VALUES (2,NULL::DOUBLE),(3,-1e308::DOUBLE),"
-        "(4,1::DOUBLE)) q(k,v)",
+        "SELECT * FROM (VALUES (2,NULL::DOUBLE),(3,-1e308::DOUBLE),(4,1::DOUBLE)) q(k,v)",
     )
     result = _result(adapter, _plan(("k",)))
     assert result.row == (4, 0, 0, 0, 0, 1, 3, 3.0, 3.0)
