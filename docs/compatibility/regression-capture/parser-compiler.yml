@@ -16,8 +16,9 @@ captures:
       - tests/profiles/test_loader.py::test_load_selected_profile_rejects_unhashable_yaml_mapping_key_without_leak
     carryover_gates:
       - gate: parser_compiler_contract_carryover
-        status: pending
+        status: deferred
         expected_suite: yaml_loading
+        rationale: Current parser/compiler and regression-metadata tests pass; no schema or expanded compiler contract is introduced. Recheck during aggregate metrics expansion.
     requirement_refs:
       - docs/implementation/errors-and-diagnostics.md: Parse diagnostics
       - docs/implementation/errors-and-diagnostics.md: Configuration diagnostics
@@ -36,8 +37,9 @@ captures:
       - tests/services/test_compile_service_render_sql.py::test_render_sql_compile_marks_renderable_checks_blocked_when_compile_validation_fails
     carryover_gates:
       - gate: parser_compiler_contract_carryover
-        status: pending
+        status: deferred
         expected_suite: compile_diagnostics
+        rationale: Current parser/compiler and regression-metadata tests pass; no schema or expanded compiler contract is introduced. Recheck during aggregate metrics expansion.
     requirement_refs:
       - docs/implementation/contract-compiler-and-validation.md: Compiler output model
       - docs/implementation/cli-services.md: Compile service boundary
@@ -58,8 +60,9 @@ captures:
       - tests/scripts/test_check_regression_capture.py::test_validator_rejects_regression_capture_markers_missing_from_current_tests
     carryover_gates:
       - gate: parser_compiler_contract_carryover
-        status: pending
+        status: deferred
         expected_suite: regression_capture_metadata
+        rationale: Current parser/compiler and regression-metadata tests pass; no schema or expanded compiler contract is introduced. Recheck during aggregate metrics expansion.
     requirement_refs:
       - docs/compatibility/regression-capture/README.md: Row Shape
       - docs/implementation/testing-plan.md: Regression capture metadata validation
@@ -77,8 +80,9 @@ captures:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_reports_uncovered_surfaces_when_same_gate_has_existing_capture
     carryover_gates:
       - gate: parser_compiler_contract_carryover
-        status: pending
+        status: deferred
         expected_suite: regression_capture_metadata
+        rationale: Current parser/compiler and regression-metadata tests pass; no schema or expanded compiler contract is introduced. Recheck during aggregate metrics expansion.
     requirement_refs:
       - docs/compatibility/regression-capture/README.md: Advisory Decision Check
       - docs/implementation/testing-plan.md: Regression capture metadata validation
@@ -96,8 +100,9 @@ captures:
       - tests/scripts/test_check_regression_capture_decisions.py::test_advisory_maps_scan_budget_module_to_scan_safety_surface
     carryover_gates:
       - gate: parser_compiler_contract_carryover
-        status: pending
+        status: deferred
         expected_suite: regression_capture_metadata
+        rationale: Current parser/compiler and regression-metadata tests pass; no schema or expanded compiler contract is introduced. Recheck during aggregate metrics expansion.
     requirement_refs:
       - docs/compatibility/regression-capture/README.md: Advisory Decision Check
       - docs/compatibility/regression-capture/index.yml: adapter_testkit_regression_carryover
@@ -131,8 +136,9 @@ captures:
       - tests/scripts/test_check_regression_capture.py::test_validator_rejects_invalid_path_surface_routing
     carryover_gates:
       - gate: parser_compiler_contract_carryover
-        status: pending
+        status: deferred
         expected_suite: regression_capture_metadata
+        rationale: Current parser/compiler and regression-metadata tests pass; no schema or expanded compiler contract is introduced. Recheck during aggregate metrics expansion.
     requirement_refs:
       - docs/compatibility/regression-capture/README.md: Advisory Decision Check
       - docs/compatibility/regression-capture/index.yml: path_surface_routing
@@ -160,8 +166,9 @@ captures:
       - tests/scripts/test_check_regression_capture_decisions.py::test_main_base_ref_fails_when_ref_cannot_be_resolved
     carryover_gates:
       - gate: parser_compiler_contract_carryover
-        status: pending
+        status: deferred
         expected_suite: regression_capture_metadata
+        rationale: Current parser/compiler and regression-metadata tests pass; no schema or expanded compiler contract is introduced. Recheck during aggregate metrics expansion.
     requirement_refs:
       - docs/compatibility/regression-capture/README.md: Advisory Decision Check
       - docs/implementation/testing-plan.md: Regression capture metadata validation

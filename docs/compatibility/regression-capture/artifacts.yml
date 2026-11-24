@@ -14,8 +14,9 @@ captures:
       - tests/artifacts/test_compiled_contract_loader.py::test_loader_rejects_duplicate_yaml_keys_in_compiled_artifact
     carryover_gates:
       - gate: artifact_publication_carryover
-        status: pending
+        status: deferred
         expected_suite: artifact_lifecycle
+        rationale: Current compiled loader and file immutability tests pass; generated result publication remains runner/results work.
     requirement_refs:
       - docs/compatibility/artifact-versions.md: Artifact version rules
       - docs/implementation/compiled-artifacts.md: Runtime execution consumes compiled artifacts as inputs

@@ -100,8 +100,8 @@ A valid explicit metric tolerance takes precedence over a named tolerance
 reference. If a named policy would otherwise apply and is unresolved,
 execution must block instead of silently using zero tolerance. Without an
 applicable policy or metric override, the default remains zero. These rules
-define planned aggregate execution; the current compiler validation alone
-does not imply runtime policy resolution.
+are implemented for current bounded explicit sum aggregate execution.
+Compiler validation alone does not imply named runtime policy resolution.
 
 ## Timestamp Tolerance
 

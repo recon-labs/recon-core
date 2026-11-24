@@ -1141,12 +1141,26 @@ renderer conformance. Future adapter test-kit obligations are deferred with
 rationale, not marked covered by Core-only tests. Diagnostic/YAML privacy
 rows retain their current proof; future runner/results privacy is deferred.
 Parser/compiler carryover linked to these rows remains deferred to its
-existing expansion owner. Unrelated artifact-publication and CLI/parser
-captures remain pending for their owning surfaces; the new aggregate
-CLI/immutability capture explicitly defers final runner outputs. No generated
+existing expansion owner. The existing compiled-loader, compile CLI, parser/compiler and metadata
+captures are explicitly deferred to their owning future surfaces after
+reviewing current passing tests. The aggregate CLI/immutability capture
+likewise defers final runner outputs. Current implementation requirements
+are covered by current tests, not deferred. No generated
 output or new public capability has been introduced.
 
 regression_capture_decision: required.
+
+Current implementation gate disposition (local Core scope only):
+
+| Gate | Evidence and disposition |
+| --- | --- |
+| 3A | Current explicit sum scope preserved; expansion remains outside M7.4. |
+| 3D | Canonical tolerance, exact/native domain, null/overflow and named-policy tests pass. |
+| 4B/4C | Private transport and renderer tests, public adapter/context shape and compile detail regression tests pass; no new operation or capability. |
+| 4I | Same-context execution, alias and mixed-check tests, cross-context blockers and no public query fallback pass. |
+| 4L | Shared bounded local/dev scan guard and malformed approval tests pass; production budget settings remain future. |
+| 6 | Real scalar/grouped lifecycle, factory/capability diagnostics, CLI, logs and file immutability tests pass; later output surfaces remain gated. |
+| 8C | Native semantic and four-version probe matrix pass; shared external adapter conformance remains future. |
 
 Final branch-wide advisory, cumulative public-contract review, and final
 phase-exit decision remain required before milestone exit.
