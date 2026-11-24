@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 import yaml
 
-from recon_core.adapters import AdapterRegistry
+from recon_core.adapters import AdapterCapabilities, AdapterRegistry, CapabilitySupport
 from recon_core.artifacts import CompiledContractLoader
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
@@ -14,11 +14,13 @@ from tests.services._run_service_fixtures import (
     RecordingDuckDbFactory,
     _assert_no_runtime_outputs,
     _compiled_check_payload,
+    _duckdb_module,
     _service_result_text,
     row_count_plan,
     write_compiled_checks,
     write_compiled_contract,
     write_duckdb_row_count_run_inputs,
+    write_profiles,
     write_project,
 )
 
@@ -296,4 +298,133 @@ def test_mixed_run_preserves_aggregate_policy_error_and_row_count(tmp_path: Path
     assert adapter.connect_count == 1
     assert adapter.close_count == 1
     assert len(adapter.queries) == 1
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("fixture", ["missing", "oversized", "wal", "tmp", "view", "missing_table"])
+def test_aggregate_scan_safety_blocks_before_adapter_setup(
+    tmp_path: Path, grouped: bool, fixture: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    if fixture == "oversized":
+        with database.open("wb") as stream:
+            stream.truncate(65 * 1024 * 1024)
+    elif fixture in {"wal", "tmp"}:
+        database.touch()
+        database.with_name(f"{database.name}.{fixture}").touch()
+    elif fixture in {"view", "missing_table"}:
+        duckdb = _duckdb_module()
+        connection = duckdb.connect(str(database))
+        try:
+            connection.execute("create schema qa")
+            connection.execute(
+                "create table qa.target_customers("
+                "customer_id integer, month integer, revenue integer)"
+            )
+            if fixture == "view":
+                connection.execute(
+                    "create view qa.source_customers as select * from qa.target_customers"
+                )
+        finally:
+            connection.close()
+
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    write_compiled_checks(tmp_path, checks=[_aggregate_check(grouped=grouped)])
+    factory = RecordingDuckDbFactory(
+        connect_error=RuntimeError("private-aggregate-scan-should-not-open")
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
+    ]
+    assert "aggregate" in result.diagnostics[0].message.lower()
+    assert "grain-key" not in _service_result_text(result).lower()
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("target_type", ["duckdb", "warehouse_test"])
+def test_aggregate_service_blocks_cross_context_before_adapter_setup(
+    tmp_path: Path, grouped: bool, target_type: str
+) -> None:
+    write_project(tmp_path, profile="local")
+    write_profiles(
+        tmp_path,
+        yaml.safe_dump(
+            {
+                "profiles": {
+                    "local": {
+                        "target": "dev",
+                        "outputs": {
+                            "dev": {
+                                "connections": {
+                                    "warehouse": {"type": "duckdb", "database": "source.duckdb"},
+                                    "replica": {"type": target_type, "database": "target.duckdb"},
+                                }
+                            }
+                        },
+                    }
+                }
+            }
+        ),
+    )
+    write_compiled_checks(tmp_path, checks=[_aggregate_check(grouped=grouped)])
+    write_compiled_contract(tmp_path, target_connection="replica")
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
+    ]
+    assert "source.duckdb" not in _service_result_text(result)
+    assert "target.duckdb" not in _service_result_text(result)
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("missing", ["operation", "cte_support"])
+def test_aggregate_service_requires_capabilities_before_connect(
+    tmp_path: Path, grouped: bool, missing: str
+) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute("create schema qa")
+        connection.execute(
+            "create table qa.source_customers("
+            "customer_id integer, month integer, revenue integer)"
+        )
+        connection.execute("create table qa.target_customers as select * from qa.source_customers")
+    finally:
+        connection.close()
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    write_compiled_checks(tmp_path, checks=[_aggregate_check(grouped=grouped)])
+    operation = "grouped_aggregate" if grouped else "aggregate"
+    capabilities = AdapterCapabilities(
+        {("cte_support" if missing == "operation" else operation): CapabilitySupport.FULL}
+    )
+    factory = RecordingDuckDbFactory(capabilities=capabilities)
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert "RC_ADAPTER_CAPABILITY_UNSUPPORTED" in {d.code for d in result.diagnostics}
+    assert len(factory.adapters) == 1
+    assert factory.adapters[0].connect_count == 0
+    assert factory.adapters[0].queries == []
     _assert_no_runtime_outputs(tmp_path)

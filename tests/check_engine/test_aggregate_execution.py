@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from recon_core._numeric_policy import absolute_tolerance
+from recon_core.adapters import ConnectionConfig
 from recon_core.adapters._aggregate_runtime import (
     _SCALAR_COLUMNS,
     _SUMMARY_COLUMNS,
@@ -28,6 +29,12 @@ from recon_core.check_engine.aggregate import (
     is_supported_aggregate_plan_shape,
 )
 from recon_core.check_engine.engine import _AggregateExecutionContext
+from recon_core.check_engine.scan_budget import (
+    ScanBudgetContext,
+    ScanEstimateState,
+    ScanExecutionEnvironment,
+    classify_scan_budget,
+)
 from recon_core.compiler.policies import validate_tolerance
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -664,3 +671,90 @@ def test_aggregate_comparison_does_not_publish_numeric_evidence(
     assert result.status is status
     assert str(private) not in repr(result)
     assert str(private) not in repr(result.to_dict())
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_aggregate_runtime_requires_scan_decision(tmp_path: Path, grouped: bool) -> None:
+    check = _compiled_aggregate(grouped=grouped)
+    contract = _contract(tmp_path)
+    context = _AggregateExecutionContext(
+        contracts_by_name={contract.contract_name: contract},
+        adapters_by_connection={},
+        tolerance_states_by_contract_id={contract.contract_id: _ToleranceReferenceState.ABSENT},
+    )
+    result = _run_check(check, contract, context)
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.diagnostics[-1].code == "RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN"
+    assert "aggregate" in result.diagnostics[-1].message.lower()
+    assert "grain-key" not in result.diagnostics[-1].message.lower()
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize(
+    ("estimate_state", "code"),
+    [
+        (ScanEstimateState.PRESENT, "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"),
+        (ScanEstimateState.UNKNOWN, "RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN"),
+        (ScanEstimateState.UNAVAILABLE, "RC_RUNTIME_SCAN_ESTIMATE_UNSUPPORTED"),
+        (ScanEstimateState.UNSUPPORTED, "RC_RUNTIME_SCAN_ESTIMATE_UNSUPPORTED"),
+        (ScanEstimateState.MALFORMED, "RC_RUNTIME_SCAN_ESTIMATE_UNSUPPORTED"),
+        (ScanEstimateState.OVER_BUDGET, "RC_RUNTIME_SCAN_BUDGET_EXCEEDED"),
+        (ScanEstimateState.UNSAFE_PREFLIGHT, "RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT"),
+    ],
+)
+def test_aggregate_runtime_preserves_scan_blocker(
+    tmp_path: Path, grouped: bool, estimate_state: ScanEstimateState, code: str
+) -> None:
+    check = _compiled_aggregate(grouped=grouped)
+    contract = _contract(tmp_path)
+    decision = classify_scan_budget(
+        ScanBudgetContext(
+            environment=ScanExecutionEnvironment.PRODUCTION,
+            relation_backed=True,
+            bounded=False,
+            estimate_state=estimate_state,
+        )
+    )
+    context = _AggregateExecutionContext(
+        contracts_by_name={contract.contract_name: contract},
+        adapters_by_connection={},
+        tolerance_states_by_contract_id={contract.contract_id: _ToleranceReferenceState.ABSENT},
+        scan_budget_decisions_by_check_id={check.id: decision},
+    )
+    result = _run_check(check, contract, context)
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.reason_code is decision.reason
+    assert result.diagnostics[-1].code == code
+    assert "aggregate" in result.diagnostics[-1].message.lower()
+    assert "grain-key" not in repr(result.to_dict()).lower()
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("target_type", ["duckdb", "warehouse_test"])
+def test_aggregate_runtime_connection_context_precedes_scan(
+    tmp_path: Path, grouped: bool, target_type: str
+) -> None:
+    check = _compiled_aggregate(grouped=grouped)
+    contract = _contract(tmp_path)
+    contract = replace(contract, target=replace(contract.target, connection="replica"))
+    context = _AggregateExecutionContext(
+        contracts_by_name={contract.contract_name: contract},
+        adapters_by_connection={},
+        connections_by_name={
+            "warehouse": ConnectionConfig(
+                name="warehouse", type="duckdb", config={"database": "private-source"}
+            ),
+            "replica": ConnectionConfig(
+                name="replica", type=target_type, config={"database": "private-target"}
+            ),
+        },
+        tolerance_states_by_contract_id={contract.contract_id: _ToleranceReferenceState.ABSENT},
+    )
+    result = _run_check(check, contract, context)
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert result.diagnostics[-1].code == "RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED"
+    assert "private-source" not in repr(result.to_dict())
+    assert "private-target" not in repr(result.to_dict())
