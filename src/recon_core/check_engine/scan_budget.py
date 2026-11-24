@@ -196,7 +196,7 @@ def _aggregate_scan_budget_decision(decision: ScanBudgetDecision) -> ScanBudgetD
             ),
             label="Aggregate",
         )
-    states = {
+    states: dict[CheckReason | None, ScanEstimateState] = {
         CheckReason.SCAN_ESTIMATE_UNKNOWN: ScanEstimateState.UNKNOWN,
         CheckReason.SCAN_ESTIMATE_UNSUPPORTED: ScanEstimateState.UNSUPPORTED,
         CheckReason.SCAN_BUDGET_EXCEEDED: ScanEstimateState.OVER_BUDGET,
