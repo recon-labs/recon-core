@@ -41,6 +41,20 @@ finding, or missed requirement and pass because the behavior is corrected. If
 the implementation needs a same-scope refactor, preserve the behavioral
 assertion while moving helper-level coverage to the new owner boundary.
 
+Tests for a fix must also demonstrate preservation of nearby supported
+behavior. Derive that support boundary from documented, tested, intentionally
+implemented, and in-scope behavior, including compatibility records. Do not
+make a failing supported case pass by reclassifying it as unsupported unless
+the scope reduction has been explicitly approved and the related proofs and
+public contracts have been updated.
+
+After focused tests pass, recheck sibling cases, ownership and imports,
+diagnostic and privacy behavior, public contracts, regression-capture
+routing, fixtures, and documentation. Preserve or add coverage when a
+same-scope correction exposes secondary drift. If a complete fix requires a
+future gate, record the affected conformance cases, required future tests,
+and rationale; do not claim coverage that has not run.
+
 When a test with a `@pytest.mark.regression_capture("<id>")` marker is moved,
 split, renamed, or meaningfully changed, update the matching capture row and
 rationale at the same time, preserving the marker-to-row pairing enforced by
@@ -268,12 +282,14 @@ Adapter tests for key-dependent operations should cover null-key detection,
 duplicate-key detection, key-diff rendering, and CDC-key operation rendering
 where supported.
 
-The in-core DuckDB SQL renderer semantic tests must be gated in CI with the
-optional DuckDB extra installed. The required CI path should install
-`.[dev,duckdb]`, set `RECON_REQUIRE_DUCKDB_TESTS=1`, and run
-`tests/adapters/test_duckdb_sql_renderer.py` so optional dependency coverage
-cannot silently skip the SQL comparison cases that protect no-coercion and exact
-numeric behavior.
+The in-core DuckDB semantic tests must be gated in CI with the optional DuckDB
+extra installed. The required CI job installs `.[dev,duckdb]`, sets
+`RECON_REQUIRE_DUCKDB_TESTS=1`, and runs the adapter, check-engine, service,
+and CLI test directories in full. This includes renderer comparison tests,
+actual DuckDB run-service execution, and CLI privacy tests. Directory-level
+selection keeps new and reorganized test modules in the required job rather
+than relying on a fixed list of filenames. Required DuckDB coverage must fail
+rather than silently skip when the dependency cannot be imported.
 
 Future shared adapter test-kit and adapter-repository semantic jobs must follow
 the same rule: required capability conformance jobs install the adapter package

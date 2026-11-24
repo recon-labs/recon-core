@@ -15,7 +15,11 @@ src/
     parser/
     compiler/
     artifacts/
+    adapters/
+      duckdb/
+    check_engine/
     diagnostics/
+    profiles/
     services/
 ```
 

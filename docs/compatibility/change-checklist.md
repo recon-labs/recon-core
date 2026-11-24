@@ -49,6 +49,25 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated roadmap, build-order, gate, ADR, and compatibility references when
       a milestone was split so no orphan implementation plan remains.
 
+### Capability preservation and project consistency
+
+- [ ] Identified the current supported behavior from docs, ADRs, compatibility
+      records, milestone scope, tests, capture rows, and implementation.
+- [ ] Classified the fix's capability impact as preserving, expanding, shrinking,
+      or unclear, and resolved any unclear support boundary before editing.
+- [ ] Confirmed that a previously supported case was not reclassified as
+      unsupported to make a fix pass. If scope narrowing is proposed, obtained
+      explicit approval and aligned docs, compatibility, changelog, tests,
+      regression capture, and future milestone obligations.
+- [ ] Evaluated the need for a local fix, same-scope refactor, or broader
+      approval, with tests proving both the correction and preserved support.
+- [ ] Added or proposed a future gate, conformance case, test, regression-capture
+      row, or compatibility follow-up when complete behavior is future-gated,
+      with rationale and ownership.
+- [ ] Rechecked related public contracts, diagnostics, privacy, ownership,
+      tests, docs, and gates after focused validation and resolved same-scope
+      secondary drift or reported the blocker.
+
 ### ADR impact
 
 - [ ] Checked whether the change affects a durable decision.

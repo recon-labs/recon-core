@@ -231,6 +231,39 @@ concrete adapter or infrastructure coupling, service or orchestrator boundary
 leaks, duplicated helper logic, test-helper bloat, and whether a same-branch
 low-risk refactor is required before the milestone can be considered complete.
 
+## Review fixes and project consistency
+
+Before a fix, identify currently supported behavior from the relevant docs,
+ADRs, compatibility records, milestone prework, tests, regression capture,
+and implementation. Documented, tested, intentionally implemented, or
+in-scope behavior counts as supported even before a stable release.
+
+Classify the fix as a local fix, a same-scope refactor, or a broader refactor
+that requires approval. Prefer the smallest design-conformant change, not
+the shortest patch that makes a local test pass. Classify capability impact
+as preserving, expanding, shrinking, or unclear. A capability-expanding
+change needs the applicable design and compatibility gates. If impact is
+unclear, resolve the support boundary before editing.
+
+Do not silently remove, reject, disable, or narrow supported behavior to
+fix a bug. Present the options to preserve support now, preserve truthful
+behavior with a future-gated follow-up, or explicitly approve a scope
+reduction. Obtain explicit approval before narrowing support; align docs,
+compatibility, changelog, tests, and regression capture if approved.
+
+When a fix exposes a cross-cutting or future milestone requirement, add or
+propose the relevant gate, conformance matrix row, test, ADR/docs,
+compatibility note, or regression-capture row in the owning workstream.
+Deferred work must have an explicit rationale and owner; do not hide
+incomplete correctness behind a passing test or unsupported status.
+
+After local validation, perform a second consistency pass across ownership,
+dependencies, validation, diagnostics, privacy, public contracts, artifacts,
+capabilities, tests, capture metadata, docs, and future gates. Correct
+same-scope secondary drift before completion; stop for approval if the
+required correction changes broader architecture, public behavior, or
+scope. Record the decision and remaining follow-up.
+
 ## Milestone splits
 
 Every milestone or equivalent roadmap work must include a split-or-justify
