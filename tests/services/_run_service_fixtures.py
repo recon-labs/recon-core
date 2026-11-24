@@ -548,11 +548,13 @@ def _write_duckdb_row_count_tables(
         connection.execute("create schema qa")
         connection.execute("create table qa.source_customers(id integer)")
         if source_rows:
-            connection.executemany("insert into qa.source_customers values (?)", source_rows)
+            connection.executemany("insert into qa.source_customers values (?)", list(source_rows))
         if create_target:
             connection.execute("create table qa.target_customers(id integer)")
             if target_rows:
-                connection.executemany("insert into qa.target_customers values (?)", target_rows)
+                connection.executemany(
+                    "insert into qa.target_customers values (?)", list(target_rows)
+                )
     finally:
         connection.close()
 
@@ -611,7 +613,7 @@ def _insert_duckdb_rows(
     if not rows:
         return
     placeholders = ", ".join("?" for _ in rows[0])
-    connection.executemany(f"insert into {relation_name} values ({placeholders})", rows)
+    connection.executemany(f"insert into {relation_name} values ({placeholders})", list(rows))
 
 
 def _assert_no_runtime_outputs(path: Path) -> None:

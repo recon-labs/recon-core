@@ -750,12 +750,12 @@ def _create_key_tables(
     if source_rows:
         adapter.connection_handle.executemany(
             "insert into source_table values (?, ?)",
-            source_rows,
+            list(source_rows),
         )
     if target_rows:
         adapter.connection_handle.executemany(
             "insert into target_table values (?, ?)",
-            target_rows,
+            list(target_rows),
         )
 
 
