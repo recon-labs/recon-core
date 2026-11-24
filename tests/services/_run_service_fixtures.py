@@ -299,6 +299,7 @@ def _compiled_check_payload(
     required_capabilities: list[str] | None = None,
     rendering: dict[str, object] | None = None,
     diagnostics: list[dict[str, object]] | None = None,
+    metric: dict[str, object] | None = None,
 ) -> dict[str, object]:
     resolved_required_capabilities = (
         required_capabilities if required_capabilities is not None else ["row_count"]
@@ -307,7 +308,10 @@ def _compiled_check_payload(
         "id": check_id,
         "name": name,
         "type": check_type,
-        "origin": {"kind": "check_pack", "name": "recon_core.basic_equivalence"},
+        "origin": {"kind": "metric", "name": name}
+        if metric is not None
+        else {"kind": "check_pack", "name": "recon_core.basic_equivalence"},
+        **({"metric": metric} if metric is not None else {}),
         "identity": {"kind": "none", "keys": []},
         "requirements": {
             "requires_grain_keys": False,

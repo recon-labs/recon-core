@@ -11,6 +11,7 @@ from recon_core.adapters import (
     AdapterRegistry,
     BaseAdapter,
     ConnectionConfig,
+    SqlRenderer,
     prepare_runtime_adapter,
 )
 from recon_core.adapters.default_renderers import default_runtime_renderers_by_adapter_type
@@ -31,6 +32,7 @@ from recon_core.artifacts import (
     LoadedCompiledChecksArtifact,
     LoadedCompiledContractArtifact,
 )
+from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
 from recon_core.check_engine import (
     CHECK_ENGINE_INTERNAL_ERROR,
     CheckEngine,
@@ -40,6 +42,8 @@ from recon_core.check_engine import (
     RunStatus,
     is_supported_row_count_plan_shape,
 )
+from recon_core.check_engine.aggregate import is_aggregate_check_type
+from recon_core.check_engine.engine import _AggregateExecutionContext
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
@@ -141,13 +145,15 @@ class RunService:
         if not load_result.succeeded:
             return _load_failure_result(load_result)
 
-        contract_loader = (
-            self.contract_loader if self.contract_loader is not None else CompiledContractLoader()
-        )
-        contract_load_result = contract_loader.load_for_compiled_checks(
-            context.paths.target_path,
-            load_result.artifacts,
-        )
+        tolerance_states: dict[str, _ToleranceReferenceState] = {}
+        if self.contract_loader is None:
+            contract_load_result, tolerance_states = CompiledContractLoader()._load_for_runtime(
+                context.paths.target_path, load_result.artifacts
+            )
+        else:
+            contract_load_result = self.contract_loader.load_for_compiled_checks(
+                context.paths.target_path, load_result.artifacts
+            )
         if not contract_load_result.succeeded:
             return _compiled_contract_load_failure_result(contract_load_result)
 
@@ -155,6 +161,7 @@ class RunService:
             context,
             check_artifacts=load_result.artifacts,
             compiled_contracts=contract_load_result.artifacts,
+            tolerance_states=tolerance_states,
             registry=self.adapter_registry,
             environ=self.environ,
         )
@@ -211,17 +218,24 @@ def _prepare_runtime_execution_dependencies(
     *,
     check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
     compiled_contracts: tuple[LoadedCompiledContractArtifact, ...],
+    tolerance_states: Mapping[str, _ToleranceReferenceState],
     registry: AdapterRegistry | None,
     environ: Mapping[str, str] | None,
 ) -> _RuntimeExecutionDependencies:
     contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
+    has_aggregate_checks = any(
+        is_aggregate_check_type(check.check_type)
+        for artifact in check_artifacts
+        for check in artifact.checks
+    )
     runtime_candidates = _runtime_execution_candidates(check_artifacts)
     if not runtime_candidates:
-        if _has_key_safety_checks(check_artifacts):
+        if has_aggregate_checks or _has_key_safety_checks(check_artifacts):
             return _RuntimeExecutionDependencies(
-                execution_context=CheckExecutionContext(
+                execution_context=_runtime_context(
                     contracts_by_name=contracts_by_name,
                     adapters_by_connection={},
+                    tolerance_states=tolerance_states if has_aggregate_checks else None,
                 ),
             )
         return _RuntimeExecutionDependencies()
@@ -231,9 +245,10 @@ def _prepare_runtime_execution_dependencies(
     )
     if not profile_candidates:
         return _RuntimeExecutionDependencies(
-            execution_context=CheckExecutionContext(
+            execution_context=_runtime_context(
                 contracts_by_name=contracts_by_name,
                 adapters_by_connection={},
+                tolerance_states=tolerance_states if has_aggregate_checks else None,
             ),
         )
     candidate_contracts = _compiled_contracts_for_runtime_candidates(
@@ -315,14 +330,42 @@ def _prepare_runtime_execution_dependencies(
         )
 
     return _RuntimeExecutionDependencies(
-        execution_context=CheckExecutionContext(
+        execution_context=_runtime_context(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
             connections_by_name=connections_by_name,
             renderers_by_adapter_type=default_runtime_renderers_by_adapter_type(),
             scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
+            tolerance_states=tolerance_states if has_aggregate_checks else None,
         ),
         opened_adapters=open_result.opened_adapters,
+    )
+
+
+def _runtime_context(
+    *,
+    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+    adapters_by_connection: Mapping[str, BaseAdapter],
+    tolerance_states: Mapping[str, _ToleranceReferenceState] | None,
+    connections_by_name: Mapping[str, ConnectionConfig] | None = None,
+    renderers_by_adapter_type: Mapping[str, SqlRenderer] | None = None,
+    scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] | None = None,
+) -> CheckExecutionContext:
+    if tolerance_states is not None:
+        return _AggregateExecutionContext(
+            contracts_by_name=contracts_by_name,
+            adapters_by_connection=adapters_by_connection,
+            connections_by_name=connections_by_name or {},
+            renderers_by_adapter_type=renderers_by_adapter_type or {},
+            scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id or {},
+            tolerance_states_by_contract_id=tolerance_states,
+        )
+    return CheckExecutionContext(
+        contracts_by_name=contracts_by_name,
+        adapters_by_connection=adapters_by_connection,
+        connections_by_name=connections_by_name or {},
+        renderers_by_adapter_type=renderers_by_adapter_type or {},
+        scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id or {},
     )
 
 

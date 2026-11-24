@@ -196,7 +196,44 @@ def test_aggregate_invalid_relation_errors_before_profile(tmp_path: Path) -> Non
     result = _run_without_profile(
         tmp_path, _aggregate_check(), source_relation=f"qa..{_PRIVATE_TOKEN}"
     )
-    assert "RC_ADAPTER_INVALID_RELATION" in {
+    assert "RC_ADAPTER_INVALID_RELATION" in {diagnostic.code for diagnostic in result.diagnostics}
+    assert "non-executable checks" not in result.message
+
+
+@pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.parametrize("tolerance", (0, 0.1, {"type": "absolute", "value": 0.1}))
+def test_valid_explicit_tolerance_overrides_named_policy_without_execution(
+    tmp_path: Path, grouped: bool, tolerance: object
+) -> None:
+    result = _run_without_profile(
+        tmp_path,
+        _aggregate_check(grouped=grouped, tolerance=tolerance),
+        policies={"tolerance_policy": _PRIVATE_TOKEN},
+    )
+    # The admission succeeds but this step does not enable aggregate execution.
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
+    ]
+
+
+def test_invalid_explicit_override_does_not_fall_back_to_named_policy(tmp_path: Path) -> None:
+    result = _run_without_profile(
+        tmp_path,
+        _aggregate_check(tolerance=-1),
+        policies={"tolerance_policy": _PRIVATE_TOKEN},
+    )
+    assert "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID" in {
         diagnostic.code for diagnostic in result.diagnostics
     }
-    assert "non-executable checks" not in result.message
+
+
+def test_malformed_named_metadata_is_not_hidden_by_valid_override(tmp_path: Path) -> None:
+    result = _run_without_profile(
+        tmp_path,
+        _aggregate_check(tolerance=0),
+        policies={"tolerance_policy": True},
+    )
+    assert "RC_RUNTIME_COMPILED_CONTRACT_ARTIFACT_INVALID" in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }

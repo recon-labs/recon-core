@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import math
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import TypeAlias
 
+from recon_core._numeric_policy import absolute_tolerance
 from recon_core.compiler.models import ResolvedSampling
 from recon_core.compiler.validation import CompilerDiagnosticContext
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -125,19 +124,8 @@ def validate_tolerance(
 ) -> PolicyValidationResult:
     """Validate MVP numeric absolute tolerance shape."""
     context = CompilerDiagnosticContext(resource_type=resource_type, resource_name=resource_name)
-    if _decimal_from_number(tolerance) is not None:
+    if absolute_tolerance(tolerance) is not None:
         return PolicyValidationResult()
-
-    if isinstance(tolerance, Mapping):
-        unknown_fields = sorted(set(tolerance) - {"type", "value"})
-        tolerance_type = tolerance.get("type")
-        tolerance_value = tolerance.get("value")
-        if (
-            not unknown_fields
-            and tolerance_type == "absolute"
-            and _decimal_from_number(tolerance_value) is not None
-        ):
-            return PolicyValidationResult()
 
     return PolicyValidationResult(
         diagnostics=(
@@ -428,22 +416,6 @@ def _validate_regex_replace_step(
             )
         )
     return tuple(diagnostic for diagnostic in diagnostics if diagnostic is not None)
-
-
-def _decimal_from_number(value: object) -> Decimal | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return Decimal(value) if value >= 0 else None
-    if isinstance(value, float):
-        if not math.isfinite(value) or value < 0:
-            return None
-        return Decimal(str(value))
-    if isinstance(value, Decimal):
-        if not value.is_finite() or value < 0:
-            return None
-        return value
-    return None
 
 
 def _literal_null_values(nulls: object) -> tuple[str, ...] | None:

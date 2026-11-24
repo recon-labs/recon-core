@@ -126,6 +126,7 @@ profiles:
                 check_id="check.ecommerce_recon.later_phase_contract.sum_diff",
                 name="sum_diff",
                 check_type="sum_diff",
+                metric={"type": "sum", "column": "revenue", "group_by": []},
                 operations=[
                     {
                         "type": "aggregate",
@@ -197,6 +198,7 @@ profiles:
                 check_id="check.ecommerce_recon.customer_revenue.sum_diff",
                 name="sum_diff",
                 check_type="sum_diff",
+                metric={"type": "sum", "column": "revenue", "group_by": []},
                 operations=[
                     {
                         "type": "aggregate",

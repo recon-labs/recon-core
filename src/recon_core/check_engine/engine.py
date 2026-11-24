@@ -10,6 +10,7 @@ from recon_core.artifacts import (
     LoadedCompiledChecksArtifact,
     LoadedCompiledContractArtifact,
 )
+from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
 from recon_core.check_engine import prerequisites as _prerequisites
 from recon_core.check_engine.dispatch import CheckDispatcher
 from recon_core.check_engine.models import (
@@ -46,6 +47,13 @@ class CheckExecutionContext(RuntimeExecutionContext):
     connections_by_name: Mapping[str, ConnectionConfig] = field(default_factory=dict)
     renderers_by_adapter_type: Mapping[str, SqlRenderer] = field(default_factory=dict)
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] = field(
+        default_factory=dict
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _AggregateExecutionContext(CheckExecutionContext):
+    tolerance_states_by_contract_id: Mapping[str, _ToleranceReferenceState] = field(
         default_factory=dict
     )
 

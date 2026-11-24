@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import cast
 
@@ -55,6 +56,26 @@ class CompiledContractLoadResult:
         return not self.diagnostics
 
 
+class _ToleranceReferenceState(StrEnum):
+    ABSENT = "absent"
+    UNRESOLVED = "unresolved"
+    INVALID = "invalid"
+
+
+def _tolerance_reference_state(payload: Mapping[str, object]) -> _ToleranceReferenceState:
+    policies = payload.get("policies")
+    if policies is None:
+        return _ToleranceReferenceState.ABSENT
+    if not isinstance(policies, Mapping) or any(not isinstance(key, str) for key in policies):
+        return _ToleranceReferenceState.INVALID
+    reference = policies.get("tolerance_policy")
+    if reference is None:
+        return _ToleranceReferenceState.ABSENT
+    if not isinstance(reference, str) or not reference.strip():
+        return _ToleranceReferenceState.INVALID
+    return _ToleranceReferenceState.UNRESOLVED
+
+
 class _ArtifactShapeError(ValueError):
     """Internal shape validation error."""
 
@@ -82,6 +103,26 @@ class CompiledContractLoader:
         check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
     ) -> CompiledContractLoadResult:
         """Load compiled contracts referenced by loaded compiled-check artifacts."""
+        return self._load_referenced_contracts(target_path, check_artifacts)
+
+    def _load_for_runtime(
+        self,
+        target_path: Path,
+        check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+    ) -> tuple[CompiledContractLoadResult, dict[str, _ToleranceReferenceState]]:
+        states: dict[str, _ToleranceReferenceState] = {}
+        result = self._load_referenced_contracts(
+            target_path, check_artifacts, tolerance_states=states
+        )
+        return result, states if result.succeeded else {}
+
+    def _load_referenced_contracts(
+        self,
+        target_path: Path,
+        check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+        *,
+        tolerance_states: dict[str, _ToleranceReferenceState] | None = None,
+    ) -> CompiledContractLoadResult:
         compiled_contracts_dir = target_path / COMPILED_CONTRACTS_DIR_NAME
         directory_diagnostic = _compiled_contracts_directory_diagnostic(compiled_contracts_dir)
         if directory_diagnostic is not None:
@@ -113,7 +154,7 @@ class CompiledContractLoader:
 
         if diagnostics:
             return CompiledContractLoadResult(diagnostics=tuple(diagnostics))
-        load_result = self._load_paths(tuple(artifact_paths))
+        load_result = self._load_paths(tuple(artifact_paths), tolerance_states=tolerance_states)
         if not load_result.succeeded:
             return load_result
 
@@ -128,6 +169,8 @@ class CompiledContractLoader:
     def _load_paths(
         self,
         artifact_paths: tuple[Path, ...],
+        *,
+        tolerance_states: dict[str, _ToleranceReferenceState] | None = None,
     ) -> CompiledContractLoadResult:
         artifacts: list[LoadedCompiledContractArtifact] = []
         diagnostics: list[Diagnostic] = []
@@ -139,6 +182,7 @@ class CompiledContractLoader:
                 artifact_path,
                 seen_contract_ids=seen_contract_ids,
                 seen_contract_names=seen_contract_names,
+                tolerance_states=tolerance_states,
             )
             diagnostics.extend(artifact_diagnostics)
             if artifact is not None:
@@ -154,6 +198,7 @@ class CompiledContractLoader:
         *,
         seen_contract_ids: set[str],
         seen_contract_names: set[str],
+        tolerance_states: dict[str, _ToleranceReferenceState] | None = None,
     ) -> tuple[LoadedCompiledContractArtifact | None, tuple[Diagnostic, ...]]:
         path_diagnostic = _symlinked_artifact_path_diagnostic(artifact_path)
         if path_diagnostic is not None:
@@ -183,6 +228,8 @@ class CompiledContractLoader:
         except _ArtifactShapeError as error:
             return None, (_invalid_artifact_diagnostic(artifact_path, str(error)),)
 
+        if tolerance_states is not None:
+            tolerance_states[artifact.contract_id] = _tolerance_reference_state(payload)
         return artifact, ()
 
 
