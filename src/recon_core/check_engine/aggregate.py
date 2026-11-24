@@ -545,8 +545,9 @@ def _execute_aggregate_check(
     collaborator_blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer)
     if collaborator_blocker is not None:
         return collaborator_blocker
-    render = getattr(renderer, "render_plan")
-    execute = getattr(adapter, "_execute_aggregate_query")
+    render = getattr(renderer, "render_plan", None)
+    execute = getattr(adapter, "_execute_aggregate_query", None)
+    assert callable(render) and callable(execute)
     source, source_error = relation_from_name(
         contract.source.relation, side="source", contract_name=contract.contract_name
     )
