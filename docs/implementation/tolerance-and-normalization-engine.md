@@ -49,14 +49,17 @@ class NumericTolerance:
     type: Literal["absolute"]
     value: Decimal
 
+
 @dataclass(frozen=True)
 class NullPolicy:
     treat_as_null_values: tuple[str, ...] = ()
     treat_as_null_regex: tuple[str, ...] = ()
 
+
 @dataclass(frozen=True)
 class NormalizationPolicy:
     steps: tuple[NormalizationStep, ...] = ()
+
 
 @dataclass(frozen=True)
 class ResolvedComparisonPolicy:
