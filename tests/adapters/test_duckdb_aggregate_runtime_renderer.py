@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from recon_core.adapters import ConnectionConfig, Relation
+from recon_core.adapters._aggregate_runtime import _AggregateQueryResult, _NumericDomain
 from recon_core.adapters.duckdb import AdapterLifecycleError, DuckDbAdapter, DuckDbSqlRenderer
 
 _SCALAR_COLUMNS = ("source_aggregate_value", "target_aggregate_value", "aggregate_diff")
@@ -121,6 +122,7 @@ def _result(adapter: DuckDbAdapter, plan: Any) -> Any:
     ],
 )
 @pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.regression_capture("duckdb-private-aggregate-native-domain-guards")
 def test_runtime_renderer_native_domains(
     adapter: DuckDbAdapter,
     kind: str,
@@ -169,6 +171,7 @@ def test_runtime_renderer_native_domains(
         ("DECIMAL(10,2)", "DECIMAL(10,3)"),
     ],
 )
+@pytest.mark.regression_capture("duckdb-private-aggregate-native-domain-guards")
 def test_runtime_renderer_input_guards_fail_before_sum_binding(
     adapter: DuckDbAdapter, grouped: bool, source_type: str, target_type: str
 ) -> None:
@@ -186,6 +189,7 @@ def test_runtime_renderer_input_guards_fail_before_sum_binding(
         _guard(adapter, plan.type_guards[-1])
 
 
+@pytest.mark.regression_capture("duckdb-private-aggregate-native-domain-guards")
 def test_runtime_renderer_empty_group_key_mismatch(adapter: DuckDbAdapter) -> None:
     _tables(
         adapter,
@@ -196,6 +200,7 @@ def test_runtime_renderer_empty_group_key_mismatch(adapter: DuckDbAdapter) -> No
         _guard(adapter, _plan(("k",)).type_guards[0])
 
 
+@pytest.mark.regression_capture("duckdb-private-bounded-grouped-summary")
 def test_runtime_renderer_composite_null_keys_and_alias_collisions(adapter: DuckDbAdapter) -> None:
     _tables(
         adapter,
@@ -208,6 +213,7 @@ def test_runtime_renderer_composite_null_keys_and_alias_collisions(adapter: Duck
     assert result.row == (6, 1, 1, 1, 1, 2, 0, -3, 3)
 
 
+@pytest.mark.regression_capture("duckdb-private-bounded-grouped-summary")
 def test_runtime_renderer_invalid_precedes_presence_and_null(adapter: DuckDbAdapter) -> None:
     _tables(
         adapter,
@@ -219,6 +225,7 @@ def test_runtime_renderer_invalid_precedes_presence_and_null(adapter: DuckDbAdap
     assert result.row == (4, 0, 0, 0, 0, 1, 3, 3.0, 3.0)
 
 
+@pytest.mark.regression_capture("duckdb-private-bounded-grouped-summary")
 def test_runtime_renderer_full_union_is_bounded(adapter: DuckDbAdapter) -> None:
     _tables(
         adapter,
@@ -230,6 +237,7 @@ def test_runtime_renderer_full_union_is_bounded(adapter: DuckDbAdapter) -> None:
 
 
 @pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.regression_capture("duckdb-private-bounded-grouped-summary")
 def test_runtime_renderer_empty_relations(adapter: DuckDbAdapter, grouped: bool) -> None:
     empty = "SELECT NULL::INTEGER AS k, NULL::BIGINT AS v WHERE FALSE"
     _tables(adapter, empty, empty)
@@ -238,6 +246,7 @@ def test_runtime_renderer_empty_relations(adapter: DuckDbAdapter, grouped: bool)
 
 
 @pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.regression_capture("duckdb-private-aggregate-native-domain-guards")
 def test_runtime_renderer_arbitrary_integer_version_availability(
     adapter: DuckDbAdapter, grouped: bool
 ) -> None:
@@ -269,6 +278,7 @@ def test_runtime_renderer_arbitrary_integer_version_availability(
         assert result.row == (expected, 0, expected)
 
 
+@pytest.mark.regression_capture("duckdb-private-aggregate-renderer-separation")
 def test_runtime_renderer_does_not_replace_public_detail_renderer() -> None:
     public = DuckDbSqlRenderer().render_plan(_operations(("k",)), **_RELATIONS)
     private = _plan(("k",))
@@ -281,3 +291,123 @@ def test_runtime_renderer_does_not_replace_public_detail_renderer() -> None:
         "grouped_aggregate",
         "cte_support",
     )
+
+
+@pytest.mark.parametrize(
+    ("columns", "domains", "row"),
+    [
+        (("wrong",), (_NumericDomain.EXACT_INTEGER,), (1,)),
+        (("numeric_domain",), (_NumericDomain.NATIVE_FLOAT,), (1,)),
+        (("numeric_domain",), (_NumericDomain.EXACT_INTEGER,), ()),
+        (("numeric_domain",), (_NumericDomain.EXACT_INTEGER,), (1, 2)),
+        (("numeric_domain",), (_NumericDomain.EXACT_INTEGER,), (True,)),
+        (("numeric_domain",), (_NumericDomain.EXACT_INTEGER,), (0,)),
+        (("numeric_domain",), (_NumericDomain.EXACT_INTEGER,), (4,)),
+        (("numeric_domain",), (_NumericDomain.EXACT_INTEGER,), (None,)),
+    ],
+)
+@pytest.mark.regression_capture("duckdb-private-aggregate-native-domain-guards")
+def test_runtime_renderer_rejects_malformed_domain_proof(
+    columns: Any, domains: Any, row: Any
+) -> None:
+    plan = _plan()
+    result = _AggregateQueryResult(columns=columns, domains=domains, row=row)
+    with pytest.raises(ValueError, match="Invalid aggregate numeric domain proof"):
+        plan.domain_from_guard(result)
+    with pytest.raises(ValueError, match="Unproven aggregate numeric domain"):
+        plan.final_query("unverified")
+
+
+@pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.regression_capture("duckdb-private-aggregate-native-domain-guards")
+def test_runtime_renderer_native_float_subtraction_regression(
+    adapter: DuckDbAdapter, grouped: bool
+) -> None:
+    _tables(
+        adapter,
+        "SELECT 1 AS k, v FROM (VALUES (0.1::DOUBLE),(0.2::DOUBLE)) q(v)",
+        "SELECT 1 AS k, 0.2::DOUBLE AS v",
+    )
+    result = _result(adapter, _plan(("k",) if grouped else ()))
+    expected = (0.1 + 0.2) - 0.2
+    assert expected == 0.10000000000000003
+    if grouped:
+        assert result.row == (1, 0, 0, 0, 0, 1, 0, expected, expected)
+    else:
+        assert result.row == (0.1 + 0.2, 0.2, expected)
+
+
+@pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.regression_capture("duckdb-private-bounded-grouped-summary")
+def test_runtime_renderer_null_is_distinct_from_zero(
+    adapter: DuckDbAdapter, grouped: bool
+) -> None:
+    _tables(adapter, "SELECT 1 AS k, NULL::BIGINT AS v", "SELECT 1 AS k, 0::BIGINT AS v")
+    result = _result(adapter, _plan(("k",) if grouped else ()))
+    assert result.row == ((1, 0, 0, 0, 1, 0, 0, None, None) if grouped else (None, 0, None))
+
+
+@pytest.mark.regression_capture("duckdb-private-aggregate-native-domain-guards")
+def test_runtime_renderer_signed_hugeint_minimum(adapter: DuckDbAdapter) -> None:
+    minimum = -(2**127)
+    _tables(
+        adapter,
+        f"SELECT 1 AS k, CAST('{minimum}' AS HUGEINT) AS v",
+        "SELECT 1 AS k, 0::HUGEINT AS v",
+    )
+    result = _result(adapter, _plan(("k",)))
+    assert result.row == (1, 0, 0, 0, 0, 1, 0, minimum, minimum)
+
+
+@pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.parametrize("operation", ("sum", "difference"))
+@pytest.mark.parametrize("kind", ("HUGEINT", "DECIMAL(38,0)"))
+@pytest.mark.regression_capture("duckdb-private-aggregate-native-domain-guards")
+def test_runtime_renderer_overflow_guards_do_not_read_aggregate_data(
+    adapter: DuckDbAdapter, grouped: bool, operation: str, kind: str
+) -> None:
+    maximum = 2**127 - 1 if kind == "HUGEINT" else 10**38 - 1
+    source = f"SELECT 1 AS k, CAST('{maximum}' AS {kind}) AS v"
+    if operation == "sum":
+        source += f" UNION ALL SELECT 1, 1::{kind}"
+    _tables(
+        adapter,
+        source,
+        f"SELECT 1 AS k, CAST('{-maximum if operation == 'difference' else 0}' AS {kind}) AS v",
+    )
+    plan = _plan(("k",) if grouped else ())
+    domain = _domain(adapter, plan)
+    assert domain == ("exact_integer" if kind == "HUGEINT" else "exact_decimal")
+    query = plan.final_query(domain)
+    # Native overflow must not become a rounded or wrapped comparison.
+    try:
+        result = adapter._execute_aggregate_query(query.sql, expected_columns=plan.columns)
+    except AdapterLifecycleError as exc:
+        assert exc.diagnostic.code == "RC_ADAPTER_QUERY_FAILED"
+        assert str(maximum) not in repr(exc.diagnostic)
+        assert "source table" not in repr(exc.diagnostic)
+    else:
+        expected = maximum + 1 if operation == "sum" else maximum * 2
+        if grouped:
+            assert result.row == (1, 0, 0, 0, 0, 1, 0, expected, expected)
+        else:
+            assert result.row[2] == expected
+
+
+@pytest.mark.regression_capture("duckdb-private-bounded-grouped-summary")
+def test_runtime_renderer_repeated_and_quoted_group_keys(adapter: DuckDbAdapter) -> None:
+    _tables(
+        adapter,
+        'SELECT NULL::INTEGER AS "key ""with quote", 3::BIGINT AS v',
+        'SELECT NULL::INTEGER AS "key ""with quote", 1::BIGINT AS v',
+    )
+    result = _result(adapter, _plan(('key "with quote', 'key "with quote')))
+    assert result.row == (1, 0, 0, 0, 0, 1, 0, 2, 2)
+
+
+@pytest.mark.regression_capture("duckdb-private-bounded-grouped-summary")
+def test_runtime_renderer_all_null_groups(adapter: DuckDbAdapter) -> None:
+    same = "SELECT 1 AS k, NULL::BIGINT AS v"
+    _tables(adapter, same, same)
+    result = _result(adapter, _plan(("k",)))
+    assert result.row == (1, 0, 0, 1, 0, 0, 0, None, None)

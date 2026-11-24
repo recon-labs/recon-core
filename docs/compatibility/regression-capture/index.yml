@@ -344,6 +344,16 @@ path_surface_routing:
     - path: src/recon_core/adapters/duckdb/renderer_operations.py
       surfaces:
         - sql_rendering
+    - path: src/recon_core/adapters/duckdb/_aggregate_runtime.py
+      surfaces:
+        - sql_rendering
+        - adapter_runtime
+        - execution_result
+    - path: tests/adapters/test_duckdb_aggregate_runtime_renderer.py
+      surfaces:
+        - sql_rendering
+        - adapter_runtime
+        - execution_result
     - path: src/recon_core/adapters/duckdb/renderer_sql.py
       surfaces:
         - sql_rendering

@@ -3,7 +3,11 @@
 from collections.abc import Mapping
 from typing import Any
 
-from recon_core.adapters._aggregate_runtime import _AggregateRuntimePlan
+from recon_core.adapters._aggregate_runtime import (
+    _SCALAR_COLUMNS,
+    _SUMMARY_COLUMNS,
+    _AggregateRuntimePlan,
+)
 from recon_core.adapters.models import Relation, RenderedSql
 
 from .renderer_operations import (
@@ -24,18 +28,6 @@ from .renderer_sql import (
     strict_null_safe_equality,
 )
 
-_SCALAR_COLUMNS = ("source_aggregate_value", "target_aggregate_value", "aggregate_diff")
-_SUMMARY_COLUMNS = (
-    "total_group_count",
-    "source_only_group_count",
-    "target_only_group_count",
-    "both_null_group_count",
-    "null_mismatch_group_count",
-    "valid_numeric_pair_count",
-    "invalid_numeric_count",
-    "min_signed_diff",
-    "max_signed_diff",
-)
 _VALUE_ERROR = "Recon DuckDB aggregate value type mismatch."
 
 
@@ -179,9 +171,7 @@ def _render_domain_guard(source: Relation, target: Relation, column: str) -> str
     )
 
 
-def _aggregate_ctes(
-    source: Relation, target: Relation, column: str, keys: tuple[str, ...]
-) -> str:
+def _aggregate_ctes(source: Relation, target: Relation, column: str, keys: tuple[str, ...]) -> str:
     expression = aggregate_expression_sql("sum", quote_identifier(column))
     # Internal positional aliases are independent of authored group-key names.
     key_select = tuple(
@@ -213,8 +203,7 @@ def _scalar_result(ctes: str) -> str:
 
 def _grouped_summary(ctes: str, keys: tuple[str, ...], *, floating: bool) -> str:
     join = " and ".join(
-        strict_null_safe_equality(f"s.group_key_{i}", f"t.group_key_{i}")
-        for i in range(len(keys))
+        strict_null_safe_equality(f"s.group_key_{i}", f"t.group_key_{i}") for i in range(len(keys))
     )
     invalid = (
         "(sp is true and a is not null and not isfinite(a)) or "

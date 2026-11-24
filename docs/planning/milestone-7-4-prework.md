@@ -1026,6 +1026,22 @@ Focused coverage resides in
 `tests/adapters/test_duckdb_aggregate_transport.py`; the representative
 version matrix retains the existing native feasibility probes.
 
+### Private bounded runtime renderer implementation checkpoint
+
+The private neutral plan defines the scalar and grouped summary column
+contracts, ordered physical-type guards and native-domain proof. DuckDB
+renders standalone metadata-only guards before binding native SUM and
+subtraction on empty relations. A verified integer, decimal or floating
+domain selects the corresponding final SQL without a lossy exact-data cast.
+Grouped SQL uses positional internal key aliases, independent side presence
+and null-safe complete group union classification; invalid numeric outcomes
+precede mismatch categories. The final query returns one bounded summary
+row with signed extrema. Public compile detail output remains unchanged.
+Native renderer coverage resides in
+`tests/adapters/test_duckdb_aggregate_runtime_renderer.py`.
+Core outcome comparison, runtime candidate selection, scan-budget checks,
+and service lifecycle integration remain required implementation steps.
+
 ## Implementation Readiness
 
 The approved design and its acceptance requirements are documented.

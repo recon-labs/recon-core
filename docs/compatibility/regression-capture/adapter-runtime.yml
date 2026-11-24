@@ -271,3 +271,79 @@ captures:
       - docs/planning/milestone-7-4-prework.md: Private typed transport and metadata
     notes: >
       Preserve exact integers and decimals, typed arbitrary-size integer strings beyond the Python digit limit, native floating values and nulls. Legacy broad type categories require bounded matching logical metadata, not value-based guesses. Core owns comparison and non-finite classification.
+
+  - id: duckdb-private-aggregate-native-domain-guards
+    title: Private aggregate guards prove native arithmetic domains before data queries
+    area: adapter-runtime
+    bug_class: numeric_type_coercion
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_native_domains
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_input_guards_fail_before_sum_binding
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_empty_group_key_mismatch
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_arbitrary_integer_version_availability
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_rejects_malformed_domain_proof
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_native_float_subtraction_regression
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_signed_hugeint_minimum
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_overflow_guards_do_not_read_aggregate_data
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: native_aggregate_domains
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: native_aggregate_domains
+    requirement_refs:
+      - docs/compatibility/adapter-api.md: Aggregate execution conformance
+      - docs/planning/milestone-7-4-prework.md: Numeric and bounded result contracts
+    notes: >
+      Standalone physical type guards bind against empty relations before native SUM and subtraction are bound. Exact native integer and decimal or binary floating domains must be proven, including version availability, signed extrema and overflow. No implicit lossy cast or unverified type discriminator is accepted.
+
+  - id: duckdb-private-bounded-grouped-summary
+    title: Private grouped SQL summarizes the complete null-safe group union
+    area: adapter-runtime
+    bug_class: result_shape
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_composite_null_keys_and_alias_collisions
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_invalid_precedes_presence_and_null
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_full_union_is_bounded
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_empty_relations
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_null_is_distinct_from_zero
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_repeated_and_quoted_group_keys
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_all_null_groups
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: bounded_grouped_summary
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: bounded_grouped_summary
+    requirement_refs:
+      - docs/compatibility/adapter-api.md: Aggregate execution conformance
+      - docs/planning/milestone-7-4-prework.md: Numeric and bounded result contracts
+    notes: >
+      Independent side presence, null-safe composite keys, collision-safe internal aliases and invalid-first category partitioning preserve all groups. Exactly one summary row carries counts and signed extrema, including empty and all-null cases. No detail fallback or truncation.
+
+  - id: duckdb-private-aggregate-renderer-separation
+    title: Private bounded rendering preserves public grouped detail SQL
+    area: adapter-runtime
+    bug_class: renderer_output_contract
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_does_not_replace_public_detail_renderer
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: aggregate_renderer_contract
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: aggregate_renderer_contract
+    requirement_refs:
+      - docs/compatibility/adapter-api.md: Aggregate execution conformance
+      - docs/planning/milestone-7-4-prework.md: Numeric and bounded result contracts
+    notes: >
+      The public compile renderer retains separate source and target group keys and does not expose the private summary. Private rendered steps declare existing capabilities and use the neutral bounded result contract.

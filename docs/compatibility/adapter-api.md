@@ -59,14 +59,18 @@ exact aggregate behavior for that type is proven, because current DuckDB returns
 approximate `DOUBLE` values for `sum(UHUGEINT)`.
 
 The existing grouped detail SQL contract belongs to compile-time rendering and
-direct renderer callers. The planned bounded aggregate runtime must use an
-explicit private runtime rendering path, not change that public detail result
+direct renderer callers. The bounded aggregate runtime renderer uses an
+explicit private rendering path and does not change that public detail result
 shape. Shared dialect builders preserve the existing preflight input,
-aggregate-result and group-key type guards. The runtime grouped query returns
+aggregate-result and group-key type guards. Standalone metadata-only physical
+type guards precede native SUM and subtraction domain proof on empty relations.
+Only a proven domain selects the exact or native floating final query; the
+exact query never uses floating finiteness checks. The runtime grouped query returns
 one fixed-size summary with independent presence/null categories and finite
 signed difference extrema. Core validates the summary, applies the ADR 0009
 tolerance policy, and decides status. An unavailable bounded renderer blocks
-execution; the detail renderer is never a runtime fallback. No new public
+execution; the detail renderer is never a runtime fallback. Runtime routing
+and Core comparison still require integration. No new public
 renderer methods, capability names, API version or typed payload fields are
 required.
 

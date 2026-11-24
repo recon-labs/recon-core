@@ -10,6 +10,19 @@ from recon_core.adapters.models import Relation, RenderedSql
 
 _NumericValue = int | Decimal | float | None
 
+_SCALAR_COLUMNS = ("source_aggregate_value", "target_aggregate_value", "aggregate_diff")
+_SUMMARY_COLUMNS = (
+    "total_group_count",
+    "source_only_group_count",
+    "target_only_group_count",
+    "both_null_group_count",
+    "null_mismatch_group_count",
+    "valid_numeric_pair_count",
+    "invalid_numeric_count",
+    "min_signed_diff",
+    "max_signed_diff",
+)
+
 
 class _NumericDomain(StrEnum):
     EXACT_INTEGER = "exact_integer"
