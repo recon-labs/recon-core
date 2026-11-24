@@ -211,7 +211,11 @@ def _aggregate_scan_budget_decision(decision: ScanBudgetDecision) -> ScanBudgetD
             relation_backed=True,
             bounded=False,
             estimate_state=states.get(
-                decision.reason if type(decision.reason) is CheckReason else None,
+                (
+                    decision.reason
+                    if type(decision) is ScanBudgetDecision and type(decision.reason) is CheckReason
+                    else None
+                ),
                 ScanEstimateState.UNKNOWN,
             ),
         ),

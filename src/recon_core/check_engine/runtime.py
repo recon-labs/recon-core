@@ -4,10 +4,12 @@ from collections.abc import Mapping
 from typing import Protocol
 
 from recon_core.adapters import BaseAdapter, ConnectionConfig, SqlRenderer
+from recon_core.adapters.rendering import ADAPTER_RENDERER_METADATA_INVALID
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
 from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
 from recon_core.check_engine.aggregate import (
     _aggregate_connection_blocker,
+    _aggregate_runtime_error,
     _aggregate_scan_blocker,
     _execute_aggregate_check,
     aggregate_admission,
@@ -168,7 +170,12 @@ def _aggregate_execution_result(
             return prepared_blocker
     adapter = execution_context.adapters_by_connection.get(contract.source.connection)
     if adapter is None:
-        return None
+        return _aggregate_runtime_error(
+            check,
+            contract,
+            ADAPTER_RENDERER_METADATA_INVALID,
+            "Aggregate execution requires a prepared private adapter.",
+        )
     renderers = getattr(execution_context, "aggregate_renderers_by_adapter_type", None)
     adapter_type = safe_string_attribute(adapter, "adapter_type")
     renderer = renderers.get(adapter_type) if isinstance(renderers, Mapping) else None
