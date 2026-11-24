@@ -23,24 +23,28 @@ Split Decision: Already Split / Follow Existing Split.
 ## Status
 
 The aggregate execution scope and numeric policy decisions are locked in this
-prework and ADRs 0009 and 0021. Implementation readiness remains blocked on
-representative engine-version verification and final prework validation.
+prework and ADRs 0009 and 0021. Representative native engine-version
+verification is complete for the tested cases. Runtime implementation
+requires explicit approval of the test-first plan and a fresh drift check.
 
 - The existing Milestone 7 split assigns explicit aggregate execution to
   Milestone 7.4; no further split is required.
 - Only current compiled explicit `sum` checks are admitted.
 - research_decision: completed for numeric domain and bounded comparison
-  design. The 81 native SQL/driver probes passed on DuckDB 2.0.1 across
-  Python 3.11, 3.12 and 3.13; older-version verification remains pending.
+  design and representative engine-version verification. All 86 current
+  native probes passed on DuckDB 1.4.5 and 2.0.1; 76 selected ordinary-domain
+  and availability probes passed on 1.0.0 and 1.3.2. Existing semantic
+  coverage passed on all four pins.
 - Strict floating-point tolerance, unresolved applicable named-policy blocking,
   private bounded runtime rendering, and capability preservation are locked.
 - The acceptance matrix, BDD scenarios, test plan and responsibility map
   include these requirements; no aggregate runtime or implementation tests
   have been added in this prework update.
-- Before implementation, review the representative version matrix and resolve
-  any unproven exact native domain or transport behavior. Do not remove an
-  existing supported type or raise the dependency floor without explicit
-  scope approval. Native proof is not runtime integration proof.
+- The representative version review established the native operation
+  boundaries below without changing the dependency floor or existing
+  capability. Do not remove an existing supported type or raise the floor
+  without explicit scope approval. Native proof is not runtime integration
+  proof.
 
 ## Scope
 
@@ -339,9 +343,9 @@ Gate status for implementation:
   milestone.
 - Gate 3D, tolerance/null/normalization: ADR 0009 locks the approved numeric
   domain, inclusive threshold, and unresolved applicable named-policy rules.
-  Native numeric-domain feasibility on 2.0.1 is proven by the isolated
-  probes; version coverage, typed runtime transport and policy-admission
-  integration remain outstanding.
+  Representative native numeric-domain and availability feasibility is
+  proven by the isolated probes; typed runtime transport and policy-admission
+  integration remain required implementation tests.
 - Gates 4B and 4C, adapter API and typed operations: preserve current compile
   renderer behavior, existing public interfaces and emitted payloads; prove
   the explicit private bounded runtime collaborator before execution.
@@ -366,7 +370,8 @@ Gate status for implementation:
 Before implementation starts, the final high-risk prework must prove every gate
 above through matrix rows, BDD scenarios where applicable, required tests,
 source/responsibility maps, and phase-exit review requirements. Design locks
-are not implementation proof. The numeric-domain verification is outstanding.
+are not implementation proof. Representative native verification is complete;
+actual runtime behavior must be proven during implementation.
 
 ### Representative engine-version proof
 
@@ -392,10 +397,24 @@ review and approval.
 The numeric tests are in
 `tests/adapters/test_duckdb_aggregate_numeric_domains.py`.
 The pinned versions are representative points, not proof of every version
-within the dependency range. No old-engine result is claimed before CI
-completes. Compare baseline semantic outcomes before classifying new
-failures. Resolve compatibility blockers and align this prework before
-runtime implementation.
+within the dependency range. The verification completed successfully:
+
+| DuckDB | Existing semantic cases | Native numeric cases | Arbitrary-size SUM and difference |
+| --- | --- | --- | --- |
+| 1.0.0 | 476 passed | 76 passed; 10 BIGNUM cases deselected | VARINT input unavailable |
+| 1.3.2 | 476 passed | 76 passed; 10 BIGNUM cases deselected | VARINT binds to DOUBLE, not exact |
+| 1.4.5 | 476 passed | 86 passed | BIGNUM exact native domain |
+| 2.0.1 | 476 passed | 86 passed | BIGNUM exact native domain |
+
+Both modern pins passed the beyond-5000-digit, cancellation and configured
+multi-thread cases. The mandatory three-Python-version semantic jobs passed
+562 cases each. The initial 1.0.0 baseline failures arose in tuple-batch test
+fixture setup; list batches preserved the fixture values and assertions,
+and the corrected baseline passed. The existing compile renderer contract
+is unchanged. Do not infer an exact domain merely from matching physical
+inputs or matching result types: the 1.3.2 binder evidence demonstrates
+why actual logical type evidence is required. Runtime integration tests
+must prove safe admission, typed transport and diagnostic behavior.
 
 ## Public Contract Impact
 
@@ -979,13 +998,13 @@ final Milestone 7.4 matrix and confirm:
 
 ## Implementation Readiness
 
-The approved design and its acceptance requirements are documented. Native
-numeric feasibility on DuckDB 2.0.1 is proven for the tested cases. Runtime
-implementation remains blocked until the representative version verification
-and compatibility review are complete and the updated prework passes its
-phase-exit review. Private typed transport and compiled policy metadata
-integration must then be proven by test-first implementation. The later TDD
-implementation plan must assign all matrix rows and carryover obligations to concrete tests, preserve public
-renderer behavior, and rehydrate required context before coding. Do not
-interpret this planning update or passing existing CI as proof of new
-aggregate execution.
+The approved design and its acceptance requirements are documented.
+Representative version verification and the compatibility review are complete
+for the tested native cases. The implementation plan must assign all 25
+acceptance dimensions and applicable carryover obligations to concrete tests,
+preserve public renderer behavior, and rehydrate required context before
+coding. Runtime changes require explicit implementation approval. Private
+typed transport, compiled policy metadata and the full aggregate runtime
+contract must be proven by test-first implementation. Do not interpret
+this planning update or passing existing CI as proof of new aggregate
+execution.
