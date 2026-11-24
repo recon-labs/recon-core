@@ -968,7 +968,9 @@ def test_native_aggregate_named_policy_override(
     if override is None:
         assert result.exit_category is ExitCategory.RUNTIME_ERROR
         assert engine.result is not None
-        assert engine.result.contract_results[0].check_results[0].status is CheckStatus.NOT_EXECUTABLE
+        assert (
+            engine.result.contract_results[0].check_results[0].status is CheckStatus.NOT_EXECUTABLE
+        )
         assert factory.adapters == []
     else:
         _assert_native_aggregate_result(tmp_path, engine, CheckStatus.PASS, result)

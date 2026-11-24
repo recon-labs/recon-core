@@ -27,6 +27,7 @@ from recon_core.adapters.runtime_safety import (
     RuntimeSafetyCheckRequest,
     default_runtime_safety_check_registry,
 )
+from recon_core.adapters.runtime_setup import ADAPTER_CAPABILITY_DECLARATION_FAILED
 from recon_core.artifacts import (
     NO_COMPILED_CHECKS,
     CompiledCheckLoader,
@@ -117,6 +118,7 @@ class _RuntimeExecutionDependencies:
 class _OpenedAdapter:
     adapter: BaseAdapter
     connection: ConnectionConfig
+    aggregate_privacy: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,6 +331,18 @@ def _prepare_runtime_execution_dependencies(
             registry=registry,
         )
         if not setup_result.succeeded:
+            # Aggregate-only capability declarations are check-level blockers.
+            # Retain the existing service-level setup boundary for legacy checks
+            # and for all other resolution or adapter API failures.
+            if (
+                not required_capabilities
+                and setup_result.diagnostics
+                and all(
+                    diagnostic.code == ADAPTER_CAPABILITY_DECLARATION_FAILED
+                    for diagnostic in setup_result.diagnostics
+                )
+            ):
+                continue
             setup_diagnostics.extend(setup_result.diagnostics)
             continue
         assert setup_result.adapter is not None
@@ -442,6 +456,12 @@ def _open_runtime_adapters(
     )
     opened_adapters: list[_OpenedAdapter] = []
     diagnostics: list[Diagnostic] = []
+    aggregate_connections = {
+        contracts_by_name[artifact.contract_name].source.connection
+        for artifact in runtime_candidates
+        if artifact.contract_name in contracts_by_name
+        and any(is_aggregate_check_type(check.check_type) for check in artifact.checks)
+    }
 
     for connection_name in connection_names:
         adapter = adapters_by_connection.get(connection_name)
@@ -459,11 +479,18 @@ def _open_runtime_adapters(
                     connection=connection,
                     fallback_code=ADAPTER_CONNECTION_FAILED,
                     fallback_message="Adapter connection failed.",
+                    aggregate_privacy=connection_name in aggregate_connections,
                 )
             )
             diagnostics.extend(_close_opened_adapters(tuple(opened_adapters)))
             return _AdapterOpenResult(diagnostics=_dedupe_diagnostics(tuple(diagnostics)))
-        opened_adapters.append(_OpenedAdapter(adapter=adapter, connection=connection))
+        opened_adapters.append(
+            _OpenedAdapter(
+                adapter=adapter,
+                connection=connection,
+                aggregate_privacy=connection_name in aggregate_connections,
+            )
+        )
 
     return _AdapterOpenResult(opened_adapters=tuple(opened_adapters))
 
@@ -839,7 +866,7 @@ def _aggregate_capability_blockers(
                 except Exception:
                     declared = (
                         Diagnostic(
-                            code="RC_ADAPTER_CAPABILITY_DECLARATION_FAILED",
+                            code=ADAPTER_CAPABILITY_DECLARATION_FAILED,
                             severity=DiagnosticSeverity.ERROR,
                             message="Adapter declared invalid aggregate runtime capabilities.",
                         ),
@@ -941,6 +968,7 @@ def _close_opened_adapters(opened_adapters: tuple[_OpenedAdapter, ...]) -> tuple
                     connection=opened_adapter.connection,
                     fallback_code=ADAPTER_CLOSE_FAILED,
                     fallback_message="Adapter close failed.",
+                    aggregate_privacy=opened_adapter.aggregate_privacy,
                 )
             )
     return _dedupe_diagnostics(tuple(diagnostics))
@@ -952,7 +980,18 @@ def _adapter_lifecycle_diagnostic(
     connection: ConnectionConfig,
     fallback_code: str,
     fallback_message: str,
+    aggregate_privacy: bool = False,
 ) -> Diagnostic:
+    if aggregate_privacy:
+        # Adapter-supplied diagnostics cannot prove that arbitrary values,
+        # grouped keys or relation identifiers are safe for public output.
+        return Diagnostic(
+            code=fallback_code,
+            severity=DiagnosticSeverity.ERROR,
+            message=fallback_message,
+            resource_type="adapter",
+            hint="Raw aggregate adapter lifecycle diagnostics were suppressed.",
+        )
     diagnostic = getattr(exc, "diagnostic", None)
     if not isinstance(diagnostic, Diagnostic):
         diagnostic = Diagnostic(
