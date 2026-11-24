@@ -431,3 +431,26 @@ def test_aggregate_service_requires_capabilities_before_connect(
     assert factory.adapters[0].connect_count == 0
     assert factory.adapters[0].queries == []
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_aggregate_service_executes_bounded_same_context(tmp_path: Path, grouped: bool) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute("create schema qa")
+        connection.execute(
+            "create table qa.source_customers(customer_id integer, month integer, revenue integer)"
+        )
+        connection.execute("insert into qa.source_customers values (1, 1, 20), (2, 2, 30)")
+        connection.execute("create table qa.target_customers as select * from qa.source_customers")
+    finally:
+        connection.close()
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    write_compiled_checks(tmp_path, checks=[_aggregate_check(grouped=grouped)])
+    result = RunService(start_path=tmp_path).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert result.message == "Run completed with passing checks."
+    assert "RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED" in {d.code for d in result.diagnostics}
+    _assert_no_runtime_outputs(tmp_path)
