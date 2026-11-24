@@ -1,10 +1,18 @@
-"""Admission policy for the current explicit aggregate execution family."""
+"""Admission and bounded comparison for the explicit aggregate execution family."""
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
+from fractions import Fraction
 
 from recon_core._numeric_policy import absolute_tolerance
+from recon_core.adapters._aggregate_runtime import (
+    _SCALAR_COLUMNS,
+    _SUMMARY_COLUMNS,
+    _AggregateQueryResult,
+    _NumericDomain,
+)
 from recon_core.adapters.rendering import ADAPTER_QUERY_ENDPOINT_UNSUPPORTED
 from recon_core.artifacts.compiled_check_loader import (
     COMPILED_CHECK_ARTIFACT_INVALID,
@@ -23,7 +31,8 @@ from recon_core.check_engine.execution_support import (
     not_executable_result,
     relation_from_name,
 )
-from recon_core.check_engine.models import CheckReason, CheckResult
+from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
+from recon_core.check_engine.result_metadata import identity_label
 from recon_core.compiled_artifact_schema import typed_operation_payload_fields
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -193,3 +202,139 @@ def aggregate_admission(
             )
         )
     return _AggregateAdmission(tolerance=tolerance if tolerance is not None else Decimal(0))
+
+
+class _InvalidAggregateResult(ValueError):
+    """The bounded evidence cannot establish a trustworthy outcome."""
+
+
+def _validated_number(value: object, domain: _NumericDomain) -> int | Decimal | float:
+    if domain is _NumericDomain.EXACT_INTEGER and type(value) is int:
+        return value
+    if domain is _NumericDomain.EXACT_DECIMAL and type(value) is Decimal and value.is_finite():
+        return value
+    if domain is _NumericDomain.NATIVE_FLOAT and type(value) is float and math.isfinite(value):
+        return value
+    raise _InvalidAggregateResult
+
+
+def _magnitude(value: int | Decimal | float) -> int | Decimal:
+    if isinstance(value, float):
+        # Interpret the computed native difference, not independently converted operands.
+        return Decimal(str(abs(value)))
+    if isinstance(value, Decimal):
+        return value.copy_abs()
+    return abs(value)
+
+
+def _scalar_comparison(
+    row: tuple[object, ...], domain: _NumericDomain, tolerance: Decimal
+) -> CheckStatus:
+    source, target, difference = (
+        None if value is None else _validated_number(value, domain) for value in row
+    )
+    if source is None or target is None:
+        if difference is not None:
+            raise _InvalidAggregateResult
+        return CheckStatus.PASS if source is target else CheckStatus.FAIL
+    if difference is None:
+        raise _InvalidAggregateResult
+    if domain is _NumericDomain.NATIVE_FLOAT:
+        assert isinstance(source, float) and isinstance(target, float)
+        if source - target != difference:
+            raise _InvalidAggregateResult
+    elif Fraction(source) - Fraction(target) != Fraction(difference):
+        # Rational subtraction is exact even under a low ambient Decimal precision.
+        raise _InvalidAggregateResult
+    return CheckStatus.PASS if _magnitude(difference) <= tolerance else CheckStatus.FAIL
+
+
+def _grouped_comparison(
+    row: tuple[object, ...], domain: _NumericDomain, tolerance: Decimal
+) -> CheckStatus:
+    counts: list[int] = []
+    for value in row[:7]:
+        if type(value) is not int or value < 0:
+            raise _InvalidAggregateResult
+        counts.append(value)
+    total, source_only, target_only, both_null, null_mismatch, valid, invalid = counts
+    if total != source_only + target_only + both_null + null_mismatch + valid + invalid:
+        raise _InvalidAggregateResult
+
+    minimum, maximum = row[7:]
+    if valid == 0:
+        if minimum is not None or maximum is not None:
+            raise _InvalidAggregateResult
+        within_tolerance = True
+    else:
+        low = _validated_number(minimum, domain)
+        high = _validated_number(maximum, domain)
+        if low > high or (valid == 1 and low != high):
+            raise _InvalidAggregateResult
+        within_tolerance = max(_magnitude(low), _magnitude(high)) <= tolerance
+
+    if invalid:
+        raise _InvalidAggregateResult
+    if source_only or target_only or null_mismatch or not within_tolerance:
+        return CheckStatus.FAIL
+    return CheckStatus.PASS
+
+
+def _compare_aggregate_result(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    result: _AggregateQueryResult,
+    *,
+    domain: _NumericDomain,
+    tolerance: Decimal,
+) -> CheckResult:
+    """Classify bounded typed evidence without exposing its private values."""
+    grouped = check.check_type == "grouped_aggregate_diff"
+    columns = _SUMMARY_COLUMNS if grouped else _SCALAR_COLUMNS
+    domains = (_NumericDomain.EXACT_INTEGER,) * 7 + (domain,) * 2 if grouped else (domain,) * 3
+    try:
+        if (
+            not is_aggregate_check_type(check.check_type)
+            or type(domain) is not _NumericDomain
+            or type(tolerance) is not Decimal
+            or not tolerance.is_finite()
+            or tolerance < 0
+            or type(result) is not _AggregateQueryResult
+            or type(result.columns) is not tuple
+            or result.columns != columns
+            or type(result.domains) is not tuple
+            or len(result.domains) != len(domains)
+            or any(
+                actual is not expected
+                for actual, expected in zip(result.domains, domains, strict=True)
+            )
+            or type(result.row) is not tuple
+            or len(result.row) != len(columns)
+        ):
+            raise _InvalidAggregateResult
+        compare = _grouped_comparison if grouped else _scalar_comparison
+        status = compare(result.row, domain, tolerance)
+    except _InvalidAggregateResult:
+        message = "Aggregate execution returned invalid or untrustworthy numeric evidence."
+        diagnostic = Diagnostic(
+            code="RC_RUNTIME_AGGREGATE_RESULT_INVALID",
+            severity=DiagnosticSeverity.ERROR,
+            message=message,
+            resource_type="compiled_check",
+            resource_name=f"{check.contract_name}.{check.name}",
+        )
+        return error_result(check, contract, message=message, diagnostics=(diagnostic,))
+
+    return CheckResult(
+        check_id=check.id,
+        name=check.name,
+        check_type=check.check_type,
+        contract_name=check.contract_name,
+        status=status,
+        executed=True,
+        identity=identity_label(check),
+        message=(
+            "Aggregate check passed." if status is CheckStatus.PASS else "Aggregate check failed."
+        ),
+        diagnostics=check.diagnostics + contract.diagnostics,
+    )
