@@ -7,6 +7,12 @@ from pathlib import Path
 import pytest
 
 from recon_core._numeric_policy import absolute_tolerance
+from recon_core.adapters._aggregate_runtime import (
+    _SCALAR_COLUMNS,
+    _SUMMARY_COLUMNS,
+    _AggregateQueryResult,
+    _NumericDomain,
+)
 from recon_core.artifacts import (
     LoadedCheckPlan,
     LoadedCompiledCheck,
@@ -16,6 +22,7 @@ from recon_core.artifacts import (
 )
 from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
 from recon_core.check_engine import CheckEngine, CheckExecutionContext, CheckResult, CheckStatus
+from recon_core.check_engine import aggregate as aggregate_module
 from recon_core.check_engine.aggregate import aggregate_admission, is_supported_aggregate_plan_shape
 from recon_core.check_engine.engine import _AggregateExecutionContext
 from recon_core.compiler.policies import validate_tolerance
@@ -296,3 +303,269 @@ def test_valid_aggregate_shape_preserves_rendering_error(tmp_path: Path, status:
     assert result.status is CheckStatus.ERROR
     assert not result.executed
     assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_TEST_RENDER_BLOCKED"]
+
+
+_I = _NumericDomain.EXACT_INTEGER
+_D = _NumericDomain.EXACT_DECIMAL
+_F = _NumericDomain.NATIVE_FLOAT
+
+
+def _compare(
+    tmp_path: Path,
+    row: tuple[object, ...],
+    domain: _NumericDomain,
+    tolerance: Decimal = Decimal(0),
+    *,
+    grouped: bool = False,
+    columns: tuple[str, ...] | None = None,
+    domains: tuple[_NumericDomain, ...] | None = None,
+) -> CheckResult:
+    compare = getattr(aggregate_module, "_compare_aggregate_result", None)
+    assert compare is not None, "Private Core aggregate comparator is not implemented."
+    if columns is None:
+        columns = _SUMMARY_COLUMNS if grouped else _SCALAR_COLUMNS
+    if domains is None:
+        domains = (_I,) * 7 + (domain,) * 2 if grouped else (domain,) * 3
+    result = compare(
+        _compiled_aggregate(grouped=grouped),
+        _contract(tmp_path),
+        _AggregateQueryResult(columns=columns, domains=domains, row=row),
+        domain=domain,
+        tolerance=tolerance,
+    )
+    assert isinstance(result, CheckResult)
+    assert result.executed == (result.status in (CheckStatus.PASS, CheckStatus.FAIL))
+    assert result.reason_code is None
+    for key in (
+        "source_value",
+        "target_value",
+        "normalized_source_value",
+        "normalized_target_value",
+        "diff_value",
+        "failure_count",
+        "tolerance",
+    ):
+        assert result.to_dict()[key] is None
+    assert result.artifact_refs == result.sink_refs == ()
+    if result.status is CheckStatus.ERROR:
+        assert result.diagnostics
+    return result
+
+
+@pytest.mark.parametrize(
+    ("domain", "row", "threshold", "status"),
+    [
+        (_I, (2**100 + 1, 2**100, 1), "0", CheckStatus.FAIL),
+        (_I, (2**100 + 1, 2**100, 1), "1", CheckStatus.PASS),
+        (_I, (-(2**127), 0, -(2**127)), str(2**127), CheckStatus.PASS),
+        (_I, (10**5000 + 1, 10**5000, 1), "0", CheckStatus.FAIL),
+        (_I, (10**5000 + 1, 10**5000, 1), "1", CheckStatus.PASS),
+        (
+            _D,
+            (Decimal("123456789.000000000001"), Decimal("123456789"), Decimal("1E-12")),
+            "0.000000000001",
+            CheckStatus.PASS,
+        ),
+        (
+            _D,
+            (Decimal("123456789.000000000001"), Decimal("123456789"), Decimal("1E-12")),
+            "0.000000000000999999",
+            CheckStatus.FAIL,
+        ),
+        (_F, (0.30000000000000004, 0.2, 0.10000000000000003), "0.1", CheckStatus.FAIL),
+        (
+            _F,
+            (0.30000000000000004, 0.2, 0.10000000000000003),
+            "0.10000000000000003",
+            CheckStatus.PASS,
+        ),
+        (_F, (0.2, 0.30000000000000004, -0.10000000000000003), "0.1", CheckStatus.FAIL),
+        (_F, (-0.0, 0.0, -0.0), "0", CheckStatus.PASS),
+        (_F, (5e-324, 0.0, 5e-324), "4e-324", CheckStatus.FAIL),
+        (_F, (5e-324, 0.0, 5e-324), "5e-324", CheckStatus.PASS),
+        (_F, (1e308, 0.0, 1e308), "1e308", CheckStatus.PASS),
+    ],
+)
+def test_aggregate_scalar_numeric_comparison(
+    tmp_path: Path,
+    domain: _NumericDomain,
+    row: tuple[object, ...],
+    threshold: str,
+    status: CheckStatus,
+) -> None:
+    with localcontext() as context:
+        context.prec = 3
+        assert _compare(tmp_path, row, domain, Decimal(threshold)).status is status
+
+
+@pytest.mark.parametrize(
+    ("row", "status"),
+    [
+        ((None, None, None), CheckStatus.PASS),
+        ((None, 0, None), CheckStatus.FAIL),
+        ((0, None, None), CheckStatus.FAIL),
+        ((None, None, 0), CheckStatus.ERROR),
+        ((None, 0, 0), CheckStatus.ERROR),
+        ((1, 1, None), CheckStatus.ERROR),
+        ((1, 1, 1), CheckStatus.ERROR),
+        ((True, 1, 0), CheckStatus.ERROR),
+        (("1", 1, 0), CheckStatus.ERROR),
+        ((1.0, 1, 0), CheckStatus.ERROR),
+        ((1, 1), CheckStatus.ERROR),
+        ((1, 1, 0, 0), CheckStatus.ERROR),
+    ],
+)
+def test_aggregate_scalar_nulls_and_malformed_results(
+    tmp_path: Path, row: tuple[object, ...], status: CheckStatus
+) -> None:
+    assert _compare(tmp_path, row, _I).status is status
+
+
+@pytest.mark.parametrize(
+    ("domain", "row"),
+    [
+        (_F, (float("nan"), None, None)),
+        (_F, (None, float("inf"), None)),
+        (_F, (float("-inf"), float("-inf"), float("nan"))),
+        (_F, (1e308, -1e308, float("inf"))),
+        (_F, (0.3, 0.2, 0.1)),
+        (_D, (Decimal("sNaN"), None, None)),
+        (_D, (Decimal("Infinity"), Decimal(0), Decimal("Infinity"))),
+        (_D, (Decimal("1.01"), Decimal("1"), Decimal("0.02"))),
+        (_D, (Decimal(1), 1, Decimal(0))),
+    ],
+)
+def test_aggregate_scalar_invalid_arithmetic(
+    tmp_path: Path, domain: _NumericDomain, row: tuple[object, ...]
+) -> None:
+    assert _compare(tmp_path, row, domain).status is CheckStatus.ERROR
+
+
+@pytest.mark.parametrize(
+    ("columns", "domains"),
+    [
+        (("a", "b", "c"), (_I,) * 3),
+        ((_SCALAR_COLUMNS[0],) * 3, (_I,) * 3),
+        (_SCALAR_COLUMNS, (_I,) * 2),
+        (_SCALAR_COLUMNS, (_I, _I, _D)),
+        (_SCALAR_COLUMNS, ("exact_integer",) * 3),
+    ],
+)
+def test_aggregate_scalar_invalid_metadata(
+    tmp_path: Path, columns: tuple[str, ...], domains: tuple[_NumericDomain, ...]
+) -> None:
+    assert (
+        _compare(tmp_path, (1, 1, 0), _I, columns=columns, domains=domains).status
+        is CheckStatus.ERROR
+    )
+
+
+@pytest.mark.parametrize(
+    ("domain", "row", "threshold", "status"),
+    [
+        (_I, (0, 0, 0, 0, 0, 0, 0, None, None), "0", CheckStatus.PASS),
+        (_I, (3, 0, 0, 3, 0, 0, 0, None, None), "0", CheckStatus.PASS),
+        (_I, (1, 1, 0, 0, 0, 0, 0, None, None), "100", CheckStatus.FAIL),
+        (_I, (1, 0, 1, 0, 0, 0, 0, None, None), "100", CheckStatus.FAIL),
+        (_I, (1, 0, 0, 0, 1, 0, 0, None, None), "100", CheckStatus.FAIL),
+        (_I, (2, 0, 0, 0, 0, 2, 0, -5, 4), "5", CheckStatus.PASS),
+        (_I, (2, 0, 0, 0, 0, 2, 0, -5, 4), "4", CheckStatus.FAIL),
+        (_I, (2, 0, 0, 0, 0, 2, 0, -4, 5), "4", CheckStatus.FAIL),
+        (_I, (1, 0, 0, 0, 0, 1, 0, -(2**127), -(2**127)), str(2**127), CheckStatus.PASS),
+        (_I, (1, 0, 0, 0, 0, 1, 0, 10**5000, 10**5000), "1", CheckStatus.FAIL),
+        (
+            _D,
+            (2, 0, 0, 0, 0, 2, 0, Decimal("-1.00000000001"), Decimal("1")),
+            "1",
+            CheckStatus.FAIL,
+        ),
+        (
+            _F,
+            (2, 0, 0, 0, 0, 2, 0, -0.10000000000000003, 0.1),
+            "0.10000000000000003",
+            CheckStatus.PASS,
+        ),
+        (
+            _F,
+            (2, 0, 0, 0, 0, 2, 0, -0.10000000000000003, 0.1),
+            "0.1",
+            CheckStatus.FAIL,
+        ),
+        (_F, (1, 0, 0, 0, 0, 1, 0, -0.0, 0.0), "0", CheckStatus.PASS),
+        (_I, (2, 1, 0, 0, 0, 0, 1, None, None), "0", CheckStatus.ERROR),
+        (_I, (2, 0, 0, 0, 1, 0, 1, None, None), "0", CheckStatus.ERROR),
+        (_F, (2, 0, 0, 0, 0, 1, 1, 0.0, 0.0), "0", CheckStatus.ERROR),
+    ],
+)
+def test_aggregate_grouped_comparison(
+    tmp_path: Path,
+    domain: _NumericDomain,
+    row: tuple[object, ...],
+    threshold: str,
+    status: CheckStatus,
+) -> None:
+    with localcontext() as context:
+        context.prec = 3
+        assert _compare(tmp_path, row, domain, Decimal(threshold), grouped=True).status is status
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        (1, 0, 0, 0, 0, 0, 0, None, None),
+        (0, 1, 0, 0, 0, 0, 0, None, None),
+        (-1, -1, 0, 0, 0, 0, 0, None, None),
+        (True, 1, 0, 0, 0, 0, 0, None, None),
+        (1, 1.0, 0, 0, 0, 0, 0, None, None),
+        (1, "1", 0, 0, 0, 0, 0, None, None),
+        (1, None, 0, 0, 0, 0, 0, None, None),
+        (1, 0, 0, 0, 0, 1, 0, None, None),
+        (1, 0, 0, 0, 0, 1, 0, 0, None),
+        (1, 0, 0, 0, 0, 1, 0, -1, 1),
+        (2, 0, 0, 0, 0, 2, 0, 1, -1),
+        (0, 0, 0, 0, 0, 0, 0, 0, 0),
+        (2, 1, 0, 0, 0, 1, 0, 0, None),
+        (1, 0, 0, 0, 0, 1, 0, 0.0, 0),
+        (0, 0, 0, 0, 0, 0, 0, None),
+    ],
+)
+def test_aggregate_grouped_invalid_summary(tmp_path: Path, row: tuple[object, ...]) -> None:
+    assert _compare(tmp_path, row, _I, grouped=True).status is CheckStatus.ERROR
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_aggregate_grouped_nonfinite_extrema(tmp_path: Path, value: float) -> None:
+    row = (2, 1, 0, 0, 0, 1, 0, value, value)
+    assert _compare(tmp_path, row, _F, grouped=True).status is CheckStatus.ERROR
+
+
+@pytest.mark.parametrize(
+    ("columns", "domains"),
+    [
+        (_SUMMARY_COLUMNS[::-1], (_I,) * 9),
+        (_SUMMARY_COLUMNS, (_D,) + (_I,) * 8),
+        (_SUMMARY_COLUMNS, (_I,) * 8 + (_D,)),
+        (_SUMMARY_COLUMNS, (_I,) * 8),
+    ],
+)
+def test_aggregate_grouped_invalid_metadata(
+    tmp_path: Path, columns: tuple[str, ...], domains: tuple[_NumericDomain, ...]
+) -> None:
+    row = (0, 0, 0, 0, 0, 0, 0, None, None)
+    assert (
+        _compare(tmp_path, row, _I, grouped=True, columns=columns, domains=domains).status
+        is CheckStatus.ERROR
+    )
+
+
+@pytest.mark.parametrize("threshold", [Decimal("-1"), Decimal("NaN"), Decimal("Infinity")])
+def test_aggregate_invalid_admitted_threshold(tmp_path: Path, threshold: Decimal) -> None:
+    assert _compare(tmp_path, (0, 0, 0), _I, threshold).status is CheckStatus.ERROR
+
+
+def test_aggregate_comparison_diagnostic_does_not_expose_private_values(tmp_path: Path) -> None:
+    private = "private-aggregate-value-73864"
+    result = _compare(tmp_path, (private, 0, 0), _I)
+    assert result.status is CheckStatus.ERROR
+    assert private not in repr(result)
+    assert private not in repr(result.to_dict())
