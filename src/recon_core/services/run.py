@@ -15,19 +15,28 @@ from recon_core.adapters import (
     prepare_runtime_adapter,
 )
 from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
-from recon_core.adapters.capabilities import AdapterCapabilities, validate_required_capabilities
+from recon_core.adapters.capabilities import ADAPTER_CAPABILITY_UNSUPPORTED, AdapterCapabilities
 from recon_core.adapters.default_renderers import (
     _default_aggregate_runtime_renderers,
     default_runtime_renderers_by_adapter_type,
 )
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
 from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
+from recon_core.adapters.registry import (
+    ADAPTER_API_VERSION_UNSUPPORTED,
+    ADAPTER_METADATA_INVALID,
+    ADAPTER_RESOLUTION_FAILED,
+    ADAPTER_UNKNOWN_TYPE,
+)
 from recon_core.adapters.runtime_safety import (
     RuntimeSafetyCheckRegistry,
     RuntimeSafetyCheckRequest,
     default_runtime_safety_check_registry,
 )
-from recon_core.adapters.runtime_setup import ADAPTER_CAPABILITY_DECLARATION_FAILED
+from recon_core.adapters.runtime_setup import (
+    ADAPTER_CAPABILITY_DECLARATION_FAILED,
+    ADAPTER_TYPE_MISMATCH,
+)
 from recon_core.artifacts import (
     NO_COMPILED_CHECKS,
     CompiledCheckLoader,
@@ -51,8 +60,8 @@ from recon_core.check_engine import (
 )
 from recon_core.check_engine.aggregate import (
     _aggregate_capability_blocker,
+    _aggregate_capability_diagnostics,
     _aggregate_collaborator_blocker,
-    _aggregate_required_capabilities,
     aggregate_admission,
     is_aggregate_check_type,
     is_supported_aggregate_plan_shape,
@@ -321,6 +330,15 @@ def _prepare_runtime_execution_dependencies(
     adapters_by_connection: dict[str, BaseAdapter] = {}
     capabilities_by_connection: dict[str, AdapterCapabilities] = {}
     setup_diagnostics: list[Diagnostic] = []
+    aggregate_connections = {
+        name
+        for artifact in adapter_candidates
+        if any(is_aggregate_check_type(check.check_type) for check in artifact.checks)
+        for name in (
+            contracts_by_name[artifact.contract_name].source.connection,
+            contracts_by_name[artifact.contract_name].target.connection,
+        )
+    }
     for connection_name, required_capabilities in sorted(
         required_capabilities_by_connection.items()
     ):
@@ -343,7 +361,12 @@ def _prepare_runtime_execution_dependencies(
                 )
             ):
                 continue
-            setup_diagnostics.extend(setup_result.diagnostics)
+            setup_diagnostics.extend(
+                _safe_aggregate_setup_diagnostic(diagnostic)
+                if connection_name in aggregate_connections
+                else diagnostic
+                for diagnostic in setup_result.diagnostics
+            )
             continue
         assert setup_result.adapter is not None
         adapters_by_connection[connection_name] = setup_result.adapter
@@ -841,6 +864,28 @@ def _scan_budget_decision_for_relation(
     )
 
 
+def _safe_aggregate_setup_diagnostic(diagnostic: Diagnostic) -> Diagnostic:
+    """Preserve recognized setup categories, never arbitrary adapter fields."""
+    messages = {
+        ADAPTER_RESOLUTION_FAILED: "Aggregate adapter resolution failed.",
+        ADAPTER_UNKNOWN_TYPE: "Aggregate adapter type is not registered.",
+        ADAPTER_API_VERSION_UNSUPPORTED: "Aggregate adapter API version is unsupported.",
+        ADAPTER_METADATA_INVALID: "Aggregate adapter metadata is invalid.",
+        ADAPTER_TYPE_MISMATCH: "Aggregate adapter type does not match the connection.",
+        ADAPTER_CAPABILITY_DECLARATION_FAILED: "Aggregate adapter capability declaration failed.",
+        ADAPTER_CAPABILITY_UNSUPPORTED: "Aggregate adapter required capability is unsupported.",
+        "RC_ADAPTER_DEPENDENCY_MISSING": "Aggregate adapter dependency is missing.",
+    }
+    code = diagnostic.code if diagnostic.code in messages else ADAPTER_RESOLUTION_FAILED
+    return Diagnostic(
+        code=code,
+        severity=DiagnosticSeverity.ERROR,
+        message=messages[code],
+        resource_type="adapter",
+        hint="Inspect adapter configuration locally without exposing private data.",
+    )
+
+
 def _aggregate_capability_blockers(
     candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
@@ -857,22 +902,10 @@ def _aggregate_capability_blockers(
             diagnostics: list[Diagnostic] = []
             for name in dict.fromkeys((contract.source.connection, contract.target.connection)):
                 connection = connections_by_name[name]
-                try:
-                    declared = validate_required_capabilities(
-                        adapter_type=connection.type,
-                        capabilities=capabilities_by_connection[name],
-                        required_capabilities=_aggregate_required_capabilities(check),
-                    )
-                except Exception:
-                    declared = (
-                        Diagnostic(
-                            code=ADAPTER_CAPABILITY_DECLARATION_FAILED,
-                            severity=DiagnosticSeverity.ERROR,
-                            message="Adapter declared invalid aggregate runtime capabilities.",
-                        ),
-                    )
                 diagnostics.extend(
-                    sanitize_profile_backed_adapter_diagnostics(declared, connection=connection)
+                    _aggregate_capability_diagnostics(
+                        check, capabilities_by_connection.get(name), adapter_type=connection.type
+                    )
                 )
             if diagnostics:
                 blockers[check.id] = _aggregate_capability_blocker(

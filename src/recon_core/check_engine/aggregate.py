@@ -15,12 +15,17 @@ from recon_core.adapters._aggregate_runtime import (
     _AggregateRuntimePlan,
     _NumericDomain,
 )
-from recon_core.adapters.capabilities import AdapterCapabilities, validate_required_capabilities
+from recon_core.adapters.capabilities import (
+    ADAPTER_CAPABILITY_UNSUPPORTED,
+    AdapterCapabilities,
+    validate_required_capabilities,
+)
 from recon_core.adapters.lifecycle import ADAPTER_QUERY_FAILED
 from recon_core.adapters.rendering import (
     ADAPTER_QUERY_ENDPOINT_UNSUPPORTED,
     ADAPTER_RENDERER_METADATA_INVALID,
 )
+from recon_core.adapters.runtime_setup import ADAPTER_CAPABILITY_DECLARATION_FAILED
 from recon_core.artifacts.compiled_check_loader import (
     COMPILED_CHECK_ARTIFACT_INVALID,
     LoadedCompiledCheck,
@@ -391,6 +396,48 @@ def _aggregate_scan_blocker(
     )
 
 
+def _aggregate_capability_diagnostics(
+    check: LoadedCompiledCheck, capabilities: object, *, adapter_type: str
+) -> tuple[Diagnostic, ...]:
+    """Validate all declared requirements without echoing untrusted capability names."""
+    try:
+        if not isinstance(capabilities, AdapterCapabilities):
+            raise _InvalidAggregateResultError
+        declared = validate_required_capabilities(
+            adapter_type=adapter_type,
+            capabilities=capabilities,
+            required_capabilities=_aggregate_required_capabilities(check),
+        )
+    except Exception:
+        return (
+            Diagnostic(
+                code=ADAPTER_CAPABILITY_DECLARATION_FAILED,
+                severity=DiagnosticSeverity.ERROR,
+                message="Adapter declared invalid aggregate runtime capabilities.",
+            ),
+        )
+    safe: list[Diagnostic] = []
+    for diagnostic in declared:
+        # Only the fixed capabilities of this execution family are safe labels.
+        capability = diagnostic.resource_name
+        if capability in ("aggregate", "grouped_aggregate", "cte_support"):
+            message = f"Adapter does not satisfy required aggregate capability `{capability}`."
+        else:
+            message = "Adapter does not satisfy an additional required aggregate capability."
+            capability = None
+        safe.append(
+            Diagnostic(
+                code=ADAPTER_CAPABILITY_UNSUPPORTED,
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                resource_type="adapter_capability",
+                resource_name=capability,
+                hint="Use an adapter that supports the required capabilities.",
+            )
+        )
+    return tuple(safe)
+
+
 def _aggregate_capability_blocker(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
@@ -574,22 +621,12 @@ def _execute_aggregate_check(
             "Aggregate runtime renderer returned an invalid private plan.",
         )
     try:
-        capabilities = adapter.capabilities()
-        if not isinstance(capabilities, AdapterCapabilities):
-            raise _InvalidAggregateResultError
-        diagnostics = validate_required_capabilities(
-            adapter_type=source_connection.type,
-            capabilities=capabilities,
-            required_capabilities=_aggregate_required_capabilities(check),
-        )
+        capabilities: object = adapter.capabilities()
     except Exception:
-        diagnostics = (
-            Diagnostic(
-                code="RC_ADAPTER_CAPABILITY_DECLARATION_FAILED",
-                severity=DiagnosticSeverity.ERROR,
-                message="Adapter declared invalid aggregate runtime capabilities.",
-            ),
-        )
+        capabilities = None
+    diagnostics = _aggregate_capability_diagnostics(
+        check, capabilities, adapter_type=source_connection.type
+    )
     if diagnostics:
         return _aggregate_capability_blocker(check, contract, diagnostics)
     try:

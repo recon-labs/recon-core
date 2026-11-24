@@ -1107,7 +1107,9 @@ def test_native_aggregate_service_exact_overflow(
     assert engine.result is not None
     status = engine.result.contract_results[0].check_results[0].status
     assert status in (CheckStatus.FAIL, CheckStatus.ERROR)
-    _assert_native_aggregate_result(tmp_path, engine, status, result, private_tokens=(str(maximum),))
+    _assert_native_aggregate_result(
+        tmp_path, engine, status, result, private_tokens=(str(maximum),)
+    )
 
 
 @pytest.mark.parametrize("grouped", [False, True])
