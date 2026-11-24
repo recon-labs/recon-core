@@ -9,6 +9,7 @@ from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceSta
 from recon_core.check_engine.aggregate import (
     _aggregate_connection_blocker,
     _aggregate_scan_blocker,
+    _execute_aggregate_check,
     aggregate_admission,
     is_aggregate_check_type,
     is_supported_aggregate_plan_shape,
@@ -118,7 +119,7 @@ def runtime_execution_result_if_available(
     if execution_context is None:
         return None
     if is_aggregate_check_type(check.check_type):
-        return _aggregate_admission_result(check, dispatch_result, execution_context)
+        return _aggregate_execution_result(check, dispatch_result, execution_context)
     return _row_count_execution_result_if_available(
         check,
         dispatch_result,
@@ -130,7 +131,7 @@ def runtime_execution_result_if_available(
     )
 
 
-def _aggregate_admission_result(
+def _aggregate_execution_result(
     check: LoadedCompiledCheck,
     dispatch_result: CheckResult,
     execution_context: RuntimeExecutionContext,
@@ -165,7 +166,22 @@ def _aggregate_admission_result(
         prepared_blocker = blockers.get(check.id)
         if isinstance(prepared_blocker, CheckResult):
             return prepared_blocker
-    return None
+    adapter = execution_context.adapters_by_connection.get(contract.source.connection)
+    if adapter is None:
+        return None
+    renderers = getattr(execution_context, "aggregate_renderers_by_adapter_type", None)
+    adapter_type = safe_string_attribute(adapter, "adapter_type")
+    renderer = renderers.get(adapter_type) if isinstance(renderers, Mapping) else None
+    assert admission.tolerance is not None
+    return _execute_aggregate_check(
+        check,
+        contract,
+        adapter,
+        renderer=renderer,
+        tolerance=admission.tolerance,
+        decision=decision,
+        connections_by_name=execution_context.connections_by_name,
+    )
 
 
 def _row_count_execution_result_if_available(

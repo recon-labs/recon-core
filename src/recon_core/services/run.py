@@ -14,8 +14,12 @@ from recon_core.adapters import (
     SqlRenderer,
     prepare_runtime_adapter,
 )
+from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
 from recon_core.adapters.capabilities import AdapterCapabilities, validate_required_capabilities
-from recon_core.adapters.default_renderers import default_runtime_renderers_by_adapter_type
+from recon_core.adapters.default_renderers import (
+    _default_aggregate_runtime_renderers,
+    default_runtime_renderers_by_adapter_type,
+)
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
 from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
 from recon_core.adapters.runtime_safety import (
@@ -334,8 +338,9 @@ def _prepare_runtime_execution_dependencies(
         connections_by_name=connections_by_name,
         capabilities_by_connection=capabilities_by_connection,
     )
-    # Only existing execution families are activated in this routing slice.
-    open_candidates = _runtime_execution_candidates(adapter_candidates, include_aggregates=False)
+    open_candidates = _runtime_execution_candidates(
+        adapter_candidates, excluded_check_ids=frozenset(aggregate_blockers)
+    )
     open_result = _open_runtime_adapters(
         open_candidates,
         contracts_by_name=contracts_by_name,
@@ -358,6 +363,9 @@ def _prepare_runtime_execution_dependencies(
             scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
             tolerance_states=tolerance_states if has_aggregate_checks else None,
             aggregate_blockers_by_check_id=aggregate_blockers,
+            aggregate_renderers_by_adapter_type=(
+                _default_aggregate_runtime_renderers() if has_aggregate_checks else None
+            ),
         ),
         opened_adapters=open_result.opened_adapters,
     )
@@ -372,6 +380,7 @@ def _runtime_context(
     renderers_by_adapter_type: Mapping[str, SqlRenderer] | None = None,
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] | None = None,
     aggregate_blockers_by_check_id: Mapping[str, CheckResult] | None = None,
+    aggregate_renderers_by_adapter_type: Mapping[str, _AggregateRuntimeRenderer] | None = None,
 ) -> CheckExecutionContext:
     if tolerance_states is not None:
         return _AggregateExecutionContext(
@@ -382,6 +391,7 @@ def _runtime_context(
             scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id or {},
             tolerance_states_by_contract_id=tolerance_states,
             aggregate_blockers_by_check_id=aggregate_blockers_by_check_id or {},
+            aggregate_renderers_by_adapter_type=aggregate_renderers_by_adapter_type or {},
         )
     return CheckExecutionContext(
         contracts_by_name=contracts_by_name,
@@ -476,7 +486,7 @@ def _runtime_connection_for_project(
 def _runtime_execution_candidates(
     check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
     *,
-    include_aggregates: bool = True,
+    excluded_check_ids: frozenset[str] = frozenset(),
 ) -> tuple[LoadedCompiledChecksArtifact, ...]:
     candidates: list[LoadedCompiledChecksArtifact] = []
     for artifact in check_artifacts:
@@ -484,7 +494,7 @@ def _runtime_execution_candidates(
             check
             for check in artifact.checks
             if _is_runtime_execution_candidate(check)
-            and (include_aggregates or not is_aggregate_check_type(check.check_type))
+            and check.id not in excluded_check_ids
         )
         if not candidate_checks:
             continue

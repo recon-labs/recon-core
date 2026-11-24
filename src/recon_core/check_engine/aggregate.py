@@ -2,18 +2,25 @@
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from fractions import Fraction
 
 from recon_core._numeric_policy import absolute_tolerance
+from recon_core.adapters import BaseAdapter, ConnectionConfig, RenderedSql
 from recon_core.adapters._aggregate_runtime import (
     _SCALAR_COLUMNS,
     _SUMMARY_COLUMNS,
     _AggregateQueryResult,
+    _AggregateRuntimePlan,
     _NumericDomain,
 )
-from recon_core.adapters.rendering import ADAPTER_QUERY_ENDPOINT_UNSUPPORTED
+from recon_core.adapters.capabilities import AdapterCapabilities, validate_required_capabilities
+from recon_core.adapters.lifecycle import ADAPTER_QUERY_FAILED
+from recon_core.adapters.rendering import (
+    ADAPTER_QUERY_ENDPOINT_UNSUPPORTED,
+    ADAPTER_RENDERER_METADATA_INVALID,
+)
 from recon_core.artifacts.compiled_check_loader import (
     COMPILED_CHECK_ARTIFACT_INVALID,
     LoadedCompiledCheck,
@@ -31,6 +38,8 @@ from recon_core.check_engine.execution_support import (
     has_reserved_value,
     not_executable_result,
     relation_from_name,
+    safe_string_attribute,
+    same_connection_context,
 )
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.check_engine.result_metadata import identity_label
@@ -397,4 +406,190 @@ def _aggregate_capability_blocker(
         identity=identity_label(check),
         message="Aggregate execution requires supported adapter capabilities.",
         diagnostics=check.diagnostics + contract.diagnostics + diagnostics,
+    )
+
+
+def _aggregate_runtime_error(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    code: str,
+    message: str,
+) -> CheckResult:
+    return error_result(
+        check,
+        contract,
+        message=message,
+        diagnostics=(
+            Diagnostic(
+                code=code,
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                resource_type="compiled_check",
+                resource_name=f"{check.contract_name}.{check.name}",
+            ),
+        ),
+    )
+
+
+def _validated_runtime_plan(plan: object, check: LoadedCompiledCheck) -> _AggregateRuntimePlan:
+    grouped = check.check_type == "grouped_aggregate_diff"
+    operation = "compare_grouped_aggregates" if grouped else "compare_aggregates"
+    kind = "grouped_aggregate" if grouped else "aggregate"
+    capabilities = {kind, "cte_support"}
+    names = ("group-key-types", "aggregate-input-types") if grouped else ("aggregate-input-types",)
+    names += ("aggregate-native-domain", "aggregate-exact-result", "aggregate-floating-result")
+    if (
+        type(plan) is not _AggregateRuntimePlan
+        or type(plan.columns) is not tuple
+        or plan.columns != (_SUMMARY_COLUMNS if grouped else _SCALAR_COLUMNS)
+        or type(plan.type_guards) is not tuple
+        or len(plan.type_guards) != len(names) - 3
+        or type(plan.required_capabilities) is not tuple
+        or set(plan.required_capabilities) != capabilities
+    ):
+        raise _InvalidAggregateResultError
+    steps = (*plan.type_guards, plan.domain_guard, plan.exact_query, plan.floating_query)
+    for step, name in zip(steps, names, strict=True):
+        if (
+            type(step) is not RenderedSql
+            or type(step.sql) is not str
+            or not step.sql.strip()
+            or step.operation_type != operation
+            or step.step_name != name
+            or type(step.required_capabilities) is not tuple
+            or set(step.required_capabilities) != capabilities
+        ):
+            raise _InvalidAggregateResultError
+    return plan
+
+
+def _guard_integer(result: object, column: str) -> int:
+    if (
+        type(result) is not _AggregateQueryResult
+        or type(result.columns) is not tuple
+        or result.columns != (column,)
+        or type(result.domains) is not tuple
+        or len(result.domains) != 1
+        or result.domains[0] is not _NumericDomain.EXACT_INTEGER
+        or type(result.row) is not tuple
+        or len(result.row) != 1
+        or type(result.row[0]) is not int
+    ):
+        raise _InvalidAggregateResultError
+    return result.row[0]
+
+
+def _execute_aggregate_check(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    *,
+    renderer: object,
+    tolerance: Decimal,
+    decision: ScanBudgetDecision,
+    connections_by_name: Mapping[str, ConnectionConfig],
+) -> CheckResult:
+    """Execute only the private bounded plan after admission and safety proof."""
+    source_connection = connections_by_name.get(contract.source.connection)
+    target_connection = connections_by_name.get(contract.target.connection)
+    adapter_type = safe_string_attribute(adapter, "adapter_type")
+    if (
+        source_connection is None
+        or target_connection is None
+        or adapter_type != source_connection.type
+        or adapter.connection.name != contract.source.connection
+        or not same_connection_context(source_connection, target_connection)
+        or not same_connection_context(adapter.connection, source_connection)
+    ):
+        return _aggregate_connection_blocker(check, contract)
+    scan_blocker = _aggregate_scan_blocker(check, contract, decision)
+    if scan_blocker is not None:
+        return scan_blocker
+
+    render = getattr(renderer, "render_plan", None)
+    execute = getattr(adapter, "_execute_aggregate_query", None)
+    if (
+        renderer is None
+        or safe_string_attribute(renderer, "adapter_type") != adapter_type
+        or not callable(render)
+        or not callable(execute)
+    ):
+        return _aggregate_runtime_error(
+            check,
+            contract,
+            ADAPTER_RENDERER_METADATA_INVALID,
+            "Aggregate execution requires verified private runtime collaborators.",
+        )
+    source, source_error = relation_from_name(
+        contract.source.relation, side="source", contract_name=contract.contract_name
+    )
+    target, target_error = relation_from_name(
+        contract.target.relation, side="target", contract_name=contract.contract_name
+    )
+    if source_error is not None or target_error is not None:
+        return error_result(
+            check,
+            contract,
+            message="Aggregate relation endpoint is invalid.",
+            diagnostics=tuple(d for d in (source_error, target_error) if d is not None),
+        )
+    assert source is not None and target is not None
+    try:
+        plan = _validated_runtime_plan(
+            render(check.plan.operations, source_relation=source, target_relation=target), check
+        )
+    except Exception:
+        return _aggregate_runtime_error(
+            check,
+            contract,
+            ADAPTER_RENDERER_METADATA_INVALID,
+            "Aggregate runtime renderer returned an invalid private plan.",
+        )
+    try:
+        capabilities = adapter.capabilities()
+        if not isinstance(capabilities, AdapterCapabilities):
+            raise _InvalidAggregateResultError
+        diagnostics = validate_required_capabilities(
+            adapter_type=source_connection.type,
+            capabilities=capabilities,
+            required_capabilities=_aggregate_required_capabilities(check),
+        )
+    except Exception:
+        diagnostics = (
+            Diagnostic(
+                code="RC_ADAPTER_CAPABILITY_DECLARATION_FAILED",
+                severity=DiagnosticSeverity.ERROR,
+                message="Adapter declared invalid aggregate runtime capabilities.",
+            ),
+        )
+    if diagnostics:
+        return _aggregate_capability_blocker(check, contract, diagnostics)
+    try:
+        for guard in plan.type_guards:
+            proof = execute(guard.sql, expected_columns=("type_check",))
+            if _guard_integer(proof, "type_check") != 1:
+                raise _InvalidAggregateResultError
+        proof = execute(plan.domain_guard.sql, expected_columns=("numeric_domain",))
+        if _guard_integer(proof, "numeric_domain") not in (1, 2, 3):
+            raise _InvalidAggregateResultError
+        domain = plan.domain_from_guard(proof)
+        final = execute(plan.final_query(domain).sql, expected_columns=plan.columns)
+    except _InvalidAggregateResultError:
+        return _aggregate_runtime_error(
+            check,
+            contract,
+            "RC_RUNTIME_AGGREGATE_RESULT_INVALID",
+            "Aggregate runtime returned invalid numeric preflight evidence.",
+        )
+    except Exception:
+        return _aggregate_runtime_error(
+            check,
+            contract,
+            ADAPTER_QUERY_FAILED,
+            "Aggregate query failed before a trustworthy result was produced.",
+        )
+    result = _compare_aggregate_result(check, contract, final, domain=domain, tolerance=tolerance)
+    return replace(
+        result,
+        diagnostics=result.diagnostics + _aggregate_scan_budget_decision(decision).diagnostics,
     )

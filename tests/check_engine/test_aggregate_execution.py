@@ -907,7 +907,9 @@ def test_aggregate_runtime_executes_only_ordered_private_queries(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
-@pytest.mark.parametrize("broken", ["missing_renderer", "wrong_type", "public_shape", "no_executor"])
+@pytest.mark.parametrize(
+    "broken", ["missing_renderer", "wrong_type", "public_shape", "no_executor"]
+)
 def test_aggregate_runtime_rejects_unproven_private_collaborators(
     tmp_path: Path, grouped: bool, broken: str
 ) -> None:

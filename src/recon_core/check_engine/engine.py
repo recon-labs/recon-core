@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from recon_core.adapters import BaseAdapter, ConnectionConfig, SqlRenderer
+from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
 from recon_core.artifacts import (
     LoadedCompiledCheck,
     LoadedCompiledChecksArtifact,
@@ -57,6 +58,9 @@ class _AggregateExecutionContext(CheckExecutionContext):
         default_factory=dict
     )
     aggregate_blockers_by_check_id: Mapping[str, CheckResult] = field(default_factory=dict)
+    aggregate_renderers_by_adapter_type: Mapping[str, _AggregateRuntimeRenderer] = field(
+        default_factory=dict
+    )
 
 
 class CheckEngine:
