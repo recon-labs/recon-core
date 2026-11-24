@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 import yaml
+from click.testing import CliRunner
 
 from recon_core.adapters import (
     AdapterCapabilities,
@@ -17,6 +18,7 @@ from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters.duckdb import AdapterLifecycleError, DuckDbAdapter
 from recon_core.artifacts import CompiledContractLoader
 from recon_core.check_engine import CheckEngine, CheckStatus, RunResult
+from recon_core.cli.main import main
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
@@ -1023,3 +1025,168 @@ def test_native_aggregate_same_context_alias_and_mixed_checks(
     assert len(opened[0].private_columns) == (4 if grouped else 3)
     assert "private-group-key" not in _service_result_text(result)
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_aggregate_factory_diagnostics_do_not_publish_private_data(
+    tmp_path: Path, grouped: bool
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=grouped,
+    )
+
+    def factory(connection: ConnectionConfig) -> AdapterResolutionResult:
+        return AdapterResolutionResult(
+            diagnostics=(
+                Diagnostic(
+                    code="RC_ADAPTER_RESOLUTION_FAILED",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="private-factory-value qa.source_customers",
+                    hint="private-group-key",
+                    resource_name="private-factory-resource",
+                ),
+            )
+        )
+
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert "RC_ADAPTER_RESOLUTION_FAILED" in {d.code for d in result.diagnostics}
+    for token in ("private-factory", "qa.source_customers", "private-group-key"):
+        assert token not in _service_result_text(result)
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_aggregate_unknown_required_capability_is_sanitized(tmp_path: Path, grouped: bool) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=grouped,
+    )
+    check = _aggregate_check(grouped=grouped)
+    check["plan"]["required_capabilities"].append("private-unknown-capability")
+    write_compiled_checks(tmp_path, checks=[check])
+    factory = _TrackingAggregateFactory()
+    engine = _CapturingAggregateEngine()
+    result = RunService(
+        start_path=tmp_path, engine=engine, adapter_registry=_tracking_registry(factory)
+    ).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    assert engine.result.contract_results[0].check_results[0].status is CheckStatus.NOT_EXECUTABLE
+    assert "RC_ADAPTER_CAPABILITY_UNSUPPORTED" in {d.code for d in result.diagnostics}
+    assert "private-unknown-capability" not in _service_result_text(result)
+    assert "private-unknown-capability" not in repr(engine.result.to_dict())
+    assert len(factory.adapters) == 1
+    assert factory.adapters[0].connect_count == 0
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("kind", ["HUGEINT", "DECIMAL(38,0)"])
+@pytest.mark.parametrize("operation", ["sum", "difference"])
+def test_native_aggregate_service_exact_overflow(
+    tmp_path: Path, grouped: bool, kind: str, operation: str
+) -> None:
+    maximum = 2**127 - 1 if kind == "HUGEINT" else 10**38 - 1
+    source = _native_row(f"'{maximum}'::{kind}")
+    if operation == "sum":
+        source += " union all " + _native_row(f"1::{kind}")
+    target = _native_row(f"'{-maximum if operation == 'difference' else 0}'::{kind}")
+    _write_native_aggregate_inputs(tmp_path, source_sql=source, target_sql=target, grouped=grouped)
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    # A version may compute a larger exact native result or reject overflow.
+    # Neither may silently wrap, round, or report equivalence.
+    assert engine.result is not None
+    status = engine.result.contract_results[0].check_results[0].status
+    assert status in (CheckStatus.FAIL, CheckStatus.ERROR)
+    _assert_native_aggregate_result(tmp_path, engine, status, result, private_tokens=(str(maximum),))
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_native_aggregate_service_arbitrary_integer_availability(
+    tmp_path: Path, grouped: bool
+) -> None:
+    duckdb = _duckdb_module()
+    version = tuple(int(part) for part in duckdb.__version__.split(".")[:2])
+    if version < (1, 3):
+        connection = duckdb.connect()
+        try:
+            with pytest.raises(duckdb.Error):
+                connection.execute("select 1::VARINT")
+        finally:
+            connection.close()
+        return
+    kind = "VARINT" if version < (1, 4) else "BIGNUM"
+    digits = "1" + "0" * 5000 + "1" if version >= (1, 4) else "1"
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row(f"'{digits}'::{kind}"),
+        target_sql=_native_row(f"0::{kind}"),
+        grouped=grouped,
+    )
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    _assert_native_aggregate_result(
+        tmp_path,
+        engine,
+        CheckStatus.FAIL if version >= (1, 4) else CheckStatus.ERROR,
+        result,
+        private_tokens=(digits[:30],) if version >= (1, 4) else (),
+    )
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize(
+    ("target_value", "exit_code"),
+    [("123456789012345::BIGINT", 0), ("1::BIGINT", 1), ("'NaN'::DOUBLE", 3)],
+)
+def test_native_aggregate_cli_privacy_and_artifact_immutability(
+    tmp_path: Path,
+    grouped: bool,
+    target_value: str,
+    exit_code: int,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("123456789012345::BIGINT"),
+        target_sql=_native_row(target_value),
+        grouped=grouped,
+    )
+    # A pre-existing compiled SQL artifact is never read or rewritten by run.
+    compiled_sql = tmp_path / "target" / "compiled_sql" / "existing.sql"
+    compiled_sql.parent.mkdir()
+    compiled_sql.write_text("private-existing-compile-sql", encoding="utf-8")
+    before = {
+        path.relative_to(tmp_path): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    }
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(main, ["run"])
+    assert result.exit_code == exit_code
+    after = {
+        path.relative_to(tmp_path): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    }
+    assert after == before
+    for token in (
+        "private-group-key",
+        "private-native-aggregate.duckdb",
+        "qa.source_customers",
+        "qa.target_customers",
+        "123456789012345",
+        "private-existing-compile-sql",
+    ):
+        assert token not in result.output
+        assert token not in caplog.text
