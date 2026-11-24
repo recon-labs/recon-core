@@ -393,4 +393,4 @@ captures:
       - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
       - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
     notes: >
-      Real adapter tracking proves ordered private queries, no aggregate public fallback, cleanup, malformed capability blockers, same-context alias use and mixed row-count/key-safety/aggregate execution.
+      Real adapter tracking proves ordered private queries, no aggregate public fallback, cleanup, malformed capability blockers, same-context alias use, scan-approved factory binding before connection opening and mixed row-count/key-safety/aggregate execution.

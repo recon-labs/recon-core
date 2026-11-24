@@ -1210,7 +1210,7 @@ def test_native_aggregate_cli_privacy_and_artifact_immutability(
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("mixed", [False, True])
-@pytest.mark.parametrize("mismatch", ["name", "database"])
+@pytest.mark.parametrize("mismatch", ["name", "database", "mutated_database", "malformed"])
 @pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_aggregate_rejects_wrong_factory_connection_before_open(
     tmp_path: Path, grouped: bool, mixed: bool, mismatch: str
@@ -1241,7 +1241,12 @@ def test_aggregate_rejects_wrong_factory_connection_before_open(
                 "database": str(wrong_database if mismatch == "database" else database),
             },
         )
+        if mismatch == "mutated_database":
+            connection.config["database"] = str(wrong_database)
+            wrong_connection = connection
         adapter = _TrackingAggregateAdapter(connection=wrong_connection, failure=None)
+        if mismatch == "malformed":
+            adapter.connection = None
         adapters.append(adapter)
         return AdapterResolutionResult(adapter=adapter)
 
