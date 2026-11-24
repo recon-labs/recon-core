@@ -8,6 +8,7 @@ import yaml
 
 from recon_core.adapters import AdapterCapabilities, AdapterRegistry, CapabilitySupport
 from recon_core.artifacts import CompiledContractLoader
+from recon_core.check_engine import CheckEngine, CheckStatus, RunResult
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 from tests.services._run_service_fixtures import (
@@ -551,3 +552,225 @@ def test_aggregate_capability_blocker_preserves_unrelated_row_count(
     assert adapter.connect_count == adapter.close_count == 1
     assert len(adapter.queries) == 1
     _assert_no_runtime_outputs(tmp_path)
+
+
+class _CapturingAggregateEngine(CheckEngine):
+    result: RunResult | None = None
+
+    def run(self, *args: Any, **kwargs: Any) -> RunResult:
+        self.result = super().run(*args, **kwargs)
+        return self.result
+
+
+def _write_native_aggregate_inputs(
+    path: Path,
+    *,
+    source_sql: str,
+    target_sql: str,
+    grouped: bool,
+    tolerance: object = None,
+) -> Path:
+    duckdb = _duckdb_module()
+    database = path / "private-native-aggregate.duckdb"
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute("create schema qa")
+        connection.execute(f"create table qa.source_customers as {source_sql}")
+        connection.execute(f"create table qa.target_customers as {target_sql}")
+    finally:
+        connection.close()
+    write_duckdb_row_count_run_inputs(path, database)
+    write_compiled_checks(path, checks=[_aggregate_check(grouped=grouped, tolerance=tolerance)])
+    return database
+
+
+def _native_row(value: str, *, key: str = "'private-group-key'", empty: bool = False) -> str:
+    where = " where false" if empty else ""
+    return f"select {key} as customer_id, 1 as month, {value} as revenue{where}"
+
+
+def _assert_native_aggregate_result(
+    path: Path,
+    engine: _CapturingAggregateEngine,
+    expected: CheckStatus,
+    result: Any,
+    *,
+    private_tokens: tuple[str, ...] = (),
+) -> None:
+    expected_exit = {
+        CheckStatus.PASS: ExitCategory.SUCCESS,
+        CheckStatus.FAIL: ExitCategory.CHECK_FAILURE,
+        CheckStatus.ERROR: ExitCategory.RUNTIME_ERROR,
+    }
+    assert result.exit_category is expected_exit[expected]
+    assert engine.result is not None
+    assert len(engine.result.contract_results) == 1
+    checks = engine.result.contract_results[0].check_results
+    assert len(checks) == 1
+    check = checks[0]
+    assert check.status is expected
+    assert check.executed == (expected in (CheckStatus.PASS, CheckStatus.FAIL))
+    assert check.source_value is None
+    assert check.target_value is None
+    assert check.diff_value is None
+    assert check.failure_count is None
+    assert check.tolerance is None
+    assert check.artifact_refs == check.sink_refs == ()
+    output = repr(engine.result.to_dict()) + _service_result_text(result)
+    for token in (
+        "private-group-key",
+        "private-native-aggregate.duckdb",
+        "qa.source_customers",
+        "qa.target_customers",
+        *private_tokens,
+    ):
+        assert token not in output
+    _assert_no_runtime_outputs(path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize(
+    ("source", "target", "tolerance", "expected"),
+    [
+        ("9007199254740993::BIGINT", "9007199254740992::BIGINT", 0, CheckStatus.FAIL),
+        ("9007199254740993::BIGINT", "9007199254740992::BIGINT", 1, CheckStatus.PASS),
+        (
+            "'99999999999999999999.01'::DECIMAL(38,2)",
+            "'99999999999999999999.00'::DECIMAL(38,2)",
+            0.01,
+            CheckStatus.PASS,
+        ),
+        (
+            "'99999999999999999999.01'::DECIMAL(38,2)",
+            "'99999999999999999999.00'::DECIMAL(38,2)",
+            0.009,
+            CheckStatus.FAIL,
+        ),
+        ("0.30000000000000004::DOUBLE", "0.2::DOUBLE", 0.1, CheckStatus.FAIL),
+        ("0.30000000000000004::DOUBLE", "0.2::DOUBLE", 0.10000000000000003, CheckStatus.PASS),
+        ("0.3::FLOAT", "0.2::FLOAT", 0.11, CheckStatus.PASS),
+        ("'NaN'::DOUBLE", "1::DOUBLE", 1, CheckStatus.ERROR),
+        ("'Infinity'::DOUBLE", "1::DOUBLE", 1, CheckStatus.ERROR),
+        ("'-Infinity'::DOUBLE", "1::DOUBLE", 1, CheckStatus.ERROR),
+        ("1e308::DOUBLE", "-1e308::DOUBLE", 1, CheckStatus.ERROR),
+        (
+            "'private-unsupported-value'::VARCHAR",
+            "'private-unsupported-value'::VARCHAR",
+            0,
+            CheckStatus.ERROR,
+        ),
+    ],
+)
+def test_native_aggregate_service_numeric_outcomes_and_privacy(
+    tmp_path: Path,
+    grouped: bool,
+    source: str,
+    target: str,
+    tolerance: object,
+    expected: CheckStatus,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row(source),
+        target_sql=_native_row(target),
+        grouped=grouped,
+        tolerance=tolerance,
+    )
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    _assert_native_aggregate_result(
+        tmp_path,
+        engine,
+        expected,
+        result,
+        private_tokens=(
+            "9007199254740993",
+            "9007199254740992",
+            "99999999999999999999",
+            "private-unsupported-value",
+        ),
+    )
+    captured = capsys.readouterr()
+    assert captured.out == captured.err == ""
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize(
+    ("source_value", "source_empty", "target_value", "target_empty", "expected"),
+    [
+        ("NULL::INTEGER", True, "NULL::INTEGER", True, CheckStatus.PASS),
+        ("NULL::INTEGER", False, "NULL::INTEGER", False, CheckStatus.PASS),
+        ("NULL::INTEGER", False, "0::INTEGER", False, CheckStatus.FAIL),
+        ("NULL::INTEGER", True, "0::INTEGER", False, CheckStatus.FAIL),
+        ("0::INTEGER", False, "NULL::INTEGER", True, CheckStatus.FAIL),
+    ],
+)
+def test_native_aggregate_service_null_and_empty_outcomes(
+    tmp_path: Path,
+    grouped: bool,
+    source_value: str,
+    source_empty: bool,
+    target_value: str,
+    target_empty: bool,
+    expected: CheckStatus,
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row(source_value, key="NULL::VARCHAR", empty=source_empty),
+        target_sql=_native_row(target_value, key="NULL::VARCHAR", empty=target_empty),
+        grouped=grouped,
+    )
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    _assert_native_aggregate_result(tmp_path, engine, expected, result)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_native_grouped_service_distinguishes_absence_from_null(tmp_path: Path, reverse: bool) -> None:
+    present = _native_row("NULL::INTEGER")
+    absent = _native_row("NULL::INTEGER", empty=True)
+    source, target = (absent, present) if reverse else (present, absent)
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=source,
+        target_sql=target,
+        grouped=True,
+        tolerance=999,
+    )
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    _assert_native_aggregate_result(tmp_path, engine, CheckStatus.FAIL, result)
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_native_grouped_service_rejects_incompatible_key_types(tmp_path: Path, empty: bool) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER", key="1::INTEGER", empty=empty),
+        target_sql=_native_row("1::INTEGER", key="'1'::VARCHAR", empty=empty),
+        grouped=True,
+    )
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    _assert_native_aggregate_result(tmp_path, engine, CheckStatus.ERROR, result)
+
+
+def test_native_grouped_service_high_cardinality_remains_private(tmp_path: Path) -> None:
+    source = (
+        "select 'private-group-key-' || i::varchar as customer_id, "
+        "1 as month, 123456789012345::bigint as revenue from range(10000) q(i)"
+    )
+    target = source.replace("range(10000)", "range(9999)")
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=source,
+        target_sql=target,
+        grouped=True,
+        tolerance=999999999999999,
+    )
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    _assert_native_aggregate_result(
+        tmp_path, engine, CheckStatus.FAIL, result, private_tokens=("123456789012345",)
+    )
