@@ -598,6 +598,7 @@ def test_aggregate_comparison_ignores_decimal_context_limits(tmp_path: Path, gro
         context.Emin = -2
         for signal in (Inexact, Overflow, Rounded, Underflow):
             context.traps[signal] = True
+        context.clear_flags()
         assert (
             _compare(tmp_path, row, _D, difference.copy_abs(), grouped=grouped).status
             is CheckStatus.PASS
