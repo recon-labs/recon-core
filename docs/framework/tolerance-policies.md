@@ -88,6 +88,21 @@ Rules:
 Precision/scale compatibility is schema policy behavior, not numeric value
 tolerance.
 
+For aggregate execution, ADR 0009 specifies the numeric domain rules. Integer
+and decimal differences remain exact; finite floating-point differences are
+computed and validated in their native arithmetic domain. The finite computed
+floating-point magnitude and compiled floating-point threshold use their
+canonical shortest round-trip decimal representation. Equality at the
+threshold passes. No hidden epsilon, relative allowance, or automatic rounding
+is applied. A non-finite or unrepresentable result is an execution error.
+
+A valid explicit metric tolerance takes precedence over a named tolerance
+reference. If a named policy would otherwise apply and is unresolved,
+execution must block instead of silently using zero tolerance. Without an
+applicable policy or metric override, the default remains zero. These rules
+define planned aggregate execution; the current compiler validation alone
+does not imply runtime policy resolution.
+
 ## Timestamp Tolerance
 
 Timestamp tolerance execution is future behavior.

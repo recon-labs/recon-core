@@ -58,6 +58,28 @@ aggregate comparison. `UHUGEINT` aggregate inputs are rejected until DuckDB
 exact aggregate behavior for that type is proven, because current DuckDB returns
 approximate `DOUBLE` values for `sum(UHUGEINT)`.
 
+The existing grouped detail SQL contract belongs to compile-time rendering and
+direct renderer callers. The planned bounded aggregate runtime must use an
+explicit private runtime rendering path, not change that public detail result
+shape. Shared dialect builders preserve the existing preflight input,
+aggregate-result and group-key type guards. The runtime grouped query returns
+one fixed-size summary with independent presence/null categories and finite
+signed difference extrema. Core validates the summary, applies the ADR 0009
+tolerance policy, and decides status. An unavailable bounded renderer blocks
+execution; the detail renderer is never a runtime fallback. No new public
+renderer methods, capability names, API version or typed payload fields are
+required.
+
+Aggregate execution conformance must prove each existing supported numeric
+input and actual native result domain, including exact integer/decimal and
+BIGNUM transport, FLOAT and DOUBLE, finite subtraction and overflow boundaries,
+zero and inclusive tolerance, and grouped/ungrouped parity. A numeric-looking
+driver string is not sufficient proof of exact numeric type. Preserve existing
+supported types while resolving defects; do not silently remove a type or
+convert exact arithmetic to floating point. Non-finite or unrepresentable
+results cannot produce trustworthy equivalence. The runtime summary is
+transient private data and does not authorize a production adapter claim.
+
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 the test-kit design must define a SQL comparison conformance matrix. That matrix
 must make adapter comparison semantics executable across repositories and cover

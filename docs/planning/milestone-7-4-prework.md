@@ -22,20 +22,24 @@ Split Decision: Already Split / Follow Existing Split.
 
 ## Status
 
-Prework is complete for a later implementation session.
+The aggregate execution scope and numeric policy decisions are locked in this
+prework and ADRs 0009 and 0021. Implementation readiness remains blocked on
+empirical numeric-domain proof and final prework validation.
 
-Current status:
-
-- the Milestone 7 split already assigns aggregate metric execution to
-  Milestone 7.4;
-- the milestone stays limited to current compiled `sum` aggregate plans;
-- research_decision: not-required;
-- the matrix, BDD scenarios, detailed test plan, source map, and responsibility
-  map are defined here;
-- docs drift alignment is complete for the current prework;
-- final phase-exit validation is complete for this prework;
-- runtime/source/test implementation has not started and must happen in a later
-  coding session.
+- The existing Milestone 7 split assigns explicit aggregate execution to
+  Milestone 7.4; no further split is required.
+- Only current compiled explicit `sum` checks are admitted.
+- research_decision: completed for numeric domain and bounded comparison
+  design; engine-version-specific execution proof is outstanding.
+- Strict floating-point tolerance, unresolved applicable named-policy blocking,
+  private bounded runtime rendering, and capability preservation are locked.
+- The acceptance matrix, BDD scenarios, test plan and responsibility map
+  include these requirements; no aggregate runtime or implementation tests
+  have been added in this prework update.
+- Before implementation, prove actual native result types, exact transport
+  and overflow behavior for the supported numeric inputs, including BIGNUM.
+  Investigate a capability-preserving solution if proof fails; do not remove
+  a type without explicit scope approval.
 
 ## Scope
 
@@ -155,6 +159,92 @@ Milestone 7.4 should:
 Milestone 7.4 must not report aggregate equivalence unless the aggregate check
 actually executed through the locked same-context relation-backed path.
 
+### Numeric and bounded result contracts
+
+Use the existing compiled check `tolerance` field and compiled contract
+`policies.tolerance_policy` metadata. The compiled contract loader must
+preserve the named reference as private runtime metadata, validating its
+existing shape without adding resource resolution. A valid explicit metric
+tolerance overrides an applicable named policy. Otherwise a non-null
+unresolved named policy blocks execution with a safe reason. If neither
+applies, absent or null optional metric tolerance means zero. Malformed
+tolerance or policy metadata is an artifact/validation error. Check admission
+must reject these conditions before profile/adapter setup or data queries.
+Do not parse authored YAML or recompile at run time. Share the existing
+canonical numeric policy interpretation rather than duplicate divergent
+compiler/runtime validation.
+
+Exact integer and decimal arithmetic uses a context-independent exact
+representation. Finite FLOAT and DOUBLE sums and signed differences use
+the proven native arithmetic domain; the native computed magnitude and
+compiled floating-point tolerance use their canonical shortest round-trip
+decimal representation. Do not decimal-subtract independently converted
+floating-point operands. Compare magnitude less than or equal to threshold;
+zero means exact represented equality, including signed zero. No implicit
+epsilon, relative tolerance, or rounding. Invalid, non-finite, or
+unrepresentable results error without exposing values. Existing physical
+type guards, supported numeric types and unsupported boolean, nonnumeric
+and UHUGEINT boundaries are preserved. BIGNUM must be empirically proven
+including actual result type and lossless transport; arbitrary numeric
+strings are not numeric evidence. A failing proof blocks design readiness
+and triggers capability-preserving review.
+
+The private ungrouped result is one row with the source aggregate, target
+aggregate and signed difference, with exact column and envelope validation.
+Both-null aggregates with null difference pass; one null and one finite
+value with null difference fail. Non-finite values, inconsistent null/diff
+shapes or untrustworthy arithmetic error. Exact results validate signed
+subtraction exactly; floating results validate it in the proven native
+domain. This result is not public output.
+
+The private grouped runtime result is exactly one row with the following
+fields in this order:
+
+| Field | Required representation |
+| --- | --- |
+| total_group_count | Nonnegative integer, complete group union count |
+| source_only_group_count | Nonnegative integer |
+| target_only_group_count | Nonnegative integer |
+| both_null_group_count | Nonnegative integer |
+| null_mismatch_group_count | Nonnegative integer, both groups present |
+| valid_numeric_pair_count | Nonnegative integer, both groups present and valid finite values |
+| invalid_numeric_count | Nonnegative integer, any present invalid/non-finite aggregate or invalid difference |
+| min_signed_diff | Finite signed difference in the proven numeric domain, or null |
+| max_signed_diff | Finite signed difference in the proven numeric domain, or null |
+
+Classify invalid numeric outcomes first, then one-sided presence, then
+both-null, one-null, and valid numeric pairs. Each group belongs to exactly
+one category. Category counts sum to the total; booleans are not counts.
+Extrema are both null exactly when there are no valid numeric pairs.
+Otherwise both are finite, in the same proven domain, ordered min <= max,
+and consistent with the numeric count (equal when there is only one pair).
+Validate exact columns, row width, one-row envelope and count consistency;
+reject unexpected/duplicate columns, missing/multiple rows, malformed values,
+and contradictory extrema. The adapter must prove complete aggregation
+across the group union, with independent source and target presence flags,
+null-safe composite-key matching, and preflight physical type checks even
+on empty relations. No detail-row limit, raw group fetch, Core SQL rewriting,
+or fallback may substitute for a complete summary.
+
+Core errors on malformed summary or any invalid numeric group before data
+failure classification. Otherwise any one-sided group or null mismatch
+fails regardless of tolerance. With no such mismatch, all-null or empty
+groups pass; numeric pairs pass only when the larger absolute magnitude of
+the signed extrema is within tolerance. Compute absolute magnitude safely
+in Core, including the most negative signed integer, without adapter-side
+absolute-value overflow. Only status and safe diagnostics reach public
+results; all summary counts and extrema remain transient private data.
+Native SUM and subtraction remain adapter mechanics. The bounded summary
+does not waive the existing scan guard.
+
+Preserve existing compile renderer output and tests. Use a narrow private
+runtime rendering collaborator with an explicit bounded contract, supplied
+by the existing lazy runtime renderer factory. Share SQL construction and
+type guards with compile rendering. Do not change public `SqlRenderer`,
+`BaseAdapter`, capability names, typed operation fields, artifact/API
+versions, or public exports. Missing or unproven bounded rendering blocks
+before aggregate queries, never falls back to detail rendering.
+
 ## Status And Reason Taxonomy
 
 Milestone 7.4 reuses the check statuses introduced by the check-engine
@@ -235,6 +325,12 @@ Gate status for implementation:
   expansion, aggregate inference, generated aggregate suggestion, or
   `recon_core.aggregate_equivalence` work reopens the gate and blocks this
   milestone.
+- Gate 3D, tolerance/null/normalization: ADR 0009 locks the approved numeric
+  domain, inclusive threshold, and unresolved applicable named-policy rules.
+  Actual numeric-domain and policy-admission proof remains outstanding.
+- Gates 4B and 4C, adapter API and typed operations: preserve current compile
+  renderer behavior, existing public interfaces and emitted payloads; prove
+  the explicit private bounded runtime collaborator before execution.
 - Gate 4I, comparison execution placement: satisfied for planning only by
   locking the initial aggregate execution path to same-context relation-backed
   placement with no hidden Python, cross-engine, cross-adapter, materialization,
@@ -254,7 +350,8 @@ Gate status for implementation:
 
 Before implementation starts, the final high-risk prework must prove every gate
 above through matrix rows, BDD scenarios where applicable, required tests,
-source/responsibility maps, and phase-exit review requirements.
+source/responsibility maps, and phase-exit review requirements. Design locks
+are not implementation proof. The numeric-domain verification is outstanding.
 
 ## Public Contract Impact
 
@@ -309,7 +406,10 @@ Milestone 7.4 implementation must preserve:
 - same-context relation-backed placement for the initial path,
 - no silent fallback,
 - no silent type coercion,
-- no public generated result or evidence schema.
+- no public generated result or evidence schema,
+- existing compile-time grouped detail rendering and public adapter interfaces,
+- the existing supported numeric input boundary, without lossy casts or
+  silent capability reduction.
 
 Future adapter test-kit and production adapter work must re-prove aggregate SQL
 semantics before external adapters claim aggregate execution compatibility.
@@ -326,6 +426,7 @@ generated artifacts, test snapshots, or public result surfaces:
 - raw source or target values,
 - grouped keys,
 - grouped aggregate values,
+- private aggregate summary counts and extrema,
 - unbounded grouped result details,
 - relation names,
 - source or target identifiers,
@@ -358,13 +459,16 @@ Docs that must remain aligned before implementation:
 - `docs/compatibility/typed-check-plan.md`,
 - `docs/compatibility/public-contract-inventory.md`,
 - `docs/compatibility/compatibility-matrix.md`,
-- `docs/compatibility/change-checklist.md`.
+- `docs/compatibility/change-checklist.md`,
+- `docs/decisions/adr-0009-tolerance-normalization-and-null-equivalence.md`,
+- `docs/decisions/adr-0021-execution-placement-and-comparison-engine-strategy.md`,
+- `docs/framework/tolerance-policies.md`,
+- `docs/implementation/tolerance-and-normalization-engine.md`,
+- `docs/compatibility/adapter-api.md`.
 
 Docs that may need updates only if implementation changes behavior:
 
-- `docs/framework/tolerance-policies.md`,
 - `docs/implementation/errors-and-diagnostics.md`,
-- `docs/compatibility/adapter-api.md`,
 - `docs/compatibility/capability-catalog.md`,
 - `docs/compatibility/artifact-versions.md`,
 - `CHANGELOG.md`.
@@ -375,7 +479,14 @@ The final Milestone 7.4 test plan must include tests for:
 
 - ungrouped `sum_diff` pass, fail, and error outcomes,
 - grouped aggregate diff pass, fail, and error outcomes,
-- supported numeric tolerance behavior,
+- supported numeric tolerance behavior, including strict inclusive boundaries,
+  invalid policies, unresolved named policy and explicit override,
+- context-independent exact arithmetic, finite native floating-point result
+  consistency, signed zero, non-finite values and overflow,
+- BIGNUM result-domain and transport proof for supported engine versions,
+- fixed-size grouped summary partition, extrema and malformed result validation,
+- preservation of compile detail rendering and missing private runtime renderer
+  blockers,
 - empty aggregate result semantics,
 - `NULL` aggregate versus numeric zero,
 - both grouped sides empty,
@@ -411,7 +522,7 @@ existing test, or explicit out-of-scope rationale before coding starts.
 | Typed-plan shape and runtime input | Valid `aggregate` plus `compare_aggregates` operations; valid `grouped_aggregate` plus `compare_grouped_aggregates` operations; malformed operation payloads; unexpected operation order; missing aggregate, column, side, or group key fields; unsupported typed operation names. | Valid current aggregate plan shapes can enter aggregate execution. Malformed aggregate typed plans are invalid artifacts or clear non-execution outcomes before adapter queries. Unsupported valid operation names remain `not_executable` with safe diagnostics. | New M7.4 artifact/runtime shape tests. Existing compiled-check loader and compiler model tests continue to protect payload validation. | Typed check-plan compatibility; check-engine boundary; `check_engine_semantics_carryover` blocker-precedence review. | Changing typed operation payload schema or adding operation names is outside M7.4 unless compatibility review reopens the plan. |
 | Run boundary and compiled inputs | Missing compiled checks; empty compiled-check scope; missing compiled contract; malformed compiled contract; compiled-check to compiled-contract mismatch; parser/compiler temptation. | `recon run` consumes already compiled artifacts only, joins each executable aggregate check to matching compiled-contract metadata, and never parses authored YAML or recompiles contracts. Missing, empty, malformed, or mismatched artifacts produce runtime diagnostics or `no_checks` behavior already defined by the result model. | Existing M7.1/M7.2 artifact-loader and empty-scope tests remain applicable; new M7.4 tests cover aggregate candidates joining to compiled-contract metadata before execution. | Check-engine docs; result-model docs; public contract inventory row `Check engine boundary and result model`. | Recompilation, artifact freshness, selectors, and authored YAML parsing remain later or separate surfaces. |
 | Ungrouped aggregate pass/fail/error | Source sum equals target sum; source sum differs from target sum; adapter setup failure; query execution failure; result-shape failure. | Executed ungrouped aggregate checks report `pass` only when the current comparison condition is proven, `fail` only for data differences beyond tolerance, and `error` when preparation, adapter execution, unsafe type/result shape, or diagnostic handling prevents a trustworthy result. | New ungrouped aggregate execution tests for pass, fail, adapter setup error, SQL/runtime error sanitization, and malformed result shape. | Milestone 7.4 build-order required tests; result-model status semantics. | Generated run summaries and stable generated result artifacts remain Milestone 8. |
-| Numeric tolerance for current `sum` | Exact equality; zero tolerance; positive absolute tolerance pass; positive absolute tolerance fail; negative, missing, string, relative, percentage, timestamp, or string tolerance shapes when encountered before execution. | Supported numeric absolute tolerance applies only to current numeric aggregate comparisons. Unsupported or unresolved tolerance behavior must not silently execute as a different policy. | New aggregate tolerance tests for exact, zero, within-tolerance, outside-tolerance, and unsupported policy blockers when reachable at runtime. Existing policy validation tests continue to own malformed authored tolerance config. | ADR 0009; tolerance policy docs if implementation changes behavior. | Relative, percentage, timestamp, and string tolerance execution remain future policy work. |
+| Numeric tolerance for current `sum` | Exact equality; zero tolerance; positive absolute tolerance pass; positive absolute tolerance fail; inclusive equality; absent/null optional metric tolerance; shorthand/object; negative, bool, string, non-finite, missing object value, unknown fields, relative, percentage or timestamp policy; unresolved named policy; explicit override. | Supported numeric absolute tolerance applies only to current numeric aggregate comparisons. Zero default applies only without an applicable unresolved policy. A valid metric override wins; otherwise unresolved applicable policy blocks. Invalid shapes error before setup/query. No implicit tolerance. | Aggregate helper, compiled-contract loader, and service admission tests for all listed cases. Existing policy validation tests continue to own malformed authored tolerance config. | ADR 0009; tolerance policy docs if implementation changes behavior. | Relative, percentage, timestamp, and string tolerance execution remain future policy work. |
 | Ungrouped empty aggregate semantics | Both sides empty; source empty only; target empty only; all-null aggregate column on one or both sides; `NULL` versus numeric zero. | Empty aggregate `NULL` is not numeric zero. Two present `NULL` aggregate results compare equal for the current aggregate comparison. One `NULL` and one numeric zero compare different. Empty/null outcomes do not leak raw rows or values. | New ungrouped aggregate tests for both-empty pass, one-side-empty fail, all-null cases, and `NULL` versus zero. | ADR 0009; Gate 8C; result/evidence privacy boundary. | Evidence wording for empty aggregate details remains Milestone 9 or later. |
 | Grouped aggregate pass/fail/error | Matching groups equal; matching groups differ; source-only group; target-only group; both grouped sides empty; adapter/runtime error; malformed grouped result shape. | Grouped aggregate checks execute through the approved adapter path and report pass/fail/error without moving unbounded grouped rows into Core. Missing or extra groups are data failures when the grouped comparison executed. Both sides empty passes with no mismatches. | New grouped aggregate execution tests for pass, mismatch, source-only group, target-only group, both-empty pass, adapter error, and malformed result shape. | Milestone 7.4 build-order required tests; ADR 0021 grouped no-unbounded-fetch rule. | Grouped failure-detail exports and high-cardinality grouped output remain future evidence/failure-detail work. |
 | Group presence versus aggregate nullness | Group present on both sides with both aggregate values `NULL`; group present on one side with `NULL`; group absent on the other side; nullable grouped keys. | Group presence is distinct from aggregate value nullness. A present `NULL` aggregate can compare equal to another present `NULL`; a present group with `NULL` aggregate does not equal an absent group. Nullable grouped keys compare only under explicit null-safe grouped-key semantics and must not become inferred missing/extra rows through type or null mishandling. | New grouped aggregate tests for present-null versus present-null, present-null versus absent, nullable grouped keys, and both grouped sides empty. | ADR 0009; ADR 0021; Gate 8C SQL comparison conformance expectations. | Raw grouped keys and grouped aggregate values are not exported in M7.4. |
@@ -426,6 +537,10 @@ existing test, or explicit out-of-scope rationale before coding starts.
 | Public output and generated artifacts | Terminal output; logs; `target/run_results.json`; evidence reports; failure details; state; result/evidence sinks; compiled SQL writes from `recon run`. | M7.4 returns in-memory results only and does not write generated run-result, evidence, report, failure-detail, state, or sink artifacts. `recon run` does not write compiled SQL artifacts. Artifact and sink refs remain empty. | New negative tests for absent `target/run_results.json`, report/evidence/failure-detail/state/sink outputs, empty artifact refs, empty sink refs, and no `recon run` compiled SQL publication. | ADR 0022; generated artifact lifecycle; result-model boundary; M8/M9 ownership. | Durable run results belong to Milestone 8; evidence and failure details belong to Milestone 9. |
 | Result aggregation and mixed outcomes | Mixed pass/fail aggregate checks; aggregate check plus not-executable check; aggregate check plus error; empty check scope; executed false for blockers. | Run and contract aggregate status precedence remains `error > fail > blocked > not_executable > warn > pass > skipped`; `no_checks` is not pass. Non-executed checks use `executed=false`, reason codes, safe messages, and no source/target values or artifact refs. | Existing check-engine aggregation tests remain applicable; new M7.4 tests cover mixed aggregate execution results and aggregate-specific not-executable/error interactions. | Result-model docs; check-engine semantics carryover. | Stable generated result schema remains future runner/results work. |
 | Future adapter/test-kit and carryover coverage | Pending carryover rows for check-engine semantics, adapter runtime scan policy, diagnostics privacy, parser/compiler contract behavior, and adapter test-kit SQL comparison conformance. | M7.4 implementation must review applicable pending rows and either map them to current tests, migrate them to future shared suites, defer them with rationale, or mark them not applicable. Docs-only prework updates do not change capture row status. | `python3 scripts/check_regression_capture.py` during prework validation; implementation must add/update test mappings where current M7.4 behavior covers a carryover row. | `docs/compatibility/regression-capture/index.yml`; compatibility matrix row `Regression capture carryover gates`. | Adapter test-kit, production adapter packages, and broad aggregate metrics expansion remain later gated surfaces. |
+| Exact numeric domain and transport | Each existing integer/unsigned/decimal/BIGNUM input; values beyond 2^53; high width/scale; signed extrema; sum and subtraction overflow; malformed driver values; context precision. | Exact arithmetic and threshold comparison, no lossy cast; prove actual result domain and transport; unrepresentable or untrustworthy arithmetic errors. Capability-preserving review if BIGNUM or another supported type cannot be proven. | Aggregate helper unit tests; actual DuckDB renderer/service parameterized tests; numeric prework experiments. | ADR 0009; Gates 3D, 4B, 8C. | No new type allowlist or production compatibility claim. |
+| Native floating-point domain | FLOAT and DOUBLE; valid 0.30000000000000004 minus 0.2; positive/negative differences; zero and signed zero; exact/adjacent tolerance; tiny and large finite values; sum/subtraction overflow; NaN and both infinities. | Native subtraction consistency, canonical computed magnitude, strict inclusive threshold; no epsilon or independent decimal operand subtraction. Non-finite/invalid/overflow results error before data mismatch. Grouped and ungrouped agree. | Aggregate helper and real DuckDB renderer/service tests, including historical tuple and boundary variants; numeric prework experiments. | ADR 0009; Gates 3D and 8C. | No relative tolerance or deterministic exact-decimal SUM claim for floating types. |
+| Bounded grouped summary contract | Empty, both-null, null mismatch, one-sided, invalid numeric, finite numeric groups; nullable composite keys; high cardinality; zero/multiple rows, duplicate/extra/missing columns, invalid counts, partition mismatch, null/reversed/non-finite extrema, single-pair contradictions. | One complete fixed-size row; exclusive partition and valid extrema; error before data failure; no raw group transfer, truncation, or output of private summary values. | Aggregate helper shape tests, private runtime renderer semantic tests, actual DuckDB service and privacy tests. | ADR 0021 and 0022; Gates 4I, 4L, 6, 8C. | No detail export or hidden fallback. |
+| Compile and runtime renderer separation | Existing compile/direct detail output; bounded runtime collaborator; missing/malformed/mismatched renderer; preflight guard order and step capabilities; lazy imports. | Preserve existing compile contract and proof. Runtime only uses explicit bounded renderer; unavailable or unproven contract blocks before aggregate queries; no public API or typed-plan change. | Existing compile and renderer tests; new runtime renderer tests; lifecycle and import boundary tests. | Gates 4B, 4C, 4I, 8C; adapter API compatibility. | No external adapter execution contract or new public interface. |
 
 ## BDD Workflow Scenarios
 
@@ -486,6 +601,37 @@ query text, rendered SQL, rendered profile values, raw adapter errors, and raw
 database errors are absent unless a later privacy policy explicitly admits that
 surface.
 
+### Numeric comparison preserves the configured tolerance
+
+Given current compiled sum checks with exact or floating-point values and
+an explicit valid metric tolerance, when allowed runtime execution computes
+native sums and differences, then Core validates the domain and reports pass
+only at or below the configured threshold without hidden rounding. A valid
+native floating difference is not an invalid result merely because exact
+decimal subtraction of independently converted operands differs.
+
+### Unresolved named tolerance blocks safely
+
+Given compiled contract metadata references an unresolved named tolerance
+policy, when no valid explicit metric override exists, then the aggregate
+check is not executable before adapter setup or data queries. A valid
+explicit override may execute; an invalid override errors instead of
+falling back.
+
+### Bounded runtime rendering preserves compile behavior
+
+Given many nullable or composite groups, when an admitted grouped aggregate
+check executes, then the private renderer returns one complete summary row,
+presence is independent of nullness, and Core applies the tolerance.
+Existing compile rendering still returns the documented detail shape.
+If the bounded path is unavailable, no detail query executes.
+
+### Invalid arithmetic cannot look like a data violation
+
+Given any non-finite aggregate, unrepresentable arithmetic, or contradictory
+summary, when Recon evaluates the result, then it returns a sanitized error
+instead of pass or an ordinary data mismatch, even if another group differs.
+
 ## Detailed Test Plan
 
 Write implementation tests before runtime code changes. The exact file map is
@@ -502,7 +648,9 @@ must cover these groups.
 2. Ungrouped aggregate execution:
    - pass, fail, and error outcomes,
    - exact equality and zero tolerance,
-   - within-tolerance and outside-tolerance numeric differences,
+   - inclusive tolerance, adjacent threshold boundaries, strict zero, signed
+     zero, shorthand/object parity, invalid shapes and unresolved named policy,
+   - native float difference validation and malformed scalar results,
    - both-empty and all-null aggregate inputs,
    - source-empty-only and target-empty-only cases,
    - `NULL` versus zero.
@@ -515,7 +663,11 @@ must cover these groups.
    - nullable grouped keys,
    - both grouped sides empty,
    - present `NULL` aggregate group versus absent group,
-   - no unbounded grouped details returned to Core.
+   - no unbounded grouped details returned to Core,
+   - one-row summary schema, category partition, signed extrema and error
+     precedence; high-cardinality complete comparison,
+   - missing or invalid bounded renderer blocks before data queries; existing
+     compile renderer behavior and SQL proof remain unchanged.
 
 4. Type and exactness behavior:
    - aggregate input type mismatch,
@@ -526,7 +678,13 @@ must cover these groups.
    - same-type unsupported or non-numeric input rejection,
    - supported large integer exactness,
    - supported decimal exactness,
-   - unsupported unsigned large-integer behavior unless exactness is proven.
+   - unsupported unsigned large-integer behavior unless exactness is proven,
+   - exact high-width decimal and signed integer arithmetic independent of
+     decimal context, including overflow and signed minimum magnitude,
+   - current BIGNUM input/result/difference/extrema and transport proof,
+   - FLOAT/DOUBLE result domain, native subtraction, finite/subnormal/large
+     values, non-finite operands or differences, and overflow,
+   - grouped and ungrouped numeric-domain parity.
 
 5. Placement and capability blockers:
    - supported same-context relation-backed path,
@@ -585,10 +743,12 @@ coding that surface.
 | Aggregate execution helper | New `src/recon_core/check_engine/aggregate.py` | Own aggregate-family plan-shape validation, relation/query-endpoint rejection, renderer invocation, adapter query invocation, result-row shape validation, `sum` empty-result semantics, numeric absolute tolerance comparison, grouped pass/fail summary classification, and sanitized aggregate execution diagnostics. Re-export from `src/recon_core/check_engine/__init__.py` only if following the existing compatibility convenience pattern and updating import-surface tests. | New `tests/check_engine/test_aggregate_execution.py`, `tests/compatibility/test_python_package_exports.py` if exported | Public YAML behavior, compiler behavior, adapter capability declaration, dialect SQL generation, unbounded grouped details in Core memory, public grouped-key or value details, artifact references, sink references, evidence output, or concrete adapter imports. |
 | Shared execution support and scan policy | `src/recon_core/check_engine/execution_support.py`, `src/recon_core/check_engine/scan_budget.py` | Reuse existing diagnostic, relation, reserved-metadata, materialization-policy, strict-result, and connection-context helpers. Generalize scan-budget wording only if aggregate diagnostics cannot otherwise stay accurate; any generalized helper must preserve key-safety behavior. | `tests/check_engine/test_key_safety_execution.py`, new aggregate execution tests, `tests/check_engine/test_execution_boundaries.py` | Moving aggregate semantics into generic helpers, duplicating divergent scan policy, emitting key-safety-specific messages for aggregate blockers, exposing user-facing scan-budget settings, or weakening existing key-safety guards. |
 | Check-engine orchestration and result aggregation | `src/recon_core/check_engine/engine.py`, `src/recon_core/check_engine/models.py` | No broad change expected. Preserve current status taxonomy, prerequisite blocking, dispatcher ordering, runtime-router boundary, and result aggregation semantics. | `tests/check_engine/test_engine.py`, `tests/check_engine/test_models.py`, `tests/check_engine/test_aggregation.py` | New statuses, generated run-result schema, direct aggregate execution inside the engine loop, changed status precedence without compatibility review, or artifact/sink fields populated for this phase. |
-| DuckDB aggregate SQL rendering | `src/recon_core/adapters/duckdb/renderer_operations.py`, `src/recon_core/adapters/duckdb/renderer.py`, `src/recon_core/adapters/duckdb/renderer_sql.py` | Render dialect SQL and type guards for existing aggregate operations only. Change renderer output shape only when required to enforce bounded aggregate execution, current type guarantees, or current step-level capability requirements. | `tests/adapters/test_duckdb_sql_renderer.py` | Pass/fail decisions, tolerance math, hidden casts, Python fallback, adapter-owned reconciliation semantics, new capabilities, new operations, query endpoint execution, materialization/staging, or public output/privacy decisions. |
+| DuckDB aggregate SQL rendering | `src/recon_core/adapters/duckdb/renderer_operations.py`, `src/recon_core/adapters/duckdb/renderer.py`, `src/recon_core/adapters/duckdb/renderer_sql.py` | Render dialect SQL and type guards for existing aggregate operations only. Preserve compile detail rendering. Share SQL/type guard builders with the private runtime renderer; build one complete grouped summary query and prove numeric domain and exact transport. | `tests/adapters/test_duckdb_sql_renderer.py`, new `tests/adapters/test_duckdb_aggregate_runtime_renderer.py` | Pass/fail decisions, tolerance math, hidden casts, Python fallback, adapter-owned reconciliation semantics, new capabilities, new operations, query endpoint execution, materialization/staging, or public output/privacy decisions. |
 | Adapter API and capability boundary | `src/recon_core/adapters/`, `src/recon_core/compiler/models.py` only if a compiled capability-shape bug is discovered | Preserve current capability names and support-state validation. M7.4 should consume existing `aggregate`, `grouped_aggregate`, and `cte_support` mechanics rather than inventing adapter API surface. | `tests/adapters/test_capabilities.py`, `tests/services/test_run_service_adapter_lifecycle.py`, compatibility import/export tests if touched | New adapter capability names, adapter API version changes, external adapter compatibility claims, shared adapter test-kit claims, or narrowing existing pre-alpha import aliases without compatibility review. |
 | Public docs and compatibility records | `docs/planning/milestone-7-4-prework.md`, `docs/implementation/mvp-build-order.md`, `docs/implementation/testing-plan.md`, `docs/compatibility/*` | Update only when implementation discovers behavior drift or a compatibility-impacting decision that must be recorded before coding continues. Public docs must describe Recon-native decisions, not research attribution. | Docs drift check, `python3 scripts/check_regression_capture.py`, `python3 scripts/check_regression_capture_decisions.py --base-ref origin/main` during branch-wide/final validation | Runtime behavior that contradicts the matrix, stale milestone assignment, public mature-project attribution, or generated artifact/result/evidence claims before those surfaces exist. |
 | Tests and fixtures | `tests/services/_run_service_fixtures.py`, new aggregate test helpers, existing check-engine/service/adapter tests | Add focused aggregate fixtures and table setups that make source/target relation, capability, scan, tolerance, empty, type, privacy, and no-output behavior explicit. | All aggregate tests listed in the Detailed Test Plan plus regression-capture checks | Fixture helpers that hide assertions, broad unrelated fixture rewrites, tests that pass by relying on hidden Python fallback, unbounded grouped-row transfer, or generated outputs. |
+| Compiled policy metadata | `src/recon_core/artifacts/compiled_contract_loader.py`, `src/recon_core/artifacts/compiled_check_loader.py` only if shape validation is needed; `src/recon_core/compiler/policies.py` and a private shared policy helper only if required to avoid duplicate normalization | Preserve existing compiled named tolerance metadata and validate shape; reuse the existing policy interpretation. | `tests/artifacts/test_compiled_contract_loader.py`, `tests/artifacts/test_compiled_check_loader.py`, compiler policy tests, aggregate helper and service admission tests | Authored YAML parsing at runtime, resource resolution, new policy schema or compiler-owned runtime comparison. |
+| Private runtime rendering collaborator | New `src/recon_core/adapters/_aggregate_runtime.py`, `src/recon_core/adapters/duckdb/_aggregate_runtime.py`, `src/recon_core/adapters/default_renderers.py` and existing DuckDB SQL builders | Define and wire a narrow private bounded renderer protocol/implementation, retain lazy imports, reuse shared type guards and SQL fragments; if exact numeric transport requires adapter normalization, prove it at the private adapter boundary before expanding the map. | New `tests/adapters/test_duckdb_aggregate_runtime_renderer.py`, existing renderer and compile service tests, lifecycle and import-surface tests | Public API expansion, new capability, unbounded detail rendering in runtime, Core SQL rewriting, adapter tolerance or status decisions. |
 
 ## Implementation Responsibility Map
 
@@ -605,6 +765,8 @@ The implementation must preserve these owner boundaries.
 | DuckDB renderer | Dialect-specific SQL for existing aggregate typed operations, exact type-guard SQL, and rendered-step capability declarations. | Core comparison semantics, tolerance rules, scan/cost decisions, result privacy, hidden fallback behavior, or pass/fail classification. | Typed-operation payloads and renderer SQL helpers. | If current renderer SQL would require unbounded grouped data movement into Core, add a bounded renderer operation or block execution with a clear non-execution result before changing placement. | DuckDB renderer operation tests and service/runtime integration tests. |
 | Adapter API/capability surface | Declaring and validating existing adapter mechanics. | New M7.4-specific public capabilities, stable external adapter claims, shared adapter test-kit behavior, or public result/evidence schema. | Existing adapter capability catalog and renderer/query interfaces. | If M7.4 cannot be implemented with existing `aggregate`, `grouped_aggregate`, and `cte_support`, stop for compatibility review. | Capability tests, adapter lifecycle tests, package export tests if touched. |
 | Test fixtures | Minimal setup data and fake adapters/renderers that expose each required case. | Production behavior, hidden fallback, broad refactors, or silently changing public contracts. | Existing service/check-engine fixture patterns. | If aggregate tests need repeated setup across service and helper tests, extract a small helper with explicit assertions at call sites. | The aggregate test suite and regression-capture scripts. |
+| Compiled policy metadata and normalization | Preserve current compiled metadata, validate existing shape, normalize existing policy consistently. | Runtime named-policy loading, authored YAML parsing, comparison or adapter lifecycle. | Compiled artifact/schema models and narrow shared policy validation helper. | Extract shared policy helper if compiler and runtime otherwise diverge; do not add a general resolver. | Loader, compiler-policy and aggregate admission tests. |
+| Private runtime renderer | Explicit bounded runtime query contract, shared dialect SQL and exact/native result-domain proof. | Changing existing compile result shape, tolerance comparison, status decisions, scan admission, public exports. | Private protocol, existing lazy runtime renderer factory and dialect helpers. | Extract common SQL builders when duplicate guards or join policy would drift; stop if public API or capability changes become necessary. | Existing compile renderer and new private runtime semantic tests, lifecycle/import boundary tests. |
 
 ## Future Implementation Constraints
 
@@ -621,6 +783,12 @@ The implementation must preserve these owner boundaries.
   in Core. If bounded grouped summary execution cannot be proven with current
   SQL and result shapes, grouped execution must remain `not_executable` and this
   prework must be updated.
+- Preserve compile renderer output; use only the explicitly bounded private
+  runtime path for grouped execution. Reuse SQL/type guard builders rather
+  than parsing or wrapping renderer SQL in Core.
+- Preserve exact numeric and native floating-point domains under ADR 0009.
+  Named policy applicability is checked before runtime admission. Empirical
+  numeric proof is required before runtime implementation begins.
 - Renderer code may render dialect SQL and type guards, but it must not decide
   aggregate pass/fail, tolerance, privacy, scan safety, or fallback behavior.
 - Missing, unsupported, unknown, malformed, incompatible, or not-implemented
@@ -660,6 +828,37 @@ Carryover gates to re-check during implementation:
   expansion or parser/compiler contract work unless M7.4 changes typed-plan
   schema, YAML behavior, compiler validation, or scan-policy public contracts.
 
+Carryover disposition requirements for the current design:
+
+- `key-safety-shape-blocker-precedence` and
+  `key-safety-invalid-relation-diagnostic-precedence`: map equivalent
+  aggregate preflight precedence cases to the new helper/service tests.
+- `duplicate-key-excludes-null-containing-tuples` and
+  `key-safety-empty-grain-keys-shape-blocker`: preserve row-level proof;
+  aggregate segmentation does not require grain or exclude nullable group
+  keys. Record the row-level-only rationale when resolving the applicable
+  gate; do not mark a future shared test-kit obligation covered by this alone.
+- `key-safety-prerequisites-block-dependent-checks`: preserve orchestrator
+  prerequisite behavior and prove aggregate checks do not invent grain
+  prerequisites or bypass explicit dependencies.
+- The pending scan/capability rows in `adapter-runtime.yml` carry over to
+  aggregate admission tests: hidden fixture markers, view/external scans,
+  WAL/sidecars, project-relative paths, identifier case, database suffix,
+  capability preflight, lazy import surface, metadata-open error precedence,
+  and no user-provided scan classification. Shared adapter test-kit proof
+  remains with its existing future gate.
+- Preserve pending YAML diagnostic/privacy and compiled-artifact loader
+  safety proof when policy metadata is loaded. Parser/compiler and publication
+  carryover remain assigned to their existing owners unless a current change
+  touches those surfaces; review their exact routing before implementation.
+
+These are proposed test mappings and deferral rationales, not claims that
+pending capture rows are resolved. Before phase exit, record actual evidence
+and row dispositions under the existing capture rules. Add reusable regression
+rows after executable proof for numeric consistency, exact arithmetic,
+bounded group presence/summary, renderer separation, pre-adapter blockers,
+type guards, privacy and no generated outputs as applicable.
+
 ## Definition Of Done
 
 Milestone 7.4 implementation is done only when:
@@ -674,6 +873,11 @@ Milestone 7.4 implementation is done only when:
   unclassified scan contexts return `not_executable` rather than data failures;
 - aggregate input, aggregate result, and grouped-key type mismatches fail
   clearly without silent casts;
+- approved numeric-domain and exact transport proof is recorded, no supported
+  numeric input is silently removed, inclusive tolerance and unresolved policy
+  rules are proven, and non-finite/overflow/invalid arithmetic errors are safe;
+- existing compile detail behavior and private bounded runtime rendering
+  separation are proven without new public API or typed operation fields;
 - empty aggregate behavior preserves the `NULL` versus zero distinction;
 - grouped aggregate behavior preserves group presence separately from aggregate
   value nullness;
@@ -697,6 +901,9 @@ final Milestone 7.4 matrix and confirm:
 - no unsupported aggregate metric type executes;
 - no unsupported placement falls back to another engine;
 - no unbounded grouped details are moved into Core memory;
+- all numeric-domain, policy-admission, bounded-summary and renderer
+  separation cases pass, including exact transport, BIGNUM, FLOAT/DOUBLE,
+  overflow and malformed results; no scope reduction is hidden as a fix;
 - no user-facing scan-budget setting was added;
 - no public YAML, CLI, generated artifact, run-result, evidence, or adapter API
   surface changed without its required compatibility review;
@@ -707,9 +914,12 @@ final Milestone 7.4 matrix and confirm:
 
 ## Implementation Readiness
 
-Implementation prework is ready for a later coding session.
-
-The implementation source map, responsibility map, docs drift alignment, and
-final phase-exit validation are complete for the current prework. A later
-runtime/source/test implementation session must rehydrate the required context,
-confirm no new drift, and follow this artifact before coding.
+The approved design and its acceptance requirements are documented. Runtime
+implementation remains blocked until actual numeric-domain and transport
+experiments prove current supported types, including BIGNUM, native floating
+subtraction and exact arithmetic overflow behavior, and the updated prework
+passes its phase-exit review. The later TDD implementation plan must assign
+all matrix rows and carryover obligations to concrete tests, preserve public
+renderer behavior, and rehydrate required context before coding. Do not
+interpret this planning update or passing existing CI as proof of new
+aggregate execution.

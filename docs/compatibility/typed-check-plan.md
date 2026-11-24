@@ -181,6 +181,17 @@ resolve comparison placement for its current aggregate operations before
 implementation. No execution surface may silently fall back to Python, adapter
 dialect casts, inferred mappings, or unsupported comparison behavior.
 
+The aggregate execution design uses existing explicit `sum` operations in the
+same approved context. Compiled metric tolerance remains check metadata, not a
+new operation field. The compile renderer retains its existing grouped detail
+contract; a private bounded runtime renderer returns a fixed-size grouped
+summary without exposing group rows. Core validates the result and applies
+ADR 0009, including strict inclusive tolerance in the correct numeric domain.
+Missing bounded rendering, unresolved applicable policy, and unsafe placement
+or scan conditions block execution. This design adds no operation, capability,
+public adapter method or artifact version and is not yet an implemented
+aggregate runtime compatibility claim.
+
 Rendered SQL belongs under:
 
 ```text
