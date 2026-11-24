@@ -13,8 +13,9 @@ captures:
       - tests/services/test_run_service_duckdb_execution.py::test_run_service_blocks_key_safety_same_context_duckdb_oversized_local_fixture
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: scan_safety
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
       - docs/compatibility/adapter-api.md: SQL comparison semantics for future adapter test kit
@@ -32,8 +33,9 @@ captures:
       - tests/services/test_run_service_duckdb_execution.py::test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: scan_safety
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
       - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
@@ -51,8 +53,9 @@ captures:
       - tests/services/test_run_service_duckdb_execution.py::test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: scan_safety
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
@@ -71,8 +74,9 @@ captures:
       - tests/services/test_run_service_duckdb_execution.py::test_run_service_resolves_relative_duckdb_profile_paths_from_project_root
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: scan_safety
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
       - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
@@ -91,8 +95,9 @@ captures:
       - tests/services/test_run_service_duckdb_execution.py::test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: scan_safety
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
       - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
@@ -110,8 +115,9 @@ captures:
       - tests/services/test_run_service_duckdb_execution.py::test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suffix
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: scan_safety
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
       - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
@@ -131,8 +137,9 @@ captures:
       - tests/services/test_run_service_adapter_lifecycle.py::test_run_service_blocks_key_safety_malformed_capability_before_connect
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: adapter_capabilities
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
       - docs/compatibility/capability-catalog.md: Capability catalog
@@ -155,8 +162,9 @@ captures:
       - tests/compatibility/test_python_package_exports.py::test_concrete_duckdb_exports_remain_on_concrete_package
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: python_package_imports
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Python package import surface
       - docs/compatibility/compatibility-matrix.md: recon-core package
@@ -177,11 +185,13 @@ captures:
       - tests/services/test_run_service_adapter_lifecycle.py::test_run_service_reports_adapter_connection_when_metadata_probe_cannot_open_database
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: adapter_runtime_diagnostics
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
       - gate: diagnostics_privacy_carryover
-        status: pending
+        status: deferred
         expected_suite: runtime_adapter_diagnostics
+        rationale: Current in-memory and CLI privacy is proven; generated result and later diagnostic surfaces remain runner/results and evidence work.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
       - docs/implementation/errors-and-diagnostics.md: Runtime diagnostics
@@ -200,11 +210,13 @@ captures:
       - tests/docs/test_regression_capture_docs.py::test_public_docs_do_not_reintroduce_user_provided_bounded_scan_classification
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: scan_safety_docs
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
       - gate: parser_compiler_contract_carryover
-        status: pending
+        status: deferred
         expected_suite: scan_policy_public_contracts
+        rationale: Current compiled plan and loader regression proof is retained; expanded parser/compiler contracts remain with aggregate metrics expansion.
     requirement_refs:
       - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
       - docs/implementation/testing-plan.md: Scan-budget and query-plan safety
@@ -228,14 +240,16 @@ captures:
       - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_does_not_normalize_non_numeric_nulls
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: bounded_aggregate_transport
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
       - gate: check_engine_semantics_carryover
-        status: pending
+        status: covered
         expected_suite: bounded_aggregate_transport
       - gate: diagnostics_privacy_carryover
-        status: pending
+        status: deferred
         expected_suite: runtime_adapter_diagnostics
+        rationale: Current in-memory and CLI privacy is proven; generated result and later diagnostic surfaces remain runner/results and evidence work.
     requirement_refs:
       - docs/compatibility/adapter-api.md: private aggregate runtime transport
       - docs/planning/milestone-7-4-prework.md: Private typed transport and metadata
@@ -258,14 +272,16 @@ captures:
       - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_rejects_conflicting_mixed_metadata
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: numeric_domain_transport
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
       - gate: check_engine_semantics_carryover
-        status: pending
+        status: covered
         expected_suite: numeric_domain_transport
       - gate: diagnostics_privacy_carryover
-        status: pending
+        status: deferred
         expected_suite: runtime_adapter_diagnostics
+        rationale: Current in-memory and CLI privacy is proven; generated result and later diagnostic surfaces remain runner/results and evidence work.
     requirement_refs:
       - docs/compatibility/adapter-api.md: private aggregate runtime transport
       - docs/planning/milestone-7-4-prework.md: Private typed transport and metadata
@@ -289,10 +305,11 @@ captures:
       - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_overflow_guards_do_not_read_aggregate_data
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: native_aggregate_domains
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
       - gate: check_engine_semantics_carryover
-        status: pending
+        status: covered
         expected_suite: native_aggregate_domains
     requirement_refs:
       - docs/compatibility/adapter-api.md: Aggregate execution conformance
@@ -316,10 +333,11 @@ captures:
       - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_all_null_groups
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: bounded_grouped_summary
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
       - gate: check_engine_semantics_carryover
-        status: pending
+        status: covered
         expected_suite: bounded_grouped_summary
     requirement_refs:
       - docs/compatibility/adapter-api.md: Aggregate execution conformance
@@ -337,13 +355,41 @@ captures:
       - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_runtime_renderer_does_not_replace_public_detail_renderer
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
-        status: pending
+        status: deferred
         expected_suite: aggregate_renderer_contract
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
       - gate: check_engine_semantics_carryover
-        status: pending
+        status: covered
         expected_suite: aggregate_renderer_contract
     requirement_refs:
       - docs/compatibility/adapter-api.md: Aggregate execution conformance
       - docs/planning/milestone-7-4-prework.md: Numeric and bounded result contracts
     notes: >
       The public compile renderer retains separate source and target group keys and does not expose the private summary. Private rendered steps declare existing capabilities and use the neutral bounded result contract.
+  - id: aggregate-native-service-lifecycle
+    title: Aggregate lifecycle, capability and mixed execution preserve safe boundaries
+    area: adapter-runtime
+    bug_class: adapter_capabilities
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_lifecycle_and_failure_privacy
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_invalid_capability_declaration_is_non_executable
+      - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_same_context_alias_and_mixed_checks
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: aggregate_runtime_lifecycle
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: aggregate_runtime_lifecycle
+        rationale: Current Core DuckDB tests pass; shared cross-adapter suite remains owned by adapter test kit and package split.
+      - gate: diagnostics_privacy_carryover
+        status: deferred
+        expected_suite: aggregate_runtime_lifecycle
+        rationale: Current in-memory and CLI privacy is proven; generated result and later diagnostic surfaces remain runner/results and evidence work.
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Real adapter tracking proves ordered private queries, no aggregate public fallback, cleanup, malformed capability blockers, same-context alias use and mixed row-count/key-safety/aggregate execution.

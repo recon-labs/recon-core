@@ -1074,6 +1074,83 @@ resides in the existing aggregate execution and service admission tests.
 The full CI, end-to-end lifecycle, privacy and milestone carryover review
 remain required before milestone exit.
 
+### End-to-end execution and carryover checkpoint
+
+The complete runtime and end-to-end semantic suite passed on
+`3fa1fbbaf2ea3bdaa991589892b46846baa7a842` (CI run 45504491749).
+All ten jobs passed: general Python 3.11-3.13 each ran 1,160 tests with
+324 optional-test skips; mandatory DuckDB semantic jobs each ran 1,069 tests
+without skips. DuckDB 1.0.0 and 1.3.2 each passed 983 semantic and 76 native
+probe cases, with ten explicitly deselected BIGNUM probes; 1.4.5 and 2.0.1
+each passed 983 semantic and 86 native probe cases. Ruff, mypy, pre-commit,
+and regression-capture metadata passed. The 79 new end-to-end cases include
+real adapter lifecycle, numeric behavior, bounded grouping, mixed execution,
+sanitized failures and CLI/file immutability. No general production adapter
+or generated output compatibility claim is made.
+
+The following map names current test modules and representative test names
+for all 25 acceptance dimensions. Prefixes denote files under `tests/`:
+`S` = `services/test_run_service_aggregate_admission.py`;
+`C` = `check_engine/test_aggregate_execution.py`;
+`R` = `adapters/test_duckdb_aggregate_runtime_renderer.py`;
+`T` = `adapters/test_duckdb_aggregate_transport.py`.
+Names below omit the common `test_` prefix.
+
+| Acceptance dimension | Current evidence |
+| --- | --- |
+| Current aggregate scope | S: aggregate_plan_rejects_unsupported_shape_before_profile; native_aggregate_service_numeric_outcomes_and_privacy. |
+| Typed-plan shape and runtime input | C: injected_aggregate_plan_rejects_unsupported_fields; aggregate_unknown_private_metadata_blocks_even_with_override; S: aggregate_plan_rejects_unsupported_shape_before_profile. |
+| Run boundary and compiled inputs | S: injected_public_loader_does_not_imply_verified_policy_absence; aggregate_invalid_relation_errors_before_profile; native_aggregate_named_policy_override. Existing compiled loader and service tests retain malformed-artifact coverage. |
+| Ungrouped aggregate pass/fail/error | S: native_aggregate_service_numeric_outcomes_and_privacy; native_aggregate_lifecycle_and_failure_privacy. |
+| Numeric tolerance for current sum | C: absolute_tolerance_is_context_independent; invalid_explicit_tolerance_agrees_with_compiler; aggregate_scalar_numeric_comparison; S: native_aggregate_named_policy_override; invalid_aggregate_tolerance_blocks_before_profile. |
+| Ungrouped empty aggregate semantics | S: native_aggregate_service_null_and_empty_outcomes; C: aggregate_scalar_nulls_and_malformed_results. |
+| Grouped aggregate pass/fail/error | S: native_aggregate_service_numeric_outcomes_and_privacy; native_grouped_service_distinguishes_absence_from_null; native_aggregate_lifecycle_and_failure_privacy. |
+| Group presence versus aggregate nullness | S: native_grouped_service_distinguishes_absence_from_null; native_aggregate_service_null_and_empty_outcomes; R: runtime_renderer_all_null_groups. |
+| Grouped no-unbounded-fetch rule | S: native_grouped_service_high_cardinality_remains_private; native_aggregate_lifecycle_and_failure_privacy; T: private_transport_preserves_complete_nine_field_envelope. |
+| Aggregate input and result type mismatch | R: runtime_renderer_input_guards_fail_before_sum_binding; C: aggregate_scalar_invalid_metadata; aggregate_grouped_invalid_metadata; S: native_aggregate_lifecycle_and_failure_privacy. |
+| Exact numeric aggregate behavior | S: native_aggregate_service_exact_overflow; native_aggregate_service_numeric_outcomes_and_privacy; C: aggregate_comparison_ignores_decimal_context_limits. |
+| Grouped key type mismatch | S: native_grouped_service_rejects_incompatible_key_types; R: runtime_renderer_empty_group_key_mismatch. |
+| Execution placement and no fallback | S: aggregate_service_blocks_cross_context_before_adapter_setup; aggregate_query_endpoint_is_not_executable_before_profile; C: aggregate_runtime_rejects_unproven_private_collaborators; aggregate_reserved_metadata_precedes_rendering_and_policy_blockers. |
+| Adapter capability and lifecycle preflight | S: aggregate_service_requires_capabilities_before_connect; aggregate_capability_blocker_preserves_unrelated_row_count; aggregate_invalid_capability_declaration_is_non_executable; native_aggregate_lifecycle_and_failure_privacy. |
+| Scan-budget and query-plan safety | S: aggregate_scan_safety_blocks_before_adapter_setup; C: aggregate_runtime_preserves_scan_blocker; aggregate_runtime_rejects_malformed_scan_approval. Existing shared key-safety guard tests retain path, suffix, identifier and metadata-open cases. |
+| Diagnostics and source/target privacy | S: aggregate_factory_diagnostics_do_not_publish_private_data; aggregate_unknown_required_capability_is_sanitized; native_aggregate_lifecycle_and_failure_privacy; native_aggregate_cli_privacy_and_artifact_immutability. |
+| Public output and generated artifacts | S: native_aggregate_cli_privacy_and_artifact_immutability; native_grouped_service_high_cardinality_remains_private. |
+| Result aggregation and mixed outcomes | S: native_aggregate_same_context_alias_and_mixed_checks; aggregate_capability_blocker_preserves_unrelated_row_count; mixed_run_preserves_aggregate_policy_error_and_row_count. Existing engine status aggregation tests remain authoritative. |
+| Future adapter/test-kit and carryover coverage | Capture rows and dispositions below; future shared conformance is explicitly deferred, not claimed covered. |
+| Exact numeric domain and transport | S: native_aggregate_service_arbitrary_integer_availability; native_aggregate_service_exact_overflow; T: private_transport_large_typed_integer_ignores_decimal_context; R: runtime_renderer_native_domains. |
+| Native floating-point domain | S: native_aggregate_service_numeric_outcomes_and_privacy; R: runtime_renderer_native_float_subtraction_regression; C: aggregate_scalar_invalid_arithmetic; aggregate_grouped_nonfinite_extrema. |
+| Bounded grouped summary contract | C: aggregate_grouped_comparison; aggregate_grouped_invalid_summary; R: runtime_renderer_full_union_is_bounded; T: private_transport_rejects_invalid_envelope_without_leaking_values. |
+| Compile and runtime renderer separation | R: runtime_renderer_does_not_replace_public_detail_renderer; C: aggregate_runtime_executes_only_ordered_private_queries; aggregate_runtime_rejects_duplicate_rendered_capabilities. |
+| Representative engine versions | CI 45504491749 version matrix; S: native_aggregate_service_arbitrary_integer_availability; R: runtime_renderer_arbitrary_integer_version_availability. |
+| Private typed transport and metadata | T: private_transport_resolves_legacy_logical_metadata; private_transport_rejects_conflicting_mixed_metadata; private_transport_real_driver_rejects_multiple_rows; C: public_execution_context_fields_remain_unchanged. |
+
+Current Core check-engine carryover is covered by the existing key-safety
+captures and aggregate admission, comparison, routing and end-to-end
+captures. The two key-safety shape/endpoint precedence rows retain their
+original proof and have aggregate counterparts in
+`aggregate-admission-typed-plan-boundary` and
+`aggregate-admission-endpoint-precedence`. Duplicate-key exclusion and
+empty grain-key rejection remain row-level semantics; nullable aggregate
+group keys and ungrouped sums do not acquire grain prerequisites.
+The original prerequisite rows retain their proof, with aggregate
+prerequisite coverage in `aggregate-runtime-capability-isolation`.
+
+Adapter-runtime rows retain their current Core evidence, including shared
+scan guards, metadata diagnostics, lazy imports and private transport and
+renderer conformance. Future adapter test-kit obligations are deferred with
+rationale, not marked covered by Core-only tests. Diagnostic/YAML privacy
+rows retain their current proof; future runner/results privacy is deferred.
+Parser/compiler carryover linked to these rows remains deferred to its
+existing expansion owner. Unrelated artifact-publication and CLI/parser
+captures remain pending for their owning surfaces; the new aggregate
+CLI/immutability capture explicitly defers final runner outputs. No generated
+output or new public capability has been introduced.
+
+regression_capture_decision: required.
+
+Final branch-wide advisory, cumulative public-contract review, and final
+phase-exit decision remain required before milestone exit.
+
 ## Implementation Readiness
 
 The approved design and its acceptance requirements are documented.

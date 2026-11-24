@@ -673,6 +673,7 @@ def _assert_native_aggregate_result(
         ),
     ],
 )
+@pytest.mark.regression_capture("aggregate-native-service-numeric-semantics")
 def test_native_aggregate_service_numeric_outcomes_and_privacy(
     tmp_path: Path,
     grouped: bool,
@@ -718,6 +719,7 @@ def test_native_aggregate_service_numeric_outcomes_and_privacy(
         ("0::INTEGER", False, "NULL::INTEGER", True, CheckStatus.FAIL),
     ],
 )
+@pytest.mark.regression_capture("aggregate-native-service-numeric-semantics")
 def test_native_aggregate_service_null_and_empty_outcomes(
     tmp_path: Path,
     grouped: bool,
@@ -739,6 +741,7 @@ def test_native_aggregate_service_null_and_empty_outcomes(
 
 
 @pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.regression_capture("aggregate-native-service-group-presence")
 def test_native_grouped_service_distinguishes_absence_from_null(
     tmp_path: Path, reverse: bool
 ) -> None:
@@ -758,6 +761,7 @@ def test_native_grouped_service_distinguishes_absence_from_null(
 
 
 @pytest.mark.parametrize("empty", [False, True])
+@pytest.mark.regression_capture("aggregate-native-service-group-presence")
 def test_native_grouped_service_rejects_incompatible_key_types(tmp_path: Path, empty: bool) -> None:
     _write_native_aggregate_inputs(
         tmp_path,
@@ -770,6 +774,7 @@ def test_native_grouped_service_rejects_incompatible_key_types(tmp_path: Path, e
     _assert_native_aggregate_result(tmp_path, engine, CheckStatus.ERROR, result)
 
 
+@pytest.mark.regression_capture("aggregate-native-service-group-presence")
 def test_native_grouped_service_high_cardinality_remains_private(tmp_path: Path) -> None:
     source = (
         "select 'private-group-key-' || i::varchar as customer_id, "
@@ -862,6 +867,7 @@ def _tracking_registry(factory: _TrackingAggregateFactory) -> AdapterRegistry:
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("failure", [None, "query", "invalid_result", "connect", "close", "setup"])
+@pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_native_aggregate_lifecycle_and_failure_privacy(
     tmp_path: Path, grouped: bool, failure: str | None, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -918,6 +924,7 @@ def test_native_aggregate_lifecycle_and_failure_privacy(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_aggregate_invalid_capability_declaration_is_non_executable(
     tmp_path: Path, grouped: bool
 ) -> None:
@@ -947,6 +954,7 @@ def test_aggregate_invalid_capability_declaration_is_non_executable(
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("override", [None, 1])
+@pytest.mark.regression_capture("aggregate-native-service-numeric-semantics")
 def test_native_aggregate_named_policy_override(
     tmp_path: Path, grouped: bool, override: int | None
 ) -> None:
@@ -984,6 +992,7 @@ def test_native_aggregate_named_policy_override(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_native_aggregate_same_context_alias_and_mixed_checks(
     tmp_path: Path, grouped: bool
 ) -> None:
@@ -1028,6 +1037,7 @@ def test_native_aggregate_same_context_alias_and_mixed_checks(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-service-output-privacy")
 def test_aggregate_factory_diagnostics_do_not_publish_private_data(
     tmp_path: Path, grouped: bool
 ) -> None:
@@ -1062,6 +1072,7 @@ def test_aggregate_factory_diagnostics_do_not_publish_private_data(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-service-output-privacy")
 def test_aggregate_unknown_required_capability_is_sanitized(tmp_path: Path, grouped: bool) -> None:
     _write_native_aggregate_inputs(
         tmp_path,
@@ -1091,6 +1102,7 @@ def test_aggregate_unknown_required_capability_is_sanitized(tmp_path: Path, grou
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("kind", ["HUGEINT", "DECIMAL(38,0)"])
 @pytest.mark.parametrize("operation", ["sum", "difference"])
+@pytest.mark.regression_capture("aggregate-native-service-numeric-semantics")
 def test_native_aggregate_service_exact_overflow(
     tmp_path: Path, grouped: bool, kind: str, operation: str
 ) -> None:
@@ -1113,6 +1125,7 @@ def test_native_aggregate_service_exact_overflow(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-native-service-numeric-semantics")
 def test_native_aggregate_service_arbitrary_integer_availability(
     tmp_path: Path, grouped: bool
 ) -> None:
@@ -1150,6 +1163,7 @@ def test_native_aggregate_service_arbitrary_integer_availability(
     ("target_value", "exit_code"),
     [("123456789012345::BIGINT", 0), ("1::BIGINT", 1), ("'NaN'::DOUBLE", 3)],
 )
+@pytest.mark.regression_capture("aggregate-service-output-privacy")
 def test_native_aggregate_cli_privacy_and_artifact_immutability(
     tmp_path: Path,
     grouped: bool,

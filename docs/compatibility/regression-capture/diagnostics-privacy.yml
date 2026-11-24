@@ -13,8 +13,9 @@ captures:
       - tests/profiles/test_loader.py::test_load_selected_profile_sanitizes_invalid_yaml_diagnostics
     carryover_gates:
       - gate: diagnostics_privacy_carryover
-        status: pending
+        status: deferred
         expected_suite: diagnostic_sanitization
+        rationale: Current in-memory and CLI privacy is proven; generated result and later diagnostic surfaces remain runner/results and evidence work.
     requirement_refs:
       - docs/implementation/errors-and-diagnostics.md: Low-level exception diagnostic sanitization
       - docs/compatibility/public-contract-inventory.md: Low-level exception diagnostic sanitization
@@ -35,8 +36,9 @@ captures:
       - tests/profiles/test_loader.py::test_load_selected_profile_rejects_unhashable_yaml_mapping_key_without_leak
     carryover_gates:
       - gate: diagnostics_privacy_carryover
-        status: pending
+        status: deferred
         expected_suite: diagnostic_sanitization
+        rationale: Current in-memory and CLI privacy is proven; generated result and later diagnostic surfaces remain runner/results and evidence work.
     requirement_refs:
       - docs/implementation/errors-and-diagnostics.md: Parse diagnostics
       - docs/implementation/errors-and-diagnostics.md: Configuration diagnostics
@@ -46,3 +48,34 @@ captures:
       contain credentials or rendered values. Duplicate-key and invalid-key
       protections must not leak authored keys, profile targets, credentials, or
       source/target snippets through diagnostics.
+  - id: aggregate-service-output-privacy
+    title: Aggregate setup, capability and CLI diagnostics suppress private data
+    area: diagnostics-privacy
+    bug_class: diagnostics
+    owner_surface: source_target_privacy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_factory_diagnostics_do_not_publish_private_data
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_unknown_required_capability_is_sanitized
+      - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_cli_privacy_and_artifact_immutability
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: aggregate_result_privacy
+      - gate: diagnostics_privacy_carryover
+        status: deferred
+        expected_suite: aggregate_result_privacy
+        rationale: Current in-memory and CLI privacy is proven; generated result and later diagnostic surfaces remain runner/results and evidence work.
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: aggregate_result_privacy
+        rationale: Current run preserves existing files and writes no outputs; generated run-result publication remains runner/results work.
+      - gate: cli_behavior_carryover
+        status: deferred
+        expected_suite: aggregate_result_privacy
+        rationale: Current CLI outcomes are proven; final terminal summary and result-artifact exit-code contract remain runner/results work.
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Fixed diagnostic categories suppress arbitrary adapter fields and unknown capability names. Actual CLI pass/fail/error output and logs omit raw data and preserve all existing project files without generated runtime outputs.
