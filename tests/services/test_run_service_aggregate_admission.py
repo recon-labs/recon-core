@@ -454,3 +454,91 @@ def test_aggregate_service_executes_bounded_same_context(tmp_path: Path, grouped
     assert result.message == "Run completed with passing checks."
     assert "RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED" in {d.code for d in result.diagnostics}
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_aggregate_missing_prerequisite_blocks_before_profile(tmp_path: Path, grouped: bool) -> None:
+    check = _aggregate_check(grouped=grouped)
+    check["prerequisites"] = ["check.ecommerce_recon.customer_revenue.missing"]
+    result = _run_without_profile(tmp_path, check)
+    assert result.message == "Run completed with blocked checks."
+    assert "RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE" in {d.code for d in result.diagnostics}
+
+
+def _write_bounded_aggregate_inputs(tmp_path: Path, checks: list[dict[str, object]]) -> None:
+    duckdb = _duckdb_module()
+    database = tmp_path / "warehouse.duckdb"
+    connection = duckdb.connect(str(database))
+    try:
+        connection.execute("create schema qa")
+        connection.execute(
+            "create table qa.source_customers(customer_id integer, month integer, revenue integer)"
+        )
+        connection.execute("create table qa.target_customers as select * from qa.source_customers")
+    finally:
+        connection.close()
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    write_compiled_checks(tmp_path, checks=checks)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_aggregate_service_missing_private_executor_does_not_connect(
+    tmp_path: Path, grouped: bool
+) -> None:
+    _write_bounded_aggregate_inputs(tmp_path, [_aggregate_check(grouped=grouped)])
+    operation = "grouped_aggregate" if grouped else "aggregate"
+    factory = RecordingDuckDbFactory(
+        capabilities=AdapterCapabilities(
+            {operation: CapabilitySupport.FULL, "cte_support": CapabilitySupport.FULL}
+        )
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert "RC_ADAPTER_RENDERER_METADATA_INVALID" in {d.code for d in result.diagnostics}
+    assert len(factory.adapters) == 1
+    assert factory.adapters[0].connect_count == 0
+    assert factory.adapters[0].queries == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize(
+    "support",
+    [
+        CapabilitySupport.UNKNOWN,
+        CapabilitySupport.UNSUPPORTED,
+        CapabilitySupport.NOT_IMPLEMENTED,
+        CapabilitySupport.VERSIONED,
+        "full",
+    ],
+)
+def test_aggregate_capability_blocker_preserves_unrelated_row_count(
+    tmp_path: Path, grouped: bool, support: object
+) -> None:
+    _write_bounded_aggregate_inputs(
+        tmp_path,
+        [_compiled_check_payload(operations=row_count_plan()), _aggregate_check(grouped=grouped)],
+    )
+    operation = "grouped_aggregate" if grouped else "aggregate"
+    factory = RecordingDuckDbFactory(
+        capabilities=AdapterCapabilities(
+            {
+                operation: support,
+                "row_count": CapabilitySupport.FULL,
+                "cte_support": CapabilitySupport.FULL,
+            }
+        )
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert result.message == "Run completed with non-executable checks."
+    assert "RC_ADAPTER_CAPABILITY_UNSUPPORTED" in {d.code for d in result.diagnostics}
+    assert len(factory.adapters) == 1
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == adapter.close_count == 1
+    assert len(adapter.queries) == 1
+    _assert_no_runtime_outputs(tmp_path)

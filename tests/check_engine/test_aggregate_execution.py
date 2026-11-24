@@ -38,6 +38,7 @@ from recon_core.check_engine.aggregate import (
 from recon_core.check_engine.engine import _AggregateExecutionContext
 from recon_core.check_engine.scan_budget import (
     ScanBudgetContext,
+    ScanBudgetDecision,
     ScanEstimateState,
     ScanExecutionEnvironment,
     classify_scan_budget,
@@ -844,17 +845,20 @@ def _route(
     renderer: object,
     *,
     tolerance: object = 0,
+    scan_decision: ScanBudgetDecision | None = None,
 ) -> CheckResult:
     check = _compiled_aggregate(grouped=grouped, tolerance=tolerance)
     contract = _contract(tmp_path)
     connection = ConnectionConfig(name="warehouse", type="duckdb")
-    decision = classify_scan_budget(
-        ScanBudgetContext(
-            environment=ScanExecutionEnvironment.LOCAL_DEV,
-            relation_backed=True,
-            bounded=True,
+    decision = scan_decision
+    if decision is None:
+        decision = classify_scan_budget(
+            ScanBudgetContext(
+                environment=ScanExecutionEnvironment.LOCAL_DEV,
+                relation_backed=True,
+                bounded=True,
+            )
         )
-    )
     # Explicit private collaborator shape; no public context expansion.
     context = SimpleNamespace(
         contracts_by_name={contract.contract_name: contract},
@@ -950,3 +954,53 @@ def test_aggregate_runtime_stops_before_final_query_on_invalid_guard(
     assert len(adapter.calls) == ((3 if grouped else 2) if broken == "domain" else 1)
     assert not any("result" in query for query, _ in adapter.calls)
     assert "private-query-error" not in repr(result.to_dict())
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("malformed", ["truthy", "missing_proof", "contradictory"])
+def test_aggregate_runtime_rejects_malformed_scan_approval(
+    tmp_path: Path, grouped: bool, malformed: str
+) -> None:
+    decision = classify_scan_budget(
+        ScanBudgetContext(
+            environment=ScanExecutionEnvironment.LOCAL_DEV,
+            relation_backed=True,
+            bounded=True,
+        )
+    )
+    if malformed == "truthy":
+        decision = replace(decision, allowed="yes")
+    elif malformed == "missing_proof":
+        decision = replace(decision, diagnostics=())
+    else:
+        diagnostic = Diagnostic(
+            code="RC_RUNTIME_SCAN_BUDGET_EXCEEDED",
+            severity=DiagnosticSeverity.ERROR,
+            message="private-scan-diagnostic",
+        )
+        decision = replace(decision, diagnostics=(*decision.diagnostics, diagnostic))
+    adapter = _RoutingAdapter(
+        ConnectionConfig(name="warehouse", type="duckdb"), _routing_results(grouped, _I)
+    )
+    renderer = _RoutingRenderer(_routing_plan(grouped))
+    result = _route(tmp_path, grouped, adapter, renderer, tolerance=1, scan_decision=decision)
+    assert result.status is CheckStatus.NOT_EXECUTABLE
+    assert not result.executed
+    assert adapter.calls == []
+    assert renderer.calls == 0
+    assert "private-scan-diagnostic" not in repr(result.to_dict())
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_aggregate_runtime_rejects_duplicate_rendered_capabilities(
+    tmp_path: Path, grouped: bool
+) -> None:
+    plan = _routing_plan(grouped)
+    plan = replace(plan, required_capabilities=(*plan.required_capabilities, "cte_support"))
+    adapter = _RoutingAdapter(
+        ConnectionConfig(name="warehouse", type="duckdb"), _routing_results(grouped, _I)
+    )
+    result = _route(tmp_path, grouped, adapter, _RoutingRenderer(plan), tolerance=1)
+    assert result.status is CheckStatus.ERROR
+    assert result.diagnostics[-1].code == "RC_ADAPTER_RENDERER_METADATA_INVALID"
+    assert adapter.calls == []
