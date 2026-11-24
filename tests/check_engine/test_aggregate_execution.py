@@ -22,8 +22,11 @@ from recon_core.artifacts import (
 )
 from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
 from recon_core.check_engine import CheckEngine, CheckExecutionContext, CheckResult, CheckStatus
-from recon_core.check_engine import aggregate as aggregate_module
-from recon_core.check_engine.aggregate import aggregate_admission, is_supported_aggregate_plan_shape
+from recon_core.check_engine.aggregate import (
+    _compare_aggregate_result,
+    aggregate_admission,
+    is_supported_aggregate_plan_shape,
+)
 from recon_core.check_engine.engine import _AggregateExecutionContext
 from recon_core.compiler.policies import validate_tolerance
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -320,13 +323,11 @@ def _compare(
     columns: tuple[str, ...] | None = None,
     domains: tuple[_NumericDomain, ...] | None = None,
 ) -> CheckResult:
-    compare = getattr(aggregate_module, "_compare_aggregate_result", None)
-    assert compare is not None, "Private Core aggregate comparator is not implemented."
     if columns is None:
         columns = _SUMMARY_COLUMNS if grouped else _SCALAR_COLUMNS
     if domains is None:
         domains = (_I,) * 7 + (domain,) * 2 if grouped else (domain,) * 3
-    result = compare(
+    result = _compare_aggregate_result(
         _compiled_aggregate(grouped=grouped),
         _contract(tmp_path),
         _AggregateQueryResult(columns=columns, domains=domains, row=row),
@@ -348,7 +349,7 @@ def _compare(
         assert result.to_dict()[key] is None
     assert result.artifact_refs == result.sink_refs == ()
     if result.status is CheckStatus.ERROR:
-        assert result.diagnostics
+        assert result.diagnostics[-1].code == "RC_RUNTIME_AGGREGATE_RESULT_INVALID"
     return result
 
 
@@ -386,6 +387,7 @@ def _compare(
         (_F, (1e308, 0.0, 1e308), "1e308", CheckStatus.PASS),
     ],
 )
+@pytest.mark.regression_capture("aggregate-core-numeric-comparison")
 def test_aggregate_scalar_numeric_comparison(
     tmp_path: Path,
     domain: _NumericDomain,
@@ -415,6 +417,7 @@ def test_aggregate_scalar_numeric_comparison(
         ((1, 1, 0, 0), CheckStatus.ERROR),
     ],
 )
+@pytest.mark.regression_capture("aggregate-core-numeric-comparison")
 def test_aggregate_scalar_nulls_and_malformed_results(
     tmp_path: Path, row: tuple[object, ...], status: CheckStatus
 ) -> None:
@@ -435,6 +438,7 @@ def test_aggregate_scalar_nulls_and_malformed_results(
         (_D, (Decimal(1), 1, Decimal(0))),
     ],
 )
+@pytest.mark.regression_capture("aggregate-core-numeric-comparison")
 def test_aggregate_scalar_invalid_arithmetic(
     tmp_path: Path, domain: _NumericDomain, row: tuple[object, ...]
 ) -> None:
@@ -451,6 +455,7 @@ def test_aggregate_scalar_invalid_arithmetic(
         (_SCALAR_COLUMNS, ("exact_integer",) * 3),
     ],
 )
+@pytest.mark.regression_capture("aggregate-core-numeric-comparison")
 def test_aggregate_scalar_invalid_metadata(
     tmp_path: Path, columns: tuple[str, ...], domains: tuple[_NumericDomain, ...]
 ) -> None:
@@ -497,6 +502,7 @@ def test_aggregate_scalar_invalid_metadata(
         (_F, (2, 0, 0, 0, 0, 1, 1, 0.0, 0.0), "0", CheckStatus.ERROR),
     ],
 )
+@pytest.mark.regression_capture("aggregate-core-grouped-summary")
 def test_aggregate_grouped_comparison(
     tmp_path: Path,
     domain: _NumericDomain,
@@ -529,11 +535,13 @@ def test_aggregate_grouped_comparison(
         (0, 0, 0, 0, 0, 0, 0, None),
     ],
 )
+@pytest.mark.regression_capture("aggregate-core-grouped-summary")
 def test_aggregate_grouped_invalid_summary(tmp_path: Path, row: tuple[object, ...]) -> None:
     assert _compare(tmp_path, row, _I, grouped=True).status is CheckStatus.ERROR
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+@pytest.mark.regression_capture("aggregate-core-grouped-summary")
 def test_aggregate_grouped_nonfinite_extrema(tmp_path: Path, value: float) -> None:
     row = (2, 1, 0, 0, 0, 1, 0, value, value)
     assert _compare(tmp_path, row, _F, grouped=True).status is CheckStatus.ERROR
@@ -548,6 +556,7 @@ def test_aggregate_grouped_nonfinite_extrema(tmp_path: Path, value: float) -> No
         (_SUMMARY_COLUMNS, (_I,) * 8),
     ],
 )
+@pytest.mark.regression_capture("aggregate-core-grouped-summary")
 def test_aggregate_grouped_invalid_metadata(
     tmp_path: Path, columns: tuple[str, ...], domains: tuple[_NumericDomain, ...]
 ) -> None:
@@ -559,13 +568,100 @@ def test_aggregate_grouped_invalid_metadata(
 
 
 @pytest.mark.parametrize("threshold", [Decimal("-1"), Decimal("NaN"), Decimal("Infinity")])
+@pytest.mark.regression_capture("aggregate-core-numeric-comparison")
 def test_aggregate_invalid_admitted_threshold(tmp_path: Path, threshold: Decimal) -> None:
     assert _compare(tmp_path, (0, 0, 0), _I, threshold).status is CheckStatus.ERROR
 
 
+@pytest.mark.regression_capture("aggregate-core-result-privacy")
 def test_aggregate_comparison_diagnostic_does_not_expose_private_values(tmp_path: Path) -> None:
     private = "private-aggregate-value-73864"
     result = _compare(tmp_path, (private, 0, 0), _I)
     assert result.status is CheckStatus.ERROR
     assert private not in repr(result)
     assert private not in repr(result.to_dict())
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-core-numeric-comparison")
+def test_aggregate_comparison_ignores_decimal_context_limits(
+    tmp_path: Path, grouped: bool
+) -> None:
+    from decimal import Inexact, Overflow, Rounded, Underflow
+
+    difference = Decimal("-999999999999999999.000000000000000001")
+    if grouped:
+        row = (1, 0, 0, 0, 0, 1, 0, difference, difference)
+    else:
+        row = (difference, Decimal(0), difference)
+    with localcontext() as context:
+        context.prec = 1
+        context.Emax = 2
+        context.Emin = -2
+        for signal in (Inexact, Overflow, Rounded, Underflow):
+            context.traps[signal] = True
+        assert (
+            _compare(tmp_path, row, _D, difference.copy_abs(), grouped=grouped).status
+            is CheckStatus.PASS
+        )
+        assert (
+            _compare(tmp_path, row, _D, Decimal("999999999999999999"), grouped=grouped).status
+            is CheckStatus.FAIL
+        )
+        assert not any(context.flags.values())
+
+
+@pytest.mark.parametrize(
+    ("result", "domain", "threshold"),
+    [
+        (None, _I, Decimal(0)),
+        ({"row": (1, 1, 0)}, _I, Decimal(0)),
+        (_AggregateQueryResult(_SCALAR_COLUMNS, (_I,) * 3, [1, 1, 0]), _I, Decimal(0)),
+        (_AggregateQueryResult(list(_SCALAR_COLUMNS), (_I,) * 3, (1, 1, 0)), _I, Decimal(0)),
+        (_AggregateQueryResult(_SCALAR_COLUMNS, [_I] * 3, (1, 1, 0)), _I, Decimal(0)),
+        (_AggregateQueryResult(_SCALAR_COLUMNS, (_I,) * 3, ((1, 1, 0),)), _I, Decimal(0)),
+        (_AggregateQueryResult(_SCALAR_COLUMNS, (_I,) * 3, (1, 1, 0)), "exact_integer", Decimal(0)),
+        (_AggregateQueryResult(_SCALAR_COLUMNS, (_I,) * 3, (1, 1, 0)), None, Decimal(0)),
+        (_AggregateQueryResult(_SCALAR_COLUMNS, (_I,) * 3, (1, 1, 0)), _I, True),
+        (_AggregateQueryResult(_SCALAR_COLUMNS, (_I,) * 3, (1, 1, 0)), _I, 0),
+    ],
+)
+@pytest.mark.regression_capture("aggregate-core-numeric-comparison")
+def test_aggregate_comparison_rejects_untyped_envelope(
+    tmp_path: Path, result: object, domain: object, threshold: object
+) -> None:
+    outcome = _compare_aggregate_result(
+        _compiled_aggregate(), _contract(tmp_path), result, domain=domain, tolerance=threshold
+    )
+    assert outcome.status is CheckStatus.ERROR
+    assert not outcome.executed
+    assert outcome.diagnostics[-1].code == "RC_RUNTIME_AGGREGATE_RESULT_INVALID"
+
+
+@pytest.mark.parametrize("value", [Decimal("NaN"), Decimal("sNaN"), Decimal("Infinity")])
+@pytest.mark.regression_capture("aggregate-core-grouped-summary")
+def test_aggregate_grouped_decimal_nonfinite_extrema(tmp_path: Path, value: Decimal) -> None:
+    row = (2, 1, 0, 0, 0, 1, 0, value, value)
+    assert _compare(tmp_path, row, _D, grouped=True).status is CheckStatus.ERROR
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("status", [CheckStatus.PASS, CheckStatus.FAIL, CheckStatus.ERROR])
+@pytest.mark.regression_capture("aggregate-core-result-privacy")
+def test_aggregate_comparison_does_not_publish_numeric_evidence(
+    tmp_path: Path, grouped: bool, status: CheckStatus
+) -> None:
+    private = 739185729438765
+    threshold = Decimal(private) if status is CheckStatus.PASS else Decimal(0)
+    if grouped:
+        row = (private, 0, 0, private - 1, 0, 1, 0, private, private)
+        if status is CheckStatus.ERROR:
+            row = (*row[:6], 1, private, private)
+    else:
+        row = (private, 0, private)
+        if status is CheckStatus.ERROR:
+            row = (private, 0, private + 1)
+    result = _compare(tmp_path, row, _I, threshold, grouped=grouped)
+    assert result.status is status
+    assert str(private) not in repr(result)
+    assert str(private) not in repr(result.to_dict())

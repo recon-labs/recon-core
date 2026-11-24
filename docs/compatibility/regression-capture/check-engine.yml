@@ -202,3 +202,68 @@ captures:
       - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
     notes: >
       Unsupported query endpoints and malformed relation names return specific safe diagnostics before aggregate-only profile and adapter work.
+  - id: aggregate-core-numeric-comparison
+    title: Exact and native numeric aggregate comparison preserves tolerance
+    area: check-engine
+    bug_class: numeric_policy
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_scalar_numeric_comparison
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_scalar_nulls_and_malformed_results
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_scalar_invalid_arithmetic
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_scalar_invalid_metadata
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_invalid_admitted_threshold
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_comparison_ignores_decimal_context_limits
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_comparison_rejects_untyped_envelope
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: numeric_comparison
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Core validates native signed subtraction and uses exact, context-independent comparison with an inclusive absolute threshold. Null shapes, non-finite values, and malformed domain evidence cannot pass.
+  - id: aggregate-core-grouped-summary
+    title: Grouped aggregate summary classification validates the complete partition
+    area: check-engine
+    bug_class: result_shape
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_grouped_comparison
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_grouped_invalid_summary
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_grouped_nonfinite_extrema
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_grouped_invalid_metadata
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_grouped_decimal_nonfinite_extrema
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: grouped_summary
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Counts and extrema must prove a complete exclusive partition. Invalid arithmetic and contradictory evidence outrank data failures; missing groups and null mismatches fail independently of tolerance.
+  - id: aggregate-core-result-privacy
+    title: Aggregate comparison outcomes suppress private numeric evidence
+    area: check-engine
+    bug_class: source_target_privacy
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_comparison_diagnostic_does_not_expose_private_values
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_comparison_does_not_publish_numeric_evidence
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: aggregate_result_privacy
+      - gate: diagnostics_privacy_carryover
+        status: pending
+        expected_suite: source_target_privacy
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Scalar and grouped outcomes expose status and safe diagnostics only. Raw values, counts, tolerance and extrema remain private.

@@ -1039,8 +1039,25 @@ precede mismatch categories. The final query returns one bounded summary
 row with signed extrema. Public compile detail output remains unchanged.
 Native renderer coverage resides in
 `tests/adapters/test_duckdb_aggregate_runtime_renderer.py`.
-Core outcome comparison, runtime candidate selection, scan-budget checks,
-and service lifecycle integration remain required implementation steps.
+Runtime candidate selection, scan-budget checks, and service lifecycle
+integration remain required implementation steps.
+
+### Private Core comparison implementation checkpoint
+
+Core consumes the typed scalar or complete grouped summary contract and the
+admitted absolute tolerance. It validates numeric domains, exact result
+shape, scalar subtraction and null consistency, grouped counts and extrema,
+and finite numeric evidence before classifying data differences. Exact
+integer and decimal subtraction and magnitude comparison are independent
+of ambient decimal context; native floating-point subtraction and its
+canonical computed magnitude preserve the configured threshold without an
+implicit epsilon. Invalid or contradictory evidence produces a sanitized
+error. Valid outcomes expose no private numeric evidence.
+Focused tests reside in `tests/check_engine/test_aggregate_execution.py`;
+regression capture rows preserve numeric, grouped and privacy cases for
+later execution and shared-conformance review. This helper does not yet
+enable aggregate execution; runtime routing and end-to-end lifecycle,
+scan-safety and privacy proof remain required.
 
 ## Implementation Readiness
 

@@ -204,7 +204,7 @@ def aggregate_admission(
     return _AggregateAdmission(tolerance=tolerance if tolerance is not None else Decimal(0))
 
 
-class _InvalidAggregateResult(ValueError):
+class _InvalidAggregateResultError(ValueError):
     """The bounded evidence cannot establish a trustworthy outcome."""
 
 
@@ -215,7 +215,7 @@ def _validated_number(value: object, domain: _NumericDomain) -> int | Decimal | 
         return value
     if domain is _NumericDomain.NATIVE_FLOAT and type(value) is float and math.isfinite(value):
         return value
-    raise _InvalidAggregateResult
+    raise _InvalidAggregateResultError
 
 
 def _magnitude(value: int | Decimal | float) -> int | Decimal:
@@ -235,17 +235,17 @@ def _scalar_comparison(
     )
     if source is None or target is None:
         if difference is not None:
-            raise _InvalidAggregateResult
+            raise _InvalidAggregateResultError
         return CheckStatus.PASS if source is target else CheckStatus.FAIL
     if difference is None:
-        raise _InvalidAggregateResult
+        raise _InvalidAggregateResultError
     if domain is _NumericDomain.NATIVE_FLOAT:
         assert isinstance(source, float) and isinstance(target, float)
         if source - target != difference:
-            raise _InvalidAggregateResult
+            raise _InvalidAggregateResultError
     elif Fraction(source) - Fraction(target) != Fraction(difference):
         # Rational subtraction is exact even under a low ambient Decimal precision.
-        raise _InvalidAggregateResult
+        raise _InvalidAggregateResultError
     return CheckStatus.PASS if _magnitude(difference) <= tolerance else CheckStatus.FAIL
 
 
@@ -255,26 +255,26 @@ def _grouped_comparison(
     counts: list[int] = []
     for value in row[:7]:
         if type(value) is not int or value < 0:
-            raise _InvalidAggregateResult
+            raise _InvalidAggregateResultError
         counts.append(value)
     total, source_only, target_only, both_null, null_mismatch, valid, invalid = counts
     if total != source_only + target_only + both_null + null_mismatch + valid + invalid:
-        raise _InvalidAggregateResult
+        raise _InvalidAggregateResultError
 
     minimum, maximum = row[7:]
     if valid == 0:
         if minimum is not None or maximum is not None:
-            raise _InvalidAggregateResult
+            raise _InvalidAggregateResultError
         within_tolerance = True
     else:
         low = _validated_number(minimum, domain)
         high = _validated_number(maximum, domain)
         if low > high or (valid == 1 and low != high):
-            raise _InvalidAggregateResult
+            raise _InvalidAggregateResultError
         within_tolerance = max(_magnitude(low), _magnitude(high)) <= tolerance
 
     if invalid:
-        raise _InvalidAggregateResult
+        raise _InvalidAggregateResultError
     if source_only or target_only or null_mismatch or not within_tolerance:
         return CheckStatus.FAIL
     return CheckStatus.PASS
@@ -301,6 +301,7 @@ def _compare_aggregate_result(
             or tolerance < 0
             or type(result) is not _AggregateQueryResult
             or type(result.columns) is not tuple
+            or any(type(column) is not str for column in result.columns)
             or result.columns != columns
             or type(result.domains) is not tuple
             or len(result.domains) != len(domains)
@@ -311,10 +312,10 @@ def _compare_aggregate_result(
             or type(result.row) is not tuple
             or len(result.row) != len(columns)
         ):
-            raise _InvalidAggregateResult
+            raise _InvalidAggregateResultError
         compare = _grouped_comparison if grouped else _scalar_comparison
         status = compare(result.row, domain, tolerance)
-    except _InvalidAggregateResult:
+    except _InvalidAggregateResultError:
         message = "Aggregate execution returned invalid or untrustworthy numeric evidence."
         diagnostic = Diagnostic(
             code="RC_RUNTIME_AGGREGATE_RESULT_INVALID",
