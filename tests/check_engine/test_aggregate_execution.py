@@ -682,6 +682,7 @@ def test_aggregate_comparison_does_not_publish_numeric_evidence(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-runtime-scan-preflight")
 def test_aggregate_runtime_requires_scan_decision(tmp_path: Path, grouped: bool) -> None:
     check = _compiled_aggregate(grouped=grouped)
     contract = _contract(tmp_path)
@@ -711,6 +712,7 @@ def test_aggregate_runtime_requires_scan_decision(tmp_path: Path, grouped: bool)
         (ScanEstimateState.UNSAFE_PREFLIGHT, "RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT"),
     ],
 )
+@pytest.mark.regression_capture("aggregate-runtime-scan-preflight")
 def test_aggregate_runtime_preserves_scan_blocker(
     tmp_path: Path, grouped: bool, estimate_state: ScanEstimateState, code: str
 ) -> None:
@@ -741,6 +743,7 @@ def test_aggregate_runtime_preserves_scan_blocker(
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("target_type", ["duckdb", "warehouse_test"])
+@pytest.mark.regression_capture("aggregate-runtime-scan-preflight")
 def test_aggregate_runtime_connection_context_precedes_scan(
     tmp_path: Path, grouped: bool, target_type: str
 ) -> None:
@@ -889,6 +892,7 @@ def _routing_results(grouped: bool, domain: _NumericDomain) -> list[object]:
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("domain", [_I, _D, _F])
+@pytest.mark.regression_capture("aggregate-runtime-private-routing")
 def test_aggregate_runtime_executes_only_ordered_private_queries(
     tmp_path: Path, grouped: bool, domain: _NumericDomain
 ) -> None:
@@ -914,6 +918,7 @@ def test_aggregate_runtime_executes_only_ordered_private_queries(
 @pytest.mark.parametrize(
     "broken", ["missing_renderer", "wrong_type", "public_shape", "no_executor"]
 )
+@pytest.mark.regression_capture("aggregate-runtime-private-routing")
 def test_aggregate_runtime_rejects_unproven_private_collaborators(
     tmp_path: Path, grouped: bool, broken: str
 ) -> None:
@@ -937,6 +942,7 @@ def test_aggregate_runtime_rejects_unproven_private_collaborators(
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("broken", ["guard", "domain", "exception"])
+@pytest.mark.regression_capture("aggregate-runtime-private-routing")
 def test_aggregate_runtime_stops_before_final_query_on_invalid_guard(
     tmp_path: Path, grouped: bool, broken: str
 ) -> None:
@@ -958,6 +964,7 @@ def test_aggregate_runtime_stops_before_final_query_on_invalid_guard(
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("malformed", ["truthy", "missing_proof", "contradictory"])
+@pytest.mark.regression_capture("aggregate-runtime-scan-preflight")
 def test_aggregate_runtime_rejects_malformed_scan_approval(
     tmp_path: Path, grouped: bool, malformed: str
 ) -> None:
@@ -992,6 +999,7 @@ def test_aggregate_runtime_rejects_malformed_scan_approval(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-runtime-private-routing")
 def test_aggregate_runtime_rejects_duplicate_rendered_capabilities(
     tmp_path: Path, grouped: bool
 ) -> None:

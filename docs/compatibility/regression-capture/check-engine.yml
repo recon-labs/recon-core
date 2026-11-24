@@ -267,3 +267,75 @@ captures:
       - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
     notes: >
       Scalar and grouped outcomes expose status and safe diagnostics only. Raw values, counts, tolerance and extrema remain private.
+  - id: aggregate-runtime-scan-preflight
+    title: Aggregate runtime fails closed on unsafe or malformed scan decisions
+    area: check-engine
+    bug_class: blocker_precedence
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_requires_scan_decision
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_preserves_scan_blocker
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_connection_context_precedes_scan
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_rejects_malformed_scan_approval
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_scan_safety_blocks_before_adapter_setup
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_service_blocks_cross_context_before_adapter_setup
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: runtime_scan_policy
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: runtime_scan_policy
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Aggregate uses the existing bounded local/dev relation guard and rejects unverified or contradictory scan allowance. Unsafe or cross-context checks do not open an adapter.
+  - id: aggregate-runtime-private-routing
+    title: Aggregate runtime requires ordered private bounded execution
+    area: check-engine
+    bug_class: result_shape
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_executes_only_ordered_private_queries
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_rejects_unproven_private_collaborators
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_stops_before_final_query_on_invalid_guard
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_rejects_duplicate_rendered_capabilities
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_service_missing_private_executor_does_not_connect
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_service_executes_bounded_same_context
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: aggregate_runtime_routing
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: aggregate_runtime_routing
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Verify exact guard order, native domain selection, private bounded transport, collaborator and plan metadata validation, and no public execute fallback. Failed guards stop later queries; raw SQL and errors remain private.
+  - id: aggregate-runtime-capability-isolation
+    title: Aggregate prerequisites and capability blockers preserve unrelated runtime checks
+    area: check-engine
+    bug_class: blocker_precedence
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_missing_prerequisite_blocks_before_profile
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_service_requires_capabilities_before_connect
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_capability_blocker_preserves_unrelated_row_count
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: blocker_precedence
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: blocker_precedence
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Missing prerequisites block before profile preparation. Unsupported or malformed capability support blocks aggregate queries before connection when no other check needs it, while valid row-count checks retain their lifecycle.

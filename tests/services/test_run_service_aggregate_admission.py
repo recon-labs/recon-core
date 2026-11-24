@@ -307,6 +307,7 @@ def test_mixed_run_preserves_aggregate_policy_error_and_row_count(tmp_path: Path
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("fixture", ["missing", "oversized", "wal", "tmp", "view", "missing_table"])
+@pytest.mark.regression_capture("aggregate-runtime-scan-preflight")
 def test_aggregate_scan_safety_blocks_before_adapter_setup(
     tmp_path: Path, grouped: bool, fixture: str
 ) -> None:
@@ -355,6 +356,7 @@ def test_aggregate_scan_safety_blocks_before_adapter_setup(
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("target_type", ["duckdb", "warehouse_test"])
+@pytest.mark.regression_capture("aggregate-runtime-scan-preflight")
 def test_aggregate_service_blocks_cross_context_before_adapter_setup(
     tmp_path: Path, grouped: bool, target_type: str
 ) -> None:
@@ -399,6 +401,7 @@ def test_aggregate_service_blocks_cross_context_before_adapter_setup(
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("missing", ["operation", "cte_support"])
+@pytest.mark.regression_capture("aggregate-runtime-capability-isolation")
 def test_aggregate_service_requires_capabilities_before_connect(
     tmp_path: Path, grouped: bool, missing: str
 ) -> None:
@@ -434,6 +437,7 @@ def test_aggregate_service_requires_capabilities_before_connect(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-runtime-private-routing")
 def test_aggregate_service_executes_bounded_same_context(tmp_path: Path, grouped: bool) -> None:
     duckdb = _duckdb_module()
     database = tmp_path / "warehouse.duckdb"
@@ -457,6 +461,7 @@ def test_aggregate_service_executes_bounded_same_context(tmp_path: Path, grouped
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-runtime-capability-isolation")
 def test_aggregate_missing_prerequisite_blocks_before_profile(
     tmp_path: Path, grouped: bool
 ) -> None:
@@ -484,6 +489,7 @@ def _write_bounded_aggregate_inputs(tmp_path: Path, checks: list[dict[str, objec
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-runtime-private-routing")
 def test_aggregate_service_missing_private_executor_does_not_connect(
     tmp_path: Path, grouped: bool
 ) -> None:
@@ -516,6 +522,7 @@ def test_aggregate_service_missing_private_executor_does_not_connect(
         "full",
     ],
 )
+@pytest.mark.regression_capture("aggregate-runtime-capability-isolation")
 def test_aggregate_capability_blocker_preserves_unrelated_row_count(
     tmp_path: Path, grouped: bool, support: object
 ) -> None:

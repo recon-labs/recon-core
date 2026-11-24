@@ -1059,6 +1059,21 @@ later execution and shared-conformance review. This helper does not yet
 enable aggregate execution; runtime routing and end-to-end lifecycle,
 scan-safety and privacy proof remain required.
 
+### Runtime routing and scan-safety implementation checkpoint
+
+The service selects admitted relation-backed aggregate candidates, uses the
+existing bounded local/dev scan guard and validates capabilities per check
+before opening eligible adapters. The private runtime renderer and typed
+executor are required; the router executes ordered type guards, proves the
+native numeric domain, and passes one bounded final result to Core. Missing
+prerequisites, malformed scan approval, unsupported capability states and
+missing private collaborators fail closed. Existing key-safety and row-count
+behavior and the public execution-context shape remain unchanged.
+Runtime routing, guard-order, scan-safety and mixed-run regression coverage
+resides in the existing aggregate execution and service admission tests.
+The full CI, end-to-end lifecycle, privacy and milestone carryover review
+remain required before milestone exit.
+
 ## Implementation Readiness
 
 The approved design and its acceptance requirements are documented.
