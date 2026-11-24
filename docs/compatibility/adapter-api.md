@@ -80,6 +80,17 @@ convert exact arithmetic to floating point. Non-finite or unrepresentable
 results cannot produce trustworthy equivalence. The runtime summary is
 transient private data and does not authorize a production adapter claim.
 
+The planned private typed runtime transport retains actual native logical
+type evidence before exact value normalization and validates the bounded
+final result envelope without unbounded fetching. Public QueryResult and
+execute behavior remain unchanged. The declared DuckDB dependency floor
+remains unchanged: prove operation availability and exact arithmetic on
+representative installed versions rather than assume that all engines
+expose the same arbitrary-size integer SUM. No silent cast, unsupported
+capability downgrade, or broad version rejection. Typed integer conversion
+beyond Python's ordinary digit limit must not alter global settings.
+Existing compile detail output is preserved.
+
 Before creating, publishing, or splitting a shared adapter test-kit repository,
 the test-kit design must define a SQL comparison conformance matrix. That matrix
 must make adapter comparison semantics executable across repositories and cover

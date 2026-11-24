@@ -278,6 +278,18 @@ coverage, and strict shape validation. The detailed acceptance matrix and
 file map are in `docs/planning/milestone-7-4-prework.md`. Required DuckDB CI
 must execute the actual semantic tests, not only SQL snapshots.
 
+The representative DuckDB version compatibility lane pins Python 3.11 and
+DuckDB 1.0.0, 1.3.2, 1.4.5 and 2.0.1. It runs existing semantic coverage
+and the isolated numeric suite separately and fails on either failure.
+The older-engine cases explicitly test arbitrary-size native operation
+availability rather than require modern BIGNUM syntax. Preserve ordinary
+numeric proof, actual native type evidence and existing capability; no
+lossy fallback or dependency-floor change. The existing mandatory three
+Python-version semantic jobs retain all current numeric probes.
+Add exact arbitrary-size transport beyond Python's digit limit, cancellation
+and multi-threaded SUM cases. Representative engine proof is not a claim
+of all-version or production support.
+
 ### Adapter tests
 
 Base adapter tests should cover:

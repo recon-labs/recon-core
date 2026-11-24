@@ -9,7 +9,7 @@ import math
 import os
 import re
 import struct
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from fractions import Fraction
 from typing import Any
 
@@ -102,7 +102,7 @@ def _exact(value: Any, sql_type: str) -> Fraction:
         and kind in {"BIGNUM", "VARINT"}
         and re.fullmatch(r"-?(0|[1-9][0-9]*)", value)
     ):
-        return Fraction(int(value))
+        return Fraction(Decimal(value))
     raise AssertionError(f"Unproven exact transport: {sql_type}, {type(value).__name__}")
 
 
@@ -122,7 +122,18 @@ def _query(con: Any, sql: str) -> tuple[tuple[str, ...], tuple[str, ...], list[A
     cursor = con.execute(sql)
     names = tuple(str(col[0]) for col in cursor.description)
     types = tuple(str(col[1]) for col in cursor.description)
-    return names, types, cursor.fetchall()
+    rows = cursor.fetchall()
+    # Older Python drivers report broad DB-API categories instead of logical types.
+    if _engine_version()[0] == 1 and any(t.upper() in {"NUMBER", "STRING"} for t in types):
+        description = con.execute(f"DESCRIBE {sql}").fetchall()
+        assert tuple(str(col[0]) for col in description) == names
+        types = tuple(str(col[1]) for col in description)
+    return names, types, rows
+
+
+def _engine_version() -> tuple[int, ...]:
+    duckdb = importlib.import_module("duckdb")
+    return tuple(int(part) for part in duckdb.__version__.split(".")[:2])
 
 
 def _scalar(con: Any, kind: str, source: list[Any], target: list[Any]) -> tuple[Any, Any]:
@@ -397,3 +408,80 @@ def test_bignum_sum_transport_independent_of_subtraction(con: Any) -> None:
     _, types, rows = _query(con, sql)
     assert len(rows) == 1 and len(rows[0]) == 1
     assert _exact(rows[0][0], types[0]) == 10**70 + 1, (types, rows)
+
+
+def test_arbitrary_precision_availability(con: Any) -> None:
+    # The legacy lane explicitly deselects BIGNUM arithmetic cases, not ordinary domains.
+    # Establish whether a native arbitrary-size integer SUM exists rather than assume it.
+    if _engine_version() >= (1, 4):
+        types, row = _scalar(con, "BIGNUM", [10**70, 1], [10**70])
+        observed = tuple(_exact(v, t) for v, t in zip(row, types, strict=True))
+        assert observed == (10**70 + 1, 10**70, 1)
+        print("Arbitrary-size SUM/difference logical types:", types)
+        return
+
+    try:
+        input_metadata = con.execute("DESCRIBE SELECT CAST('1' AS VARINT) AS v").fetchall()
+    except Exception as exc:
+        assert type(exc).__name__ in {"CatalogException", "BinderException", "ParserException"}
+        assert re.search(r"varint|type", str(exc), re.IGNORECASE)
+        print("Legacy arbitrary-size input type unavailable:", type(exc).__name__)
+        return
+    input_type = str(input_metadata[0][1])
+    assert _kind(input_type) in {"VARINT", "BIGNUM"}
+    sql = _scalar_sql("VARINT", [10**70, 1], [10**70])
+    try:
+        metadata = con.execute(f"DESCRIBE {sql}").fetchall()
+    except Exception as exc:
+        assert type(exc).__name__ == "BinderException"
+        assert re.search(r"sum|function|overload", str(exc), re.IGNORECASE)
+        print("Legacy exact SUM/difference cannot bind:", input_type, type(exc).__name__)
+        return
+
+    types = tuple(str(col[1]) for col in metadata)
+    print("Legacy arbitrary-size SUM/difference logical types:", input_type, types)
+    # A lossy or fixed-width aggregate is not exact arbitrary-size SUM support.
+    # Unexpected exact native availability must be reviewed, not silently deselected.
+    assert not all(_kind(t) in {"VARINT", "BIGNUM"} for t in types)
+
+
+@pytest.mark.parametrize("direction", (1, -1))
+def test_bignum_transport_beyond_python_digit_limit(con: Any, direction: int) -> None:
+    digits = "1" + "0" * 5000 + "1"
+    value = digits if direction == 1 else "-" + digits
+    with localcontext() as context:
+        context.prec = 6
+        types, row = _scalar(con, "BIGNUM", [value], [0])
+        expected = Fraction(Decimal(value))
+        assert _exact(row[0], types[0]) == expected
+        assert _exact(row[1], types[1]) == 0
+        assert _exact(row[2], types[2]) == expected
+        counts = (1, 0, 0, 0, 0, 1, 0)
+        types, row = _grouped(
+            con,
+            "BIGNUM",
+            _group_relation("BIGNUM", [(1, 1, value)]),
+            _group_relation("BIGNUM", [(1, 1, 0)]),
+            counts,
+        )
+        assert _exact(row[0], types[0]) == expected
+        assert _exact(row[1], types[1]) == expected
+
+
+@pytest.mark.parametrize("threads", (1, 4))
+def test_bignum_parallel_sum_and_cancellation(con: Any, threads: int) -> None:
+    con.execute(f"SET threads={threads}")
+    magnitude = 10**70
+    con.execute(
+        "CREATE TEMP TABLE arbitrary_values AS "
+        f"SELECT i%2 AS k, CAST(CASE WHEN i%2=0 THEN '{magnitude}' "
+        f"ELSE '-{magnitude}' END AS BIGNUM) AS v FROM range(524288) r(i)"
+    )
+    _, types, rows = _query(con, "SELECT sum(v) FROM arbitrary_values")
+    assert _exact(rows[0][0], types[0]) == 0
+    _, types, rows = _query(con, "SELECT k,sum(v) FROM arbitrary_values GROUP BY k ORDER BY k")
+    expected = 262144 * 10**70
+    assert [(_exact(row[0], types[0]), _exact(row[1], types[1])) for row in rows] == [
+        (0, expected),
+        (1, -expected),
+    ]

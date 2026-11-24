@@ -24,22 +24,23 @@ Split Decision: Already Split / Follow Existing Split.
 
 The aggregate execution scope and numeric policy decisions are locked in this
 prework and ADRs 0009 and 0021. Implementation readiness remains blocked on
-empirical numeric-domain proof and final prework validation.
+representative engine-version verification and final prework validation.
 
 - The existing Milestone 7 split assigns explicit aggregate execution to
   Milestone 7.4; no further split is required.
 - Only current compiled explicit `sum` checks are admitted.
 - research_decision: completed for numeric domain and bounded comparison
-  design; engine-version-specific execution proof is outstanding.
+  design. The 81 native SQL/driver probes passed on DuckDB 2.0.1 across
+  Python 3.11, 3.12 and 3.13; older-version verification remains pending.
 - Strict floating-point tolerance, unresolved applicable named-policy blocking,
   private bounded runtime rendering, and capability preservation are locked.
 - The acceptance matrix, BDD scenarios, test plan and responsibility map
   include these requirements; no aggregate runtime or implementation tests
   have been added in this prework update.
-- Before implementation, prove actual native result types, exact transport
-  and overflow behavior for the supported numeric inputs, including BIGNUM.
-  Investigate a capability-preserving solution if proof fails; do not remove
-  a type without explicit scope approval.
+- Before implementation, review the representative version matrix and resolve
+  any unproven exact native domain or transport behavior. Do not remove an
+  existing supported type or raise the dependency floor without explicit
+  scope approval. Native proof is not runtime integration proof.
 
 ## Scope
 
@@ -163,7 +164,8 @@ actually executed through the locked same-context relation-backed path.
 
 Use the existing compiled check `tolerance` field and compiled contract
 `policies.tolerance_policy` metadata. The compiled contract loader must
-preserve the named reference as private runtime metadata, validating its
+preserve the named reference as private runtime metadata without changing
+exported loaded-contract or execution-context dataclass shapes, validating its
 existing shape without adding resource resolution. A valid explicit metric
 tolerance overrides an applicable named policy. Otherwise a non-null
 unresolved named policy blocks execution with a safe reason. If neither
@@ -184,10 +186,14 @@ zero means exact represented equality, including signed zero. No implicit
 epsilon, relative tolerance, or rounding. Invalid, non-finite, or
 unrepresentable results error without exposing values. Existing physical
 type guards, supported numeric types and unsupported boolean, nonnumeric
-and UHUGEINT boundaries are preserved. BIGNUM must be empirically proven
-including actual result type and lossless transport; arbitrary numeric
-strings are not numeric evidence. A failing proof blocks design readiness
-and triggers capability-preserving review.
+and UHUGEINT boundaries are preserved. Native BIGNUM arithmetic and typed
+transport passed on the tested 2.0.1 fixtures. Verify actual operation
+availability and lossless transport on representative earlier versions.
+Arbitrary numeric strings are not numeric evidence. Typed arbitrary-size
+integer conversion must be exact beyond Python's ordinary integer-string
+digit limit, independent of decimal context, without changing global
+settings. A failing proof blocks readiness and triggers capability-
+preserving review.
 
 The private ungrouped result is one row with the source aggregate, target
 aggregate and signed difference, with exact column and envelope validation.
@@ -240,7 +246,13 @@ does not waive the existing scan guard.
 Preserve existing compile renderer output and tests. Use a narrow private
 runtime rendering collaborator with an explicit bounded contract, supplied
 by the existing lazy runtime renderer factory. Share SQL construction and
-type guards with compile rendering. Do not change public `SqlRenderer`,
+type guards with compile rendering. The private typed execution path uses
+the already-open adapter connection and shared sanitized error handling;
+preserve logical result type evidence before numeric normalization. Do not
+infer a domain from raw strings or a generic DB-API type category. When a
+private final query expects one row, read at most two rows to verify the
+envelope; never fetch an unbounded detail result. The SQL must summarize
+the full union without truncating comparison coverage. Do not change public `SqlRenderer`,
 `BaseAdapter`, capability names, typed operation fields, artifact/API
 versions, or public exports. Missing or unproven bounded rendering blocks
 before aggregate queries, never falls back to detail rendering.
@@ -327,7 +339,9 @@ Gate status for implementation:
   milestone.
 - Gate 3D, tolerance/null/normalization: ADR 0009 locks the approved numeric
   domain, inclusive threshold, and unresolved applicable named-policy rules.
-  Actual numeric-domain and policy-admission proof remains outstanding.
+  Native numeric-domain feasibility on 2.0.1 is proven by the isolated
+  probes; version coverage, typed runtime transport and policy-admission
+  integration remain outstanding.
 - Gates 4B and 4C, adapter API and typed operations: preserve current compile
   renderer behavior, existing public interfaces and emitted payloads; prove
   the explicit private bounded runtime collaborator before execution.
@@ -344,14 +358,44 @@ Gate status for implementation:
   names, source/target identifiers, query text, rendered SQL, raw adapter
   errors, database errors, and grouped failure details remain absent from public
   output unless a later privacy policy explicitly admits a surface.
-- Gate 8C, native SQL optimization and dialect validation conformance: not a
-  blocker for the in-core local/dev aggregate execution phase, but production
-  adapter execution compatibility remains future adapter conformance work.
+- Gate 8C, native SQL optimization and dialect validation conformance:
+  representative local numeric-domain proof is required before implementation
+  readiness; production adapter and shared test-kit conformance remain
+  future work.
 
 Before implementation starts, the final high-risk prework must prove every gate
 above through matrix rows, BDD scenarios where applicable, required tests,
 source/responsibility maps, and phase-exit review requirements. Design locks
 are not implementation proof. The numeric-domain verification is outstanding.
+
+### Representative engine-version proof
+
+Preserve the declared `duckdb>=1.0` package dependency. Verify Python 3.11
+with pinned DuckDB 1.0.0 (declared floor), 1.3.2 (earlier arbitrary-size
+integer operation availability), 1.4.5 (patched 1.4 series), and 2.0.1
+(previously verified engine). The existing mandatory semantic jobs on
+Python 3.11, 3.12 and 3.13 retain full coverage with the resolved dependency.
+
+The pinned lane runs the existing semantic suite and the numeric probes
+separately, propagating either failure. Older versions explicitly select
+ordinary numeric probes and an arbitrary-size operation-availability
+assertion rather than execute modern BIGNUM-only fixtures against an
+unavailable operation. This is not permission to drop existing supported
+behavior or silently skip required proof. Verify actual native logical
+types, exact SUM/difference availability, and lossless transport before
+admitting the operation. A missing native exact operation is not a
+successful comparison; do not substitute a floating-point cast. Preserve
+other existing supported operations on those engines. Any necessary
+dependency-floor or capability reduction requires explicit compatibility
+review and approval.
+
+The numeric tests are in
+`tests/adapters/test_duckdb_aggregate_numeric_domains.py`.
+The pinned versions are representative points, not proof of every version
+within the dependency range. No old-engine result is claimed before CI
+completes. Compare baseline semantic outcomes before classifying new
+failures. Resolve compatibility blockers and align this prework before
+runtime implementation.
 
 ## Public Contract Impact
 
@@ -483,7 +527,9 @@ The final Milestone 7.4 test plan must include tests for:
   invalid policies, unresolved named policy and explicit override,
 - context-independent exact arithmetic, finite native floating-point result
   consistency, signed zero, non-finite values and overflow,
-- BIGNUM result-domain and transport proof for supported engine versions,
+- representative DuckDB version availability and native type evidence,
+  exact BIGNUM transport beyond 4300 digits, cancellation and multi-thread
+  aggregation, and safe missing-native-operation behavior,
 - fixed-size grouped summary partition, extrema and malformed result validation,
 - preservation of compile detail rendering and missing private runtime renderer
   blockers,
@@ -541,6 +587,8 @@ existing test, or explicit out-of-scope rationale before coding starts.
 | Native floating-point domain | FLOAT and DOUBLE; valid 0.30000000000000004 minus 0.2; positive/negative differences; zero and signed zero; exact/adjacent tolerance; tiny and large finite values; sum/subtraction overflow; NaN and both infinities. | Native subtraction consistency, canonical computed magnitude, strict inclusive threshold; no epsilon or independent decimal operand subtraction. Non-finite/invalid/overflow results error before data mismatch. Grouped and ungrouped agree. | Aggregate helper and real DuckDB renderer/service tests, including historical tuple and boundary variants; numeric prework experiments. | ADR 0009; Gates 3D and 8C. | No relative tolerance or deterministic exact-decimal SUM claim for floating types. |
 | Bounded grouped summary contract | Empty, both-null, null mismatch, one-sided, invalid numeric, finite numeric groups; nullable composite keys; high cardinality; zero/multiple rows, duplicate/extra/missing columns, invalid counts, partition mismatch, null/reversed/non-finite extrema, single-pair contradictions. | One complete fixed-size row; exclusive partition and valid extrema; error before data failure; no raw group transfer, truncation, or output of private summary values. | Aggregate helper shape tests, private runtime renderer semantic tests, actual DuckDB service and privacy tests. | ADR 0021 and 0022; Gates 4I, 4L, 6, 8C. | No detail export or hidden fallback. |
 | Compile and runtime renderer separation | Existing compile/direct detail output; bounded runtime collaborator; missing/malformed/mismatched renderer; preflight guard order and step capabilities; lazy imports. | Preserve existing compile contract and proof. Runtime only uses explicit bounded renderer; unavailable or unproven contract blocks before aggregate queries; no public API or typed-plan change. | Existing compile and renderer tests; new runtime renderer tests; lifecycle and import boundary tests. | Gates 4B, 4C, 4I, 8C; adapter API compatibility. | No external adapter execution contract or new public interface. |
+| Representative engine versions | Declared floor, pre-BIGNUM native overload, patched 1.4 series, current engine; logical type metadata; exact/absent/lossy native operation. | Preserve dependency floor and existing capabilities. Verify ordinary numeric behavior and explicit operation availability; no lossy fallback or blanket version rejection. | Pinned CI lane and native numeric probes; runtime adapter admission tests. | Gates 3D, 4B, 8C. | Representative evidence, not all-version or production compatibility claim. |
+| Private typed transport and metadata | Native type evidence, generic driver type category, typed arbitrary-size integer beyond 4300 digits, low decimal context, zero/multiple rows, existing public loader/context shapes. | Normalize exact values at private adapter boundary, retain type evidence, read at most two final rows, load compiled policy metadata once without public shape change; no global setting changes. | Native probes, adapter private transport tests, artifact loader and import/contract compatibility tests. | ADR 0009 and 0021; Gates 3D, 4B, 4I. | Public QueryResult, BaseAdapter, SqlRenderer and exported dataclass shapes unchanged. |
 
 ## BDD Workflow Scenarios
 
@@ -632,6 +680,16 @@ Given any non-finite aggregate, unrepresentable arithmetic, or contradictory
 summary, when Recon evaluates the result, then it returns a sanitized error
 instead of pass or an ordinary data mismatch, even if another group differs.
 
+### Native version availability and private transport remain explicit
+
+Given an installed allowed DuckDB version, when an aggregate comparison is
+admitted, then the actual native operation and exact or approximate domain
+must be proven; unavailable exact operations cannot produce a successful
+comparison. Given a driver result with logical type evidence and a large
+exact integer, private transport preserves it without losing digits,
+changing public interfaces or changing process-wide conversion settings.
+A malformed or unbounded final envelope errors safely.
+
 ## Detailed Test Plan
 
 Write implementation tests before runtime code changes. The exact file map is
@@ -681,7 +739,10 @@ must cover these groups.
    - unsupported unsigned large-integer behavior unless exactness is proven,
    - exact high-width decimal and signed integer arithmetic independent of
      decimal context, including overflow and signed minimum magnitude,
-   - current BIGNUM input/result/difference/extrema and transport proof,
+   - representative version availability and logical type evidence,
+   - current BIGNUM input/result/difference/extrema, transport beyond the
+     ordinary Python digit limit, exact cancellation and multi-thread SUM,
+   - private final result fetch at most two rows and public execute unchanged,
    - FLOAT/DOUBLE result domain, native subtraction, finite/subnormal/large
      values, non-finite operands or differences, and overflow,
    - grouped and ungrouped numeric-domain parity.
@@ -748,7 +809,9 @@ coding that surface.
 | Public docs and compatibility records | `docs/planning/milestone-7-4-prework.md`, `docs/implementation/mvp-build-order.md`, `docs/implementation/testing-plan.md`, `docs/compatibility/*` | Update only when implementation discovers behavior drift or a compatibility-impacting decision that must be recorded before coding continues. Public docs must describe Recon-native decisions, not research attribution. | Docs drift check, `python3 scripts/check_regression_capture.py`, `python3 scripts/check_regression_capture_decisions.py --base-ref origin/main` during branch-wide/final validation | Runtime behavior that contradicts the matrix, stale milestone assignment, public mature-project attribution, or generated artifact/result/evidence claims before those surfaces exist. |
 | Tests and fixtures | `tests/services/_run_service_fixtures.py`, new aggregate test helpers, existing check-engine/service/adapter tests | Add focused aggregate fixtures and table setups that make source/target relation, capability, scan, tolerance, empty, type, privacy, and no-output behavior explicit. | All aggregate tests listed in the Detailed Test Plan plus regression-capture checks | Fixture helpers that hide assertions, broad unrelated fixture rewrites, tests that pass by relying on hidden Python fallback, unbounded grouped-row transfer, or generated outputs. |
 | Compiled policy metadata | `src/recon_core/artifacts/compiled_contract_loader.py`, `src/recon_core/artifacts/compiled_check_loader.py` only if shape validation is needed; `src/recon_core/compiler/policies.py` and a private shared policy helper only if required to avoid duplicate normalization | Preserve existing compiled named tolerance metadata and validate shape; reuse the existing policy interpretation. | `tests/artifacts/test_compiled_contract_loader.py`, `tests/artifacts/test_compiled_check_loader.py`, compiler policy tests, aggregate helper and service admission tests | Authored YAML parsing at runtime, resource resolution, new policy schema or compiler-owned runtime comparison. |
-| Private runtime rendering collaborator | New `src/recon_core/adapters/_aggregate_runtime.py`, `src/recon_core/adapters/duckdb/_aggregate_runtime.py`, `src/recon_core/adapters/default_renderers.py` and existing DuckDB SQL builders | Define and wire a narrow private bounded renderer protocol/implementation, retain lazy imports, reuse shared type guards and SQL fragments; if exact numeric transport requires adapter normalization, prove it at the private adapter boundary before expanding the map. | New `tests/adapters/test_duckdb_aggregate_runtime_renderer.py`, existing renderer and compile service tests, lifecycle and import-surface tests | Public API expansion, new capability, unbounded detail rendering in runtime, Core SQL rewriting, adapter tolerance or status decisions. |
+| Private runtime rendering collaborator | New `src/recon_core/adapters/_aggregate_runtime.py`, `src/recon_core/adapters/duckdb/_aggregate_runtime.py`, `src/recon_core/adapters/default_renderers.py` and existing DuckDB SQL builders | Define and wire a narrow private bounded renderer and typed execution contract, retain lazy imports, reuse shared type guards and SQL fragments. | New `tests/adapters/test_duckdb_aggregate_runtime_renderer.py`, existing renderer and compile service tests, lifecycle and import-surface tests | Public API expansion, new capability, unbounded detail rendering in runtime, Core SQL rewriting, adapter tolerance or status decisions. |
+| Private numeric result transport | `src/recon_core/adapters/duckdb/adapter.py`, private runtime contract and narrow shared adapter helper if needed | Reuse opened connection and sanitized error handling; preserve native logical type evidence, normalize exact transport, validate bounded final envelope with at most two rows; preserve public execute. | `tests/adapters/test_duckdb_adapter.py`, native numeric probes, private runtime renderer tests, import/compatibility and service tests | New public query result fields, lifecycle bypass, unbounded fetch, comparison policy or lossy conversion. |
+| Private compiled metadata and policy helper | Existing compiled contract loader, service preparation and private runtime context in `src/recon_core/check_engine/engine.py` if needed; proposed shared `src/recon_core/_numeric_policy.py` | Preserve compiled policy metadata once through a private envelope/context; reuse canonical threshold validation with compiler. | Existing loader, compiler policy, service and check engine tests, exported shape checks | Changing exported dataclass layouts, rereading YAML, resolving named resources or broad orchestration changes. |
 
 ## Implementation Responsibility Map
 
@@ -767,6 +830,8 @@ The implementation must preserve these owner boundaries.
 | Test fixtures | Minimal setup data and fake adapters/renderers that expose each required case. | Production behavior, hidden fallback, broad refactors, or silently changing public contracts. | Existing service/check-engine fixture patterns. | If aggregate tests need repeated setup across service and helper tests, extract a small helper with explicit assertions at call sites. | The aggregate test suite and regression-capture scripts. |
 | Compiled policy metadata and normalization | Preserve current compiled metadata, validate existing shape, normalize existing policy consistently. | Runtime named-policy loading, authored YAML parsing, comparison or adapter lifecycle. | Compiled artifact/schema models and narrow shared policy validation helper. | Extract shared policy helper if compiler and runtime otherwise diverge; do not add a general resolver. | Loader, compiler-policy and aggregate admission tests. |
 | Private runtime renderer | Explicit bounded runtime query contract, shared dialect SQL and exact/native result-domain proof. | Changing existing compile result shape, tolerance comparison, status decisions, scan admission, public exports. | Private protocol, existing lazy runtime renderer factory and dialect helpers. | Extract common SQL builders when duplicate guards or join policy would drift; stop if public API or capability changes become necessary. | Existing compile renderer and new private runtime semantic tests, lifecycle/import boundary tests. |
+| Private typed result transport | Logical type evidence, exact value conversion, bounded final cursor envelope, shared adapter lifecycle/error handling. | Public interface changes, adapter comparison policy, global conversion settings, fallback. | Existing connection and private typed execution contract. | Extract narrow shared query mechanics if required; stop for public interface change. | Native probes, adapter transport and lifecycle tests, package exports. |
+| Private loaded metadata | Preserve existing compiled policy reference once and pass trusted private runtime metadata. | Public dataclass shape change, authored YAML reread, general policy resolver. | Existing artifact loader and private service/context boundary. | Stop for compatibility review if private approach requires public shape change. | Loader, compiler policy, admission and compatibility tests. |
 
 ## Future Implementation Constraints
 
@@ -914,12 +979,13 @@ final Milestone 7.4 matrix and confirm:
 
 ## Implementation Readiness
 
-The approved design and its acceptance requirements are documented. Runtime
-implementation remains blocked until actual numeric-domain and transport
-experiments prove current supported types, including BIGNUM, native floating
-subtraction and exact arithmetic overflow behavior, and the updated prework
-passes its phase-exit review. The later TDD implementation plan must assign
-all matrix rows and carryover obligations to concrete tests, preserve public
+The approved design and its acceptance requirements are documented. Native
+numeric feasibility on DuckDB 2.0.1 is proven for the tested cases. Runtime
+implementation remains blocked until the representative version verification
+and compatibility review are complete and the updated prework passes its
+phase-exit review. Private typed transport and compiled policy metadata
+integration must then be proven by test-first implementation. The later TDD
+implementation plan must assign all matrix rows and carryover obligations to concrete tests, preserve public
 renderer behavior, and rehydrate required context before coding. Do not
 interpret this planning update or passing existing CI as proof of new
 aggregate execution.
