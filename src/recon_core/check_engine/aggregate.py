@@ -536,6 +536,22 @@ def _guard_integer(result: object, column: str) -> int:
     return result.row[0]
 
 
+def _aggregate_adapter_matches_connection(
+    adapter: BaseAdapter, connection: ConnectionConfig
+) -> bool:
+    """Check the actual adapter binding without exposing its private metadata."""
+    try:
+        actual = adapter.connection
+        return (
+            isinstance(actual, ConnectionConfig)
+            and safe_string_attribute(adapter, "adapter_type") == connection.type
+            and actual.name == connection.name
+            and same_connection_context(actual, connection)
+        )
+    except Exception:
+        return False
+
+
 def _aggregate_collaborator_blocker(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
@@ -575,14 +591,12 @@ def _execute_aggregate_check(
     """Execute only the private bounded plan after admission and safety proof."""
     source_connection = connections_by_name.get(contract.source.connection)
     target_connection = connections_by_name.get(contract.target.connection)
-    adapter_type = safe_string_attribute(adapter, "adapter_type")
     if (
         source_connection is None
         or target_connection is None
-        or adapter_type != source_connection.type
-        or adapter.connection.name != contract.source.connection
+        or source_connection.name != contract.source.connection
         or not same_connection_context(source_connection, target_connection)
-        or not same_connection_context(adapter.connection, source_connection)
+        or not _aggregate_adapter_matches_connection(adapter, source_connection)
     ):
         return _aggregate_connection_blocker(check, contract)
     scan_blocker = _aggregate_scan_blocker(check, contract, decision)
