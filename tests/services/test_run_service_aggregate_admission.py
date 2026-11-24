@@ -6,9 +6,18 @@ from typing import Any
 import pytest
 import yaml
 
-from recon_core.adapters import AdapterCapabilities, AdapterRegistry, CapabilitySupport
+from recon_core.adapters import (
+    AdapterCapabilities,
+    AdapterRegistry,
+    AdapterResolutionResult,
+    CapabilitySupport,
+    ConnectionConfig,
+)
+from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
+from recon_core.adapters.duckdb import AdapterLifecycleError, DuckDbAdapter
 from recon_core.artifacts import CompiledContractLoader
 from recon_core.check_engine import CheckEngine, CheckStatus, RunResult
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 from tests.services._run_service_fixtures import (
@@ -16,6 +25,7 @@ from tests.services._run_service_fixtures import (
     _assert_no_runtime_outputs,
     _compiled_check_payload,
     _duckdb_module,
+    _key_safety_payload_for,
     _service_result_text,
     row_count_plan,
     write_compiled_checks,
@@ -727,7 +737,9 @@ def test_native_aggregate_service_null_and_empty_outcomes(
 
 
 @pytest.mark.parametrize("reverse", [False, True])
-def test_native_grouped_service_distinguishes_absence_from_null(tmp_path: Path, reverse: bool) -> None:
+def test_native_grouped_service_distinguishes_absence_from_null(
+    tmp_path: Path, reverse: bool
+) -> None:
     present = _native_row("NULL::INTEGER")
     absent = _native_row("NULL::INTEGER", empty=True)
     source, target = (absent, present) if reverse else (present, absent)
@@ -774,3 +786,238 @@ def test_native_grouped_service_high_cardinality_remains_private(tmp_path: Path)
     _assert_native_aggregate_result(
         tmp_path, engine, CheckStatus.FAIL, result, private_tokens=("123456789012345",)
     )
+
+
+class _TrackingAggregateAdapter(DuckDbAdapter):
+    def __init__(self, *, connection: ConnectionConfig, failure: str | None) -> None:
+        super().__init__(connection=connection)
+        self.failure = failure
+        self.connect_count = 0
+        self.close_count = 0
+        self.private_columns: list[tuple[str, ...]] = []
+        self.public_query_count = 0
+
+    def _injected_failure(self, code: str) -> None:
+        raise AdapterLifecycleError(
+            Diagnostic(
+                code=code,
+                severity=DiagnosticSeverity.ERROR,
+                message="private-injected-value qa.source_customers private-group-key",
+            )
+        )
+
+    def connect(self) -> None:
+        self.connect_count += 1
+        if self.failure == "connect":
+            self._injected_failure("RC_ADAPTER_CONNECTION_FAILED")
+        super().connect()
+
+    def close(self) -> None:
+        self.close_count += 1
+        super().close()
+        if self.failure == "close":
+            self._injected_failure("RC_ADAPTER_CLOSE_FAILED")
+
+    def capabilities(self) -> AdapterCapabilities:
+        if self.failure == "invalid_capabilities":
+            return "private-injected-value"
+        return super().capabilities()
+
+    def execute(self, query: str) -> Any:
+        self.public_query_count += 1
+        return super().execute(query)
+
+    def _execute_aggregate_query(
+        self, query: str, *, expected_columns: tuple[str, ...]
+    ) -> _AggregateQueryResult:
+        self.private_columns.append(expected_columns)
+        if self.failure == "query":
+            self._injected_failure("RC_ADAPTER_QUERY_FAILED")
+        result = super()._execute_aggregate_query(query, expected_columns=expected_columns)
+        if self.failure == "invalid_result" and len(expected_columns) > 1:
+            return _AggregateQueryResult(result.columns, result.domains, ())
+        return result
+
+
+class _TrackingAggregateFactory:
+    def __init__(self, failure: str | None = None) -> None:
+        self.failure = failure
+        self.adapters: list[_TrackingAggregateAdapter] = []
+
+    def create(self, connection: ConnectionConfig) -> AdapterResolutionResult:
+        if self.failure == "setup":
+            raise RuntimeError("private-injected-value qa.source_customers private-group-key")
+        adapter = _TrackingAggregateAdapter(connection=connection, failure=self.failure)
+        self.adapters.append(adapter)
+        return AdapterResolutionResult(adapter=adapter)
+
+
+def _tracking_registry(factory: _TrackingAggregateFactory) -> AdapterRegistry:
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    return registry
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("failure", [None, "query", "invalid_result", "connect", "close", "setup"])
+def test_native_aggregate_lifecycle_and_failure_privacy(
+    tmp_path: Path, grouped: bool, failure: str | None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("123456789012345::BIGINT"),
+        target_sql=_native_row("123456789012345::BIGINT"),
+        grouped=grouped,
+    )
+    factory = _TrackingAggregateFactory(failure)
+    engine = _CapturingAggregateEngine()
+    result = RunService(
+        start_path=tmp_path, engine=engine, adapter_registry=_tracking_registry(factory)
+    ).execute()
+    if failure is None:
+        _assert_native_aggregate_result(tmp_path, engine, CheckStatus.PASS, result)
+    elif failure in ("query", "invalid_result"):
+        _assert_native_aggregate_result(tmp_path, engine, CheckStatus.ERROR, result)
+    elif failure == "setup":
+        assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+        assert engine.result is None
+        assert factory.adapters == []
+    else:
+        assert result.exit_category is ExitCategory.RUNTIME_ERROR
+        if failure == "connect":
+            assert engine.result is None
+        else:
+            assert engine.result is not None
+    if failure != "setup":
+        assert len(factory.adapters) == 1
+        adapter = factory.adapters[0]
+        assert adapter.connect_count == 1
+        assert adapter.close_count == (0 if failure == "connect" else 1)
+        assert adapter.public_query_count == 0
+        if failure == "connect":
+            assert adapter.private_columns == []
+        elif failure == "query":
+            assert adapter.private_columns == [("type_check",)]
+        else:
+            assert len(adapter.private_columns) == (4 if grouped else 3)
+            assert len(adapter.private_columns[-1]) == (9 if grouped else 3)
+    output = _service_result_text(result) + repr(engine.result)
+    captured = capsys.readouterr()
+    output += captured.out + captured.err
+    for token in (
+        "private-injected-value",
+        "private-group-key",
+        "qa.source_customers",
+        "123456789012345",
+        "private-native-aggregate.duckdb",
+    ):
+        assert token not in output
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_aggregate_invalid_capability_declaration_is_non_executable(
+    tmp_path: Path, grouped: bool
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=grouped,
+    )
+    factory = _TrackingAggregateFactory("invalid_capabilities")
+    engine = _CapturingAggregateEngine()
+    result = RunService(
+        start_path=tmp_path, engine=engine, adapter_registry=_tracking_registry(factory)
+    ).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    check = engine.result.contract_results[0].check_results[0]
+    assert check.status is CheckStatus.NOT_EXECUTABLE
+    assert not check.executed
+    assert "RC_ADAPTER_CAPABILITY_DECLARATION_FAILED" in {d.code for d in result.diagnostics}
+    assert "private-injected-value" not in _service_result_text(result)
+    assert len(factory.adapters) == 1
+    assert factory.adapters[0].connect_count == 0
+    assert factory.adapters[0].private_columns == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("override", [None, 1])
+def test_native_aggregate_named_policy_override(
+    tmp_path: Path, grouped: bool, override: int | None
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("2::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=grouped,
+        tolerance=override,
+    )
+    contract_path = tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml"
+    payload = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
+    payload["policies"] = {"tolerance_policy": _PRIVATE_TOKEN}
+    contract_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    before = contract_path.read_bytes()
+    factory = _TrackingAggregateFactory()
+    engine = _CapturingAggregateEngine()
+    result = RunService(
+        start_path=tmp_path, engine=engine, adapter_registry=_tracking_registry(factory)
+    ).execute()
+    if override is None:
+        assert result.exit_category is ExitCategory.RUNTIME_ERROR
+        assert engine.result is not None
+        assert engine.result.contract_results[0].check_results[0].status is CheckStatus.NOT_EXECUTABLE
+        assert factory.adapters == []
+    else:
+        _assert_native_aggregate_result(tmp_path, engine, CheckStatus.PASS, result)
+        assert len(factory.adapters) == 1
+        assert factory.adapters[0].connect_count == factory.adapters[0].close_count == 1
+    assert _PRIVATE_TOKEN not in _service_result_text(result)
+    assert contract_path.read_bytes() == before
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_native_aggregate_same_context_alias_and_mixed_checks(
+    tmp_path: Path, grouped: bool
+) -> None:
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("5::INTEGER"),
+        target_sql=_native_row("5::INTEGER"),
+        grouped=grouped,
+    )
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    connections = profile["profiles"]["local"]["outputs"]["dev"]["connections"]
+    connections["replica"] = {"type": "duckdb", "database": str(database)}
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    write_compiled_contract(tmp_path, target_connection="replica")
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(operations=row_count_plan()),
+            _key_safety_payload_for("missing_keys"),
+            _aggregate_check(grouped=grouped),
+        ],
+    )
+    factory = _TrackingAggregateFactory()
+    engine = _CapturingAggregateEngine()
+    result = RunService(
+        start_path=tmp_path, engine=engine, adapter_registry=_tracking_registry(factory)
+    ).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.result is not None
+    checks = engine.result.contract_results[0].check_results
+    assert len(checks) == 3
+    assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
+    assert len(factory.adapters) == 2
+    opened = [adapter for adapter in factory.adapters if adapter.connect_count]
+    assert len(opened) == 1
+    assert opened[0].connect_count == opened[0].close_count == 1
+    assert opened[0].public_query_count == 2
+    assert len(opened[0].private_columns) == (4 if grouped else 3)
+    assert "private-group-key" not in _service_result_text(result)
+    _assert_no_runtime_outputs(tmp_path)
