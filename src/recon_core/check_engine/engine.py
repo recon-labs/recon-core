@@ -56,6 +56,7 @@ class _AggregateExecutionContext(CheckExecutionContext):
     tolerance_states_by_contract_id: Mapping[str, _ToleranceReferenceState] = field(
         default_factory=dict
     )
+    aggregate_blockers_by_check_id: Mapping[str, CheckResult] = field(default_factory=dict)
 
 
 class CheckEngine:

@@ -64,9 +64,12 @@ def _run_without_profile(
     policies: object = None,
     source_relation: str | None = "qa.source_customers",
     source_query: str | None = None,
+    with_profile: bool = False,
 ) -> Any:
     # A missing profile is deliberate: blocked aggregate checks must not need one.
     write_project(path, profile="local")
+    if with_profile:
+        write_duckdb_row_count_run_inputs(path, path / "warehouse.duckdb")
     write_compiled_checks(path, checks=[check])
     write_compiled_contract(
         path,
@@ -221,11 +224,12 @@ def test_valid_explicit_tolerance_overrides_named_policy_without_execution(
         tmp_path,
         _aggregate_check(grouped=grouped, tolerance=tolerance),
         policies={"tolerance_policy": _PRIVATE_TOKEN},
+        with_profile=True,
     )
-    # The admission succeeds but this step does not enable aggregate execution.
+    # The policy admits the check; the missing local database still blocks execution.
     assert result.message == "Run completed with non-executable checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
+        "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
     ]
 
 
@@ -404,8 +408,7 @@ def test_aggregate_service_requires_capabilities_before_connect(
     try:
         connection.execute("create schema qa")
         connection.execute(
-            "create table qa.source_customers("
-            "customer_id integer, month integer, revenue integer)"
+            "create table qa.source_customers(customer_id integer, month integer, revenue integer)"
         )
         connection.execute("create table qa.target_customers as select * from qa.source_customers")
     finally:

@@ -25,6 +25,7 @@ from recon_core.artifacts.compiled_contract_loader import (
 )
 from recon_core.check_engine.dispatch import UNSUPPORTED_TYPED_OPERATION
 from recon_core.check_engine.execution_support import (
+    ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
     error_result,
     has_materialization_policy,
     has_reserved_value,
@@ -33,6 +34,7 @@ from recon_core.check_engine.execution_support import (
 )
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.check_engine.result_metadata import identity_label
+from recon_core.check_engine.scan_budget import ScanBudgetDecision, _aggregate_scan_budget_decision
 from recon_core.compiled_artifact_schema import typed_operation_payload_fields
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -338,4 +340,61 @@ def _compare_aggregate_result(
             "Aggregate check passed." if status is CheckStatus.PASS else "Aggregate check failed."
         ),
         diagnostics=check.diagnostics + contract.diagnostics,
+    )
+
+
+def _aggregate_required_capabilities(check: LoadedCompiledCheck) -> tuple[str, ...]:
+    kind = "grouped_aggregate" if check.check_type == "grouped_aggregate_diff" else "aggregate"
+    return tuple(dict.fromkeys((*check.plan.required_capabilities, kind, "cte_support")))
+
+
+def _aggregate_connection_blocker(
+    check: LoadedCompiledCheck, contract: LoadedCompiledContractArtifact
+) -> CheckResult:
+    return not_executable_result(
+        check,
+        contract,
+        reason=CheckReason.UNSUPPORTED_EXECUTION_PLACEMENT,
+        diagnostic_code=ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
+        message="Aggregate execution requires one adapter connection context.",
+        hint="Run this check only when source and target resolve to the same adapter context.",
+    )
+
+
+def _aggregate_scan_blocker(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    decision: ScanBudgetDecision,
+) -> CheckResult | None:
+    safe_decision = _aggregate_scan_budget_decision(decision)
+    if safe_decision.allowed:
+        return None
+    return CheckResult(
+        check_id=check.id,
+        name=check.name,
+        check_type=check.check_type,
+        contract_name=check.contract_name,
+        status=CheckStatus.NOT_EXECUTABLE,
+        reason_code=safe_decision.reason or CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,
+        identity=identity_label(check),
+        message=safe_decision.message,
+        diagnostics=check.diagnostics + contract.diagnostics + safe_decision.diagnostics,
+    )
+
+
+def _aggregate_capability_blocker(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    diagnostics: tuple[Diagnostic, ...],
+) -> CheckResult:
+    return CheckResult(
+        check_id=check.id,
+        name=check.name,
+        check_type=check.check_type,
+        contract_name=check.contract_name,
+        status=CheckStatus.NOT_EXECUTABLE,
+        reason_code=CheckReason.MISSING_ENGINE_CAPABILITY,
+        identity=identity_label(check),
+        message="Aggregate execution requires supported adapter capabilities.",
+        diagnostics=check.diagnostics + contract.diagnostics + diagnostics,
     )

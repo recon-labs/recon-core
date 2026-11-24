@@ -7,6 +7,8 @@ from recon_core.adapters import BaseAdapter, ConnectionConfig, SqlRenderer
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
 from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
 from recon_core.check_engine.aggregate import (
+    _aggregate_connection_blocker,
+    _aggregate_scan_blocker,
     aggregate_admission,
     is_aggregate_check_type,
     is_supported_aggregate_plan_shape,
@@ -145,7 +147,25 @@ def _aggregate_admission_result(
     admission = aggregate_admission(
         check, contract, state if isinstance(state, _ToleranceReferenceState) else None
     )
-    return admission.blocker
+    if admission.blocker is not None:
+        return admission.blocker
+    if contract.source.connection != contract.target.connection:
+        source = execution_context.connections_by_name.get(contract.source.connection)
+        target = execution_context.connections_by_name.get(contract.target.connection)
+        if source is None or target is None or not same_connection_context(source, target):
+            return _aggregate_connection_blocker(check, contract)
+    decision = execution_context.scan_budget_decisions_by_check_id.get(
+        check.id, missing_scan_budget_decision()
+    )
+    blocker = _aggregate_scan_blocker(check, contract, decision)
+    if blocker is not None:
+        return blocker
+    blockers = getattr(execution_context, "aggregate_blockers_by_check_id", None)
+    if isinstance(blockers, Mapping):
+        prepared_blocker = blockers.get(check.id)
+        if isinstance(prepared_blocker, CheckResult):
+            return prepared_blocker
+    return None
 
 
 def _row_count_execution_result_if_available(
