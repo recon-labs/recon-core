@@ -1206,3 +1206,57 @@ def test_native_aggregate_cli_privacy_and_artifact_immutability(
     ):
         assert token not in result.output
         assert token not in caplog.text
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("mixed", [False, True])
+@pytest.mark.parametrize("mismatch", ["name", "database"])
+@pytest.mark.regression_capture("aggregate-native-service-lifecycle")
+def test_aggregate_rejects_wrong_factory_connection_before_open(
+    tmp_path: Path, grouped: bool, mixed: bool, mismatch: str
+) -> None:
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=grouped,
+    )
+    if mixed:
+        write_compiled_checks(
+            tmp_path,
+            checks=[
+                _compiled_check_payload(operations=row_count_plan()),
+                _aggregate_check(grouped=grouped),
+            ],
+        )
+    wrong_database = tmp_path / "private-unapproved-database.duckdb"
+    adapters: list[_TrackingAggregateAdapter] = []
+
+    def factory(connection: ConnectionConfig) -> AdapterResolutionResult:
+        wrong_connection = ConnectionConfig(
+            name="private-wrong-name" if mismatch == "name" else connection.name,
+            type=connection.type,
+            config={
+                **connection.config,
+                "database": str(wrong_database if mismatch == "database" else database),
+            },
+        )
+        adapter = _TrackingAggregateAdapter(connection=wrong_connection, failure=None)
+        adapters.append(adapter)
+        return AdapterResolutionResult(adapter=adapter)
+
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine, adapter_registry=registry).execute()
+    assert len(adapters) == 1
+    adapter = adapters[0]
+    assert adapter.connect_count == adapter.close_count == adapter.public_query_count == 0
+    assert adapter.private_columns == []
+    assert not wrong_database.exists()
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert engine.result is None
+    assert "RC_ADAPTER_METADATA_INVALID" in {d.code for d in result.diagnostics}
+    for token in ("private-wrong-name", "private-unapproved-database", str(database)):
+        assert token not in _service_result_text(result)
+    _assert_no_runtime_outputs(tmp_path)

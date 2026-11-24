@@ -376,6 +376,7 @@ captures:
       - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_lifecycle_and_failure_privacy
       - tests/services/test_run_service_aggregate_admission.py::test_aggregate_invalid_capability_declaration_is_non_executable
       - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_same_context_alias_and_mixed_checks
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_rejects_wrong_factory_connection_before_open
     carryover_gates:
       - gate: check_engine_semantics_carryover
         status: covered
