@@ -156,7 +156,7 @@ captures:
   - id: aggregate-admission-tolerance-policy
     title: Aggregate tolerance metadata and numeric interpretation fail closed
     area: check-engine
-    bug_class: policy_precedence
+    bug_class: validation_defaults
     owner_surface: execution_result
     severity: P2
     current_tests:
@@ -316,6 +316,7 @@ captures:
       - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_rejects_unproven_private_collaborators
       - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_stops_before_final_query_on_invalid_guard
       - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_rejects_duplicate_rendered_capabilities
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_runtime_missing_prepared_adapter_is_error
       - tests/services/test_run_service_aggregate_admission.py::test_aggregate_service_missing_private_executor_does_not_connect
       - tests/services/test_run_service_aggregate_admission.py::test_aggregate_service_executes_bounded_same_context
     carryover_gates:

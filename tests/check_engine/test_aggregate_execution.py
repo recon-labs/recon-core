@@ -963,7 +963,7 @@ def test_aggregate_runtime_stops_before_final_query_on_invalid_guard(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
-@pytest.mark.parametrize("malformed", ["truthy", "missing_proof", "contradictory"])
+@pytest.mark.parametrize("malformed", ["truthy", "missing_proof", "contradictory", "wrong_object"])
 @pytest.mark.regression_capture("aggregate-runtime-scan-preflight")
 def test_aggregate_runtime_rejects_malformed_scan_approval(
     tmp_path: Path, grouped: bool, malformed: str
@@ -975,7 +975,9 @@ def test_aggregate_runtime_rejects_malformed_scan_approval(
             bounded=True,
         )
     )
-    if malformed == "truthy":
+    if malformed == "wrong_object":
+        decision = object()
+    elif malformed == "truthy":
         decision = replace(decision, allowed="yes")
     elif malformed == "missing_proof":
         decision = replace(decision, diagnostics=())
@@ -1012,3 +1014,14 @@ def test_aggregate_runtime_rejects_duplicate_rendered_capabilities(
     assert result.status is CheckStatus.ERROR
     assert result.diagnostics[-1].code == "RC_ADAPTER_RENDERER_METADATA_INVALID"
     assert adapter.calls == []
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("aggregate-runtime-private-routing")
+def test_aggregate_runtime_missing_prepared_adapter_is_error(tmp_path: Path, grouped: bool) -> None:
+    renderer = _RoutingRenderer(_routing_plan(grouped))
+    result = _route(tmp_path, grouped, None, renderer)
+    assert result.status is CheckStatus.ERROR
+    assert not result.executed
+    assert result.diagnostics[-1].code == "RC_ADAPTER_RENDERER_METADATA_INVALID"
+    assert renderer.calls == 0
