@@ -172,11 +172,11 @@ class _InvalidAggregateResultError(ValueError):
 def _read_type_description(
     description: object, expected_columns: tuple[str, ...]
 ) -> tuple[str, ...]:
-    if not isinstance(description, (list, tuple)) or len(description) != len(expected_columns):
+    if not isinstance(description, list | tuple) or len(description) != len(expected_columns):
         raise _InvalidAggregateResultError()
     types: list[str] = []
     for column, name in zip(description, expected_columns, strict=True):
-        if not isinstance(column, (list, tuple)) or len(column) < 2 or column[0] != name:
+        if not isinstance(column, list | tuple) or len(column) < 2 or column[0] != name:
             raise _InvalidAggregateResultError()
         if not isinstance(column[0], str) or column[1] is None:
             raise _InvalidAggregateResultError()
@@ -259,10 +259,10 @@ def _read_aggregate_result(
     cursor = connection.execute(query)
     types = _read_type_description(cursor.description, columns)
     rows = cursor.fetchmany(2)
-    if not isinstance(rows, (list, tuple)) or len(rows) != 1:
+    if not isinstance(rows, list | tuple) or len(rows) != 1:
         raise _InvalidAggregateResultError()
     row = rows[0]
-    if not isinstance(row, (list, tuple)) or len(row) != len(columns):
+    if not isinstance(row, list | tuple) or len(row) != len(columns):
         raise _InvalidAggregateResultError()
     types = _resolve_logical_types(connection, query, columns, types)
     domains = tuple(_numeric_domain(kind) for kind in types)
