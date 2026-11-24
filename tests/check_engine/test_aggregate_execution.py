@@ -584,9 +584,7 @@ def test_aggregate_comparison_diagnostic_does_not_expose_private_values(tmp_path
 
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.regression_capture("aggregate-core-numeric-comparison")
-def test_aggregate_comparison_ignores_decimal_context_limits(
-    tmp_path: Path, grouped: bool
-) -> None:
+def test_aggregate_comparison_ignores_decimal_context_limits(tmp_path: Path, grouped: bool) -> None:
     from decimal import Inexact, Overflow, Rounded, Underflow
 
     difference = Decimal("-999999999999999999.000000000000000001")
