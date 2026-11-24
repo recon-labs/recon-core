@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from recon_core.adapters import AdapterRegistry
+from recon_core.artifacts import CompiledContractLoader
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 from tests.services._run_service_fixtures import (
@@ -14,8 +15,10 @@ from tests.services._run_service_fixtures import (
     _assert_no_runtime_outputs,
     _compiled_check_payload,
     _service_result_text,
+    row_count_plan,
     write_compiled_checks,
     write_compiled_contract,
+    write_duckdb_row_count_run_inputs,
     write_project,
 )
 
@@ -105,6 +108,7 @@ def _run_without_profile(
         pytest.param({"type": "absolute", "value": 0, "extra": _PRIVATE_TOKEN}, id="extra"),
     ],
 )
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_invalid_aggregate_tolerance_blocks_before_profile(
     tmp_path: Path, grouped: bool, tolerance: object
 ) -> None:
@@ -117,6 +121,7 @@ def test_invalid_aggregate_tolerance_blocks_before_profile(
 
 
 @pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_unresolved_named_aggregate_policy_blocks_before_profile(
     tmp_path: Path, grouped: bool
 ) -> None:
@@ -140,6 +145,7 @@ def test_unresolved_named_aggregate_policy_blocks_before_profile(
         pytest.param({"tolerance_policy": {"value": _PRIVATE_TOKEN}}, id="object-reference"),
     ],
 )
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_invalid_named_policy_metadata_errors_before_profile(
     tmp_path: Path, policies: object
 ) -> None:
@@ -155,6 +161,7 @@ def test_invalid_named_policy_metadata_errors_before_profile(
     "mutation",
     ("missing_compare", "reversed_sides", "different_column", "different_group_order", "avg"),
 )
+@pytest.mark.regression_capture("aggregate-admission-typed-plan-boundary")
 def test_aggregate_plan_rejects_unsupported_shape_before_profile(
     tmp_path: Path, mutation: str
 ) -> None:
@@ -179,6 +186,7 @@ def test_aggregate_plan_rejects_unsupported_shape_before_profile(
     }
 
 
+@pytest.mark.regression_capture("aggregate-admission-endpoint-precedence")
 def test_aggregate_query_endpoint_is_not_executable_before_profile(tmp_path: Path) -> None:
     result = _run_without_profile(
         tmp_path,
@@ -192,6 +200,7 @@ def test_aggregate_query_endpoint_is_not_executable_before_profile(tmp_path: Pat
     }
 
 
+@pytest.mark.regression_capture("aggregate-admission-endpoint-precedence")
 def test_aggregate_invalid_relation_errors_before_profile(tmp_path: Path) -> None:
     result = _run_without_profile(
         tmp_path, _aggregate_check(), source_relation=f"qa..{_PRIVATE_TOKEN}"
@@ -202,6 +211,7 @@ def test_aggregate_invalid_relation_errors_before_profile(tmp_path: Path) -> Non
 
 @pytest.mark.parametrize("grouped", (False, True))
 @pytest.mark.parametrize("tolerance", (0, 0.1, {"type": "absolute", "value": 0.1}))
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_valid_explicit_tolerance_overrides_named_policy_without_execution(
     tmp_path: Path, grouped: bool, tolerance: object
 ) -> None:
@@ -217,6 +227,7 @@ def test_valid_explicit_tolerance_overrides_named_policy_without_execution(
     ]
 
 
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_invalid_explicit_override_does_not_fall_back_to_named_policy(tmp_path: Path) -> None:
     result = _run_without_profile(
         tmp_path,
@@ -228,6 +239,7 @@ def test_invalid_explicit_override_does_not_fall_back_to_named_policy(tmp_path: 
     }
 
 
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_malformed_named_metadata_is_not_hidden_by_valid_override(tmp_path: Path) -> None:
     result = _run_without_profile(
         tmp_path,
@@ -237,3 +249,51 @@ def test_malformed_named_metadata_is_not_hidden_by_valid_override(tmp_path: Path
     assert "RC_RUNTIME_COMPILED_CONTRACT_ARTIFACT_INVALID" in {
         diagnostic.code for diagnostic in result.diagnostics
     }
+
+
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
+def test_injected_public_loader_does_not_imply_verified_policy_absence(tmp_path: Path) -> None:
+    write_project(tmp_path, profile="local")
+    write_compiled_checks(tmp_path, checks=[_aggregate_check(tolerance=0)])
+    write_compiled_contract(tmp_path)
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(
+        start_path=tmp_path,
+        adapter_registry=registry,
+        contract_loader=CompiledContractLoader(),
+    ).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_AGGREGATE_TOLERANCE_POLICY_UNRESOLVED"
+    ]
+    assert factory.adapters == []
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
+def test_mixed_run_preserves_aggregate_policy_error_and_row_count(tmp_path: Path) -> None:
+    write_duckdb_row_count_run_inputs(tmp_path, tmp_path / "warehouse.duckdb")
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(operations=row_count_plan()),
+            _aggregate_check(tolerance=_PRIVATE_TOKEN),
+        ],
+    )
+    factory = RecordingDuckDbFactory()
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert "RC_RUNTIME_COMPILED_CHECK_ARTIFACT_INVALID" in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
+    assert _PRIVATE_TOKEN not in _service_result_text(result)
+    assert len(factory.adapters) == 1
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 1
+    assert adapter.close_count == 1
+    assert len(adapter.queries) == 1
+    _assert_no_runtime_outputs(tmp_path)

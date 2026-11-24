@@ -996,6 +996,21 @@ final Milestone 7.4 matrix and confirm:
 - newly discovered conformance requirements are either added to the matrix or
   recorded as blockers before follow-on implementation.
 
+### Admission implementation checkpoint
+
+The compiled aggregate admission boundary now owns current explicit sum plan
+shape, relation endpoints, shared absolute tolerance interpretation, and
+private compiled-policy state. Admission does not enable aggregate queries
+or replace prerequisite and rendering blockers. Existing public adapter,
+loaded-contract, execution-context and typed-plan shapes remain unchanged.
+The initial RED cases and the additional boundary tests reside in
+`tests/services/test_run_service_aggregate_admission.py` and
+`tests/check_engine/test_aggregate_execution.py`; loader shape/read-once
+proof resides in `tests/artifacts/test_compiled_contract_loader.py`.
+The later typed transport, renderer, comparison and service candidate steps
+must retain these admission guarantees. Current regression capture rows
+preserve these cases for subsequent phase-exit and shared-suite review.
+
 ## Implementation Readiness
 
 The approved design and its acceptance requirements are documented.

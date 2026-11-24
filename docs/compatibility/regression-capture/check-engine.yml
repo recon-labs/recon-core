@@ -117,3 +117,88 @@ captures:
       Dependent row-level checks must remain blocked when key-safety
       prerequisites fail, error, are blocked, or are not executable so later
       execution phases cannot produce misleading comparison evidence.
+  - id: aggregate-admission-typed-plan-boundary
+    title: Aggregate plan admission rejects unsupported payload and placement
+    area: check-engine
+    bug_class: blocker_precedence
+    owner_surface: typed_check_plan
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_aggregate_execution.py::test_injected_aggregate_plan_rejects_unsupported_fields
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_shape_accepts_empty_reserved_metadata
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_reserved_metadata_precedes_rendering_and_policy_blockers
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_prerequisite_precedes_invalid_policy
+      - tests/check_engine/test_aggregate_execution.py::test_valid_aggregate_shape_preserves_rendering_error
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_plan_rejects_unsupported_shape_before_profile
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: typed_plan_shape
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: typed_check_plan_runtime_semantics
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: runtime_scan_policy
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Loaded and injected aggregate plans preserve typed operation shape, reserved placement, rendering and prerequisite precedence before adapter execution.
+  - id: aggregate-admission-tolerance-policy
+    title: Aggregate tolerance metadata and numeric interpretation fail closed
+    area: check-engine
+    bug_class: policy_precedence
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_aggregate_execution.py::test_absolute_tolerance_is_context_independent
+      - tests/check_engine/test_aggregate_execution.py::test_invalid_explicit_tolerance_agrees_with_compiler
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_admission_returns_canonical_threshold
+      - tests/check_engine/test_aggregate_execution.py::test_aggregate_unknown_private_metadata_blocks_even_with_override
+      - tests/services/test_run_service_aggregate_admission.py::test_invalid_aggregate_tolerance_blocks_before_profile
+      - tests/services/test_run_service_aggregate_admission.py::test_unresolved_named_aggregate_policy_blocks_before_profile
+      - tests/services/test_run_service_aggregate_admission.py::test_invalid_named_policy_metadata_errors_before_profile
+      - tests/services/test_run_service_aggregate_admission.py::test_valid_explicit_tolerance_overrides_named_policy_without_execution
+      - tests/services/test_run_service_aggregate_admission.py::test_invalid_explicit_override_does_not_fall_back_to_named_policy
+      - tests/services/test_run_service_aggregate_admission.py::test_malformed_named_metadata_is_not_hidden_by_valid_override
+      - tests/services/test_run_service_aggregate_admission.py::test_injected_public_loader_does_not_imply_verified_policy_absence
+      - tests/services/test_run_service_aggregate_admission.py::test_mixed_run_preserves_aggregate_policy_error_and_row_count
+      - tests/artifacts/test_compiled_contract_loader.py::test_private_runtime_policy_metadata_preserves_public_loader_shape
+      - tests/artifacts/test_compiled_contract_loader.py::test_private_runtime_metadata_is_discarded_on_identity_mismatch
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: numeric_policy
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: typed_check_plan_runtime_semantics
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      The shared explicit absolute threshold is exact and context independent. Verified absent metadata defaults to zero; unresolved policy blocks without a valid override; malformed or unverified metadata cannot become a successful comparison. Private policy values do not reach diagnostics.
+  - id: aggregate-admission-endpoint-precedence
+    title: Aggregate endpoint blockers precede adapter preparation
+    area: check-engine
+    bug_class: blocker_precedence
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_query_endpoint_is_not_executable_before_profile
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_invalid_relation_errors_before_profile
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: blocker_precedence
+      - gate: parser_compiler_contract_carryover
+        status: pending
+        expected_suite: typed_check_plan_runtime_semantics
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: runtime_scan_policy
+    requirement_refs:
+      - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
+      - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
+    notes: >
+      Unsupported query endpoints and malformed relation names return specific safe diagnostics before aggregate-only profile and adapter work.

@@ -69,6 +69,10 @@ This project follows semantic versioning once public package releases begin.
 
 ### Fixed
 
+- `recon run` now reports specific compiled aggregate plan, endpoint and numeric
+  tolerance admission blockers, including unresolved applicable named tolerance
+  policies, without opening adapters for aggregate-only checks. Aggregate query
+  execution remains disabled until its execution path is implemented.
 - CI now runs DuckDB SQL renderer semantic tests in a required job that installs
   `.[dev,duckdb]`, preventing optional DuckDB execution coverage from being
   silently skipped.

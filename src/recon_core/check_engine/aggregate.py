@@ -18,10 +18,13 @@ from recon_core.artifacts.compiled_contract_loader import (
 from recon_core.check_engine.dispatch import UNSUPPORTED_TYPED_OPERATION
 from recon_core.check_engine.execution_support import (
     error_result,
+    has_materialization_policy,
+    has_reserved_value,
     not_executable_result,
     relation_from_name,
 )
 from recon_core.check_engine.models import CheckReason, CheckResult
+from recon_core.compiled_artifact_schema import typed_operation_payload_fields
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 _TOLERANCE_POLICY_UNRESOLVED = "RC_RUNTIME_AGGREGATE_TOLERANCE_POLICY_UNRESOLVED"
@@ -38,8 +41,33 @@ def is_aggregate_check_type(check_type: str) -> bool:
     return check_type in _AGGREGATE_TYPES
 
 
+def _operation_fields_supported(operation: Mapping[str, object]) -> bool:
+    operation_type = operation.get("type")
+    if not isinstance(operation_type, str):
+        return False
+    payload_fields = typed_operation_payload_fields(operation_type)
+    if payload_fields is None:
+        return False
+    if any(
+        has_reserved_value(operation.get(key))
+        for key in ("execution_placement", "comparison_location")
+    ):
+        return False
+    if has_materialization_policy(operation.get("materialization_policy")):
+        return False
+    allowed_fields = payload_fields | {
+        "type",
+        "execution_placement",
+        "comparison_location",
+        "materialization_policy",
+    }
+    return set(operation).issubset(allowed_fields)
+
+
 def is_supported_aggregate_plan_shape(check: LoadedCompiledCheck) -> bool:
     if not is_aggregate_check_type(check.check_type) or len(check.plan.operations) != 3:
+        return False
+    if not all(_operation_fields_supported(operation) for operation in check.plan.operations):
         return False
     source, target, comparison = check.plan.operations
     grouped = check.check_type == "grouped_aggregate_diff"

@@ -40,8 +40,14 @@ check-engine boundary, status model, internal dispatch, and
 prerequisite/blocking representation. The current row-count and grain-key safety
 execution stages add relation-backed same-context DuckDB execution for the
 supported `row_count_diff`, null-key, duplicate-key, missing-key, and extra-key
-typed-plan shapes. A later aggregate execution stage adds execution for current
-compiled aggregate metric typed-plan shapes. Execution stages must join each
+typed-plan shapes. The aggregate admission boundary now validates current
+compiled explicit sum plans, relation endpoints and numeric tolerance metadata.
+Invalid or unresolved inputs receive specific non-execution diagnostics; a
+valid plan remains non-executable until aggregate query execution is enabled.
+Existing compiled metadata is read once, and a valid explicit metric tolerance
+overrides an unresolved applicable named reference. No policy resource loading,
+new public result fields or aggregate adapter queries are introduced by admission.
+Execution stages must join each
 executable compiled check to its matching compiled-contract metadata before any
 profile, adapter, or query work starts.
 `target/run_results.json`, evidence reports, failure details, and evidence links

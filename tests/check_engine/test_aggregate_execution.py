@@ -33,6 +33,7 @@ from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
         ({"type": "absolute", "value": 0.1}, Decimal("0.1")),
     ],
 )
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_absolute_tolerance_is_context_independent(value: object, expected: Decimal) -> None:
     with localcontext() as context:
         context.prec = 3
@@ -58,9 +59,11 @@ def test_absolute_tolerance_is_context_independent(value: object, expected: Deci
         {"type": "percentage", "value": 1},
     ],
 )
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_invalid_explicit_tolerance_agrees_with_compiler(value: object) -> None:
     assert absolute_tolerance(value) is None
     assert not validate_tolerance(value, resource_type="metric", resource_name="m").succeeded
+
 
 def _compiled_aggregate(*, grouped: bool = False, tolerance: object = None) -> LoadedCompiledCheck:
     kind = "grouped_aggregate" if grouped else "aggregate"
@@ -115,6 +118,7 @@ def _contract(tmp_path: Path) -> LoadedCompiledContractArtifact:
         ({"type": "absolute", "value": 0.1}, _ToleranceReferenceState.UNRESOLVED, Decimal("0.1")),
     ],
 )
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_aggregate_admission_returns_canonical_threshold(
     tmp_path: Path,
     grouped: bool,
@@ -140,6 +144,7 @@ def test_aggregate_admission_returns_canonical_threshold(
         ("materialization_policy", "stage"),
     ],
 )
+@pytest.mark.regression_capture("aggregate-admission-typed-plan-boundary")
 def test_injected_aggregate_plan_rejects_unsupported_fields(
     tmp_path: Path, grouped: bool, index: int, field: str, value: object
 ) -> None:
@@ -153,6 +158,7 @@ def test_injected_aggregate_plan_rejects_unsupported_fields(
 
 
 @pytest.mark.parametrize("grouped", (False, True))
+@pytest.mark.regression_capture("aggregate-admission-typed-plan-boundary")
 def test_aggregate_shape_accepts_empty_reserved_metadata(grouped: bool) -> None:
     check = _compiled_aggregate(grouped=grouped)
     for operation in check.plan.operations:
@@ -187,6 +193,7 @@ def _run_check(
 
 
 @pytest.mark.parametrize("value", (None, 0, 0.1))
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_aggregate_unknown_private_metadata_blocks_even_with_override(
     tmp_path: Path, value: object
 ) -> None:
@@ -210,6 +217,7 @@ def test_aggregate_unknown_private_metadata_blocks_even_with_override(
         ("materialization_policy", "stage", "RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY"),
     ],
 )
+@pytest.mark.regression_capture("aggregate-admission-typed-plan-boundary")
 def test_aggregate_reserved_metadata_precedes_rendering_and_policy_blockers(
     tmp_path: Path, field: str, value: str, code: str
 ) -> None:
@@ -238,6 +246,7 @@ def test_aggregate_reserved_metadata_precedes_rendering_and_policy_blockers(
     assert not result.executed
 
 
+@pytest.mark.regression_capture("aggregate-admission-typed-plan-boundary")
 def test_aggregate_prerequisite_precedes_invalid_policy(tmp_path: Path) -> None:
     check = replace(_compiled_aggregate(tolerance=-1), prerequisites=("check.missing",))
     contract = _contract(tmp_path)
@@ -261,3 +270,29 @@ def test_public_execution_context_fields_remain_unchanged() -> None:
         "renderers_by_adapter_type",
         "scan_budget_decisions_by_check_id",
     )
+
+
+@pytest.mark.regression_capture("aggregate-admission-typed-plan-boundary")
+@pytest.mark.parametrize("status", ("blocked", "failed"))
+def test_valid_aggregate_shape_preserves_rendering_error(tmp_path: Path, status: str) -> None:
+    check = replace(
+        _compiled_aggregate(tolerance=-1),
+        rendering_status=status,
+        diagnostics=(
+            Diagnostic(
+                code="RC_TEST_RENDER_BLOCKED",
+                severity=DiagnosticSeverity.ERROR,
+                message="Blocked.",
+            ),
+        ),
+    )
+    contract = _contract(tmp_path)
+    context = _AggregateExecutionContext(
+        contracts_by_name={contract.contract_name: contract},
+        adapters_by_connection={},
+        tolerance_states_by_contract_id={contract.contract_id: _ToleranceReferenceState.ABSENT},
+    )
+    result = _run_check(check, contract, context)
+    assert result.status is CheckStatus.ERROR
+    assert not result.executed
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_TEST_RENDER_BLOCKED"]

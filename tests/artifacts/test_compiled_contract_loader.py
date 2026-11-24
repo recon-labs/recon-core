@@ -1,4 +1,4 @@
-from dataclasses import fields
+from dataclasses import fields, replace
 from pathlib import Path
 from typing import cast
 
@@ -535,6 +535,7 @@ def _write_payload(path: Path, payload: dict[str, object]) -> None:
         ("private-policy", "invalid"),
     ],
 )
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
 def test_private_runtime_policy_metadata_preserves_public_loader_shape(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, policies: object, state: str
 ) -> None:
@@ -570,3 +571,26 @@ def test_private_runtime_policy_metadata_preserves_public_loader_shape(
         "grain_keys",
         "diagnostics",
     )
+
+
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
+def test_private_runtime_metadata_is_discarded_on_identity_mismatch(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    payload = _compiled_contract_payload()
+    payload["policies"] = {"tolerance_policy": "private-policy"}
+    _write_payload(target / "compiled_contracts" / "customer_revenue.yml", payload)
+    loader = CompiledContractLoader()
+    check = _loaded_check_artifact()
+    result, states = loader._load_for_runtime(
+        target, (replace(check, contract_id="contract.wrong.identity"),)
+    )
+    assert not result.succeeded
+    assert states == {}
+    result, states = loader._load_for_runtime(target, (check,))
+    assert result.succeeded
+    assert states == {check.contract_id: "unresolved"}
+    payload["policies"] = {}
+    _write_payload(target / "compiled_contracts" / "customer_revenue.yml", payload)
+    result, states = loader._load_for_runtime(target, (check,))
+    assert result.succeeded
+    assert states == {check.contract_id: "absent"}
