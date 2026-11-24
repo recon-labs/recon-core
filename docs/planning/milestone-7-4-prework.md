@@ -1011,6 +1011,21 @@ The later typed transport, renderer, comparison and service candidate steps
 must retain these admission guarantees. Current regression capture rows
 preserve these cases for subsequent phase-exit and shared-suite review.
 
+### Private typed transport implementation checkpoint
+
+The private adapter result contract and bounded DuckDB transport now preserve
+verified numeric domains and normalized values, including exact typed
+arbitrary-size integers, decimal values, native floating values and nulls.
+The existing public query envelope and adapter lifecycle remain unchanged.
+Transport accepts only one complete final row with exact expected columns;
+legacy logical metadata is verified using the existing connection and bounded
+metadata retrieval. Transport does not decide comparison status or enable
+aggregate queries. The native result-domain and input compatibility checks
+in the renderer and Core comparison steps remain required.
+Focused coverage resides in
+`tests/adapters/test_duckdb_aggregate_transport.py`; the representative
+version matrix retains the existing native feasibility probes.
+
 ## Implementation Readiness
 
 The approved design and its acceptance requirements are documented.

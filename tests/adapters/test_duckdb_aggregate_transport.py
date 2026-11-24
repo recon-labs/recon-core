@@ -97,6 +97,7 @@ def _execute(
         ("BIGNUM", 10**70 + 1, "exact_integer", 10**70 + 1),
     ],
 )
+@pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
 def test_private_transport_preserves_native_numeric_values(
     monkeypatch: pytest.MonkeyPatch,
     logical_type: str,
@@ -121,6 +122,7 @@ def test_private_transport_preserves_native_numeric_values(
 
 
 @pytest.mark.parametrize("sign", ("", "-"))
+@pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
 def test_private_transport_large_typed_integer_ignores_decimal_context(
     monkeypatch: pytest.MonkeyPatch, sign: str
 ) -> None:
@@ -133,6 +135,7 @@ def test_private_transport_large_typed_integer_ignores_decimal_context(
         result = _execute(adapter)
         assert result.row[0] == int(Decimal(digits))
     assert type(result.row[0]) is int
+    assert digits not in repr(result)
     assert sys.get_int_max_str_digits() == limit
     adapter.close()
 
@@ -162,6 +165,7 @@ def test_private_transport_large_typed_integer_ignores_decimal_context(
         ((("value", "NUMBER"),), [(1,)]),
     ],
 )
+@pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
 def test_private_transport_rejects_invalid_envelope_without_leaking_values(
     monkeypatch: pytest.MonkeyPatch, description: object, rows: list[tuple[object, ...]]
 ) -> None:
@@ -182,6 +186,7 @@ def test_private_transport_rejects_invalid_envelope_without_leaking_values(
         ("STRING", "BIGNUM", "1000000000000000000000000000001", "exact_integer"),
     ],
 )
+@pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
 def test_private_transport_resolves_legacy_logical_metadata(
     monkeypatch: pytest.MonkeyPatch,
     category: str,
@@ -213,6 +218,7 @@ def test_private_transport_resolves_legacy_logical_metadata(
         [("value",)],
     ],
 )
+@pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
 def test_private_transport_rejects_unverified_legacy_metadata(
     monkeypatch: pytest.MonkeyPatch, metadata_rows: list[tuple[object, ...]]
 ) -> None:
@@ -225,6 +231,7 @@ def test_private_transport_rejects_unverified_legacy_metadata(
     adapter.close()
 
 
+@pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
 def test_private_transport_requires_existing_open_connection() -> None:
     adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
     with pytest.raises(AdapterLifecycleError) as caught:
@@ -232,6 +239,7 @@ def test_private_transport_requires_existing_open_connection() -> None:
     assert caught.value.diagnostic.code == ADAPTER_CONNECTION_FAILED
 
 
+@pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
 def test_private_transport_query_failure_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None:
     connection = _Connection(_Cursor((("value", "BIGINT"),), [(1,)]))
     adapter = _adapter(monkeypatch, connection)
@@ -243,6 +251,7 @@ def test_private_transport_query_failure_is_sanitized(monkeypatch: pytest.Monkey
     assert connection.closed
 
 
+@pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
 def test_public_adapter_contract_stays_unmodified() -> None:
     assert tuple(field.name for field in fields(QueryResult)) == ("columns", "rows", "row_count")
     assert not hasattr(BaseAdapter, "_execute_aggregate_query")
@@ -266,6 +275,7 @@ def real_adapter() -> Any:
         adapter.close()
 
 
+@pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
 def test_private_transport_real_driver_domains_and_public_execute(real_adapter: Any) -> None:
     sql = (
         "SELECT CAST('9007199254740993' AS HUGEINT) AS i, "
@@ -284,12 +294,14 @@ def test_private_transport_real_driver_domains_and_public_execute(real_adapter: 
     assert public == QueryResult(columns=("value",), rows=((1,), (2,)), row_count=2)
 
 
+@pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
 def test_private_transport_real_driver_rejects_multiple_rows(real_adapter: Any) -> None:
     with pytest.raises(AdapterLifecycleError) as caught:
         _execute(real_adapter, "SELECT i AS value FROM range(10000) r(i)")
     assert caught.value.diagnostic.code == ADAPTER_QUERY_FAILED
 
 
+@pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
 def test_private_transport_real_driver_arbitrary_integer_availability(real_adapter: Any) -> None:
     version_parts = importlib.import_module("duckdb").__version__.split(".")[:2]
     version = tuple(int(part) for part in version_parts)
@@ -305,3 +317,92 @@ def test_private_transport_real_driver_arbitrary_integer_availability(real_adapt
     assert result.domains == ("exact_integer",)
     assert type(result.row[0]) is int
     assert result.row[0] == int(Decimal(digits))
+
+
+@pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
+@pytest.mark.parametrize("columns", ((), ("value", "value"), ("",), ["value"], "value"))
+def test_private_transport_rejects_invalid_requested_columns_before_query(
+    monkeypatch: pytest.MonkeyPatch, columns: Any
+) -> None:
+    connection = _Connection(_Cursor((("value", "BIGINT"),), [(1,)]))
+    adapter = _adapter(monkeypatch, connection)
+    with pytest.raises(AdapterLifecycleError) as caught:
+        _execute(adapter, columns=columns)
+    assert caught.value.diagnostic.code == ADAPTER_QUERY_FAILED
+    assert connection.queries == []
+    adapter.close()
+
+
+@pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
+@pytest.mark.parametrize("value", ("nan", "inf", "-inf"))
+def test_private_transport_preserves_native_nonfinite_values_for_core(
+    real_adapter: Any, value: str
+) -> None:
+    result = _execute(real_adapter, f"SELECT CAST('{value}' AS DOUBLE) AS value")
+    assert result.domains == ("native_float",)
+    assert type(result.row[0]) is float
+    if value == "nan":
+        assert math.isnan(result.row[0])
+    else:
+        assert result.row[0] == float(value)
+
+
+@pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
+@pytest.mark.parametrize(
+    "resolved",
+    [
+        [("a", "DOUBLE"), ("b", "DOUBLE")],
+        [("a", "BIGINT"), ("b", "VARCHAR")],
+        [("b", "BIGINT"), ("a", "DOUBLE")],
+        [("a", "BIGINT"), ("b", "DOUBLE"), ("extra", "BIGINT")],
+    ],
+)
+def test_private_transport_rejects_conflicting_mixed_metadata(
+    monkeypatch: pytest.MonkeyPatch, resolved: list[tuple[str, str]]
+) -> None:
+    cursor = _Cursor((("a", "BIGINT"), ("b", "NUMBER")), [(1, 0.1)])
+    metadata = _Cursor(None, resolved)
+    adapter = _adapter(monkeypatch, _Connection(cursor, metadata))
+    with pytest.raises(AdapterLifecycleError) as caught:
+        _execute(adapter, columns=("a", "b"))
+    assert caught.value.diagnostic.code == ADAPTER_QUERY_FAILED
+    assert cursor.fetch_sizes == [2]
+    assert metadata.fetch_sizes == [3]
+    adapter.close()
+
+
+@pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
+def test_private_transport_preserves_complete_nine_field_envelope(real_adapter: Any) -> None:
+    columns = (
+        "total_group_count",
+        "source_only_group_count",
+        "target_only_group_count",
+        "both_null_group_count",
+        "null_mismatch_group_count",
+        "valid_numeric_pair_count",
+        "invalid_numeric_count",
+        "min_signed_diff",
+        "max_signed_diff",
+    )
+    sql = "SELECT " + ", ".join(
+        f"CAST({value} AS BIGINT) AS {name}"
+        for name, value in zip(columns[:7], (6, 1, 1, 1, 1, 2, 0), strict=True)
+    )
+    sql += ", CAST(-2 AS HUGEINT) AS min_signed_diff, CAST(3 AS HUGEINT) AS max_signed_diff"
+    result = _execute(real_adapter, sql, columns)
+    assert result.columns == columns
+    assert result.domains == ("exact_integer",) * 9
+    assert result.row == (6, 1, 1, 1, 1, 2, 0, -2, 3)
+    assert all(type(value) is int for value in result.row)
+
+
+@pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
+def test_private_transport_does_not_normalize_non_numeric_nulls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = _Connection(_Cursor((("value", "VARCHAR"),), [(None,)]))
+    adapter = _adapter(monkeypatch, connection)
+    with pytest.raises(AdapterLifecycleError) as caught:
+        _execute(adapter)
+    assert caught.value.diagnostic.code == ADAPTER_QUERY_FAILED
+    adapter.close()

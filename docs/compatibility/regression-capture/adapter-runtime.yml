@@ -211,3 +211,63 @@ captures:
     notes: >
       Public docs may say scan scope and budget status must be explicit, but
       must not imply users can supply the final bounded classification directly.
+  - id: duckdb-private-bounded-aggregate-transport
+    title: Private aggregate transport enforces a bounded result envelope
+    area: adapter-runtime
+    bug_class: result_shape
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_rejects_invalid_envelope_without_leaking_values
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_requires_existing_open_connection
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_query_failure_is_sanitized
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_public_adapter_contract_stays_unmodified
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_real_driver_rejects_multiple_rows
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_rejects_invalid_requested_columns_before_query
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_preserves_complete_nine_field_envelope
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_does_not_normalize_non_numeric_nulls
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: bounded_aggregate_transport
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: bounded_aggregate_transport
+      - gate: diagnostics_privacy_carryover
+        status: pending
+        expected_suite: runtime_adapter_diagnostics
+    requirement_refs:
+      - docs/compatibility/adapter-api.md: private aggregate runtime transport
+      - docs/planning/milestone-7-4-prework.md: Private typed transport and metadata
+    notes: >
+      Private aggregate results require exact column identity and one complete row, using the existing open connection and bounded fetch. Malformed envelopes and errors are safe; public execute and QueryResult remain unchanged.
+  - id: duckdb-private-typed-numeric-transport
+    title: Private aggregate transport requires verified native numeric evidence
+    area: adapter-runtime
+    bug_class: numeric_type_coercion
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_preserves_native_numeric_values
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_large_typed_integer_ignores_decimal_context
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_resolves_legacy_logical_metadata
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_rejects_unverified_legacy_metadata
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_real_driver_domains_and_public_execute
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_real_driver_arbitrary_integer_availability
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_preserves_native_nonfinite_values_for_core
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_rejects_conflicting_mixed_metadata
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: pending
+        expected_suite: numeric_domain_transport
+      - gate: check_engine_semantics_carryover
+        status: pending
+        expected_suite: numeric_domain_transport
+      - gate: diagnostics_privacy_carryover
+        status: pending
+        expected_suite: runtime_adapter_diagnostics
+    requirement_refs:
+      - docs/compatibility/adapter-api.md: private aggregate runtime transport
+      - docs/planning/milestone-7-4-prework.md: Private typed transport and metadata
+    notes: >
+      Preserve exact integers and decimals, typed arbitrary-size integer strings beyond the Python digit limit, native floating values and nulls. Legacy broad type categories require bounded matching logical metadata, not value-based guesses. Core owns comparison and non-finite classification.

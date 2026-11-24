@@ -322,6 +322,18 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/adapters/_aggregate_runtime.py
+      surfaces:
+        - adapter_api
+        - adapter_runtime
+        - execution_result
+    - path: tests/adapters/test_duckdb_aggregate_transport.py
+      surfaces:
+        - adapter_api
+        - adapter_runtime
+        - execution_result
+        - diagnostics
+        - redaction
     - path: src/recon_core/adapters/duckdb/adapter.py
       surfaces:
         - adapter_runtime

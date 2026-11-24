@@ -165,7 +165,7 @@ class DuckDbAdapter(BaseAdapter):
         )
 
 
-class _InvalidAggregateResult(ValueError):
+class _InvalidAggregateResultError(ValueError):
     """Private malformed numeric transport; never include raw query or values."""
 
 
@@ -173,13 +173,13 @@ def _read_type_description(
     description: object, expected_columns: tuple[str, ...]
 ) -> tuple[str, ...]:
     if not isinstance(description, (list, tuple)) or len(description) != len(expected_columns):
-        raise _InvalidAggregateResult()
+        raise _InvalidAggregateResultError()
     types: list[str] = []
     for column, name in zip(description, expected_columns, strict=True):
         if not isinstance(column, (list, tuple)) or len(column) < 2 or column[0] != name:
-            raise _InvalidAggregateResult()
+            raise _InvalidAggregateResultError()
         if not isinstance(column[0], str) or column[1] is None:
-            raise _InvalidAggregateResult()
+            raise _InvalidAggregateResultError()
         types.append(str(column[1]).upper())
     return tuple(types)
 
@@ -196,14 +196,14 @@ def _resolve_logical_types(
     for original, logical in zip(types, resolved, strict=True):
         if original == "STRING":
             if logical not in _ARBITRARY_INTEGER_TYPES:
-                raise _InvalidAggregateResult()
+                raise _InvalidAggregateResultError()
         elif original == "NUMBER":
             if logical in _ARBITRARY_INTEGER_TYPES:
                 # A numeric category may also represent a native exact integer.
                 continue
             _numeric_domain(logical)
         elif original != logical:
-            raise _InvalidAggregateResult()
+            raise _InvalidAggregateResultError()
     return resolved
 
 
@@ -217,7 +217,7 @@ def _numeric_domain(logical_type: str) -> _NumericDomain:
         width, scale = (int(part) for part in decimal.groups())
         if 1 <= width <= 38 and 0 <= scale <= width:
             return _NumericDomain.EXACT_DECIMAL
-    raise _InvalidAggregateResult()
+    raise _InvalidAggregateResultError()
 
 
 def _normalize_numeric_value(
@@ -243,26 +243,27 @@ def _normalize_numeric_value(
         # Preserve native NaN/Inf as well as signed zero. Core decides whether
         # numeric results are valid for comparison; the adapter owns transport.
         return value
-    raise _InvalidAggregateResult()
+    raise _InvalidAggregateResultError()
 
 
 def _read_aggregate_result(
     connection: Any, query: str, columns: tuple[str, ...]
 ) -> _AggregateQueryResult:
     if (
-        not columns
+        not isinstance(columns, tuple)
+        or not columns
         or any(not isinstance(name, str) or not name for name in columns)
         or len(set(columns)) != len(columns)
     ):
-        raise _InvalidAggregateResult()
+        raise _InvalidAggregateResultError()
     cursor = connection.execute(query)
     types = _read_type_description(cursor.description, columns)
     rows = cursor.fetchmany(2)
     if not isinstance(rows, (list, tuple)) or len(rows) != 1:
-        raise _InvalidAggregateResult()
+        raise _InvalidAggregateResultError()
     row = rows[0]
     if not isinstance(row, (list, tuple)) or len(row) != len(columns):
-        raise _InvalidAggregateResult()
+        raise _InvalidAggregateResultError()
     types = _resolve_logical_types(connection, query, columns, types)
     domains = tuple(_numeric_domain(kind) for kind in types)
     normalized = tuple(

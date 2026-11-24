@@ -80,9 +80,12 @@ convert exact arithmetic to floating point. Non-finite or unrepresentable
 results cannot produce trustworthy equivalence. The runtime summary is
 transient private data and does not authorize a production adapter claim.
 
-The planned private typed runtime transport retains actual native logical
+The private typed runtime transport retains actual native logical
 type evidence before exact value normalization and validates the bounded
-final result envelope without unbounded fetching. Public QueryResult and
+final result envelope without unbounded fetching. It uses the existing open
+connection, reads at most two final rows, and resolves legacy broad driver
+categories through bounded logical type metadata for trusted internal queries.
+It does not enable aggregate execution by itself. Public QueryResult and
 execute behavior remain unchanged. The declared DuckDB dependency floor
 remains unchanged: prove operation availability and exact arithmetic on
 representative installed versions rather than assume that all engines
