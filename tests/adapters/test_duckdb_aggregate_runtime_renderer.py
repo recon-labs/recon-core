@@ -339,9 +339,7 @@ def test_runtime_renderer_native_float_subtraction_regression(
 
 @pytest.mark.parametrize("grouped", (False, True))
 @pytest.mark.regression_capture("duckdb-private-bounded-grouped-summary")
-def test_runtime_renderer_null_is_distinct_from_zero(
-    adapter: DuckDbAdapter, grouped: bool
-) -> None:
+def test_runtime_renderer_null_is_distinct_from_zero(adapter: DuckDbAdapter, grouped: bool) -> None:
     _tables(adapter, "SELECT 1 AS k, NULL::BIGINT AS v", "SELECT 1 AS k, 0::BIGINT AS v")
     result = _result(adapter, _plan(("k",) if grouped else ()))
     assert result.row == ((1, 0, 0, 0, 1, 0, 0, None, None) if grouped else (None, 0, None))
