@@ -223,6 +223,14 @@ resources, or macros until those resources are loaded through one shared
 project-loading model. Unsupported built-in check-pack names should still fail
 validation instead of compiling as silent no-ops.
 
+## Planned local execution policy
+
+The proposed [local execution policy ADR](../decisions/adr-0026-local-execution-policy-and-scan-admission.md) defines a
+project-owned local footprint limit and optional estimated-input warning
+threshold. This is design prework, not accepted configuration syntax in the
+current implementation. Runtime policy is separate from connection secrets,
+contract defaults and compiled comparison semantics.
+
 ## Configuration precedence
 
 Recommended precedence:

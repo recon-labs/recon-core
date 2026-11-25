@@ -748,6 +748,10 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
+Review the [phase prework](../planning/milestone-8-1-prework.md) and proposed ADR 0026.
+Do not start implementation before the exact policy and compatibility impact
+are approved and the listed implementation readiness blockers are cleared.
+
 Build:
 
 - first explicit local scan-budget configuration/opt-in and validation,
