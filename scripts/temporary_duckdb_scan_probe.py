@@ -1,6 +1,8 @@
 """Temporary synthetic research probe. Not a conformance test or production preflight."""
 import json
 import re
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -50,8 +52,11 @@ def metadata(con, phase):
             "select table_name, estimated_size from duckdb_tables() where table_name in ('src','dst') order by table_name")
     observe(con, phase + "_actual_count",
             "select (select count(*) from src), (select count(*) from dst)")
-    observe(con, phase + "_storage",
-            "select column_name, compression, persistent, count(*) as segments, sum(count) as summed_segment_counts, count(distinct block_id) as distinct_blocks from pragma_storage_info('src') group by all order by 1,2,3")
+    if duckdb.__version__ == "1.0.0" and phase in ("after_checkpoint", "reopened_read_only"):
+        emit(phase + "_storage", {"status": "isolated_in_subprocess_due_to_first_run_native_crash"})
+    else:
+        observe(con, phase + "_storage",
+                "select column_name, compression, persistent, count(*) as segments, sum(count) as summed_segment_counts, count(distinct block_id) as distinct_blocks from pragma_storage_info('src') group by all order by 1,2,3")
     observe(con, phase + "_database_size", "pragma database_size")
 
 
@@ -86,6 +91,29 @@ with tempfile.TemporaryDirectory() as directory:
     metadata(read, "reopened_read_only")
     plans(read)
     read.close()
+    # Known fixture arithmetic, without running the join-growth query.
+    emit("join_growth_actual_from_fixture", 100 * 100 * 200)
+    if duckdb.__version__ == "1.0.0":
+        # Reproduce the exact sequence in an isolated child so other probes finish.
+        child = subprocess.run([sys.executable, "-c", """
+import duckdb, tempfile
+from pathlib import Path
+with tempfile.TemporaryDirectory() as d:
+    con = duckdb.connect(str(Path(d) / 'child.duckdb'))
+    con.execute("create table src as select i as k, 1::bigint as amount, repeat('a',256) as payload from range(200000) r(i)")
+    con.execute("create table dst as select i as k, 1::bigint as amount from range(20000) r(i)")
+    con.execute("create view src_view as select * from src")
+    con.execute("checkpoint")
+    con.execute("select * from pragma_storage_info('src')").fetchall()
+    con.execute("insert into src select i, 1, repeat('a',256) from range(200000,250000) r(i)")
+    con.execute("delete from src where k >= 10000")
+    con.execute("checkpoint")
+    print("before storage query", flush=True)
+    con.execute("select column_name, compression, persistent, count(*) as segments, sum(count) as summed_segment_counts, count(distinct block_id) as distinct_blocks from pragma_storage_info('src') group by all order by 1,2,3").fetchall()
+    print("after storage query", flush=True)
+    con.close()
+"""], capture_output=True, text=True, timeout=60)
+        emit("isolated_storage_probe", {"returncode": child.returncode, "stdout": child.stdout.strip()})
     emit("guard_base", safety(root, db, "src", "dst"))
     emit("guard_view", safety(root, db, "src_view", "dst"))
     emit("guard_missing", safety(root, db, "missing", "dst"))
