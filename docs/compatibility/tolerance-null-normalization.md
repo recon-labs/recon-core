@@ -28,7 +28,11 @@ Current implementation status:
 - the full typed policy resolver is not implemented yet,
 - row-level value checks are not implemented yet,
 - reusable tolerance policy resource loading is not implemented yet,
-- adapter execution and evidence rendering are not implemented yet.
+- inclusive absolute numeric tolerance is implemented for current bounded
+  same-context DuckDB explicit sum checks; unresolved applicable named policies
+  block execution unless a valid explicit metric override applies,
+- broader policy execution, row-level tolerance/null/normalization execution,
+  and evidence rendering remain unimplemented.
 
 ## Compatibility Rules
 

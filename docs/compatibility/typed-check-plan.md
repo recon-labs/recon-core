@@ -187,9 +187,10 @@ contract; a private bounded runtime renderer returns a fixed-size grouped
 summary without exposing group rows. Core validates the result and applies
 ADR 0009, including strict inclusive tolerance in the correct numeric domain.
 Missing bounded rendering, unresolved applicable policy, and unsafe placement
-or scan conditions block execution. This design adds no operation, capability,
-public adapter method or artifact version and is not yet an implemented
-aggregate runtime compatibility claim.
+or scan conditions block execution. The in-core local DuckDB runtime implements
+this bounded explicit sum path without adding an operation, capability, public
+adapter method or artifact version. External adapter compatibility and stable
+runtime interfaces remain separately gated.
 
 Rendered SQL belongs under:
 
