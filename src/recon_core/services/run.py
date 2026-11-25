@@ -424,6 +424,7 @@ def _prepare_runtime_execution_dependencies(
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
         connections_by_name=connections_by_name,
+        aggregate_connections=aggregate_connections,
     )
     if open_result.diagnostics:
         return _RuntimeExecutionDependencies(
@@ -490,6 +491,7 @@ def _open_runtime_adapters(
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     adapters_by_connection: Mapping[str, BaseAdapter],
     connections_by_name: Mapping[str, ConnectionConfig],
+    aggregate_connections: set[str],
 ) -> _AdapterOpenResult:
     connection_names = _connection_names_to_open(
         runtime_candidates,
@@ -498,12 +500,8 @@ def _open_runtime_adapters(
     )
     opened_adapters: list[_OpenedAdapter] = []
     diagnostics: list[Diagnostic] = []
-    aggregate_connections = {
-        contracts_by_name[artifact.contract_name].source.connection
-        for artifact in runtime_candidates
-        if artifact.contract_name in contracts_by_name
-        and any(is_aggregate_check_type(check.check_type) for check in artifact.checks)
-    }
+    # Preserve setup privacy classification even when aggregate capability
+    # blockers leave only a legacy check eligible to open the connection.
 
     for connection_name in connection_names:
         adapter = adapters_by_connection.get(connection_name)
