@@ -1,6 +1,7 @@
 """Run command service."""
 
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -344,8 +345,12 @@ def _prepare_runtime_execution_dependencies(
         required_capabilities_by_connection.items()
     ):
         connection = connections_by_name[connection_name]
+        # Keep the scan-approved config independent of mutable factory input.
+        setup_connection = (
+            deepcopy(connection) if connection_name in aggregate_connections else connection
+        )
         setup_result = prepare_runtime_adapter(
-            connection=connection,
+            connection=setup_connection,
             required_capabilities=required_capabilities,
             registry=registry,
         )
