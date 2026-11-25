@@ -973,6 +973,74 @@ def test_native_aggregate_lifecycle_and_failure_privacy(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("failure", ["one_close", "both_close", "connect_and_close"])
+@pytest.mark.regression_capture("aggregate-native-service-lifecycle")
+def test_aggregate_lifecycle_preserves_distinct_connection_failures(
+    tmp_path: Path, grouped: bool, failure: str
+) -> None:
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=grouped,
+    )
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    connections = profile["profiles"]["local"]["outputs"]["dev"]["connections"]
+    connections["private-replica"] = {"type": "duckdb", "database": str(database)}
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    check = _aggregate_check(grouped=grouped)
+    check["id"] = check["id"].replace("customer_revenue", "other_revenue")
+    check["plan"]["id"] = check["plan"]["id"].replace("customer_revenue", "other_revenue")
+    write_compiled_checks(tmp_path, contract_name="other_revenue", checks=[check])
+    write_compiled_contract(
+        tmp_path,
+        contract_name="other_revenue",
+        source_connection="private-replica",
+        target_connection="private-replica",
+    )
+    adapters: dict[str, _TrackingAggregateAdapter] = {}
+
+    def factory(connection: ConnectionConfig) -> AdapterResolutionResult:
+        injected = "close"
+        if connection.name == "warehouse":
+            if failure == "one_close":
+                injected = None
+            elif failure == "connect_and_close":
+                injected = "connect"
+        adapter = _TrackingAggregateAdapter(connection=connection, failure=injected)
+        adapters[connection.name] = adapter
+        return AdapterResolutionResult(adapter=adapter)
+
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine, adapter_registry=registry).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert set(adapters) == {"warehouse", "private-replica"}
+    assert all(adapter.connect_count == 1 for adapter in adapters.values())
+    assert adapters["private-replica"].close_count == 1
+    assert adapters["warehouse"].close_count == (0 if failure == "connect_and_close" else 1)
+    if failure == "connect_and_close":
+        assert engine.result is None
+        assert sum(d.code == "RC_ADAPTER_CONNECTION_FAILED" for d in result.diagnostics) == 1
+        assert all(not adapter.private_columns for adapter in adapters.values())
+    else:
+        assert engine.result is not None
+        assert len(engine.result.contract_results) == 2
+        assert all(
+            contract.check_results[0].status is CheckStatus.PASS
+            and contract.check_results[0].executed
+            for contract in engine.result.contract_results
+        )
+    failures = [d for d in result.diagnostics if d.code == "RC_ADAPTER_CLOSE_FAILED"]
+    assert len(failures) == (2 if failure == "both_close" else 1)
+    for token in ("private-replica", "private-injected-value", "qa.source_customers"):
+        assert token not in _service_result_text(result)
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_aggregate_invalid_capability_declaration_is_non_executable(
     tmp_path: Path, grouped: bool
