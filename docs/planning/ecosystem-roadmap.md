@@ -40,12 +40,12 @@ DuckDB currently starts as an in-core local development adapter installed with
 `recon-core[duckdb]`. A separate `recon-duckdb` package should wait until the
 adapter API and shared adapter test kit stabilize.
 
-Official external adapter repositories are Post-MVP Milestone 29 work. They
-should wait for the adapter test-kit and package split milestone that proves
-adapter API, capability, rendering, execution, diagnostics, privacy, and
-compatibility behavior across repositories. Until that gate is satisfied, the
-in-core DuckDB adapter remains a local development adapter and `recon-duckdb`
-remains a future extraction candidate.
+Official external adapter releases and stable compatibility claims remain
+Post-MVP Milestone 29 work. Earlier experimental repositories are permitted
+only through the staged incubation checkpoints below and the applicable
+adapter conformance prework. Until the official gate is satisfied, DuckDB
+remains the in-core local development adapter; `recon-duckdb` is an extraction
+candidate, not an early split. See [ADR 0024](../decisions/adr-0024-staged-ecosystem-incubation.md).
 
 Adapter packages should own:
 
@@ -263,6 +263,63 @@ Community contributors should be able to contribute:
 
 The contribution process should favor small, tested, well-documented changes.
 
+## Repository introduction checkpoints
+
+The following is the canonical milestone-to-repository recommendation schedule.
+These are dependency-aware parallel work candidates, not new numbered
+milestones, guaranteed delivery dates, automatic repository creation, or
+permission to expand the current milestone. Each candidate needs an explicit
+maintainer decision and its own applicable prework before implementation.
+
+| Checkpoint | Candidate repositories or packages | Recommendation and prerequisites |
+| --- | --- | --- |
+| M10 exit / 0.1 release-readiness | `recon-core` | Finish the end-to-end MVP, including results, evidence, examples and the release decision. Review the next ecosystem candidates; do not create experimental repos before that decision. |
+| M10.5-M10.7 | `recon-adapter-testkit` | Recommend an experimental shared suite as a parallel track. Inventory carryover rows, lock test-kit packaging and the applicable Gate 8 conformance matrix and pre-creation proofs, then extract reusable tests against an exact Core revision. Keep in-core tests until equivalent coverage is demonstrated. |
+| M11-M12 | `recon-postgres` | Recommend the first experimental external SQL adapter after the test-kit baseline is usable. Prove connection/lifecycle, metadata, typed rendering, capability rejection and only explicitly admitted bounded semantic execution. |
+| M12-M13 | `recon-snowflake` | Recommend a second experimental adapter after the first external adapter demonstrates the shared contract. Require isolated synthetic fixtures, scan/cost controls, dialect and numeric/type proof. |
+| M16-M16.5 | `recon-checks-migration`, `recon-policies-tolerances` | Recommend initial experimental resource packages only after the relevant resource schemas, precedence, expansion and dependency/lock rules are implemented. No official release claim. |
+| M26-M27.5 | `recon-checks-cdc` | Recommend a candidate CDC package after the applicable CDC semantics and resource model are proven. |
+| M29 | `recon-adapter-testkit`, `recon-duckdb`, `recon-postgres`, `recon-snowflake` | Complete official cross-repo test-kit, packaging, release and migration gates; extract DuckDB only after its extraction gate. Promote experimental adapters only for independently proven capability families. |
+| M29 onward | `recon-bigquery`, `recon-databricks`, other adapter candidates | Recommend additional adapters based on actual demand and capability-specific conformance, not an automatic bulk repo rollout. |
+| M32 | `recon-hub-index`, `recon-github-action`, `recon-airflow` | Recommend index and CI/orchestration integration repos once package, CLI, artifact and compatibility contracts are stable. |
+| M32.2 | `recon-mcp` | Recommend an optional local tool repo only after tool schemas, permissions, privacy and scan/action safety gates are resolved. |
+| M38 | Official check/policy/evidence packages | Publish supported versions only after package compatibility, Hub metadata, tests and release process are ready. |
+| M39 | `recon-docs`, `recon-examples` | Recommend a split only when maintenance benefits justify independent release/CI overhead. |
+| M42-M42.5 | Optional semantic packages, `recon-ai` | Recommend separate packages only after semantic/AI, privacy, cost, evaluation and approval gates are met. |
+
+At each milestone entry, phase exit and next-work recommendation, review this
+schedule for the current and next milestone, plus any previously deferred
+candidate. Report the candidate, readiness evidence, dependencies, missing
+gates, and disposition: recommend now, already satisfied, defer with rationale,
+or blocked. Include parallel repository work in the proposed next steps when
+ready. Do not silently drop a deferred recommendation. Check whether the repo
+already exists before proposing creation. Do not create, publish, or transfer
+code without approval.
+
+### Experimental adapter admission
+
+Early test-kit and adapter repos are development experiments, not official
+external releases. Before creating or splitting a test-kit repo, satisfy the
+existing pre-creation requirements in the adapter API compatibility document
+and Gate 8, including the diagnostic and artifact-publication conformance
+gates and defined API/SQL matrices. Before an experimental adapter is created,
+establish the applicable test-kit baseline, lock the scoped dependency and
+registration approach, identify supported and unsupported capability families,
+and prove applicable safety gates using isolated synthetic data. Do not defer
+privacy, capability rejection, scan safety, or artifact integrity just because
+a repo is experimental. Required semantic CI must install the dependency and
+fail on missing dependencies, not silently skip.
+
+Pin experiments to a known Core commit or explicit pre-release version. Record
+the Core/test-kit/adapter revision combination, capability-specific evidence,
+limitations and regression capture dispositions. Use only supported extension
+boundaries; if an experiment exposes a missing or private Core extension
+boundary, propose the Core-owned design change separately under normal
+prework rather than import private DuckDB internals or duplicate semantics.
+Do not claim stable API ranges, general execution, production workloads,
+cross-context placement, sink support or probabilistic support from a prototype.
+The official adapter gate remains unchanged.
+
 ## Ecosystem sequencing
 
 Recommended order:
@@ -273,10 +330,12 @@ Recommended order:
 4. stabilize adapter interface,
 5. add the user-facing agent onboarding pack after the public local workflow is
    stable,
-6. create adapter test kit,
-7. split `recon-duckdb` and official adapters only after adapter conformance
-   gates are satisfied,
-8. create official check/policy packages,
+6. incubate the shared adapter test kit and first experimental adapters after
+   the MVP decision, subject to their pre-creation gates,
+7. split `recon-duckdb` and promote official adapters only after adapter
+   conformance gates are satisfied,
+8. incubate reusable resources after their loaders are implemented; publish
+   official check/policy packages only at the official release gate,
 9. create Hub index,
 10. add metadata event exports after result and evidence metadata is stable,
 11. add optional local tool interfaces after the wrapped command surfaces are

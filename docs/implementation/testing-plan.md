@@ -325,7 +325,12 @@ required conformance gates.
 
 Production adapters should eventually use a shared adapter test kit. The same
 test kit should run in every adapter repo and should include operation-rendering
-golden tests.
+golden tests. Experimental incubation under ADR 0024 must satisfy existing
+pre-creation gate requirements, pin the tested Core/test-kit/adapter revisions,
+and carry over applicable regression capture cases. Keep in-core regression
+coverage until equivalent shared coverage is proven. Experimental semantic
+jobs must also fail when a required dependency is missing; only proven scoped
+capabilities may be exercised.
 
 The shared adapter test kit should include adapter API conformance tests
 separate from SQL comparison conformance. These tests should verify adapter

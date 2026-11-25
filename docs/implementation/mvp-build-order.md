@@ -18,6 +18,19 @@ This document defines sequence and capability homes. When a milestone is split
 or superseded, update this build-order document alongside the roadmap, gates,
 ADRs, compatibility docs, and tests so no orphan implementation plan remains.
 
+## Parallel ecosystem work
+
+At each milestone audit, entry, exit, and next-work recommendation, consult
+[the repository introduction checkpoints](../planning/ecosystem-roadmap.md#repository-introduction-checkpoints)
+and ADR 0024. Recommend ready parallel repository work and record blocked or
+deferred candidates with dependencies and rationale. This does not alter the
+numbered implementation sequence or authorize creation of a repository.
+After the M10/0.1 decision, surface the experimental test-kit candidate at
+M10.5-M10.7, PostgreSQL at M11-M12 and Snowflake at M12-M13. The same schedule
+assigns resource packages, CDC packages, official adapters, integrations and
+other ecosystem repositories to their dependency checkpoints. Full prework and
+all applicable pre-creation/conformance gates remain mandatory.
+
 ## Milestone 1: package skeleton and CLI
 
 Build:
@@ -2078,7 +2091,8 @@ Goal:
 
 Build:
 
-- adapter compliance test kit,
+- finalize the adapter compliance test kit, including proof and migration of
+  earlier experimental conformance cases and regression capture obligations,
 - adapter compatibility matrix entries,
 - adapter distribution strategy for separate adapter packages versus optional
   `recon-core[...]` extras,
@@ -2088,7 +2102,8 @@ Build:
 - probabilistic summary capability conformance for Bloom/sketch-like operations,
 - native SQL optimization and dialect validation conformance for production
   warehouse adapters,
-- first official adapter package preparation.
+- first official adapter package preparation and promotion of eligible
+  experimental adapters only for proven capability families.
 
 Required gate:
 

@@ -61,6 +61,10 @@ Keeping resource packages separate allows a community ecosystem to grow without 
 
 ## Repository strategy
 
+The sequencing of experimental repository incubation is refined by
+[ADR 0024](adr-0024-staged-ecosystem-incubation.md). The official adapter split and compatibility requirements
+below remain in force.
+
 Start with `recon-core`.
 
 Split adapters after the typed check-plan model, adapter API versioning, and

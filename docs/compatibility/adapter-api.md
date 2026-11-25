@@ -33,9 +33,13 @@ Current state:
   probabilistic key-diff, and result/evidence sink writes are not implemented
   yet.
 
-Adapter repositories such as `recon-postgres` and `recon-snowflake` should split
-only after typed check plans, adapter API versioning, and shared adapter tests
-are stable enough to support independent releases.
+Official adapter releases such as `recon-postgres` and `recon-snowflake` wait
+until typed check plans, adapter API versioning, and shared adapter tests are
+stable enough to support independent releases. Experimental development may
+precede that stability only under ADR 0024's staged incubation rules. All
+existing test-kit pre-creation gates still apply; pin Core/test-kit revisions,
+prove scoped capability safety and keep unproven capabilities blocked. No
+private Core runtime imports or production compatibility claims are authorized.
 
 DuckDB is the first local development adapter and may live inside `recon-core`
 while the adapter API stabilizes. A future `recon-duckdb` package should wait

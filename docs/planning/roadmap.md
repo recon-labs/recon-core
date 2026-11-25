@@ -86,6 +86,12 @@ Artifacts:
 
 ## Version 0.2
 
+After the 0.1 release-readiness decision, review the ecosystem roadmap's
+repository introduction checkpoints alongside core milestone planning. Early
+experimental test-kit, PostgreSQL and Snowflake work may proceed in parallel
+only after their assigned prework and approvals; no official adapter release
+or compatibility promise is implied.
+
 Primary goal:
 
 > Make Recon useful for repeated project work and early CDC validation.
@@ -179,11 +185,12 @@ Adapters:
 - adapter test kit planning and conformance design,
 - `recon-duckdb` extraction deferred until the adapter package/test-kit gates
   are satisfied,
-- official external adapter repositories deferred until Post-MVP Milestone 29,
-  the adapter test-kit and package split milestone that proves cross-repo
-  compatibility,
-- experimental adapters allowed only when they do not claim stable execution,
-  sink, result-table, or probabilistic-summary compatibility.
+- official external adapter releases and stable compatibility claims deferred
+  until Post-MVP Milestone 29 and capability-specific cross-repo conformance,
+- earlier experimental test-kit and adapter work recommended at the post-MVP
+  checkpoints in [the ecosystem roadmap](ecosystem-roadmap.md#repository-introduction-checkpoints),
+  subject to existing pre-creation and safety gates, with no stable execution,
+  sink, result-table, or probabilistic-summary compatibility claims.
 
 Checks:
 

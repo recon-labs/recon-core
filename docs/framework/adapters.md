@@ -90,9 +90,12 @@ A future `recon-duckdb` package should not split from `recon-core` until the
 adapter API and shared adapter test kit are stable enough for external adapter
 packages.
 
-The in-core DuckDB adapter is the early proof adapter. External adapter package
-splits and additional production adapters should wait until adapter conformance
-and shared test-kit gates exist. Production table/result sinks additionally
+The in-core DuckDB adapter is the early proof adapter. Official adapter package
+splits and production adapters wait until adapter conformance and shared
+test-kit gates exist and pass. Earlier experimental external adapters may be
+incubated after MVP readiness under ADR 0024, pinned to a Core revision and
+subject to the applicable pre-creation and safety gates, without stable or
+production compatibility claims. Production table/result sinks additionally
 depend on the result-sink design gates and write/sink conformance. Bloom
 filters, sketches, and other probabilistic key-summary strategies additionally
 depend on the probabilistic key-diff gate and adapter test-kit conformance for
