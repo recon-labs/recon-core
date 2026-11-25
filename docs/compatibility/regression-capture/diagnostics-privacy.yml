@@ -56,6 +56,7 @@ captures:
     severity: P2
     current_tests:
       - tests/services/test_run_service_aggregate_admission.py::test_aggregate_factory_diagnostics_do_not_publish_private_data
+      - tests/services/test_run_service_aggregate_admission.py::test_aggregate_setup_preserves_distinct_connection_failures
       - tests/services/test_run_service_aggregate_admission.py::test_aggregate_unknown_required_capability_is_sanitized
       - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_cli_privacy_and_artifact_immutability
     carryover_gates:
@@ -78,4 +79,4 @@ captures:
       - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
       - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
     notes: >
-      Fixed diagnostic categories suppress arbitrary adapter fields and unknown capability names. Actual CLI pass/fail/error output and logs omit raw data and preserve all existing project files without generated runtime outputs.
+      Fixed diagnostic categories suppress arbitrary adapter fields and unknown capability names. Duplicate setup failures for one connection are collapsed without losing failures from distinct connections. Actual CLI pass/fail/error output and logs omit raw data and preserve all existing project files without generated runtime outputs.

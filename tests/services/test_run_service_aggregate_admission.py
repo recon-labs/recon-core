@@ -1072,6 +1072,56 @@ def test_aggregate_factory_diagnostics_do_not_publish_private_data(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("distinct_alias", [False, True])
+@pytest.mark.regression_capture("aggregate-service-output-privacy")
+def test_aggregate_setup_preserves_distinct_connection_failures(
+    tmp_path: Path, grouped: bool, distinct_alias: bool
+) -> None:
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=grouped,
+    )
+    if distinct_alias:
+        profile_path = tmp_path / "connections" / "profiles.yml"
+        profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+        connections = profile["profiles"]["local"]["outputs"]["dev"]["connections"]
+        connections["private-replica"] = {"type": "duckdb", "database": str(database)}
+        profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+        write_compiled_contract(tmp_path, target_connection="private-replica")
+
+    calls: list[str] = []
+
+    def factory(connection: ConnectionConfig) -> AdapterResolutionResult:
+        calls.append(connection.name)
+        diagnostic = Diagnostic(
+            code="RC_ADAPTER_RESOLUTION_FAILED",
+            severity=DiagnosticSeverity.ERROR,
+            message="private-factory-value",
+            resource_name=connection.name,
+        )
+        return AdapterResolutionResult(diagnostics=(diagnostic, diagnostic))
+
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    engine = _CapturingAggregateEngine()
+    result = RunService(
+        start_path=tmp_path, engine=engine, adapter_registry=registry
+    ).execute()
+    expected = {"warehouse", "private-replica"} if distinct_alias else {"warehouse"}
+    assert len(calls) == len(expected)
+    assert set(calls) == expected
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert engine.result is None
+    failures = [d for d in result.diagnostics if d.code == "RC_ADAPTER_RESOLUTION_FAILED"]
+    assert len(failures) == len(expected)
+    for token in ("private-replica", "private-factory-value", "warehouse", str(database)):
+        assert token not in _service_result_text(result)
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.regression_capture("aggregate-service-output-privacy")
 def test_aggregate_unknown_required_capability_is_sanitized(tmp_path: Path, grouped: bool) -> None:
     _write_native_aggregate_inputs(
