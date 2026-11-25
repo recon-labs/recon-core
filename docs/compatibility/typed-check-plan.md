@@ -168,18 +168,29 @@ Adapters must not hide new reconciliation behavior in dialect-specific rendering
 
 Current adapter-aware rendering renders typed operations to SQL through
 adapters. Current run execution consumes compiled typed plans only for
-relation-backed same-context DuckDB `row_count_diff` checks and grain-key safety
-checks that pass the internal bounded local/dev scan guard; other typed-plan
-execution surfaces remain blocked or not executable. The key-safety guard fails
+relation-backed same-context DuckDB `row_count_diff` checks, grain-key safety
+checks and explicit `sum_diff` and `grouped_aggregate_diff` checks that pass
+the internal bounded local/dev scan guard where required; other typed-plan
+execution surfaces remain blocked or not executable. The shared guard fails
 closed for views, externally backed relations, missing catalog metadata, or
 metadata inspection failures.
 
-Execution is split by executable surface. Current row-count typed-plan execution
-and grain-key safety typed-plan execution each resolve comparison placement for
-their assigned operations. The planned aggregate metric execution surface must
-resolve comparison placement for its current aggregate operations before
-implementation. No execution surface may silently fall back to Python, adapter
+Execution is split by executable surface. Current row-count, grain-key safety
+and aggregate typed-plan execution each use their locked same-context
+relation-backed placement. No execution surface may silently fall back to Python, adapter
 dialect casts, inferred mappings, or unsupported comparison behavior.
+
+The aggregate execution design uses existing explicit `sum` operations in the
+same approved context. Compiled metric tolerance remains check metadata, not a
+new operation field. The compile renderer retains its existing grouped detail
+contract; a private bounded runtime renderer returns a fixed-size grouped
+summary without exposing group rows. Core validates the result and applies
+ADR 0009, including strict inclusive tolerance in the correct numeric domain.
+Missing bounded rendering, unresolved applicable policy, and unsafe placement
+or scan conditions block execution. The in-core local DuckDB runtime implements
+this bounded explicit sum path without adding an operation, capability, public
+adapter method or artifact version. External adapter compatibility and stable
+runtime interfaces remain separately gated.
 
 Rendered SQL belongs under:
 

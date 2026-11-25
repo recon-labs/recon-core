@@ -145,6 +145,31 @@ query endpoint execution, row-level value comparison, sampling execution, CDC
 execution, adapter test-kit conformance, external adapter packages, and
 external comparison engines.
 
+### Bounded aggregate execution
+
+The first aggregate execution path must be same-context, relation-backed,
+and allowed by the existing bounded local/dev scan policy. The adapter
+computes native aggregates and differences. Core owns tolerance interpretation,
+result validation and final check status under ADR 0009.
+
+Ungrouped execution may consume a bounded scalar result with both aggregate
+values and the signed difference. Grouped execution must compare the full
+group union in the approved adapter context and return exactly one fixed-size
+summary of mutually exclusive group categories and finite signed difference
+extrema. Group presence must be independent of nullable keys and aggregate
+values. A limit on detail rows is not complete comparison proof. No individual
+group rows may be fetched into Core, and a bounded result does not establish
+a bounded scan.
+
+Preserve existing compile-time SQL rendering and its detail result contract.
+Use an explicit private bounded runtime renderer for grouped execution, with
+shared dialect builders and preflight type guards. The existing public
+renderer methods, typed operations and adapter API remain unchanged.
+Unavailable or unproven bounded execution blocks the check before data
+queries; never fall back to the compile detail renderer or rewrite SQL in
+Core. Summary fields and aggregate values are transient private execution
+data, not public output or evidence.
+
 ## Placement Metadata Guidance
 
 Future typed plans and results should be able to explain placement without

@@ -17,7 +17,8 @@ Current state:
 - capability constants and support-state validation exist in code,
 - the in-core DuckDB local development adapter declares the current
   relation-backed SQL rendering and row-count execution subset plus the
-  capability subset used by bounded local/dev grain-key safety execution,
+  capability subset used by bounded local/dev grain-key safety and explicit
+  sum aggregate execution,
 - no external production adapter declares capabilities yet,
 - no adapter test kit validates capabilities yet.
 - ADR 0021 defines future execution placement and materialization/staging
@@ -117,9 +118,9 @@ uncaught adapter errors.
 
 Current adapter-aware rendering and row-count execution use only the capability
 subset required by currently emitted typed operations. Bounded local/dev
-grain-key safety execution uses the current key-safety capability subset and
-still requires scan-budget classification before execution. These surfaces do
-not expand the typed operation catalog.
+grain-key safety and explicit sum aggregate execution use their existing
+capability subsets and require scan-budget classification before execution.
+These surfaces do not expand the typed operation catalog.
 
 Production adapter capability claims also need native SQL optimization and
 dialect validation conformance. A capability declaration says an adapter can
@@ -159,7 +160,8 @@ adapter API is stable.
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
 Current adapter-aware rendering and row-count execution are relation-backed
-only. Current grain-key safety execution is relation-backed and limited to
+only. Current grain-key safety and explicit sum aggregate execution are
+relation-backed and limited to
 bounded local/dev scan classification over a project-local DuckDB file whose
 retained local sidecars are absent and whose compiled relation endpoints resolve
 to local base tables. The `queries`
@@ -168,7 +170,10 @@ required by current relation-backed rendering or execution. Relation-backed
 row-count execution requires `row_count` and `cte_support`; bounded local/dev
 relation-backed grain-key safety execution requires `key_diff` and `cte_support`
 for key-diff checks, `null_key` for null-key checks, and `duplicate_key` for
-duplicate-key checks. None of these requirements treats query endpoints, views,
+duplicate-key checks. Bounded local/dev aggregate execution requires
+`aggregate` or `grouped_aggregate` and `cte_support` plus the existing compiled
+requirements and verified private runtime renderer and typed executor.
+None of these requirements treats query endpoints, views,
 or externally backed relations as supported. Counting rows or keys for authored
 query endpoints also requires the future `queries` capability design,
 query execution validation, and source/target privacy rules for query text

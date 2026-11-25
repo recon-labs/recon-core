@@ -13,8 +13,9 @@ captures:
       - tests/cli/test_main.py::test_compile_render_sql_prints_diagnostic_message_for_profile_errors
     carryover_gates:
       - gate: cli_behavior_carryover
-        status: pending
+        status: deferred
         expected_suite: compile_cli
+        rationale: Current compile CLI tests pass and aggregate run output is tested; final terminal/result contract remains runner/results work.
     requirement_refs:
       - docs/architecture/cli-architecture.md: Service result mapping
       - docs/implementation/cli-services.md: Compile service boundary

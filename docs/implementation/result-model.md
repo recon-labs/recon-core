@@ -84,11 +84,15 @@ sink-reference, and exact/probabilistic classification fields. Those concepts
 are reserved for compatibility but are not stable serialized fields until their
 implementing phases write a public schema.
 
-Before a generated run-result artifact exists, executable row-count and
-grain-key safety checks may populate bounded in-memory check results only
+Before a generated run-result artifact exists, executable row-count,
+grain-key safety and explicit sum aggregate checks may populate bounded
+in-memory check results only
 according to the source/target privacy policy. Row-count checks may use bounded
 scalar counts and diffs internally; grain-key safety checks may use bounded
-failure counts internally. Terminal output and diagnostics must not expose raw
+failure counts internally. Aggregate checks consume private bounded scalar
+numeric evidence or a fixed-size grouped summary; public check results omit
+aggregate values, differences, tolerance, group counts and grouped keys.
+Terminal output and diagnostics must not expose raw
 keys, raw rows, row counts, diffs, relation names, query text, adapter errors,
 database errors, or rendered profile values unless the owning privacy policy
 explicitly allows that surface.

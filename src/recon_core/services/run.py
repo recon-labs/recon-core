@@ -1,6 +1,7 @@
 """Run command service."""
 
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,15 +12,31 @@ from recon_core.adapters import (
     AdapterRegistry,
     BaseAdapter,
     ConnectionConfig,
+    SqlRenderer,
     prepare_runtime_adapter,
 )
-from recon_core.adapters.default_renderers import default_runtime_renderers_by_adapter_type
+from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
+from recon_core.adapters.capabilities import ADAPTER_CAPABILITY_UNSUPPORTED, AdapterCapabilities
+from recon_core.adapters.default_renderers import (
+    _default_aggregate_runtime_renderers,
+    default_runtime_renderers_by_adapter_type,
+)
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
 from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
+from recon_core.adapters.registry import (
+    ADAPTER_API_VERSION_UNSUPPORTED,
+    ADAPTER_METADATA_INVALID,
+    ADAPTER_RESOLUTION_FAILED,
+    ADAPTER_UNKNOWN_TYPE,
+)
 from recon_core.adapters.runtime_safety import (
     RuntimeSafetyCheckRegistry,
     RuntimeSafetyCheckRequest,
     default_runtime_safety_check_registry,
+)
+from recon_core.adapters.runtime_setup import (
+    ADAPTER_CAPABILITY_DECLARATION_FAILED,
+    ADAPTER_TYPE_MISMATCH,
 )
 from recon_core.artifacts import (
     NO_COMPILED_CHECKS,
@@ -31,15 +48,27 @@ from recon_core.artifacts import (
     LoadedCompiledChecksArtifact,
     LoadedCompiledContractArtifact,
 )
+from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
 from recon_core.check_engine import (
     CHECK_ENGINE_INTERNAL_ERROR,
     CheckEngine,
     CheckExecutionContext,
+    CheckResult,
     ContractResult,
     RunResult,
     RunStatus,
     is_supported_row_count_plan_shape,
 )
+from recon_core.check_engine.aggregate import (
+    _aggregate_adapter_matches_connection,
+    _aggregate_capability_blocker,
+    _aggregate_capability_diagnostics,
+    _aggregate_collaborator_blocker,
+    aggregate_admission,
+    is_aggregate_check_type,
+    is_supported_aggregate_plan_shape,
+)
+from recon_core.check_engine.engine import _AggregateExecutionContext
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
@@ -100,6 +129,7 @@ class _RuntimeExecutionDependencies:
 class _OpenedAdapter:
     adapter: BaseAdapter
     connection: ConnectionConfig
+    aggregate_connection_index: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +139,7 @@ class _RuntimeScanBudgetDecisions:
 
 
 @dataclass(frozen=True, slots=True)
-class _KeySafetyScanBudgetDecision:
+class _RuntimeScanBudgetDecision:
     decision: ScanBudgetDecision
     requires_adapter_setup: bool = False
 
@@ -141,13 +171,15 @@ class RunService:
         if not load_result.succeeded:
             return _load_failure_result(load_result)
 
-        contract_loader = (
-            self.contract_loader if self.contract_loader is not None else CompiledContractLoader()
-        )
-        contract_load_result = contract_loader.load_for_compiled_checks(
-            context.paths.target_path,
-            load_result.artifacts,
-        )
+        tolerance_states: dict[str, _ToleranceReferenceState] = {}
+        if self.contract_loader is None:
+            contract_load_result, tolerance_states = CompiledContractLoader()._load_for_runtime(
+                context.paths.target_path, load_result.artifacts
+            )
+        else:
+            contract_load_result = self.contract_loader.load_for_compiled_checks(
+                context.paths.target_path, load_result.artifacts
+            )
         if not contract_load_result.succeeded:
             return _compiled_contract_load_failure_result(contract_load_result)
 
@@ -155,6 +187,7 @@ class RunService:
             context,
             check_artifacts=load_result.artifacts,
             compiled_contracts=contract_load_result.artifacts,
+            tolerance_states=tolerance_states,
             registry=self.adapter_registry,
             environ=self.environ,
         )
@@ -211,29 +244,48 @@ def _prepare_runtime_execution_dependencies(
     *,
     check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
     compiled_contracts: tuple[LoadedCompiledContractArtifact, ...],
+    tolerance_states: Mapping[str, _ToleranceReferenceState],
     registry: AdapterRegistry | None,
     environ: Mapping[str, str] | None,
 ) -> _RuntimeExecutionDependencies:
     contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
-    runtime_candidates = _runtime_execution_candidates(check_artifacts)
+    has_aggregate_checks = any(
+        is_aggregate_check_type(check.check_type)
+        for artifact in check_artifacts
+        for check in artifact.checks
+    )
+    known_check_ids = {check.id for artifact in check_artifacts for check in artifact.checks}
+    missing_prerequisite_ids = frozenset(
+        check.id
+        for artifact in check_artifacts
+        for check in artifact.checks
+        if is_aggregate_check_type(check.check_type)
+        and any(prerequisite not in known_check_ids for prerequisite in check.prerequisites)
+    )
+    runtime_candidates = _runtime_execution_candidates(
+        check_artifacts, excluded_check_ids=missing_prerequisite_ids
+    )
     if not runtime_candidates:
-        if _has_key_safety_checks(check_artifacts):
+        if has_aggregate_checks or _has_key_safety_checks(check_artifacts):
             return _RuntimeExecutionDependencies(
-                execution_context=CheckExecutionContext(
+                execution_context=_runtime_context(
                     contracts_by_name=contracts_by_name,
                     adapters_by_connection={},
+                    tolerance_states=tolerance_states if has_aggregate_checks else None,
                 ),
             )
         return _RuntimeExecutionDependencies()
     profile_candidates = _relation_backed_runtime_candidates(
         runtime_candidates,
         contracts_by_name=contracts_by_name,
+        tolerance_states=tolerance_states,
     )
     if not profile_candidates:
         return _RuntimeExecutionDependencies(
-            execution_context=CheckExecutionContext(
+            execution_context=_runtime_context(
                 contracts_by_name=contracts_by_name,
                 adapters_by_connection={},
+                tolerance_states=tolerance_states if has_aggregate_checks else None,
             ),
         )
     candidate_contracts = _compiled_contracts_for_runtime_candidates(
@@ -278,21 +330,71 @@ def _prepare_runtime_execution_dependencies(
         contracts_by_name=contracts_by_name,
     )
     adapters_by_connection: dict[str, BaseAdapter] = {}
+    capabilities_by_connection: dict[str, AdapterCapabilities] = {}
     setup_diagnostics: list[Diagnostic] = []
+    aggregate_connections = {
+        name
+        for artifact in adapter_candidates
+        if any(is_aggregate_check_type(check.check_type) for check in artifact.checks)
+        for name in (
+            contracts_by_name[artifact.contract_name].source.connection,
+            contracts_by_name[artifact.contract_name].target.connection,
+        )
+    }
+    aggregate_connection_indices = {
+        name: index
+        for index, name in enumerate(sorted(required_capabilities_by_connection), start=1)
+        if name in aggregate_connections
+    }
     for connection_name, required_capabilities in sorted(
         required_capabilities_by_connection.items()
     ):
+        connection_index = aggregate_connection_indices.get(connection_name)
         connection = connections_by_name[connection_name]
+        # Keep the scan-approved config independent of mutable factory input.
+        setup_connection = deepcopy(connection) if connection_index is not None else connection
         setup_result = prepare_runtime_adapter(
-            connection=connection,
+            connection=setup_connection,
             required_capabilities=required_capabilities,
             registry=registry,
         )
         if not setup_result.succeeded:
-            setup_diagnostics.extend(setup_result.diagnostics)
+            # Aggregate-only capability declarations are check-level blockers.
+            # Retain the existing service-level setup boundary for legacy checks
+            # and for all other resolution or adapter API failures.
+            if (
+                not required_capabilities
+                and setup_result.diagnostics
+                and all(
+                    diagnostic.code == ADAPTER_CAPABILITY_DECLARATION_FAILED
+                    for diagnostic in setup_result.diagnostics
+                )
+            ):
+                continue
+            setup_diagnostics.extend(
+                _safe_aggregate_setup_diagnostic(diagnostic, connection_index=connection_index)
+                if connection_index is not None
+                else diagnostic
+                for diagnostic in setup_result.diagnostics
+            )
             continue
         assert setup_result.adapter is not None
+        if connection_index is not None and not _aggregate_adapter_matches_connection(
+            setup_result.adapter, connection
+        ):
+            setup_diagnostics.append(
+                Diagnostic(
+                    code=ADAPTER_METADATA_INVALID,
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Aggregate adapter binding does not match the approved connection.",
+                    resource_type="adapter",
+                    hint=_aggregate_setup_hint(connection_index),
+                )
+            )
+            continue
         adapters_by_connection[connection_name] = setup_result.adapter
+        assert setup_result.capabilities is not None
+        capabilities_by_connection[connection_name] = setup_result.capabilities
 
     if setup_diagnostics:
         return _RuntimeExecutionDependencies(
@@ -301,11 +403,32 @@ def _prepare_runtime_execution_dependencies(
             message="Run adapter configuration failed.",
         )
 
-    open_result = _open_runtime_adapters(
+    aggregate_blockers = _aggregate_capability_blockers(
         adapter_candidates,
+        contracts_by_name=contracts_by_name,
+        connections_by_name=connections_by_name,
+        capabilities_by_connection=capabilities_by_connection,
+    )
+    aggregate_renderers = _default_aggregate_runtime_renderers() if has_aggregate_checks else {}
+    for artifact in adapter_candidates:
+        contract = contracts_by_name[artifact.contract_name]
+        for check in artifact.checks:
+            if not is_aggregate_check_type(check.check_type) or check.id in aggregate_blockers:
+                continue
+            adapter = adapters_by_connection[contract.source.connection]
+            renderer = aggregate_renderers.get(connections_by_name[contract.source.connection].type)
+            blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer)
+            if blocker is not None:
+                aggregate_blockers[check.id] = blocker
+    open_candidates = _runtime_execution_candidates(
+        adapter_candidates, excluded_check_ids=frozenset(aggregate_blockers)
+    )
+    open_result = _open_runtime_adapters(
+        open_candidates,
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
         connections_by_name=connections_by_name,
+        aggregate_connection_indices=aggregate_connection_indices,
     )
     if open_result.diagnostics:
         return _RuntimeExecutionDependencies(
@@ -315,14 +438,48 @@ def _prepare_runtime_execution_dependencies(
         )
 
     return _RuntimeExecutionDependencies(
-        execution_context=CheckExecutionContext(
+        execution_context=_runtime_context(
             contracts_by_name=contracts_by_name,
             adapters_by_connection=adapters_by_connection,
             connections_by_name=connections_by_name,
             renderers_by_adapter_type=default_runtime_renderers_by_adapter_type(),
             scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
+            tolerance_states=tolerance_states if has_aggregate_checks else None,
+            aggregate_blockers_by_check_id=aggregate_blockers,
+            aggregate_renderers_by_adapter_type=aggregate_renderers,
         ),
         opened_adapters=open_result.opened_adapters,
+    )
+
+
+def _runtime_context(
+    *,
+    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+    adapters_by_connection: Mapping[str, BaseAdapter],
+    tolerance_states: Mapping[str, _ToleranceReferenceState] | None,
+    connections_by_name: Mapping[str, ConnectionConfig] | None = None,
+    renderers_by_adapter_type: Mapping[str, SqlRenderer] | None = None,
+    scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] | None = None,
+    aggregate_blockers_by_check_id: Mapping[str, CheckResult] | None = None,
+    aggregate_renderers_by_adapter_type: Mapping[str, _AggregateRuntimeRenderer] | None = None,
+) -> CheckExecutionContext:
+    if tolerance_states is not None:
+        return _AggregateExecutionContext(
+            contracts_by_name=contracts_by_name,
+            adapters_by_connection=adapters_by_connection,
+            connections_by_name=connections_by_name or {},
+            renderers_by_adapter_type=renderers_by_adapter_type or {},
+            scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id or {},
+            tolerance_states_by_contract_id=tolerance_states,
+            aggregate_blockers_by_check_id=aggregate_blockers_by_check_id or {},
+            aggregate_renderers_by_adapter_type=aggregate_renderers_by_adapter_type or {},
+        )
+    return CheckExecutionContext(
+        contracts_by_name=contracts_by_name,
+        adapters_by_connection=adapters_by_connection,
+        connections_by_name=connections_by_name or {},
+        renderers_by_adapter_type=renderers_by_adapter_type or {},
+        scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id or {},
     )
 
 
@@ -338,6 +495,7 @@ def _open_runtime_adapters(
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     adapters_by_connection: Mapping[str, BaseAdapter],
     connections_by_name: Mapping[str, ConnectionConfig],
+    aggregate_connection_indices: Mapping[str, int],
 ) -> _AdapterOpenResult:
     connection_names = _connection_names_to_open(
         runtime_candidates,
@@ -346,6 +504,8 @@ def _open_runtime_adapters(
     )
     opened_adapters: list[_OpenedAdapter] = []
     diagnostics: list[Diagnostic] = []
+    # Preserve setup privacy classification even when aggregate capability
+    # blockers leave only a legacy check eligible to open the connection.
 
     for connection_name in connection_names:
         adapter = adapters_by_connection.get(connection_name)
@@ -363,11 +523,18 @@ def _open_runtime_adapters(
                     connection=connection,
                     fallback_code=ADAPTER_CONNECTION_FAILED,
                     fallback_message="Adapter connection failed.",
+                    aggregate_connection_index=aggregate_connection_indices.get(connection_name),
                 )
             )
             diagnostics.extend(_close_opened_adapters(tuple(opened_adapters)))
             return _AdapterOpenResult(diagnostics=_dedupe_diagnostics(tuple(diagnostics)))
-        opened_adapters.append(_OpenedAdapter(adapter=adapter, connection=connection))
+        opened_adapters.append(
+            _OpenedAdapter(
+                adapter=adapter,
+                connection=connection,
+                aggregate_connection_index=aggregate_connection_indices.get(connection_name),
+            )
+        )
 
     return _AdapterOpenResult(opened_adapters=tuple(opened_adapters))
 
@@ -409,11 +576,15 @@ def _runtime_connection_for_project(
 
 def _runtime_execution_candidates(
     check_artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    excluded_check_ids: frozenset[str] = frozenset(),
 ) -> tuple[LoadedCompiledChecksArtifact, ...]:
     candidates: list[LoadedCompiledChecksArtifact] = []
     for artifact in check_artifacts:
         candidate_checks = tuple(
-            check for check in artifact.checks if _is_runtime_execution_candidate(check)
+            check
+            for check in artifact.checks
+            if _is_runtime_execution_candidate(check) and check.id not in excluded_check_ids
         )
         if not candidate_checks:
             continue
@@ -447,6 +618,7 @@ def _relation_backed_runtime_candidates(
     runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
     *,
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+    tolerance_states: Mapping[str, _ToleranceReferenceState],
 ) -> tuple[LoadedCompiledChecksArtifact, ...]:
     candidates: list[LoadedCompiledChecksArtifact] = []
     for artifact in runtime_candidates:
@@ -456,7 +628,9 @@ def _relation_backed_runtime_candidates(
         candidate_checks = tuple(
             check
             for check in artifact.checks
-            if _requires_runtime_profile_for_contract(check, contract)
+            if _requires_runtime_profile_for_contract(
+                check, contract, tolerance_states.get(contract.contract_id)
+            )
         )
         if not candidate_checks:
             continue
@@ -479,6 +653,7 @@ def _relation_backed_runtime_candidates(
 def _requires_runtime_profile_for_contract(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
+    tolerance_state: _ToleranceReferenceState | None,
 ) -> bool:
     if check.check_type == "row_count_diff":
         return True
@@ -487,6 +662,8 @@ def _requires_runtime_profile_for_contract(
             check,
             contract,
         ) and _contract_has_valid_relation_endpoint_shape(contract)
+    if is_aggregate_check_type(check.check_type):
+        return aggregate_admission(check, contract, tolerance_state).blocker is None
     return False
 
 
@@ -540,6 +717,9 @@ def _check_requires_adapter_setup(
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision],
     adapter_setup_required_check_ids: frozenset[str],
 ) -> bool:
+    if is_aggregate_check_type(check.check_type):
+        decision = scan_budget_decisions_by_check_id.get(check.id)
+        return decision is not None and decision.allowed
     if not is_key_safety_check_type(check.check_type):
         return True
     if check.id in adapter_setup_required_check_ids:
@@ -564,6 +744,8 @@ def _is_runtime_execution_candidate(check: LoadedCompiledCheck) -> bool:
         return is_supported_row_count_plan_shape(check.plan.operations)
     if is_key_safety_check_type(check.check_type):
         return is_supported_key_safety_plan_shape(check.check_type, check.plan.operations)
+    if is_aggregate_check_type(check.check_type):
+        return is_supported_aggregate_plan_shape(check)
     return False
 
 
@@ -591,7 +773,11 @@ def _required_capabilities_by_connection(
         if contract is None:
             continue
         for check in artifact.checks:
-            required_capabilities = _runtime_required_capabilities(check)
+            required_capabilities = (
+                ()
+                if is_aggregate_check_type(check.check_type)
+                else _runtime_required_capabilities(check)
+            )
             for connection_name in (contract.source.connection, contract.target.connection):
                 capabilities = capabilities_by_connection.setdefault(connection_name, [])
                 for capability in required_capabilities:
@@ -636,16 +822,22 @@ def _scan_budget_decisions_by_check_id(
         if contract is None:
             continue
         for check in artifact.checks:
-            if not is_key_safety_check_type(check.check_type):
+            aggregate = is_aggregate_check_type(check.check_type)
+            if not aggregate and not is_key_safety_check_type(check.check_type):
                 continue
-            prepared_decision = _scan_budget_decision_for_key_safety(
+            if aggregate:
+                source = connections_by_name.get(contract.source.connection)
+                target = connections_by_name.get(contract.target.connection)
+                if source is None or target is None or not _same_connection_context(source, target):
+                    continue
+            prepared_decision = _scan_budget_decision_for_relation(
                 contract,
                 connections_by_name=connections_by_name,
                 project_root=project_root,
                 runtime_safety_checks=runtime_safety_checks,
             )
             decisions[check.id] = prepared_decision.decision
-            if prepared_decision.requires_adapter_setup:
+            if not aggregate and prepared_decision.requires_adapter_setup:
                 adapter_setup_required_check_ids.add(check.id)
     return _RuntimeScanBudgetDecisions(
         decisions_by_check_id=decisions,
@@ -653,13 +845,13 @@ def _scan_budget_decisions_by_check_id(
     )
 
 
-def _scan_budget_decision_for_key_safety(
+def _scan_budget_decision_for_relation(
     contract: LoadedCompiledContractArtifact,
     *,
     connections_by_name: Mapping[str, ConnectionConfig],
     project_root: Path,
     runtime_safety_checks: RuntimeSafetyCheckRegistry,
-) -> _KeySafetyScanBudgetDecision:
+) -> _RuntimeScanBudgetDecision:
     relation_backed = contract.source.relation is not None and contract.target.relation is not None
     source_connection = connections_by_name.get(contract.source.connection)
     target_connection = connections_by_name.get(contract.target.connection)
@@ -685,12 +877,69 @@ def _scan_budget_decision_for_key_safety(
             estimate_state=ScanEstimateState.UNKNOWN,
         )
     )
-    return _KeySafetyScanBudgetDecision(
+    return _RuntimeScanBudgetDecision(
         decision=decision,
         requires_adapter_setup=(
             local_dev and scan_safety_status.metadata_open_failed and not decision.allowed
         ),
     )
+
+
+def _aggregate_setup_hint(connection_index: int) -> str:
+    # A run-local ordinal preserves distinct setup failures without naming connections.
+    return f"Connection setup #{connection_index}: inspect configuration locally."
+
+
+def _safe_aggregate_setup_diagnostic(
+    diagnostic: Diagnostic, *, connection_index: int
+) -> Diagnostic:
+    """Preserve recognized setup categories, never arbitrary adapter fields."""
+    messages = {
+        ADAPTER_RESOLUTION_FAILED: "Aggregate adapter resolution failed.",
+        ADAPTER_UNKNOWN_TYPE: "Aggregate adapter type is not registered.",
+        ADAPTER_API_VERSION_UNSUPPORTED: "Aggregate adapter API version is unsupported.",
+        ADAPTER_METADATA_INVALID: "Aggregate adapter metadata is invalid.",
+        ADAPTER_TYPE_MISMATCH: "Aggregate adapter type does not match the connection.",
+        ADAPTER_CAPABILITY_DECLARATION_FAILED: "Aggregate adapter capability declaration failed.",
+        ADAPTER_CAPABILITY_UNSUPPORTED: "Aggregate adapter required capability is unsupported.",
+        "RC_ADAPTER_DEPENDENCY_MISSING": "Aggregate adapter dependency is missing.",
+    }
+    code = diagnostic.code if diagnostic.code in messages else ADAPTER_RESOLUTION_FAILED
+    return Diagnostic(
+        code=code,
+        severity=DiagnosticSeverity.ERROR,
+        message=messages[code],
+        resource_type="adapter",
+        hint=_aggregate_setup_hint(connection_index),
+    )
+
+
+def _aggregate_capability_blockers(
+    candidates: tuple[LoadedCompiledChecksArtifact, ...],
+    *,
+    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
+    connections_by_name: Mapping[str, ConnectionConfig],
+    capabilities_by_connection: Mapping[str, AdapterCapabilities],
+) -> dict[str, CheckResult]:
+    blockers: dict[str, CheckResult] = {}
+    for artifact in candidates:
+        contract = contracts_by_name[artifact.contract_name]
+        for check in artifact.checks:
+            if not is_aggregate_check_type(check.check_type):
+                continue
+            diagnostics: list[Diagnostic] = []
+            for name in dict.fromkeys((contract.source.connection, contract.target.connection)):
+                connection = connections_by_name[name]
+                diagnostics.extend(
+                    _aggregate_capability_diagnostics(
+                        check, capabilities_by_connection.get(name), adapter_type=connection.type
+                    )
+                )
+            if diagnostics:
+                blockers[check.id] = _aggregate_capability_blocker(
+                    check, contract, _dedupe_diagnostics(tuple(diagnostics))
+                )
+    return blockers
 
 
 def _relation_name_parts(relation_name: str | None) -> tuple[str, ...] | None:
@@ -780,6 +1029,7 @@ def _close_opened_adapters(opened_adapters: tuple[_OpenedAdapter, ...]) -> tuple
                     connection=opened_adapter.connection,
                     fallback_code=ADAPTER_CLOSE_FAILED,
                     fallback_message="Adapter close failed.",
+                    aggregate_connection_index=opened_adapter.aggregate_connection_index,
                 )
             )
     return _dedupe_diagnostics(tuple(diagnostics))
@@ -791,7 +1041,21 @@ def _adapter_lifecycle_diagnostic(
     connection: ConnectionConfig,
     fallback_code: str,
     fallback_message: str,
+    aggregate_connection_index: int | None = None,
 ) -> Diagnostic:
+    if aggregate_connection_index is not None:
+        # Adapter-supplied diagnostics cannot prove that arbitrary values,
+        # grouped keys or relation identifiers are safe for public output.
+        return Diagnostic(
+            code=fallback_code,
+            severity=DiagnosticSeverity.ERROR,
+            message=fallback_message,
+            resource_type="adapter",
+            hint=(
+                f"Connection #{aggregate_connection_index}: "
+                "raw aggregate adapter lifecycle diagnostics were suppressed."
+            ),
+        )
     diagnostic = getattr(exc, "diagnostic", None)
     if not isinstance(diagnostic, Diagnostic):
         diagnostic = Diagnostic(

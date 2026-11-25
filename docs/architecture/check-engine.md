@@ -32,9 +32,8 @@ Diagnostics
 
 The check engine is introduced in split stages. The first boundary owns the
 result status model, internal dispatch, and prerequisite/blocking
-representation. Current execution phases add row count and grain-key safety.
-A later aggregate execution phase adds execution for current compiled aggregate
-metric typed-plan shapes. Execution phases that need source/target metadata must
+representation. Current execution supports row count, bounded grain-key safety,
+and bounded explicit sum aggregate metric typed-plan shapes. Execution phases that need source/target metadata must
 consume compiled-contract artifacts rather than parsing authored YAML or
 recompiling contracts. Run-result artifacts, evidence reports, failure details,
 and evidence links remain separate later surfaces unless a future split
@@ -153,16 +152,17 @@ exit category and top-level message belong to command plumbing. `RunResult`,
 `ContractResult`, and `CheckResult` carry reconciliation status, reason codes,
 diagnostics, and future artifact or sink references.
 
-The first non-executing run boundary may load already compiled checks and route
-them through internal dispatch. The current row-count and bounded local/dev
-grain-key safety execution boundaries may also load matching compiled-contract
+The run boundary loads already compiled checks and routes them through internal
+dispatch. The current row-count and bounded local/dev grain-key safety and
+explicit sum aggregate execution boundaries may also load matching compiled-contract
 metadata, selected runtime profiles, referenced connections, and supported
 adapters for relation-backed same-context DuckDB `row_count_diff`, null-key,
-duplicate-key, missing-key, and extra-key checks. They must still not parse
-authored YAML, compile contracts, execute query endpoints, execute aggregate or
-row-level value checks, write generated artifacts, emit evidence, mutate state,
+duplicate-key, missing-key, extra-key, `sum_diff`, and `grouped_aggregate_diff`
+checks. They must still not parse authored YAML, compile contracts, execute query
+endpoints, execute other aggregate metric types or row-level value checks, write generated artifacts, emit evidence, mutate state,
 write sinks, produce probabilistic summaries, or execute selector/subset scopes.
-The bounded local/dev key-safety guard is stricter than DuckDB file size: it
+The bounded local/dev scan guard for key-safety and aggregate checks is stricter
+than DuckDB file size: it
 also requires non-executing catalog metadata to show that both compiled relation
 endpoints are local base tables in the project-local DuckDB file.
 
@@ -250,6 +250,13 @@ extra records.
 Aggregate checks can run without row-level keys when they have explicit metrics or aggregate definitions.
 
 Grouped aggregates use `group_by` dimensions and should not treat those dimensions as row identity.
+
+Current explicit sum checks use same-context DuckDB execution after bounded
+scan classification. The private renderer and typed transport return bounded
+native numeric evidence or one fixed-size grouped summary; Core validates it
+and applies inclusive absolute tolerance. Group presence is independent of
+aggregate nullness. No grouped keys or aggregate values are exposed in public
+results. No unbounded detail or alternate-engine fallback is allowed.
 
 ## Schema checks
 

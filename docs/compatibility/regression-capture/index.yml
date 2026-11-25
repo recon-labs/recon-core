@@ -26,6 +26,45 @@ capture_files:
     description: Parser, compiler, contract YAML, check-pack, typed-plan, and validation-default behavior.
 path_surface_routing:
   exact:
+    - path: src/recon_core/check_engine/aggregate.py
+      surfaces:
+        - check_engine
+        - execution_result
+        - typed_check_plan
+        - prerequisite_blocking
+        - diagnostics
+        - source_target_privacy
+        - scan_safety
+        - adapter_runtime
+    - path: tests/check_engine/test_aggregate_execution.py
+      surfaces:
+        - check_engine
+        - execution_result
+        - typed_check_plan
+        - prerequisite_blocking
+        - diagnostics
+        - source_target_privacy
+        - scan_safety
+        - adapter_runtime
+    - path: src/recon_core/_numeric_policy.py
+      surfaces:
+        - check_engine
+        - compiler
+        - validation_defaults
+    - path: src/recon_core/compiler/policies.py
+      surfaces:
+        - compiler
+        - validation_defaults
+    - path: tests/services/test_run_service_aggregate_admission.py
+      surfaces:
+        - adapter_runtime
+        - check_engine
+        - execution_result
+        - typed_check_plan
+        - scan_safety
+        - prerequisite_blocking
+        - diagnostics
+        - source_target_privacy
     - path: src/recon_core/_yaml.py
       surfaces:
         - artifact_lifecycle
@@ -307,6 +346,18 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/adapters/_aggregate_runtime.py
+      surfaces:
+        - adapter_api
+        - adapter_runtime
+        - execution_result
+    - path: tests/adapters/test_duckdb_aggregate_transport.py
+      surfaces:
+        - adapter_api
+        - adapter_runtime
+        - execution_result
+        - diagnostics
+        - redaction
     - path: src/recon_core/adapters/duckdb/adapter.py
       surfaces:
         - adapter_runtime
@@ -317,6 +368,16 @@ path_surface_routing:
     - path: src/recon_core/adapters/duckdb/renderer_operations.py
       surfaces:
         - sql_rendering
+    - path: src/recon_core/adapters/duckdb/_aggregate_runtime.py
+      surfaces:
+        - sql_rendering
+        - adapter_runtime
+        - execution_result
+    - path: tests/adapters/test_duckdb_aggregate_runtime_renderer.py
+      surfaces:
+        - sql_rendering
+        - adapter_runtime
+        - execution_result
     - path: src/recon_core/adapters/duckdb/renderer_sql.py
       surfaces:
         - sql_rendering

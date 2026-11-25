@@ -49,14 +49,17 @@ class NumericTolerance:
     type: Literal["absolute"]
     value: Decimal
 
+
 @dataclass(frozen=True)
 class NullPolicy:
     treat_as_null_values: tuple[str, ...] = ()
     treat_as_null_regex: tuple[str, ...] = ()
 
+
 @dataclass(frozen=True)
 class NormalizationPolicy:
     steps: tuple[NormalizationStep, ...] = ()
+
 
 @dataclass(frozen=True)
 class ResolvedComparisonPolicy:
@@ -111,6 +114,35 @@ Validation:
 
 Use `Decimal` or an equivalent exact numeric representation for parsed policy
 values. Do not parse tolerance through binary float if avoidable.
+
+For aggregate execution, normalize the existing compiled tolerance field to a
+finite nonnegative exact threshold with one Core-owned policy implementation.
+Use the canonical decimal representation of an already parsed finite float;
+do not infer the original YAML lexeme. Missing or null optional metric
+tolerance is zero only when no unresolved applicable named policy exists.
+A valid explicit metric override takes precedence; otherwise unresolved
+applicable policy blocks before adapter queries. Preserve the existing named
+reference metadata from compiled contracts without adding a policy resolver
+or changing artifact shape.
+
+For integer and decimal results, validate signed differences and compare
+magnitudes using context-independent exact arithmetic (for example integer
+ratios), not the default decimal arithmetic context. For finite native
+floating-point results, validate subtraction in the proven result domain,
+then compare the canonical decimal magnitude of the native difference to the
+same threshold. Do not recompute the difference in decimal from separately
+converted floating-point operands. Reject non-finite results, malformed
+arithmetic, and unrepresentable overflow with sanitized execution errors.
+The threshold is inclusive, zero is strict, and signed zero is equal. Prove
+lossless transport of exact numeric values and native result types; numeric
+looking strings do not establish numeric type evidence. The same policy owns
+grouped and ungrouped comparison. A grouped summary supplies finite signed
+extrema rather than individual group values; Core computes their largest
+absolute magnitude without native signed-minimum absolute-value overflow.
+
+These are implementation constraints for aggregate execution, not a claim of
+current runtime support. A full reusable policy resolver remains separately
+gated.
 
 ## Timestamp Tolerance
 

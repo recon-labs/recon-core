@@ -4,7 +4,18 @@ from collections.abc import Mapping
 from typing import Protocol
 
 from recon_core.adapters import BaseAdapter, ConnectionConfig, SqlRenderer
+from recon_core.adapters.rendering import ADAPTER_RENDERER_METADATA_INVALID
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
+from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
+from recon_core.check_engine.aggregate import (
+    _aggregate_connection_blocker,
+    _aggregate_runtime_error,
+    _aggregate_scan_blocker,
+    _execute_aggregate_check,
+    aggregate_admission,
+    is_aggregate_check_type,
+    is_supported_aggregate_plan_shape,
+)
 from recon_core.check_engine.execution import (
     execute_row_count_check,
     is_supported_row_count_plan_shape,
@@ -66,7 +77,13 @@ def rendering_blocked_result_if_needed(check: LoadedCompiledCheck) -> CheckResul
     """Return an error when compiled rendering status blocks executable shapes."""
     if check.rendering_status not in _RUNTIME_BLOCKING_RENDERING_STATUSES:
         return None
-    if check.check_type != "row_count_diff" and not is_key_safety_check_type(check.check_type):
+    if (
+        check.check_type != "row_count_diff"
+        and not is_key_safety_check_type(check.check_type)
+        and not is_aggregate_check_type(check.check_type)
+    ):
+        return None
+    if is_aggregate_check_type(check.check_type) and not is_supported_aggregate_plan_shape(check):
         return None
     if check.check_type == "row_count_diff" and not is_supported_row_count_plan_shape(
         check.plan.operations
@@ -103,6 +120,8 @@ def runtime_execution_result_if_available(
     """Return a supported runtime execution result for an otherwise non-executable check."""
     if execution_context is None:
         return None
+    if is_aggregate_check_type(check.check_type):
+        return _aggregate_execution_result(check, dispatch_result, execution_context)
     return _row_count_execution_result_if_available(
         check,
         dispatch_result,
@@ -111,6 +130,64 @@ def runtime_execution_result_if_available(
         check,
         dispatch_result,
         execution_context,
+    )
+
+
+def _aggregate_execution_result(
+    check: LoadedCompiledCheck,
+    dispatch_result: CheckResult,
+    execution_context: RuntimeExecutionContext,
+) -> CheckResult | None:
+    if dispatch_result.status is not CheckStatus.NOT_EXECUTABLE:
+        return None
+    if dispatch_result.reason_code in _DISPATCH_HARD_BLOCKING_REASONS:
+        return None
+    contract = execution_context.contracts_by_name.get(check.contract_name)
+    if contract is None:
+        return None
+    states = getattr(execution_context, "tolerance_states_by_contract_id", None)
+    state = states.get(contract.contract_id) if isinstance(states, Mapping) else None
+    admission = aggregate_admission(
+        check, contract, state if isinstance(state, _ToleranceReferenceState) else None
+    )
+    if admission.blocker is not None:
+        return admission.blocker
+    if contract.source.connection != contract.target.connection:
+        source = execution_context.connections_by_name.get(contract.source.connection)
+        target = execution_context.connections_by_name.get(contract.target.connection)
+        if source is None or target is None or not same_connection_context(source, target):
+            return _aggregate_connection_blocker(check, contract)
+    decision = execution_context.scan_budget_decisions_by_check_id.get(
+        check.id, missing_scan_budget_decision()
+    )
+    blocker = _aggregate_scan_blocker(check, contract, decision)
+    if blocker is not None:
+        return blocker
+    blockers = getattr(execution_context, "aggregate_blockers_by_check_id", None)
+    if isinstance(blockers, Mapping):
+        prepared_blocker = blockers.get(check.id)
+        if isinstance(prepared_blocker, CheckResult):
+            return prepared_blocker
+    adapter = execution_context.adapters_by_connection.get(contract.source.connection)
+    if adapter is None:
+        return _aggregate_runtime_error(
+            check,
+            contract,
+            ADAPTER_RENDERER_METADATA_INVALID,
+            "Aggregate execution requires a prepared private adapter.",
+        )
+    renderers = getattr(execution_context, "aggregate_renderers_by_adapter_type", None)
+    adapter_type = safe_string_attribute(adapter, "adapter_type")
+    renderer = renderers.get(adapter_type) if isinstance(renderers, Mapping) else None
+    assert admission.tolerance is not None
+    return _execute_aggregate_check(
+        check,
+        contract,
+        adapter,
+        renderer=renderer,
+        tolerance=admission.tolerance,
+        decision=decision,
+        connections_by_name=execution_context.connections_by_name,
     )
 
 

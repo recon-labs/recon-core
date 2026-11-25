@@ -115,6 +115,50 @@ When physical type metadata is needed to prove compatibility, validation may be
 deferred to adapter metadata validation and must be visible before evidence is
 trusted.
 
+### Aggregate numeric execution decision
+
+For execution of compiled explicit `sum` checks, the following rules refine
+absolute tolerance without changing the authored policy shape.
+
+- An explicit valid metric tolerance takes precedence over an applicable named
+  tolerance reference. A named tolerance policy that would otherwise apply but
+  cannot be resolved blocks execution. Do not replace it with zero tolerance.
+  In the absence of an explicit tolerance or applicable unresolved policy,
+  the default is zero. Runtime consumes compiled metadata, not authored YAML;
+  it does not implement named-policy resource loading.
+- The current numeric shorthand and absolute-object forms must normalize to
+  the same finite, nonnegative threshold. Reject booleans, nonnumeric values,
+  non-finite values, unsupported policy types, missing object values, and
+  unexpected fields before execution. A missing or null optional metric
+  tolerance means no metric override, not a malformed policy object.
+- Preserve matching physical input and aggregate result types. Exact integer
+  and decimal aggregate results and differences must remain exact, including
+  values beyond binary floating-point precision. Use context-independent exact
+  arithmetic for difference validation, magnitude, and threshold comparison.
+- For finite floating-point aggregate results, validate the native computed
+  difference in its proven arithmetic domain. Do not independently convert
+  both operands to decimal and then require exact decimal subtraction to
+  match that difference. Interpret the finite computed magnitude by its
+  shortest round-trip decimal representation, consistently with the current
+  canonical interpretation of compiled floating-point tolerance values.
+  Do not recover or claim lexical precision lost during parsing.
+- A comparison passes when the absolute difference is less than or equal to
+  the configured threshold. Zero tolerance requires equality of represented
+  values, including equality of signed zero. There is no implicit epsilon,
+  relative allowance, or automatic rounding. Floating-point sums can depend
+  on evaluation order; do not claim exact decimal summation for them.
+- Non-finite aggregate values or differences, invalid returned arithmetic,
+  and arithmetic overflow that cannot be represented safely are execution
+  errors, not successful comparisons or ordinary data mismatches. This is
+  not permission to remove a supported numeric type. Preserve the existing
+  supported input boundary and investigate a safe solution before proposing
+  any capability reduction.
+
+These are execution requirements, not a claim that aggregate runtime is
+implemented. Grouped and ungrouped checks must use the same threshold policy.
+Adapter conformance must prove arithmetic and lossless result transport before
+claiming support for each numeric domain. See ADR 0021 for bounded execution.
+
 ## Timestamp Tolerance
 
 Timestamp tolerance is not MVP execution behavior.

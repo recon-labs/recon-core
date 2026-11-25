@@ -1,9 +1,11 @@
+from dataclasses import fields, replace
 from pathlib import Path
 from typing import cast
 
 import pytest
 import yaml
 
+import recon_core.artifacts.compiled_contract_loader as loader_module
 from recon_core.artifacts import (
     CompiledContractLoader,
     CompiledContractWriter,
@@ -519,3 +521,76 @@ def _loaded_check_artifact(
 def _write_payload(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("policies", "state"),
+    [
+        (None, "absent"),
+        ({}, "absent"),
+        ({"tolerance_policy": None}, "absent"),
+        ({"tolerance_policy": "private-policy"}, "unresolved"),
+        ({"tolerance_policy": " "}, "invalid"),
+        ({"tolerance_policy": False}, "invalid"),
+        ("private-policy", "invalid"),
+    ],
+)
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
+def test_private_runtime_policy_metadata_preserves_public_loader_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, policies: object, state: str
+) -> None:
+    target = tmp_path / "target"
+    payload = _compiled_contract_payload()
+    payload["policies"] = policies
+    _write_payload(target / "compiled_contracts" / "customer_revenue.yml", payload)
+    loader = CompiledContractLoader()
+    checks = (_loaded_check_artifact(),)
+    public = loader.load_for_compiled_checks(target, checks)
+    assert public.succeeded
+    original = loader_module._read_yaml_mapping
+    calls: list[Path] = []
+
+    def read_once(path: Path) -> dict[str, object]:
+        calls.append(path)
+        return original(path)
+
+    monkeypatch.setattr(loader_module, "_read_yaml_mapping", read_once)
+    private, states = loader._load_for_runtime(target, checks)
+    assert private == public
+    assert len(calls) == 1
+    assert states == {public.artifacts[0].contract_id: state}
+    assert tuple(field.name for field in fields(public.artifacts[0])) == (
+        "path",
+        "project_name",
+        "project_version",
+        "contract_id",
+        "contract_name",
+        "source_file",
+        "source",
+        "target",
+        "grain_keys",
+        "diagnostics",
+    )
+
+
+@pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
+def test_private_runtime_metadata_is_discarded_on_identity_mismatch(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    payload = _compiled_contract_payload()
+    payload["policies"] = {"tolerance_policy": "private-policy"}
+    _write_payload(target / "compiled_contracts" / "customer_revenue.yml", payload)
+    loader = CompiledContractLoader()
+    check = _loaded_check_artifact()
+    result, states = loader._load_for_runtime(
+        target, (replace(check, contract_id="contract.wrong.identity"),)
+    )
+    assert not result.succeeded
+    assert states == {}
+    result, states = loader._load_for_runtime(target, (check,))
+    assert result.succeeded
+    assert states == {check.contract_id: "unresolved"}
+    payload["policies"] = {}
+    _write_payload(target / "compiled_contracts" / "customer_revenue.yml", payload)
+    result, states = loader._load_for_runtime(target, (check,))
+    assert result.succeeded
+    assert states == {check.contract_id: "absent"}

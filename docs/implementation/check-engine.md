@@ -40,8 +40,19 @@ check-engine boundary, status model, internal dispatch, and
 prerequisite/blocking representation. The current row-count and grain-key safety
 execution stages add relation-backed same-context DuckDB execution for the
 supported `row_count_diff`, null-key, duplicate-key, missing-key, and extra-key
-typed-plan shapes. A later aggregate execution stage adds execution for current
-compiled aggregate metric typed-plan shapes. Execution stages must join each
+typed-plan shapes. The aggregate execution stage adds current explicit
+`sum_diff` and `grouped_aggregate_diff` checks for same-context relation-backed
+DuckDB inputs that pass the bounded local/dev scan guard. Admission validates
+compiled plan shape, endpoints and numeric tolerance metadata before profile
+and adapter work where possible. Existing compiled metadata is read once, and a
+valid explicit metric tolerance overrides an unresolved applicable named
+reference. Invalid or unresolved inputs receive specific non-execution or error
+diagnostics. Private typed guards prove input types and the native numeric
+domain before a bounded final query. Core validates the result and applies the
+inclusive absolute threshold without exposing aggregate values, grouped keys,
+counts or extrema. No policy resource loading, public result fields or public
+adapter interface changes are introduced.
+Execution stages must join each
 executable compiled check to its matching compiled-contract metadata before any
 profile, adapter, or query work starts.
 `target/run_results.json`, evidence reports, failure details, and evidence links
@@ -227,22 +238,24 @@ them to matching compiled-contract artifacts before any runtime profile or
 adapter work. It should not parse authored YAML, recompile contracts, write
 generated files, or run selector/subset logic.
 
-For relation-backed row-count candidates and grain-key safety candidates that
-match the supported typed plan shapes, the service may load the selected profile
+For relation-backed row-count, grain-key safety and admitted aggregate
+candidates that match the supported typed plan shapes, the service may load the selected profile
 and referenced profile connections, validate adapter metadata/API/capabilities,
 open the supported adapter connection, classify scan-budget safety for key
-checks, and pass an explicit execution context to the check engine. The current
-key-safety path is allowed only when the internal local/dev scan guard
+and aggregate checks, and pass an explicit execution context to the check engine.
+The current scan-heavy paths are allowed only when the internal local/dev scan guard
 classifies the relation-backed input as bounded: the DuckDB database file must
 be project-local and under the size cap, retained local DuckDB sidecars must be
 absent, and the compiled source and target relations must resolve through
 non-executing catalog metadata to local base tables. Retained sidecars, views,
 externally backed relations, missing metadata, or metadata inspection failures
 fail closed before adapter setup. The service must close adapters it opened. It
-must not open adapters for checks that are not in the supported row-count or
-bounded local/dev grain-key safety execution shapes, and
-aggregate or row-level value checks must remain `not_executable` or blocked
-until their owning execution phases exist.
+must not open adapters for checks outside the supported row-count or bounded
+local/dev key-safety and aggregate execution shapes. Aggregate capability or
+private collaborator blockers are per check; they must not prevent unrelated
+eligible checks from using a shared connection. Unsupported aggregate families
+and row-level value checks remain `not_executable` or blocked until their
+owning execution phases exist.
 
 Missing compiled-check artifacts, malformed compiled-check artifacts, and empty
 compiled-check scopes are runtime diagnostics, not successful runs. They should

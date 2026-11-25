@@ -69,6 +69,15 @@ This project follows semantic versioning once public package releases begin.
 
 ### Fixed
 
+- `recon run` now executes explicit scalar and grouped sum comparisons for
+  same-context DuckDB relation endpoints that pass the bounded local/dev scan
+  guard. Compiled plan and tolerance admission, capability preflight and ordered
+  private type/domain guards fail closed. Core applies inclusive absolute
+  tolerance to exact integer, decimal and native floating-point evidence;
+  grouped comparisons use a bounded summary, and raw aggregate values, group
+  keys, counts and extrema remain private. Unresolved applicable named policies
+  block without a valid explicit override. No public adapter interface or
+  generated result/evidence output is added.
 - CI now runs DuckDB SQL renderer semantic tests in a required job that installs
   `.[dev,duckdb]`, preventing optional DuckDB execution coverage from being
   silently skipped.

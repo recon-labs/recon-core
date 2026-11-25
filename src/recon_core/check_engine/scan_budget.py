@@ -57,12 +57,16 @@ class ScanBudgetDecision:
 
 def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
     """Classify whether the bounded grain-key scan-budget policy permits execution."""
+    return _classify_scan_budget(context, label="Grain-key safety")
+
+
+def _classify_scan_budget(context: ScanBudgetContext, *, label: str) -> ScanBudgetDecision:
     if context.estimate_state is ScanEstimateState.UNSAFE_PREFLIGHT:
         return _blocked_decision(
             reason=CheckReason.UNSAFE_SCAN_PREFLIGHT,
             diagnostic_code=UNSAFE_SCAN_PREFLIGHT,
             message=(
-                "Grain-key safety scan is not executable because scan "
+                f"{label} scan is not executable because scan "
                 "preflight would execute or profile the query."
             ),
             hint=("Use only non-executing scan estimates or the internal local/dev scan guard."),
@@ -72,7 +76,7 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
         return _blocked_decision(
             reason=CheckReason.SCAN_BUDGET_EXCEEDED,
             diagnostic_code=SCAN_BUDGET_EXCEEDED,
-            message="Grain-key safety scan is not executable because scan budget is exceeded.",
+            message=f"{label} scan is not executable because scan budget is exceeded.",
             hint="Reduce the scan scope or wait for later scan-budget settings support.",
         )
 
@@ -90,26 +94,26 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
                     code=BOUNDED_LOCAL_SCAN_ALLOWED,
                     severity=DiagnosticSeverity.INFO,
                     message=(
-                        "Grain-key safety scan is allowed because the internal "
+                        f"{label} scan is allowed because the internal "
                         "bounded local/dev relation-backed scan guard passed."
                     ),
                     resource_type="runtime_policy",
                     hint=(
-                        "This classification is internal to the current grain-key "
-                        "safety execution phase."
+                        f"This classification is internal to the current {label.lower()} "
+                        "execution phase."
                     ),
                 ),
             ),
         )
 
     if context.environment is ScanExecutionEnvironment.LOCAL_DEV:
-        return _bounded_local_required_decision()
+        return _bounded_local_required_decision(label=label)
 
     if context.estimate_state is ScanEstimateState.UNKNOWN:
         return _blocked_decision(
             reason=CheckReason.SCAN_ESTIMATE_UNKNOWN,
             diagnostic_code=SCAN_ESTIMATE_UNKNOWN,
-            message="Grain-key safety scan is not executable because scan estimate is unknown.",
+            message=f"{label} scan is not executable because scan estimate is unknown.",
             hint=("Use the internal local/dev scan guard or a later supported estimate policy."),
         )
 
@@ -122,13 +126,13 @@ def classify_scan_budget(context: ScanBudgetContext) -> ScanBudgetDecision:
             reason=CheckReason.SCAN_ESTIMATE_UNSUPPORTED,
             diagnostic_code=SCAN_ESTIMATE_UNSUPPORTED,
             message=(
-                "Grain-key safety scan is not executable because scan "
+                f"{label} scan is not executable because scan "
                 "estimation is unavailable, unsupported, or malformed."
             ),
             hint=("Use the internal local/dev scan guard or a later compatible adapter policy."),
         )
 
-    return _bounded_local_required_decision()
+    return _bounded_local_required_decision(label=label)
 
 
 def missing_scan_budget_decision() -> ScanBudgetDecision:
@@ -143,12 +147,12 @@ def missing_scan_budget_decision() -> ScanBudgetDecision:
     )
 
 
-def _bounded_local_required_decision() -> ScanBudgetDecision:
+def _bounded_local_required_decision(*, label: str) -> ScanBudgetDecision:
     return _blocked_decision(
         reason=CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,
         diagnostic_code=BOUNDED_LOCAL_SCAN_REQUIRED,
         message=(
-            "Grain-key safety scan is not executable because this phase allows "
+            f"{label} scan is not executable because this phase allows "
             "only internal bounded local/dev relation-backed execution."
         ),
         hint=(
@@ -178,4 +182,42 @@ def _blocked_decision(
                 hint=hint,
             ),
         ),
+    )
+
+
+def _aggregate_scan_budget_decision(decision: ScanBudgetDecision) -> ScanBudgetDecision:
+    """Reconstruct safe aggregate wording using the shared classification policy."""
+    bounded_context = ScanBudgetContext(
+        environment=ScanExecutionEnvironment.LOCAL_DEV,
+        relation_backed=True,
+        bounded=True,
+    )
+    if (
+        type(decision) is ScanBudgetDecision
+        and decision.allowed is True
+        and decision == classify_scan_budget(bounded_context)
+    ):
+        return _classify_scan_budget(bounded_context, label="Aggregate")
+    states: dict[CheckReason | None, ScanEstimateState] = {
+        CheckReason.SCAN_ESTIMATE_UNKNOWN: ScanEstimateState.UNKNOWN,
+        CheckReason.SCAN_ESTIMATE_UNSUPPORTED: ScanEstimateState.UNSUPPORTED,
+        CheckReason.SCAN_BUDGET_EXCEEDED: ScanEstimateState.OVER_BUDGET,
+        CheckReason.UNSAFE_SCAN_PREFLIGHT: ScanEstimateState.UNSAFE_PREFLIGHT,
+        CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED: ScanEstimateState.PRESENT,
+    }
+    return _classify_scan_budget(
+        ScanBudgetContext(
+            environment=ScanExecutionEnvironment.PRODUCTION,
+            relation_backed=True,
+            bounded=False,
+            estimate_state=states.get(
+                (
+                    decision.reason
+                    if type(decision) is ScanBudgetDecision and type(decision.reason) is CheckReason
+                    else None
+                ),
+                ScanEstimateState.UNKNOWN,
+            ),
+        ),
+        label="Aggregate",
     )

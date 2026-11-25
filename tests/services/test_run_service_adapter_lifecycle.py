@@ -95,7 +95,7 @@ profiles:
     assert factory.adapters == []
 
 
-def test_run_service_ignores_unsupported_later_phase_contract_profile_env(
+def test_run_service_ignores_unsupported_aggregate_plan_profile_env(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path, profile="local")
@@ -126,6 +126,7 @@ profiles:
                 check_id="check.ecommerce_recon.later_phase_contract.sum_diff",
                 name="sum_diff",
                 check_type="sum_diff",
+                metric={"type": "sum", "column": "revenue", "group_by": []},
                 operations=[
                     {
                         "type": "aggregate",
@@ -139,7 +140,6 @@ profiles:
                         "aggregate": "sum",
                         "column": "revenue",
                     },
-                    {"type": "compare_aggregates"},
                 ],
                 required_capabilities=[],
             )
@@ -160,7 +160,7 @@ profiles:
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_CHECK_NOT_EXECUTABLE"
+        "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
     ]
     assert "LATER_PHASE_DB" not in _service_result_text(result)
     assert len(factory.adapters) == 1
@@ -172,7 +172,7 @@ profiles:
     _assert_no_runtime_outputs(tmp_path)
 
 
-def test_run_service_keeps_aggregate_not_executable_with_full_capability(
+def test_run_service_blocks_unbounded_aggregate_with_full_capability(
     tmp_path: Path,
 ) -> None:
     write_project(tmp_path, profile="local")
@@ -197,6 +197,7 @@ profiles:
                 check_id="check.ecommerce_recon.customer_revenue.sum_diff",
                 name="sum_diff",
                 check_type="sum_diff",
+                metric={"type": "sum", "column": "revenue", "group_by": []},
                 operations=[
                     {
                         "type": "aggregate",
@@ -228,7 +229,7 @@ profiles:
                 "duplicate_key": CapabilitySupport.FULL,
             }
         ),
-        connect_error=RuntimeError("opened aggregate adapter before runtime phase exists"),
+        connect_error=RuntimeError("opened unbounded aggregate adapter"),
     )
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
@@ -238,9 +239,9 @@ profiles:
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_MISSING_ENGINE_CAPABILITY"
+        "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
     ]
-    assert "aggregate" in result.diagnostics[0].message
+    assert "aggregate" in result.diagnostics[0].message.lower()
     assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 

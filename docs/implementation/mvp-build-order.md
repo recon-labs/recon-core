@@ -675,7 +675,10 @@ Build:
 - current grouped aggregate diff execution,
 - numeric tolerance application for supported numeric aggregate comparisons,
 - empty aggregate semantics,
-- aggregate type mismatch behavior.
+- aggregate type mismatch behavior,
+- exact integer/decimal and finite native floating-point comparison with
+  strict inclusive absolute tolerance,
+- private bounded grouped runtime summaries, preserving existing compile SQL.
 
 Non-goals:
 
@@ -686,6 +689,10 @@ Non-goals:
 
 Assigned gates and blockers:
 
+- resolve Gate 3D numeric policy, named-policy applicability, numeric-domain
+  proof and overflow handling before implementation,
+- preserve existing renderer compatibility and prove the bounded runtime
+  rendering boundary,
 - resolve the comparison execution placement strategy gate for aggregate checks
   before executing typed plans,
 - re-check the typed operation catalog expansion gate before executing any
@@ -702,7 +709,12 @@ Required tests:
 - grouped aggregate diff pass/fail/error cases,
 - numeric tolerance behavior for current `sum` metrics,
 - empty aggregate result semantics,
-- aggregate input/result type mismatch behavior.
+- aggregate input/result type mismatch behavior,
+- high-precision exactness, native FLOAT/DOUBLE differences, BIGNUM transport,
+  tolerance boundaries and non-finite/overflow errors,
+- unresolved applicable tolerance policy blockers and explicit overrides,
+- bounded grouped summaries, presence/null partition and malformed results,
+- compile-time detail renderer preservation.
 
 Phase exit review:
 

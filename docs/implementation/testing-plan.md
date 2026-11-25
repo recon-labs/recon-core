@@ -41,6 +41,20 @@ finding, or missed requirement and pass because the behavior is corrected. If
 the implementation needs a same-scope refactor, preserve the behavioral
 assertion while moving helper-level coverage to the new owner boundary.
 
+Tests for a fix must also demonstrate preservation of nearby supported
+behavior. Derive that support boundary from documented, tested, intentionally
+implemented, and in-scope behavior, including compatibility records. Do not
+make a failing supported case pass by reclassifying it as unsupported unless
+the scope reduction has been explicitly approved and the related proofs and
+public contracts have been updated.
+
+After focused tests pass, recheck sibling cases, ownership and imports,
+diagnostic and privacy behavior, public contracts, regression-capture
+routing, fixtures, and documentation. Preserve or add coverage when a
+same-scope correction exposes secondary drift. If a complete fix requires a
+future gate, record the affected conformance cases, required future tests,
+and rationale; do not claim coverage that has not run.
+
 When a test with a `@pytest.mark.regression_capture("<id>")` marker is moved,
 split, renamed, or meaningfully changed, update the matching capture row and
 rationale at the same time, preserving the marker-to-row pairing enforced by
@@ -225,7 +239,7 @@ Milestone 7 split acceptance/conformance matrix:
 | Missing and extra key checks | Source-minus-target missing keys, target-minus-source extra keys, distinct fully non-null key tuples, duplicates present, nulls present, empty sides, type mismatch. | Missing/extra key checks compare distinct fully non-null grain-key tuples only and fail clearly without inferred mappings, silent coercion, or misleading empty output. Nulls and duplicates remain owned by their own safety checks. | 7.3 execution tests for missing/extra keys, duplicate and null interactions, empty sides, mismatched key types, and prerequisite interactions. | Comparison execution placement strategy and no silent mapping/coercion rules. | Row-level value comparison remains later scope. |
 | Dependent row-level check blocking | Null grain keys, duplicate grain keys, missing prerequisite results, future row-level value checks. | Dependent row-level value checks are blocked when source or target grain keys are null or non-unique. | 7.3 prerequisite/blocking tests; no value comparison execution required. | Locked key semantics and high-risk phase exit review. | Implementing row-level value checks remains a later milestone. |
 | Scan-budget and query-plan safety | Bounded local/dev relation-backed fixture, local base-table metadata, retained DuckDB sidecars, DuckDB views, externally backed relations, production estimate present before M8 settings, production unknown estimate, unavailable estimate, unsupported or malformed estimate capability, unsafe executing profile/analyze preflight, over-budget estimate when representable. | Key-safety checks may execute only when scan scope and budget status are explicit. Bounded local/dev execution requires internal local, relation-backed, file-size-bounded classification with no retained local DuckDB sidecars and non-executing catalog proof that both endpoints are local DuckDB base tables; it is the only M7.3 allowed scan path. Production estimate-present, unknown, unavailable, unsupported, malformed, unsafe, or over-budget outcomes are `not_executable`, not data failures. | 7.3 tests for allowed bounded local/dev execution, local base-table metadata, retained DuckDB sidecars blocked before adapter setup, DuckDB views and externally backed relations blocked before adapter setup, recorded bounded-local classification, production estimate-present blocked before M8 settings, production unknown estimate, unavailable/unsupported/malformed estimate capability, unsafe preflight, over-budget signals when representable, and no scan after a hard budget block. | Gate 4L, comparison placement gate, source/target privacy gate. | Full user-facing budget settings, contract-level budget policy, production within-budget execution, and production adapter scan-estimation conformance remain later work. |
-| Aggregate metric execution | Ungrouped `sum_diff`, grouped aggregate diff, numeric tolerance, empty aggregates, aggregate type mismatch. | Current compiled `sum` plans execute with explicit tolerance, empty-result, and type-mismatch semantics. | 7.4 aggregate tests for pass/fail/error, grouped/ungrouped, tolerance, empty input, and type mismatch. | Typed operation catalog re-check; comparison execution placement; source/target privacy gate. | Timestamp/string tolerance, normalization, schema policy, and new metrics remain future scope. |
+| Aggregate metric execution | Ungrouped `sum_diff`, grouped aggregate diff, numeric domains, inclusive tolerance, unresolved named policy, empty aggregates, group presence, non-finite results, overflow, type mismatch, bounded summaries, renderer separation. | Current bounded compiled `sum` execution preserves exact arithmetic, validates finite native floating-point differences, blocks unresolved applicable policies, and uses a private bounded grouped runtime summary without changing compile rendering. | 7.4 helper, real DuckDB renderer/service, loader and lifecycle tests for all cases in the prework matrix; existing compile detail proof retained. | ADR 0009; Gate 3D; typed operation catalog re-check; comparison execution placement; source/target privacy gate. | Timestamp/string tolerance, normalization, schema policy, and new metrics remain future scope. |
 | Public output and generated artifacts | Terminal output, diagnostics, logs, run-result artifacts, evidence/report/failure-detail links. | Milestone 7 public output is limited to assigned execution/result surfaces; no generated run-result/evidence artifacts appear before Milestones 8 and 9. | 7.1-7.4 negative tests for absent `target/run_results.json`, evidence, report, and failure-detail output unless scope changes. | Generated artifact lifecycle gate; Milestone 8 and 9 boundaries. | `target/run_results.json` belongs to Milestone 8; evidence/report/failure details belong to Milestone 9. |
 | Execution placement and no silent fallback | Row count, key checks, aggregate checks, unsupported placement, missing capability, materialization requested too early, third-engine comparison requested too early, and in-memory/Python fallback temptation. | Each executing sub-milestone uses only its locked placement strategy. Unsupported or unavailable placement fails with explicit blocked/not-executable diagnostics rather than silently changing execution engine. | Pre-7.2, 7.3, and 7.4 placement tests for supported pushdown, unsupported placement, missing capability, and no fallback/materialization cases. | ADR 0021 and comparison execution placement gate. | Generic placement syntax, staging/materialization, third-engine comparison, and fallback policies remain future scope unless separately designed. |
 
@@ -250,6 +264,32 @@ Future result, evidence, state, sink, probabilistic, and adapter conformance mat
 | Native SQL optimization and dialect validation conformance | 29 | Typed-operation rendering, adapter-native SQL snapshots, optional dialect syntax validation, semantic comparison coverage, no direct YAML-to-SQL compilation, no untyped `select *` comparison plans, no naive full-row joins, no unbounded row movement, no hidden partition/window filters, no blind transpilation compatibility claims. | Production adapters cannot claim execution compatibility until shared tests prove their rendered SQL preserves Core typed-plan semantics, stays within the locked execution placement, and fails clearly instead of falling back to unsafe or expensive comparison strategies. | Shared adapter test-kit rows for SQL snapshots, dialect validation where useful, capability-specific semantic execution, unsupported-placement diagnostics, and privacy-safe snapshots. | Gate 4I plus Gate 8, with Gate 4G required before row-hash comparison and Gate 6 required for source/target output. | Syntax validation alone is not correctness proof; row-hash, materialization, external engines, and large failure exports remain separately gated. |
 | Advanced evidence and large-result stores | 31 | JSONL/streaming failure details, pagination, chunking, row limits, truncation, external store references, retry/idempotency, cleanup, retention, masking/redaction, exact-confirmation before probabilistic export. | Large mismatch sets move through bounded artifacts or sink references, not embedded run-result rows. Large-result failures report separately from reconciliation failures. | Advanced evidence tests for JSONL/streaming, pagination/chunking, truncation, privacy, external reference metadata, cleanup, retries, retention, and exact-confirmation gating. | Gate 6C, ADR 0022, advanced evidence gate. | Basic local evidence remains Milestone 9; production result tables remain 25.5. |
 
+Aggregate execution tests must independently prove exact integer and decimal
+arithmetic (including high precision and context independence), native finite
+FLOAT/DOUBLE subtraction and canonical tolerance boundaries, BIGNUM result
+domain and transport, signed extrema, malformed summaries, non-finite
+operands/differences, and overflow. Parameterize grouped and ungrouped
+comparisons over the supported domains and both directions of a difference.
+Assert missing or unresolved applicable tolerance policy blocks before data
+queries and explicit valid metric overrides remain executable. Preserve the
+existing compile renderer tests and use a separate runtime-summary suite to
+prove one-row output for high cardinality, null-safe composite groups, full
+coverage, and strict shape validation. The detailed acceptance matrix and
+file map are in `docs/planning/milestone-7-4-prework.md`. Required DuckDB CI
+must execute the actual semantic tests, not only SQL snapshots.
+
+The representative DuckDB version compatibility lane pins Python 3.11 and
+DuckDB 1.0.0, 1.3.2, 1.4.5 and 2.0.1. It runs existing semantic coverage
+and the isolated numeric suite separately and fails on either failure.
+The older-engine cases explicitly test arbitrary-size native operation
+availability rather than require modern BIGNUM syntax. Preserve ordinary
+numeric proof, actual native type evidence and existing capability; no
+lossy fallback or dependency-floor change. The existing mandatory three
+Python-version semantic jobs retain all current numeric probes.
+Add exact arbitrary-size transport beyond Python's digit limit, cancellation
+and multi-threaded SUM cases. Representative engine proof is not a claim
+of all-version or production support.
+
 ### Adapter tests
 
 Base adapter tests should cover:
@@ -268,12 +308,14 @@ Adapter tests for key-dependent operations should cover null-key detection,
 duplicate-key detection, key-diff rendering, and CDC-key operation rendering
 where supported.
 
-The in-core DuckDB SQL renderer semantic tests must be gated in CI with the
-optional DuckDB extra installed. The required CI path should install
-`.[dev,duckdb]`, set `RECON_REQUIRE_DUCKDB_TESTS=1`, and run
-`tests/adapters/test_duckdb_sql_renderer.py` so optional dependency coverage
-cannot silently skip the SQL comparison cases that protect no-coercion and exact
-numeric behavior.
+The in-core DuckDB semantic tests must be gated in CI with the optional DuckDB
+extra installed. The required CI job installs `.[dev,duckdb]`, sets
+`RECON_REQUIRE_DUCKDB_TESTS=1`, and runs the adapter, check-engine, service,
+and CLI test directories in full. This includes renderer comparison tests,
+actual DuckDB run-service execution, and CLI privacy tests. Directory-level
+selection keeps new and reorganized test modules in the required job rather
+than relying on a fixed list of filenames. Required DuckDB coverage must fail
+rather than silently skip when the dependency cannot be imported.
 
 Future shared adapter test-kit and adapter-repository semantic jobs must follow
 the same rule: required capability conformance jobs install the adapter package

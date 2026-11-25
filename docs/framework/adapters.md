@@ -409,11 +409,12 @@ run results, evidence, or adapter test snapshots are published.
 ## Query endpoint boundary
 
 Current adapter-aware rendering, row-count execution, and bounded local/dev
-grain-key safety execution are relation-backed only. `source.query` and
+grain-key safety and explicit sum aggregate execution are relation-backed only. `source.query` and
 `target.query` may remain parseable, but they must produce a clear unsupported
 diagnostic if adapter-aware rendering or current execution tries to use them.
 Executable query endpoints remain future work. Current bounded local/dev
-grain-key safety execution also excludes views and externally backed relations;
+grain-key safety and explicit sum aggregate execution also exclude views and
+externally backed relations;
 the compiled relation endpoints must resolve to local DuckDB base tables.
 
 Current adapter-aware compile implements this boundary for SQL rendering:

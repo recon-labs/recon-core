@@ -231,6 +231,70 @@ concrete adapter or infrastructure coupling, service or orchestrator boundary
 leaks, duplicated helper logic, test-helper bloat, and whether a same-branch
 low-risk refactor is required before the milestone can be considered complete.
 
+## Review fixes and project consistency
+
+Before a fix, identify currently supported behavior from the relevant docs,
+ADRs, compatibility records, milestone prework, tests, regression capture,
+and implementation. Documented, tested, intentionally implemented, or
+in-scope behavior counts as supported even before a stable release.
+
+Classify the fix as a local fix, a same-scope refactor, or a broader refactor
+that requires approval. Prefer the smallest design-conformant change, not
+the shortest patch that makes a local test pass. Classify capability impact
+as preserving, expanding, shrinking, or unclear. A capability-expanding
+change needs the applicable design and compatibility gates. If impact is
+unclear, resolve the support boundary before editing.
+
+Do not silently remove, reject, disable, or narrow supported behavior to
+fix a bug. Present the options to preserve support now, preserve truthful
+behavior with a future-gated follow-up, or explicitly approve a scope
+reduction. Obtain explicit approval before narrowing support; align docs,
+compatibility, changelog, tests, and regression capture if approved.
+
+When a fix exposes a cross-cutting or future milestone requirement, add or
+propose the relevant gate, conformance matrix row, test, ADR/docs,
+compatibility note, or regression-capture row in the owning workstream.
+Deferred work must have an explicit rationale and owner; do not hide
+incomplete correctness behind a passing test or unsupported status.
+
+After local validation, perform a second consistency pass across ownership,
+dependencies, validation, diagnostics, privacy, public contracts, artifacts,
+capabilities, tests, capture metadata, docs, and future gates. Correct
+same-scope secondary drift before completion; stop for approval if the
+required correction changes broader architecture, public behavior, or
+scope. Record the decision and remaining follow-up.
+
+## Mandatory cumulative review-fix loop
+
+Authorized review-fix work and implementation-bearing phase or milestone
+exit reviews must repeat the review-fix cycle until a fresh review of the
+cumulative approved scope finds no actionable defects or material risks.
+Review-only requests remain read-only; this process does not grant permission
+to edit, commit, push, expand scope, or merge.
+
+Each iteration reviews the full change against its base and relevant unchanged
+collaborators, including docs, ADRs, contracts, acceptance dimensions, gates,
+tests, regression capture, and responsibility boundaries. Record findings,
+classify capability and design impact, and resolve authorized in-scope
+defects. Non-trivial behavioral corrections require observed failing
+regression proof (RED), the smallest design-conformant correction, and
+verified passing validation (GREEN), including nearby supported behavior.
+Non-behavioral corrections require appropriate objective validation.
+
+After GREEN, perform the second consistency pass described above and repeat
+the cumulative review on the updated revision. Passing tests, a patch-only
+review, or a predetermined number of iterations is not sufficient to exit.
+Do not weaken proof, narrow supported behavior without approval, or defer
+in-scope correctness to reach completion.
+
+Exit only after a fresh review on the latest validated revision finds no
+actionable in-scope findings and the required exit evidence is complete.
+If approval, a broader design change, missing gates, unavailable validation,
+or another genuine blocker prevents continuation, report the unresolved
+finding, blocker, and next action without claiming completion. Record the
+reviewed revision, findings, validation, residual risk, and exit decision.
+The absence of findings is not a guarantee that all possible bugs are absent.
+
 ## Milestone splits
 
 Every milestone or equivalent roadmap work must include a split-or-justify

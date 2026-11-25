@@ -67,18 +67,23 @@ def render_type_check_statement(
     right_relation: Relation,
     keys: tuple[str, ...],
     error_message: str,
+    runtime_guard: bool = False,
 ) -> str:
-    left_relation_sql = render_relation(left_relation)
-    right_relation_sql = render_relation(right_relation)
     predicates = "\n        and ".join(
-        f"typeof((select {quote_identifier(key)} from {left_relation_sql} limit 1)) = "
-        f"typeof((select {quote_identifier(key)} from {right_relation_sql} limit 1))"
+        f"{column_type_expression(left_relation, key, metadata_only=runtime_guard)} = "
+        f"{column_type_expression(right_relation, key, metadata_only=runtime_guard)}"
         for key in keys
     )
     return render_type_check_select(
         predicate=predicates,
         error_message=error_message,
+        numeric_result=runtime_guard,
     )
+
+
+def column_type_expression(relation: Relation, column: str, *, metadata_only: bool) -> str:
+    suffix = "where false" if metadata_only else "limit 1"
+    return f"typeof((select {quote_identifier(column)} from {render_relation(relation)} {suffix}))"
 
 
 def render_single_aggregate_input_type_check_statement(
@@ -103,12 +108,10 @@ def render_aggregate_input_type_check_statement(
     right_relation: Relation,
     column: str,
     error_message: str,
+    runtime_guard: bool = False,
 ) -> str:
-    column_expression = quote_identifier(column)
-    left_relation_sql = render_relation(left_relation)
-    right_relation_sql = render_relation(right_relation)
-    source_input_type = f"typeof((select {column_expression} from {left_relation_sql} limit 1))"
-    target_input_type = f"typeof((select {column_expression} from {right_relation_sql} limit 1))"
+    source_input_type = column_type_expression(left_relation, column, metadata_only=runtime_guard)
+    target_input_type = column_type_expression(right_relation, column, metadata_only=runtime_guard)
     predicate = (
         f"{source_input_type} = {target_input_type}\n"
         "        and "
@@ -119,6 +122,7 @@ def render_aggregate_input_type_check_statement(
     return render_type_check_select(
         predicate=predicate,
         error_message=error_message,
+        numeric_result=runtime_guard,
     )
 
 
@@ -144,13 +148,16 @@ def render_aggregate_result_type_check_statement(
     )
 
 
-def render_type_check_select(*, predicate: str, error_message: str) -> str:
+def render_type_check_select(
+    *, predicate: str, error_message: str, numeric_result: bool = False
+) -> str:
+    success = "1" if numeric_result else "true"
     return (
         "select\n"
         "  case\n"
         "    when\n"
         f"      {predicate}\n"
-        "    then true\n"
+        f"    then {success}\n"
         f"    else error({sql_string_literal(error_message)})\n"
         "  end as type_check"
     )

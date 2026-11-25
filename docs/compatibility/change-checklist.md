@@ -49,6 +49,25 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated roadmap, build-order, gate, ADR, and compatibility references when
       a milestone was split so no orphan implementation plan remains.
 
+### Capability preservation and project consistency
+
+- [ ] Identified the current supported behavior from docs, ADRs, compatibility
+      records, milestone scope, tests, capture rows, and implementation.
+- [ ] Classified the fix's capability impact as preserving, expanding, shrinking,
+      or unclear, and resolved any unclear support boundary before editing.
+- [ ] Confirmed that a previously supported case was not reclassified as
+      unsupported to make a fix pass. If scope narrowing is proposed, obtained
+      explicit approval and aligned docs, compatibility, changelog, tests,
+      regression capture, and future milestone obligations.
+- [ ] Evaluated the need for a local fix, same-scope refactor, or broader
+      approval, with tests proving both the correction and preserved support.
+- [ ] Added or proposed a future gate, conformance case, test, regression-capture
+      row, or compatibility follow-up when complete behavior is future-gated,
+      with rationale and ownership.
+- [ ] Rechecked related public contracts, diagnostics, privacy, ownership,
+      tests, docs, and gates after focused validation and resolved same-scope
+      secondary drift or reported the blocker.
+
 ### ADR impact
 
 - [ ] Checked whether the change affects a durable decision.
@@ -239,6 +258,17 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Avoided placeholder constants for surfaces that are only planned.
 - [ ] Updated `docs/compatibility/artifact-versions.md` when artifact version
       constants changed.
+
+## Review-fix loop and exit evidence
+
+- [ ] For authorized review-fix work or an implementation-bearing exit review,
+      repeated the cumulative review, design-conformant correction and
+      validation cycle until a fresh review found no actionable in-scope
+      findings, following `docs/planning/milestone-process.md`.
+- [ ] Recorded the reviewed revision, regression and validation evidence,
+      remaining risks and gate status; required blockers prevent completion.
+- [ ] Preserved review-only boundaries, supported capabilities and approval
+      requirements; did not treat GREEN alone as final review evidence.
 
 ## Review note
 
