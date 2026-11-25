@@ -172,6 +172,10 @@ data, not public output or evidence.
 
 ## Placement Metadata Guidance
 
+[ADR 0025](adr-0025-adapter-aware-execution-advisories.md) adds planned adapter-aware execution safety advisories to
+this placement decision without changing the currently admitted execution
+paths or allowing hidden fallback.
+
 Future typed plans and results should be able to explain placement without
 making unsupported behavior look executable.
 

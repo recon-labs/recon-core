@@ -28,6 +28,12 @@ after Milestones 1-10 are complete and the MVP acceptance criteria pass. Until a
 release decision is made, development branches may keep the package version at
 `0.0.0`.
 
+The runner/results umbrella is delivered through M8.1 scan-budget configuration
+and enforcement (including basic execution advisories), M8.2 execution planning
+and run lifecycle, and M8.3 run-result publication and CLI finalization. See
+[the split assignment](milestone-8-split-assignment.md). Each requires separate
+high-risk prework; the split does not admit additional comparison operations.
+
 Core capabilities:
 
 - CLI foundation,
