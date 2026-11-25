@@ -374,6 +374,7 @@ captures:
     severity: P2
     current_tests:
       - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_lifecycle_and_failure_privacy
+      - tests/services/test_run_service_aggregate_admission.py::test_blocked_aggregate_shared_connection_preserves_lifecycle_privacy
       - tests/services/test_run_service_aggregate_admission.py::test_aggregate_invalid_capability_declaration_is_non_executable
       - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_same_context_alias_and_mixed_checks
       - tests/services/test_run_service_aggregate_admission.py::test_aggregate_rejects_wrong_factory_connection_before_open
@@ -393,4 +394,4 @@ captures:
       - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
       - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
     notes: >
-      Real adapter tracking proves ordered private queries, no aggregate public fallback, cleanup, malformed capability blockers, same-context alias use, scan-approved factory binding before connection opening and mixed row-count/key-safety/aggregate execution.
+      Real adapter tracking proves ordered private queries, no aggregate public fallback, cleanup, malformed capability blockers, same-context alias use, scan-approved factory binding before connection opening and mixed row-count/key-safety/aggregate execution, including safe lifecycle diagnostics when an aggregate capability blocker leaves a shared legacy execution path.

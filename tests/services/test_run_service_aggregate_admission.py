@@ -566,6 +566,55 @@ def test_aggregate_capability_blocker_preserves_unrelated_row_count(
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("failure", [None, "connect", "close"])
+@pytest.mark.regression_capture("aggregate-native-service-lifecycle")
+def test_blocked_aggregate_shared_connection_preserves_lifecycle_privacy(
+    tmp_path: Path, grouped: bool, failure: str | None
+) -> None:
+    _write_bounded_aggregate_inputs(
+        tmp_path,
+        [_compiled_check_payload(operations=row_count_plan()), _aggregate_check(grouped=grouped)],
+    )
+    diagnostic = Diagnostic(
+        code="RC_ADAPTER_CONNECTION_FAILED" if failure == "connect" else "RC_ADAPTER_CLOSE_FAILED",
+        severity=DiagnosticSeverity.ERROR,
+        message="private-injected-value qa.source_customers private-group-key",
+    )
+    error = AdapterLifecycleError(diagnostic)
+    factory = RecordingDuckDbFactory(
+        capabilities=AdapterCapabilities(
+            {"row_count": CapabilitySupport.FULL, "cte_support": CapabilitySupport.FULL}
+        ),
+        connect_error=error if failure == "connect" else None,
+        close_error=error if failure == "close" else None,
+    )
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine, adapter_registry=registry).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert len(factory.adapters) == 1
+    adapter = factory.adapters[0]
+    assert adapter.connect_count == 1
+    assert adapter.close_count == (0 if failure == "connect" else 1)
+    assert len(adapter.queries) == (0 if failure == "connect" else 1)
+    if failure == "connect":
+        assert engine.result is None
+    else:
+        assert engine.result is not None
+        checks = engine.result.contract_results[0].check_results
+        assert [(check.status, check.executed) for check in checks] == [
+            (CheckStatus.PASS, True),
+            (CheckStatus.NOT_EXECUTABLE, False),
+        ]
+    if failure is not None:
+        assert diagnostic.code in {d.code for d in result.diagnostics}
+    for token in ("private-injected-value", "qa.source_customers", "private-group-key"):
+        assert token not in _service_result_text(result)
+    _assert_no_runtime_outputs(tmp_path)
+
+
 class _CapturingAggregateEngine(CheckEngine):
     result: RunResult | None = None
 
