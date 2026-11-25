@@ -1106,9 +1106,7 @@ def test_aggregate_setup_preserves_distinct_connection_failures(
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
     engine = _CapturingAggregateEngine()
-    result = RunService(
-        start_path=tmp_path, engine=engine, adapter_registry=registry
-    ).execute()
+    result = RunService(start_path=tmp_path, engine=engine, adapter_registry=registry).execute()
     expected = {"warehouse", "private-replica"} if distinct_alias else {"warehouse"}
     assert len(calls) == len(expected)
     assert set(calls) == expected
@@ -1116,6 +1114,7 @@ def test_aggregate_setup_preserves_distinct_connection_failures(
     assert engine.result is None
     failures = [d for d in result.diagnostics if d.code == "RC_ADAPTER_RESOLUTION_FAILED"]
     assert len(failures) == len(expected)
+    assert len({d.hint for d in failures}) == len(expected)
     for token in ("private-replica", "private-factory-value", "warehouse", str(database)):
         assert token not in _service_result_text(result)
     _assert_no_runtime_outputs(tmp_path)

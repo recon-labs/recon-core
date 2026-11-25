@@ -341,8 +341,8 @@ def _prepare_runtime_execution_dependencies(
             contracts_by_name[artifact.contract_name].target.connection,
         )
     }
-    for connection_name, required_capabilities in sorted(
-        required_capabilities_by_connection.items()
+    for connection_index, (connection_name, required_capabilities) in enumerate(
+        sorted(required_capabilities_by_connection.items()), start=1
     ):
         connection = connections_by_name[connection_name]
         # Keep the scan-approved config independent of mutable factory input.
@@ -368,7 +368,7 @@ def _prepare_runtime_execution_dependencies(
             ):
                 continue
             setup_diagnostics.extend(
-                _safe_aggregate_setup_diagnostic(diagnostic)
+                _safe_aggregate_setup_diagnostic(diagnostic, connection_index=connection_index)
                 if connection_name in aggregate_connections
                 else diagnostic
                 for diagnostic in setup_result.diagnostics
@@ -384,6 +384,7 @@ def _prepare_runtime_execution_dependencies(
                     severity=DiagnosticSeverity.ERROR,
                     message="Aggregate adapter binding does not match the approved connection.",
                     resource_type="adapter",
+                    hint=_aggregate_setup_hint(connection_index),
                 )
             )
             continue
@@ -882,7 +883,14 @@ def _scan_budget_decision_for_relation(
     )
 
 
-def _safe_aggregate_setup_diagnostic(diagnostic: Diagnostic) -> Diagnostic:
+def _aggregate_setup_hint(connection_index: int) -> str:
+    # A run-local ordinal preserves distinct setup failures without naming connections.
+    return f"Connection setup #{connection_index}: inspect configuration locally."
+
+
+def _safe_aggregate_setup_diagnostic(
+    diagnostic: Diagnostic, *, connection_index: int
+) -> Diagnostic:
     """Preserve recognized setup categories, never arbitrary adapter fields."""
     messages = {
         ADAPTER_RESOLUTION_FAILED: "Aggregate adapter resolution failed.",
@@ -900,7 +908,7 @@ def _safe_aggregate_setup_diagnostic(diagnostic: Diagnostic) -> Diagnostic:
         severity=DiagnosticSeverity.ERROR,
         message=messages[code],
         resource_type="adapter",
-        hint="Inspect adapter configuration locally without exposing private data.",
+        hint=_aggregate_setup_hint(connection_index),
     )
 
 
