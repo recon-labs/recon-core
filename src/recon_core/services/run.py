@@ -129,7 +129,7 @@ class _RuntimeExecutionDependencies:
 class _OpenedAdapter:
     adapter: BaseAdapter
     connection: ConnectionConfig
-    aggregate_privacy: bool = False
+    aggregate_connection_index: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -341,14 +341,18 @@ def _prepare_runtime_execution_dependencies(
             contracts_by_name[artifact.contract_name].target.connection,
         )
     }
-    for connection_index, (connection_name, required_capabilities) in enumerate(
-        sorted(required_capabilities_by_connection.items()), start=1
+    aggregate_connection_indices = {
+        name: index
+        for index, name in enumerate(sorted(required_capabilities_by_connection), start=1)
+        if name in aggregate_connections
+    }
+    for connection_name, required_capabilities in sorted(
+        required_capabilities_by_connection.items()
     ):
+        connection_index = aggregate_connection_indices.get(connection_name)
         connection = connections_by_name[connection_name]
         # Keep the scan-approved config independent of mutable factory input.
-        setup_connection = (
-            deepcopy(connection) if connection_name in aggregate_connections else connection
-        )
+        setup_connection = deepcopy(connection) if connection_index is not None else connection
         setup_result = prepare_runtime_adapter(
             connection=setup_connection,
             required_capabilities=required_capabilities,
@@ -369,13 +373,13 @@ def _prepare_runtime_execution_dependencies(
                 continue
             setup_diagnostics.extend(
                 _safe_aggregate_setup_diagnostic(diagnostic, connection_index=connection_index)
-                if connection_name in aggregate_connections
+                if connection_index is not None
                 else diagnostic
                 for diagnostic in setup_result.diagnostics
             )
             continue
         assert setup_result.adapter is not None
-        if connection_name in aggregate_connections and not _aggregate_adapter_matches_connection(
+        if connection_index is not None and not _aggregate_adapter_matches_connection(
             setup_result.adapter, connection
         ):
             setup_diagnostics.append(
@@ -424,7 +428,7 @@ def _prepare_runtime_execution_dependencies(
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
         connections_by_name=connections_by_name,
-        aggregate_connections=aggregate_connections,
+        aggregate_connection_indices=aggregate_connection_indices,
     )
     if open_result.diagnostics:
         return _RuntimeExecutionDependencies(
@@ -491,7 +495,7 @@ def _open_runtime_adapters(
     contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
     adapters_by_connection: Mapping[str, BaseAdapter],
     connections_by_name: Mapping[str, ConnectionConfig],
-    aggregate_connections: set[str],
+    aggregate_connection_indices: Mapping[str, int],
 ) -> _AdapterOpenResult:
     connection_names = _connection_names_to_open(
         runtime_candidates,
@@ -519,7 +523,7 @@ def _open_runtime_adapters(
                     connection=connection,
                     fallback_code=ADAPTER_CONNECTION_FAILED,
                     fallback_message="Adapter connection failed.",
-                    aggregate_privacy=connection_name in aggregate_connections,
+                    aggregate_connection_index=aggregate_connection_indices.get(connection_name),
                 )
             )
             diagnostics.extend(_close_opened_adapters(tuple(opened_adapters)))
@@ -528,7 +532,7 @@ def _open_runtime_adapters(
             _OpenedAdapter(
                 adapter=adapter,
                 connection=connection,
-                aggregate_privacy=connection_name in aggregate_connections,
+                aggregate_connection_index=aggregate_connection_indices.get(connection_name),
             )
         )
 
@@ -1025,7 +1029,7 @@ def _close_opened_adapters(opened_adapters: tuple[_OpenedAdapter, ...]) -> tuple
                     connection=opened_adapter.connection,
                     fallback_code=ADAPTER_CLOSE_FAILED,
                     fallback_message="Adapter close failed.",
-                    aggregate_privacy=opened_adapter.aggregate_privacy,
+                    aggregate_connection_index=opened_adapter.aggregate_connection_index,
                 )
             )
     return _dedupe_diagnostics(tuple(diagnostics))
@@ -1037,9 +1041,9 @@ def _adapter_lifecycle_diagnostic(
     connection: ConnectionConfig,
     fallback_code: str,
     fallback_message: str,
-    aggregate_privacy: bool = False,
+    aggregate_connection_index: int | None = None,
 ) -> Diagnostic:
-    if aggregate_privacy:
+    if aggregate_connection_index is not None:
         # Adapter-supplied diagnostics cannot prove that arbitrary values,
         # grouped keys or relation identifiers are safe for public output.
         return Diagnostic(
@@ -1047,7 +1051,10 @@ def _adapter_lifecycle_diagnostic(
             severity=DiagnosticSeverity.ERROR,
             message=fallback_message,
             resource_type="adapter",
-            hint="Raw aggregate adapter lifecycle diagnostics were suppressed.",
+            hint=(
+                f"Connection #{aggregate_connection_index}: "
+                "raw aggregate adapter lifecycle diagnostics were suppressed."
+            ),
         )
     diagnostic = getattr(exc, "diagnostic", None)
     if not isinstance(diagnostic, Diagnostic):
