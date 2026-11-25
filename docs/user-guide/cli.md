@@ -23,7 +23,8 @@ Current implementation status:
   and current typed check-plan operations.
 - `recon run` is implemented as the first check-engine boundary for already
   compiled checks. It executes relation-backed same-context DuckDB
-  `row_count_diff` checks, executes grain-key safety checks only when they pass
+  `row_count_diff` checks, and executes grain-key safety and explicit sum
+  aggregate checks only when they pass
   the internal bounded local/dev scan guard, and reports other current or
   later-phase checks as blocked or not executable. The scan guard requires a
   project-local DuckDB file under the size cap and compiled relation endpoints
@@ -201,16 +202,18 @@ Current limitations:
 - DuckDB `--render-sql` currently targets one adapter connection context and
   does not attach or bridge multiple DuckDB database files,
 - the in-core DuckDB adapter renders SQL and supports current same-context
-  relation-backed row-count and bounded local/dev grain-key safety execution,
-  but does not fetch metadata yet,
-- query endpoint execution, aggregate checks, row-level value checks, run
-  results, and evidence reports are not implemented yet.
+  relation-backed row-count and bounded local/dev grain-key safety and explicit
+  sum aggregate execution, but does not provide general metadata fetching yet,
+- query endpoint execution, other aggregate metric types, row-level value
+  checks, generated run-result artifacts, and evidence reports are not
+  implemented yet.
 
 ## `recon run`
 
 Loads compiled checks and routes them through the check-engine boundary. The
 current command executes supported relation-backed same-context DuckDB
-`row_count_diff` checks, executes grain-key safety checks only when they pass
+`row_count_diff` checks, executes grain-key safety and explicit sum aggregate
+checks only when they pass
 the internal bounded local/dev scan guard, and reports explicit diagnostics for
 checks that cannot execute yet. The guard rejects views and externally backed
 relations because this phase has no general scan-estimation policy.
@@ -237,17 +240,21 @@ Current behavior:
   errored,
 - loads runtime profiles and initializes adapters only for the supported
   same-context DuckDB row-count execution shape and bounded local/dev
-  grain-key safety execution shape,
+  grain-key safety and explicit sum aggregate execution shapes,
 - executes the final DuckDB row-count comparison query for supported
   relation-backed `row_count_diff` checks,
 - executes supported grain-key safety checks as bounded count queries for
   null-key, duplicate-key, missing-key, and extra-key checks only after explicit
   bounded local/dev scan classification over a project-local DuckDB file whose
   compiled source and target relations resolve to local base tables,
+- executes current compiled `sum_diff` and `grouped_aggregate_diff` checks
+  only after bounded scan classification, capability and type validation;
+  applies inclusive absolute numeric tolerance in Core and returns in-memory
+  statuses without exposing aggregate values or grouped keys,
 - does not parse authored contract YAML,
 - does not recompile contracts,
-- does not execute query endpoints, cross-context checks, aggregate checks, or
-  row-level value checks,
+- does not execute query endpoints, cross-context checks, other aggregate
+  metric types, or row-level value checks,
 - does not write generated outputs.
 
 Planned future output:

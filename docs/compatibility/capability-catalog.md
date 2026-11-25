@@ -17,7 +17,8 @@ Current state:
 - capability constants and support-state validation exist in code,
 - the in-core DuckDB local development adapter declares the current
   relation-backed SQL rendering and row-count execution subset plus the
-  capability subset used by bounded local/dev grain-key safety execution,
+  capability subset used by bounded local/dev grain-key safety and explicit
+  sum aggregate execution,
 - no external production adapter declares capabilities yet,
 - no adapter test kit validates capabilities yet.
 - ADR 0021 defines future execution placement and materialization/staging

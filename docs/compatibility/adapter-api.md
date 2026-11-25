@@ -28,7 +28,7 @@ Current state:
 - the in-core DuckDB local development adapter renders current typed check
   plans to SQL,
 - current relation-backed DuckDB row-count and bounded local/dev grain-key
-  safety execution are implemented,
+  safety and explicit sum aggregate execution are implemented,
 - metadata fetching, materialization/staging,
   probabilistic key-diff, and result/evidence sink writes are not implemented
   yet.
@@ -69,8 +69,9 @@ exact query never uses floating finiteness checks. The runtime grouped query ret
 one fixed-size summary with independent presence/null categories and finite
 signed difference extrema. Core validates the summary, applies the ADR 0009
 tolerance policy, and decides status. An unavailable bounded renderer blocks
-execution; the detail renderer is never a runtime fallback. Runtime routing
-and Core comparison still require integration. No new public
+execution; the detail renderer is never a runtime fallback. Current runtime
+routing uses this private renderer and typed executor after service admission.
+No new public
 renderer methods, capability names, API version or typed payload fields are
 required.
 
@@ -116,12 +117,12 @@ non-numeric metric comparisons cannot pass through dialect implicit casts,
 aggregate-specific boolean semantics, raw dialect binder errors, or lossy casts
 that round valid exact numeric aggregate values. For engines with unsigned
 large-integer types, the matrix must prove exact aggregate behavior or require
-the adapter to reject those inputs. The matrix must also lock empty aggregate
-result semantics before execution tests or adapter packages rely on aggregate
-comparison output: engines such as DuckDB return `NULL` for `sum` on empty
-groups rather than zero, so the test kit must define whether two empty aggregate
-results compare equal, how empty aggregate `NULL` differs from numeric zero,
-and how that distinction is surfaced in run results and evidence.
+the adapter to reject those inputs. The matrix must preserve the current empty
+aggregate semantics: two present `NULL` aggregate results compare equal;
+`NULL` is distinct from zero, and a missing group differs from a present group
+with a `NULL` aggregate. The test kit must prove these semantics before external
+adapter execution is claimed. Future run-result and evidence surfaces require
+separate privacy and publication decisions.
 
 The test-kit design must also define native SQL optimization and dialect
 validation conformance before production adapters claim execution

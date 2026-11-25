@@ -116,8 +116,13 @@ Current run-service responsibilities:
 The run service must not parse authored YAML, invoke `ParseService`, invoke
 `CompileService`, write `target/run_results.json`, write evidence, write
 reports, write failure details, write state, or write result/evidence sinks.
-Adapter-backed execution is limited to exact same-context relation-backed
-row-count checks and bounded in-memory results. Later-phase checks remain
+Adapter-backed execution is limited to same-context relation-backed DuckDB
+row-count checks and bounded local/dev grain-key safety and explicit sum
+aggregate checks, with in-memory results. For scan-heavy checks, the service
+classifies placement and scan safety before adapter setup where possible,
+validates capabilities and prepares approved runtime dependencies. Core owns
+aggregate comparison semantics; the service does not interpret raw numeric
+results. Later-phase checks remain
 structured `not_executable` results.
 
 Later runner and evidence phases may expand `RunService` responsibilities to:

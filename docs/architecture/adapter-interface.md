@@ -290,32 +290,34 @@ adapter test-kit shape without declaring a production adapter package.
 
 Current DuckDB behavior renders SQL for existing typed plans and executes the
 current relation-backed same-context `row_count_diff` path plus grain-key safety
-paths allowed by the internal bounded local/dev scan guard. It guards key/group
+and explicit sum aggregate paths allowed by the internal bounded local/dev scan guard. It guards key/group
 and aggregate comparison SQL against unsafe dialect coercion and rejects boolean
 inputs for current `sum` metric rendering because DuckDB treats `sum(boolean)` as
 a true-value count. It also rejects `UHUGEINT` aggregate inputs until exact
 aggregate behavior for that type is proven. Current rendering, row-count
-execution, and bounded local/dev grain-key safety execution require source and
+execution, and bounded local/dev grain-key safety and explicit sum aggregate
+execution require source and
 target DuckDB connections to resolve to the same rendered connection config;
 cross-file or cross-connection execution remains future work. Connection
 lifecycle is implemented only for the supported row-count and bounded local/dev
-grain-key safety execution paths. The key-safety scan guard may use
+grain-key safety and explicit sum aggregate execution paths. The scan guard may use
 non-executing DuckDB catalog metadata to confirm that compiled relations are
-local base tables; general metadata fetching, query endpoints, aggregate
-execution, broad metadata inspection, connection pooling, and broader check
+local base tables; general metadata fetching, query endpoints, other aggregate
+metric types, broad metadata inspection, connection pooling, and broader check
 execution remain separate future surfaces.
 
-Future check execution and shared adapter conformance tests must explicitly
-define empty aggregate result semantics before aggregate comparison execution is
-claimed. Engines such as DuckDB return `NULL` for `sum` on empty groups instead
-of zero, so Recon must lock whether two empty aggregate results compare equal,
-how empty aggregate `NULL` differs from numeric zero, and how run results and
-evidence expose the distinction.
+For current explicit sum execution, two present `NULL` aggregate results compare
+equal; `NULL` differs from numeric zero. A missing group differs from a present
+group with a `NULL` aggregate. The private runtime renderer and typed transport
+return bounded numeric evidence, and Core owns comparison semantics. Shared
+adapter conformance must preserve these rules; evidence and detailed result
+publication remain future gated work.
 
 ## Query endpoint boundary
 
 Current adapter-aware rendering and row-count execution are relation-backed only.
-Current grain-key safety execution is relation-backed and limited to the
+Current grain-key safety and explicit sum aggregate execution are relation-backed
+and limited to the
 internal bounded local/dev scan classification, which excludes DuckDB views and
 externally backed relations. Query endpoints can remain parseable, but
 adapter-aware rendering and relation-backed execution phases must return a clear

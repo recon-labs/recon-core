@@ -20,7 +20,7 @@ confirms no new drift, and follows this prework.
 
 Split Decision: Already Split / Follow Existing Split.
 
-## Status
+## Initial design checkpoint
 
 The aggregate execution scope and numeric policy decisions are locked in this
 prework and ADRs 0009 and 0021. Representative native engine-version
@@ -1165,7 +1165,7 @@ Current implementation gate disposition (local Core scope only):
 Final branch-wide advisory, cumulative public-contract review, and final
 phase-exit decision remain required before milestone exit.
 
-## Implementation Readiness
+## Initial implementation readiness requirements
 
 The approved design and its acceptance requirements are documented.
 Representative version verification and the compatibility review are complete
@@ -1175,5 +1175,18 @@ preserve public renderer behavior, and rehydrate required context before
 coding. Runtime changes require explicit implementation approval. Private
 typed transport, compiled policy metadata and the full aggregate runtime
 contract must be proven by test-first implementation. Do not interpret
-this planning update or passing existing CI as proof of new aggregate
-execution.
+this initial planning update or passing pre-implementation CI as proof of new
+aggregate execution.
+
+## Current implementation evidence
+
+The bounded explicit sum runtime is integrated and tested. Review iteration 4
+passed all ten CI jobs at `740ebab02651bf74bfc78c0481f54ff4f4c8d6cf`
+(run 45678586734): the three mandatory semantic jobs each passed 1,093 tests;
+the four pinned jobs passed 1,007 semantic tests plus 76 legacy or 86 modern
+native probes. The general jobs passed 1,164 tests each, with 344 optional
+skips; formatting, lint, typing, pre-commit and regression metadata passed.
+The distinct-connection diagnostic regression retains separate sanitized
+setup failures without publishing connection identifiers. Cumulative review,
+final validation and phase-exit evidence remain required; this checkpoint is
+not a milestone completion claim.
