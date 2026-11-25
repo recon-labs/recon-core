@@ -737,65 +737,88 @@ Phase exit review:
 - run-result artifacts and evidence/report output remain Milestone 8 and
   Milestone 9 scope.
 
-## Milestone 8: runner and results
+## Milestone 8: runner and results (umbrella)
+
+The implementation-bearing sub-milestones below replace the combined
+implementation target. Follow the [split assignment matrix](../planning/milestone-8-split-assignment.md)
+and complete each sub-milestone's own high-risk prework before coding. The
+existing RunService, check engine, result models and bounded DuckDB execution
+are the baseline; do not build a parallel runner. Preserve the current
+supported check semantics.
+
+## Milestone 8.1: scan-budget configuration and enforcement
 
 Build:
 
-- execution plan,
-- run service,
-- first user-facing scan-budget settings decision for `recon run` execution
-  policy,
-- `target/run_results.json`,
-- local run-result artifact metadata for execution placement, adapter/capability
-  status, scan scope, budget status, artifact references, and future
-  sink-reference placeholders,
-- exit code mapping,
-- terminal summary.
+- first explicit local scan-budget configuration/opt-in and validation,
+- trustworthy non-executing local scope estimates, conservative fallback only
+  when justified, and Recon-owned execution admission,
+- adapter-aware execution advisory foundation: distinct scan, returned-row and
+  transfer risk dimensions, available engine-native evidence and limitations,
+  safe actionable warning/block reasons, and conditional scope or pushdown
+  recommendations without changing the authored comparison,
+- typed in-memory policy/decision metadata for later lifecycle and result work.
 
-Required gate:
+Required prework: Gate 4L, applicable Gate 4A/4B/4C/4I/4J, 3F2, 6 and
+ADR 0025. Lock configuration ownership, units, precedence, truthful estimate
+availability, hard versus advisory thresholds, and compatibility with existing
+row-count, grain-key and aggregate checks. Never use executing plan modes as
+non-executing preflight. Unknown required scope fails closed; no opt-in bypass.
+No contract YAML scan settings, production adapters, automatic query rewrites,
+sampling, selectors or result artifact publication.
 
-- resolve the diagnostic output message conformance gate before locking run
-  result diagnostics, exit-code diagnostics, or terminal summary behavior.
-- resolve the source/target data privacy, evidence, and failure-detail policy
-  gate before writing `target/run_results.json`, terminal summaries, runtime
-  diagnostics, or logs that can include source/target values, relation names,
-  query text, adapter runtime errors, or database error text.
-- resolve the generated artifact lifecycle and cleanup gate before writing
-  `target/run_results.json`.
-- resolve Gate 4L before introducing the first user-facing scan-budget settings
-  surface for `recon run`. Milestone 8 owns the first decision for where scan
-  limits or opt-ins live across project config, profile/target policy,
-  run-policy config, command options, or future contract policy. Contract YAML
-  scan-budget settings stay out of scope unless a separate public schema
-  decision explicitly admits them.
-- resolve the result/evidence sink metadata boundary before adding sink status or
-  sink references to run results. Milestone 8 may record local metadata only; it
-  must not write table sinks, evidence sinks, state, or external stores.
-- resolve the selector-readiness portion of the selectors and contract
-  selection semantics gate before finalizing run-result scope metadata. Milestone
-  8 must not implement `--select`, `--exclude`, `selectors.yml`, partial run, or
-  partial compile, but run results should not assume every future run is
-  whole-project forever.
+Tests: preserve existing supported behavior; valid/invalid configuration,
+precedence, zero-config bounded local behavior, explicit known-scope limit,
+unknown/untrusted/over-budget rejection, metadata/view/external/sidecar cases,
+non-executing estimate proof, bounded-result versus bounded-scan distinction,
+privacy-safe advisory and no scan after hard block. See the split matrix for
+additional dimensions and carryover obligations.
 
-Tests:
+## Milestone 8.2: execution planning and run lifecycle
 
-- successful run,
-- failing check run,
-- runtime error,
-- exit code mapping,
-- run results and terminal output preserve diagnostic code and message for
-  runtime, adapter, prerequisite, and result-write failures,
-- run results and terminal output follow source/target data privacy defaults for
-  raw rows, keys, values, aggregates, relation names, query text, and runtime
-  error text,
-- local run-result artifacts include stable metadata for placement/capability
-  decisions and scan-budget decisions without implying evidence, sink, state,
-  or result-table writes,
-- first scan-budget settings tests cover the selected settings home, unknown
-  estimate behavior, over-budget behavior, explicit opt-ins if admitted, and
-  Recon-computed budget status rather than user-provided final status,
-- run-result scope metadata can represent whole-project runs now and can evolve
-  to selected-scope runs later without changing the meaning of existing fields.
+Build:
+
+- extend existing run service and check-engine orchestration with an explicit
+  execution plan and invocation identity,
+- truthful start/finish timing across lifecycle including cleanup, status
+  aggregation and distinct primary/cleanup failures,
+- in-memory scope, adapter/capability, placement, scan-budget and advisory
+  metadata handoff; reserve future artifact/sink references without writes.
+
+Required prework: Gate 5, 4I, 4L integration, 3F2, 4J where adapter/profile
+diagnostics are involved, 6, ADR 0014/0021/0022/0025, and selector-readiness
+portion of the selectors gate. Lock compilation/freshness behavior, status and
+reason semantics, lifecycle ownership and scope. No selector execution, new
+comparison operations, generated run-result artifacts, evidence or sinks.
+
+Tests: successful/failing/warning/error/blocked/not-executable/no-check runs,
+mixed statuses, prerequisites, early setup/compile/load failures, timing,
+distinct cleanup errors, privacy-safe plan metadata, no hidden fallback and
+no writes. Preserve admission and advisory decisions from the preceding phase.
+
+## Milestone 8.3: run-result publication and CLI finalization
+
+Build:
+
+- versioned local `target/run_results.json` (configured target path),
+- atomic publication, stale-output and failure/cleanup rules,
+- privacy-safe invocation, scope, placement, adapter/capability, scan-budget,
+  advisory, artifact-reference and future sink-reference metadata,
+- final terminal summary and exit-code mapping consistent with durable results.
+
+Required prework: Gate 5, 5E, 3F2, 6, 4J where relevant, selector readiness,
+ADR 0021/0022/0025 and result/evidence sink metadata boundary. Gate 4O if
+approximate aggregate values or derived differences are proposed for public
+output; no such exposure is authorized by this split. Preserve suppressed
+values and avoid serializing private execution payloads directly. Local
+metadata only: no table/evidence sinks, state, external stores, failure details,
+selectors or partial runs.
+
+Tests: all current run/check statuses, diagnostic and advisory preservation,
+privacy, scope/versioning, publication and stale-output failures, path/symlink
+safety, atomicity, write/cleanup failure exit mapping, terminal output and no
+unauthorized writes. The final phase must satisfy the umbrella acceptance
+requirements and the normal full validation and review-fix loop.
 
 ## Milestone 9: evidence
 
@@ -1172,7 +1195,11 @@ Build:
   history-derived, lineage-derived, rule-template-derived, model-assisted, and
   human-authored suggestions,
 - confidence, risk, review, duplicate, low-value, and evaluation metadata for
-  generated candidate checks.
+  generated candidate checks,
+- evidence-backed execution advisories from scoped metadata and safe plan
+  inspection: index/pruning opportunities, expensive scans or transfer,
+  pushdown and explicit subset/window/sampling proposals, with provenance,
+  limitations and no automatic acceptance or scope change (ADR 0025).
 
 Do not build:
 
@@ -2101,7 +2128,8 @@ Build:
 - adapter write/sink conformance for result and evidence sink capabilities,
 - probabilistic summary capability conformance for Bloom/sketch-like operations,
 - native SQL optimization and dialect validation conformance for production
-  warehouse adapters,
+  warehouse adapters, including adapter-specific scan, result-size, transfer,
+  workload/cost and advisory conformance under ADR 0025,
 - first official adapter package preparation and promotion of eligible
   experimental adapters only for proven capability families.
 

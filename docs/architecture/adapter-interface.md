@@ -352,6 +352,16 @@ serialization, summary storage and cleanup, bidirectional probing when needed,
 and exact-confirmation behavior before failure rows are published. Adapters may
 only claim those capabilities after shared conformance tests cover each phase.
 
+## Execution safety advisories
+
+ADR 0025 defines planned adapter-aware execution advisories. Distinguish
+source/target scan evidence, returned and transferred result volume, and
+engine-native workload/cost indicators. Report unavailable estimates as
+unavailable, not zero or a universal normalized cost. Core owns admission;
+adapters provide capability-scoped evidence and native rendering. Warnings
+and suggestions cannot override a hard block or alter authored comparison
+scope. Production claims require shared conformance and the relevant gates.
+
 ## Adapter test kit
 
 A future adapter test kit should validate:
