@@ -264,6 +264,37 @@ same-scope secondary drift before completion; stop for approval if the
 required correction changes broader architecture, public behavior, or
 scope. Record the decision and remaining follow-up.
 
+## Mandatory cumulative review-fix loop
+
+Authorized review-fix work and implementation-bearing phase or milestone
+exit reviews must repeat the review-fix cycle until a fresh review of the
+cumulative approved scope finds no actionable defects or material risks.
+Review-only requests remain read-only; this process does not grant permission
+to edit, commit, push, expand scope, or merge.
+
+Each iteration reviews the full change against its base and relevant unchanged
+collaborators, including docs, ADRs, contracts, acceptance dimensions, gates,
+tests, regression capture, and responsibility boundaries. Record findings,
+classify capability and design impact, and resolve authorized in-scope
+defects. Non-trivial behavioral corrections require observed failing
+regression proof (RED), the smallest design-conformant correction, and
+verified passing validation (GREEN), including nearby supported behavior.
+Non-behavioral corrections require appropriate objective validation.
+
+After GREEN, perform the second consistency pass described above and repeat
+the cumulative review on the updated revision. Passing tests, a patch-only
+review, or a predetermined number of iterations is not sufficient to exit.
+Do not weaken proof, narrow supported behavior without approval, or defer
+in-scope correctness to reach completion.
+
+Exit only after a fresh review on the latest validated revision finds no
+actionable in-scope findings and the required exit evidence is complete.
+If approval, a broader design change, missing gates, unavailable validation,
+or another genuine blocker prevents continuation, report the unresolved
+finding, blocker, and next action without claiming completion. Record the
+reviewed revision, findings, validation, residual risk, and exit decision.
+The absence of findings is not a guarantee that all possible bugs are absent.
+
 ## Milestone splits
 
 Every milestone or equivalent roadmap work must include a split-or-justify

@@ -259,6 +259,17 @@ review. This checklist is a process guide; it is not a CI gate.
 - [ ] Updated `docs/compatibility/artifact-versions.md` when artifact version
       constants changed.
 
+## Review-fix loop and exit evidence
+
+- [ ] For authorized review-fix work or an implementation-bearing exit review,
+      repeated the cumulative review, design-conformant correction and
+      validation cycle until a fresh review found no actionable in-scope
+      findings, following `docs/planning/milestone-process.md`.
+- [ ] Recorded the reviewed revision, regression and validation evidence,
+      remaining risks and gate status; required blockers prevent completion.
+- [ ] Preserved review-only boundaries, supported capabilities and approval
+      requirements; did not treat GREEN alone as final review evidence.
+
 ## Review note
 
 If a checklist item is not applicable, say why in the pull request notes. The
