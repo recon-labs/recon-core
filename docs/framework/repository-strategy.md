@@ -77,9 +77,14 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
 ## Rollout
 
 1. Start with `recon-core`.
-2. Split `recon-adapter-testkit`, `recon-duckdb`, and production adapter
-   packages after typed check plans, adapter API versioning, and shared adapter
-   tests stabilize. Shared adapter tests must include profile-rendering,
+2. After the MVP release-readiness decision, incubate `recon-adapter-testkit`,
+   then experimental `recon-postgres` and `recon-snowflake` against pinned Core
+   revisions after applicable pre-creation gates and maintainer approval.
+   Keep DuckDB in Core until the official extraction gate; promote official
+   adapters only after typed check plans, adapter API versioning, and shared
+   adapter tests stabilize. See [ADR 0024](../decisions/adr-0024-staged-ecosystem-incubation.md) and the
+   [ecosystem roadmap](../planning/ecosystem-roadmap.md#repository-introduction-checkpoints)
+   for timing and dependencies. Shared adapter tests must include profile-rendering,
    including unsupported `{{ ... }}`, `{% ... %}`, and `{# ... #}`
    template-fragment rejection, diagnostic-redaction, adapter metadata,
    capability declaration, public/shared rendering helper checks that reject
@@ -115,8 +120,10 @@ Many repos too early create coordination overhead, unstable interfaces, empty re
 
 ## Compatibility claim boundaries
 
-An adapter package can be useful before it is stable, but it must label its
-status accurately. Experimental adapters must not claim stable execution,
+An experimental adapter can be useful before it is stable, but must label its
+status accurately, pin its development dependencies, keep evidence scoped to
+proven capabilities, and use synthetic isolated fixtures. No Core-private
+implementation dependency or duplicated reconciliation semantics is allowed. Experimental adapters must not claim stable execution,
 placement, materialization, sink, result-table, or probabilistic-summary
 compatibility until the relevant shared conformance suite exists and passes.
 

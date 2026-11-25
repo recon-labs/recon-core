@@ -9,6 +9,19 @@ Build-order documents can define sequence and capability homes, but this
 document is the source of truth for milestone prework, high-risk conformance
 matrices, and milestone split rules.
 
+## Ecosystem recommendation checkpoints
+
+For milestone audits, prework, phase exits and next-work recommendations, read
+[the repository introduction checkpoints](ecosystem-roadmap.md#repository-introduction-checkpoints).
+Review current and next milestone candidates and outstanding deferred candidates.
+Report readiness, actual repo existence, prerequisites, gates, regression
+carryover, and recommend now, already satisfied, defer with rationale, or
+blocked. A recommendation is not permission to create, release, or modify a
+repository. Parallel work has its own prework, split decision, acceptance
+matrix when high-risk, and approval. Record dispositions so the next audit
+can revisit them. Preserve official compatibility and extraction gates even
+when early experiments are recommended.
+
 ## Lightweight prework
 
 Before implementation starts for any milestone or equivalent roadmap work, a

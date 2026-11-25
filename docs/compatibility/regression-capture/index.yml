@@ -451,6 +451,8 @@ gates:
     primary_milestone_title: Adapter test kit and adapter package split
     applies_to:
       - adapter test kit implementation
+      - experimental adapter test kit incubation
+      - experimental external adapter repositories
       - adapter package extraction
       - external adapter repositories
       - any adapter execution expansion
