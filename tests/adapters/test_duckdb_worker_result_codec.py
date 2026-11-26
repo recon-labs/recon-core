@@ -29,7 +29,11 @@ def _roundtrip(result: _AggregateQueryResult) -> _AggregateQueryResult:
 
 
 @pytest.mark.regression_capture("duckdb-worker-lossless-result-transport")
-@pytest.mark.parametrize("value", [0, 1, -1, 2**128 - 1, -(2**127), 10**5000, -(10**5000)])
+@pytest.mark.parametrize(
+    "value",
+    [0, 1, -1, 2**128 - 1, -(2**127), 10**5000, -(10**5000)],
+    ids=["zero", "one", "negative", "uhugeint", "hugeint", "large", "large-negative"],
+)
 def test_integer_transport_is_lossless(value: int) -> None:
     result = _AggregateQueryResult(("n",), (_INTEGER,), (value,))
     assert _roundtrip(result) == result
