@@ -1,6 +1,7 @@
 # M8.1.1 - Shared Database Binding Prework
 
-Status: proposed detailed prework, not authorization to code. Core baseline
+Status: design and implementation approved; implementation on draft PR #38,
+final acceptance and gate review pending. Historical design baseline
 e89838985ff5906f2ec5e3aa393c9ba11dff60f5 (merged PR #35).
 Split Decision: Already Split / Follow Existing Split. M8.1.1 -> targeted
 M7.4 correction -> M8.1.2. Gate 4Q/S1-S8, 4L/R1-R10, 4P/T1-T10 apply.
@@ -215,10 +216,11 @@ gate proof and exit approval. Review the expanded variants and test references b
 finalize compatibility and design review before code. Ruff format/lint, mypy, pytest,
 pinned native suites, pre-commit and capture routing required. When local validation is unavailable, follow the equivalent validation
 policy in milestone-process.md; required runtime proof cannot be waived. M7.4 correction
-blocked until verified M8.1.1 exit. No implementation approval.
+blocked until verified M8.1.1 exit. The original prework required separate
+implementation approval; that approval was granted before PR #38.
 
 
-## Expanded acceptance variants (planned, not executed)
+## Expanded acceptance requirements (original plan)
 
 Codes below refer to L1 or existing family-specific validation. Each
 failure variant asserts safe messages, no source values on non-executed
@@ -289,7 +291,8 @@ not matched), record covered/migrated/deferred only under gate policy with
 actual exact nodes. Existing primary-owner M8 carryovers for publication,
 privacy and CLI remain assigned to M8.2/M8.3 where not touched. No orphaned
 requirement at this prework assignment level. Final design integrity review
-and separate implementation approval required before coding.
+and separate implementation approval were required before coding. Exit review
+remains required.
 
 ## Equivalent validation when local execution is unavailable
 
@@ -316,3 +319,21 @@ protection. Record exact evidence, equivalent checks, missing proof and
 cleanup. Missing required proof remains a blocker to readiness or gate
 satisfaction, not a reason to weaken tests. Ordinary design, implementation,
 merge and release approval requirements are unaffected.
+
+
+## Implementation checkpoint (not milestone exit)
+
+Draft PR #38 implements the approved shared binding mechanism. The initial
+integration baseline and expanded acceptance have passed full CI, including
+all four supported DuckDB pins. The final branch revision, remaining
+acceptance variants, cumulative gates and merge approval are not yet closed.
+
+Verified baselines: 84f9f6a8a99f34b3820dc0b8c966401a37472d05 (CI 45808726861),
+f4324161f7229d7b6325fd897b991be16363c599 (CI 45809322900), and
+3391f9a19503ee9a937f3252ece3f5c3a680dd00 (CI 45809868971), all ten jobs
+successful. New coverage and documentation after those revisions require
+exact-head validation; baseline evidence does not substitute for it.
+
+No resource-default or grouped SQL optimization has been implemented.
+The temporary 64 MiB key/SUM footprint restriction and uncapped row count
+remain as approved. This is not a resource bound or a filesystem sandbox.

@@ -790,7 +790,8 @@ additional dimensions and carryover obligations.
 
 ### Milestone 8.1.1: shared database binding prerequisite
 
-Approved scope direction, pending detailed prework and coding approval.
+Approved and implemented on draft PR #38; final acceptance, cumulative
+verification and exit approval remain pending.
 Own fresh read-only per-check execution context, transaction, exact
 qualified relation binding, pre-data-query scope/identity proof and safe
 cleanup for row count/key/SUM. Apply temporary local base-table-only

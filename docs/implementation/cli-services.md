@@ -105,11 +105,12 @@ Current run-service responsibilities:
 - load already compiled check artifacts from the generated target path,
 - load matching compiled-contract artifacts for runtime metadata,
 - prepare runtime profile and adapter dependencies only for executable
-  relation-backed row-count candidates,
-- open supported adapter connections after profile, adapter, API, and capability
-  checks pass,
+  relation-backed row-count, grain-key and SUM candidates,
 - invoke the check engine over compiled checks only,
-- close adapter connections opened by the run,
+- use one privately owned read-only transaction per eligible check after
+  structural, prerequisite, placement, capability and preliminary scope checks,
+- resolve exact local base tables and verify the binding before native reads,
+- roll back and close each owned session before finalizing its result,
 - map command-level outcomes and diagnostics to `ServiceResult`,
 - return a concise command message and exit category.
 
@@ -125,10 +126,12 @@ aggregate comparison semantics; the service does not interpret raw numeric
 results. Later-phase checks remain
 structured `not_executable` results.
 
-The reopened [local execution policy](../decisions/adr-0026-local-execution-policy-and-scan-admission.md) extends admission
-to all supported project-run scan-bearing families and adds structured
-advisories. It does not yet change the current runtime behavior. The phase
-prework owns the exact compatibility and test requirements.
+The shared binding prerequisite of the reopened [local execution policy](../decisions/adr-0026-local-execution-policy-and-scan-admission.md)
+applies verified project-local base-table scope to all supported project-run
+checks. Key-safety and SUM checks retain the temporary 64 MiB file cap, not
+row count. Native open/read/cleanup errors are check-local; uncertain cleanup
+stops later eligible native work. Resource calibration, broader admission,
+and structured advisories remain separately gated, not implemented.
 
 Later runner and evidence phases may expand `RunService` responsibilities to:
 

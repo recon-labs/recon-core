@@ -159,12 +159,13 @@ adapter API is stable.
 | `semi_structured_projection` | Adapter can project semi-structured data into comparable fields. |
 | `schema_metadata` | Adapter can provide schema metadata required by schema checks. |
 
-Current adapter-aware rendering and row-count execution are relation-backed
-only. Current grain-key safety and explicit sum aggregate execution are
-relation-backed and limited to
-bounded local/dev scan classification over a project-local DuckDB file whose
-retained local sidecars are absent and whose compiled relation endpoints resolve
-to local base tables. The `queries`
+Current adapter-aware rendering is relation-backed only. All supported
+project-run DuckDB row-count, grain-key safety and explicit SUM checks require
+verified project-local regular files without retained sidecars and canonical
+local base tables in one owned read-only transaction per check. The temporary
+64 MiB local database file cap applies to grain-key and SUM checks only;
+row count has no footprint cap. Capability declarations do not by themselves
+prove execution admission. The `queries`
 capability is reserved for future executable query endpoint support and is not
 required by current relation-backed rendering or execution. Relation-backed
 row-count execution requires `row_count` and `cte_support`; bounded local/dev
