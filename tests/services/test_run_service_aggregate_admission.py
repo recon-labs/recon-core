@@ -1685,6 +1685,10 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         assert len(queries) == {"sum_diff": 3, "grouped_aggregate_diff": 4}.get(check.check_type, 1)
         assert all(f'"{catalog}"."qa".' in query for query in queries)
         assert all(query.lower().split(maxsplit=1)[0] in {"select", "with"} for query in queries)
+        if check.check_type == "grouped_aggregate_diff":
+            assert "typeof(s.group_key_" not in queries[-1]
+            assert "s.group_key_0 is not distinct from t.group_key_0" in queries[-1]
+            assert "s.group_key_1 is not distinct from t.group_key_1" in queries[-1]
     assert database.read_bytes() == before
     _assert_no_runtime_outputs(tmp_path)
 

@@ -409,3 +409,35 @@ def test_runtime_renderer_all_null_groups(adapter: DuckDbAdapter) -> None:
     _tables(adapter, same, same)
     result = _result(adapter, _plan(("k",)))
     assert result.row == (1, 0, 0, 1, 0, 0, 0, None, None)
+
+
+
+@pytest.mark.parametrize("keys", [("k",), ("k", "j")])
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_join_uses_guarded_null_safe_equality(keys: tuple[str, ...]) -> None:
+    module = importlib.import_module("recon_core.adapters.duckdb._aggregate_runtime")
+    renderer = module._DuckDbAggregateRuntimeRenderer()
+    relations = {
+        side: Relation(identifier=relation.identifier, schema="main", catalog="warehouse")
+        for side, relation in _RELATIONS.items()
+    }
+    strict = renderer.render_plan(_operations(keys), **relations)
+    bound = renderer.render_bound_grouped_plan(_operations(keys), **relations)
+    assert bound.type_guards == strict.type_guards
+    assert bound.domain_guard == strict.domain_guard
+    assert bound.columns == strict.columns
+    assert bound.required_capabilities == strict.required_capabilities
+    for old, new in (
+        (strict.exact_query, bound.exact_query),
+        (strict.floating_query, bound.floating_query),
+    ):
+        expected = old.sql
+        for i in range(len(keys)):
+            left, right = f"s.group_key_{i}", f"t.group_key_{i}"
+            predicate = f"typeof({left}) = typeof({right}) and "
+            assert expected.count(predicate) == 1
+            expected = expected.replace(predicate, "")
+        assert new.sql == expected
+        assert new.step_name == old.step_name
+        assert new.operation_type == old.operation_type
+        assert new.required_capabilities == old.required_capabilities
