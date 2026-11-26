@@ -398,3 +398,9 @@ Use a stepwise split workflow for high-risk milestones:
 ## Mandatory type-compatibility assignment review
 
 For every milestone that introduces or changes metadata, schema checks, key or value comparison, normalization, aggregation, casting, hashing, mapping, persisted identities, adapter support or evidence, read [Gate 4P mandatory type compatibility assignments](type-compatibility-assignments.md). Expand applicable T1-T10 into gate proof, matrix, BDD, tests, owner/source map and exit checklist. Report unassigned obligations and stop before implementation if applicable design or proof is missing. Historical strict MVP behavior is not a permanent compatibility design. Review M9.5 prerequisites before locking reopened M8.1. M9.5 is a mandatory pending implementation milestone and hard M10 exit/release dependency; historical M7.3/M7.4 completion cannot satisfy it.
+
+## Execution scope restoration checkpoint
+
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+
+At entry and exit check all pending S rows, exact implementation ownership and proof, even if restriction originated in a closed milestone. No owner closure or reassignment without approved disposition.

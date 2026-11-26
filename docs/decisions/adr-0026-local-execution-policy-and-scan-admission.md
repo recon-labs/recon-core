@@ -154,3 +154,9 @@ or public typed-operation/adapter interface or artifact-schema change is
 authorized. No result/evidence/state/sink writing, query endpoints,
 production adapters, selectors or sampling implementation. See phase
 prework for exact readiness and conformance requirements.
+
+## Execution scope restoration checkpoint
+
+Apply [Gate 4Q execution scope restoration assignments](../planning/execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+
+Reopened binding direction: fresh owned read-only per check, per-check transaction, verified exact relation identity, no writable fallback. Uniform protected local base-table scope approved; keep legacy 64 MiB key/SUM guard only, do not add it to row count. Resource policy/defaults remain reopened. Exact private integration, diagnostic, path/identity and acceptance proof require separate detailed approval.

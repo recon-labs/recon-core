@@ -317,3 +317,7 @@ A feature belongs later when it depends on ecosystem maturity, many users, or st
 ## Mandatory M9.5 delivery checkpoint
 
 M9.5 (lossless type compatibility for existing key and aggregate checks) is a mandatory pre-MVP implementation milestone after M8/M9 and the targeted M7.4 correction. M10 exit and 0.1 release readiness require completed M9.5 on main; no mere planning or historical gate closure satisfies it. See the [build order](../implementation/mvp-build-order.md) and [type compatibility assignments](type-compatibility-assignments.md).
+
+## Execution scope restoration checkpoint
+
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
