@@ -752,7 +752,7 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 detailed design approval remains pending.
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 detailed design approved; separate implementation authorization pending.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
@@ -774,7 +774,7 @@ Build:
 - typed in-memory policy/decision metadata for later lifecycle and result work.
 
 Required prework: Gate 4L, applicable Gate 4A/4B/4C/4I/4J/8C, 3F2, 6,
-ADR 0025 and reopened ADR 0026. Expand A1-A13. Lock configuration ownership, units, precedence, truthful estimate
+ADR 0025 and amended ADR 0026. Apply A1-A13 in the dedicated prework. Preserve approved configuration ownership, units, precedence, truthful estimate
 availability, hard versus advisory thresholds, and compatibility with existing
 row-count, grain-key and aggregate checks. Never use executing plan modes as
 non-executing preflight. Unknown required scope fails closed; no opt-in bypass.
@@ -3213,7 +3213,7 @@ Build the smallest complete loop first, then widen capability.
 
 See [M8.1.1 prework and exit evidence](../planning/milestone-8-1-1-prework.md) for private binding integration,
 expanded acceptance/test matrix, approved lifecycle decision L1 and exit
-proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own approvals; targeted M7.4 correction verified and merged (PR #39); M8.1.2 prework remains open.
+proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own approvals; targeted M7.4 correction verified and merged (PR #39); M8.1.2 dedicated prework approved for integration.
 
 ## Historical M8.1.2 resource policy handoff (superseded by approved checkpoint below)
 
