@@ -15,8 +15,7 @@ from recon_core.adapters._local_resource_observation import (
 )
 
 _MOUNTS = (
-    "29 20 0:26 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n"
-    "30 20 8:1 / / rw - ext4 /dev/root rw\n"
+    "29 20 0:26 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n30 20 8:1 / / rw - ext4 /dev/root rw\n"
 )
 _MEMBERSHIP = "0::/team/job\n"
 
