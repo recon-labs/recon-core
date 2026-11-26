@@ -57,7 +57,8 @@ carry forward regressions when touched.
 | 37 | Bound remote state I/O, retention, lock and retries. |
 | 40 | Prove hosted tenant isolation, quotas, concurrency, cancellation and fair allocation separately. |
 | 42 | Budget semantic expansion and generated comparisons. |
-| 8.1 | REOPENED - implementation blocked until revised design is approved and integrated. Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Exact defaults and resource controls are not locked. A10-A13 are mandatory. |
+| 8.1.1 | Binding preflight and owned execution context; interim existing key/SUM footprint guard only. Binding portions of R3/R5/R6/R8/R10; no new resource defaults. |
+| 8.1.2 | REOPENED - mandatory resource-policy implementation after verified M8.1.1 and targeted M7.4 correction. Own remaining R1-R10, A1-A13, measured defaults, optional footprint limit, non-executing workload evidence and proven native controls. Exact defaults and controls not locked. |
 | 8.2 | Own deadlines, timeout/cancellation confirmation, connection/transaction/spill cleanup, cumulative run-resource budgeting and bounded concurrency policy; B8-B10. M8.1 must prove any control needed for its own admission before relying on it. |
 | 8.3 | Publish allowlisted resource policy, actual versus estimated use, unavailable versus zero, enforcement and timeout/cancel/cleanup outcomes; C10. |
 | 10.5 | Invalidate stale admission evidence, including policy, binding and environment changes. |
@@ -107,3 +108,34 @@ M9.5 mandatory type compatibility retrofit: assess R1/R3/R5/R7/R9/R10 for conver
 ## Execution scope restoration checkpoint
 
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+
+## Mandatory M8.1.2 resource policy handoff
+
+M8.1.2 is the mandatory implementation owner of the reopened resource/default
+design, not an optional later optimization. Execution order: M8.1.1
+binding preflight (what will actually run) -> verified targeted M7.4
+grouped SQL correction -> M8.1.2 resource preflight/admission (whether
+the bound workload may run under effective policy) -> M8.2. M8.1 cannot
+exit until both children and the correction are verified. M8.1.1 retains
+the legacy 64 MiB key/SUM-only guard temporarily; neither it nor earlier
+40/20 MiB proposals or experimental control values are approved defaults.
+No footprint-derived universal workload ceiling, arbitrary replacement
+threshold, or blanket rejection solely because an advisory estimate is
+unknown. Scope proof and proven enforceable safeguards remain mandatory;
+unknown required safety evidence fails closed. Reassess admission by
+operation and actual available RAM/CPU/container/disk/headroom, explicit
+user limits, engine-specific control guarantees and workload evidence.
+Prove useful zero-config behavior for representative capable and constrained
+machines, larger safe files/workloads and small expensive workloads, across
+the pinned versions; avoid unnecessary restrictions without weakening safety.
+Distinguish estimates/advisories, physical footprint, actual resource use,
+bounded transport and engine/process controls. No executing production
+preflight, silent sampling or fallback. Resolve R1-R10 and A1-A13, including
+calibrated defaults, override precedence, unknown/unsupported cases,
+native-control limits and earlier required cancellation/containment.
+Use corrected actual Recon SQL and previous private research/CI evidence;
+do not infer defaults from earlier experiments. If M8.2 protections are
+required for admission, explicitly pull them forward with approved split
+changes. Exact settings, thresholds, controls and detailed M8.1.2 prework
+remain open; separate design approval, implementation and native exit proof
+required.
