@@ -10,6 +10,7 @@ import pytest
 
 from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.adapters.duckdb import runtime_scan_guard as guard
+from recon_core.adapters.duckdb.renderer_sql import render_relation
 from recon_core.adapters.models import Relation
 from recon_core.profiles import ConnectionConfig
 
@@ -315,8 +316,87 @@ def test_scope_refusal_cannot_be_rebound(tmp_path: Path, duckdb: Any) -> None:
         )
         assert lease is None
         with pytest.raises(binding._BoundSessionError):
-            session.bind(
-                check_id="check-1", operation="row_count_diff", source="src", target="src"
-            )
+            session.bind(check_id="check-1", operation="row_count_diff", source="src", target="src")
     finally:
         assert session.close() == ()
+
+
+def test_bound_query_reads_canonical_relation(tmp_path: Path, duckdb: Any) -> None:
+    path = tmp_path / "local.data"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 17 AS id")
+        writer.execute("CREATE TABLE dst AS SELECT 23 AS id")
+    finally:
+        writer.close()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    try:
+        session.open()
+        lease = session.bind(
+            check_id="check-1", operation="row_count_diff", source="src", target="dst"
+        )
+        assert lease is not None
+        query = f"select count(*) as n from {render_relation(lease.scope.source)}"
+        result = session._read_bound_query(lease, lease.scope, query)
+        assert result.columns == ("n",)
+        assert result.rows == ((1,),)
+        path.with_name(f"{path.name}.tmp").touch()
+        with pytest.raises(binding._BoundSessionError) as error:
+            session._read_bound_query(lease, lease.scope, query)
+        assert error.value.diagnostic.code == "RC_RUNTIME_BINDING_PROOF_FAILED"
+    finally:
+        assert session.close() == ()
+
+
+def test_aggregate_describe_cannot_bypass_invalidated_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "local.data"
+    path.touch()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    executed: list[str] = []
+
+    class Cursor:
+        description = (("n", "NUMBER"),)
+
+        def fetchmany(self, size: int) -> list[tuple[int]]:
+            path.with_name(f"{path.name}.wal").touch()
+            return [(1,)]
+
+    class Connection:
+        def execute(self, query: str) -> Cursor:
+            executed.append(query)
+            return Cursor()
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        binding, "import_module", lambda name: SimpleNamespace(connect=lambda *a, **kw: Connection())
+    )
+    monkeypatch.setattr(binding, "_local_duckdb_catalog_names", lambda *a: frozenset({"local"}))
+    monkeypatch.setattr(
+        binding,
+        "_resolve_local_base_table",
+        lambda connection, relation, **kw: Relation(
+            identifier=relation.identifier, schema="main", catalog="local"
+        ),
+    )
+    session = binding._OwnedDuckDbSession(identity)
+    try:
+        session.open()
+        lease = session.bind(check_id="check-1", operation="sum_diff", source="src", target="dst")
+        assert lease is not None
+        query = 'select sum(id) as n from "local"."main"."src"'
+        with pytest.raises(binding._BoundSessionError) as error:
+            session._read_bound_aggregate(lease, lease.scope, query, expected_columns=("n",))
+        assert error.value.diagnostic.code == "RC_RUNTIME_BINDING_PROOF_FAILED"
+        assert executed == ["BEGIN TRANSACTION", query]
+    finally:
+        assert session.close() == ()
+    assert executed[-1] == "ROLLBACK"

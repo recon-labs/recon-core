@@ -105,14 +105,7 @@ class DuckDbAdapter(BaseAdapter):
             self._connection = None
 
     def execute(self, query: str) -> QueryResult:
-        def read(connection: Any) -> QueryResult:
-            cursor = connection.execute(query)
-            description = getattr(cursor, "description", None) or ()
-            columns = tuple(str(column[0]) for column in description)
-            rows = tuple(tuple(row) for row in cursor.fetchall())
-            return QueryResult(columns=columns, rows=rows, row_count=len(rows))
-
-        return self._read_query(read)
+        return self._read_query(lambda connection: _read_query_result(connection, query))
 
     def _execute_aggregate_query(
         self, query: str, *, expected_columns: tuple[str, ...]
@@ -163,6 +156,14 @@ class DuckDbAdapter(BaseAdapter):
                 "duplicate_key": CapabilitySupport.FULL,
             }
         )
+
+
+def _read_query_result(connection: Any, query: str) -> QueryResult:
+    cursor = connection.execute(query)
+    description = getattr(cursor, "description", None) or ()
+    columns = tuple(str(column[0]) for column in description)
+    rows = tuple(tuple(row) for row in cursor.fetchall())
+    return QueryResult(columns=columns, rows=rows, row_count=len(rows))
 
 
 class _InvalidAggregateResultError(ValueError):
