@@ -81,3 +81,49 @@ def test_native_impersonation_cannot_authorize_process_namespace(tmp_path: Path)
     _verify_private_directory(root)
     _create_private_directory(candidate)
     _verify_private_directory(candidate)
+
+
+@pytest.mark.regression_capture("windows-scratch-private-acl")
+def test_native_private_file_inheritance_and_explicit_acl(tmp_path: Path) -> None:
+    from recon_core.adapters._windows_scratch_security import _verify_private_file
+
+    root = tmp_path.resolve() / "private"
+    _create_private_directory(root)
+    file = root / "fixture"
+    file.write_bytes(b"synthetic")
+    _verify_private_file(file)
+    result = subprocess.run(
+        ["icacls", str(file), "/inheritance:d"],
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0
+    _verify_private_file(file)
+    with pytest.raises(_WindowsScratchSecurityError):
+        _verify_private_file(root)
+    with pytest.raises(_WindowsScratchSecurityError):
+        _verify_private_directory(file)
+
+
+@pytest.mark.regression_capture("windows-scratch-private-acl")
+def test_native_file_acl_broadening_is_rejected(tmp_path: Path) -> None:
+    from recon_core.adapters._windows_scratch_security import _verify_private_file
+
+    root = tmp_path.resolve() / "private"
+    _create_private_directory(root)
+    file = root / "fixture"
+    file.write_bytes(b"synthetic")
+    _verify_private_file(file)
+    result = subprocess.run(
+        ["icacls", str(file), "/grant", "*S-1-1-0:R"],
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0
+    # A verified parent directory alone is not proof of file privacy.
+    _verify_private_directory(root)
+    with pytest.raises(_WindowsScratchSecurityError):
+        _verify_private_file(file)
+    assert file.read_bytes() == b"synthetic"
