@@ -5,6 +5,7 @@ or the stable per-project namespace. Those are prerequisites to activation.
 Only cooperative owners using the root lock may change the namespace.
 """
 
+import ctypes as ct
 import errno
 import os
 import stat
@@ -17,6 +18,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import IO
 from uuid import UUID, uuid4
+
+from recon_core.adapters._windows_scratch_security import _api, _libraries
 
 
 class _ScratchError(RuntimeError):
@@ -179,6 +182,46 @@ def _session_marker(root: _RootTicket, session: _SessionTicket) -> bytes:
     ).encode("ascii")
 
 
+class _LockOverlapped(ct.Structure):
+    # OVERLAPPED's union is represented by its two DWORD offset fields.
+    _fields_ = [
+        ("internal", ct.c_size_t),
+        ("internal_high", ct.c_size_t),
+        ("offset", ct.c_uint32),
+        ("offset_high", ct.c_uint32),
+        ("event", ct.c_void_p),
+    ]
+
+
+def _lock_exclusive(fd: int) -> None:
+    """Only actual native lock conflict is evidence of an existing owner."""
+    if os.name == "nt":
+        kernel, _ = _libraries()
+        handle = import_module("msvcrt").get_osfhandle(fd)
+        lock = _api(
+            kernel, "LockFileEx", ct.c_int, ct.c_void_p, ct.c_uint32,
+            ct.c_uint32, ct.c_uint32, ct.c_uint32, ct.POINTER(_LockOverlapped)
+        )
+        state = _LockOverlapped()
+        # Exclusive, fail immediately, offset 0, one byte. Closing the
+        # noninherited handle releases the lock, including on process death.
+        if not lock(handle, 3, 0, 1, 0, ct.byref(state)):
+            if import_module("ctypes").get_last_error() == 33:  # ERROR_LOCK_VIOLATION
+                raise _BusyError()
+            raise _ScratchError()
+    elif os.name == "posix":
+        import fcntl
+
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            if exc.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                raise _BusyError() from None
+            raise _ScratchError() from None
+    else:
+        raise _ScratchError()
+
+
 class _FileLease:
     """An independent non-inherited OS lock on a pre-existing single-byte file."""
 
@@ -196,18 +239,8 @@ class _FileLease:
                 raise _ScratchError()
             stream.seek(0)
             try:
-                if os.name == "nt":
-                    msvcrt = import_module("msvcrt")
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                elif os.name == "posix":
-                    import fcntl
-
-                    fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                else:
-                    raise _ScratchError()
-            except OSError as exc:
-                if exc.errno in (errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK):
-                    raise _BusyError() from None
+                _lock_exclusive(stream.fileno())
+            except OSError:
                 raise _ScratchError() from None
             stream.seek(0)
             if stream.read(1) != b"\0":
