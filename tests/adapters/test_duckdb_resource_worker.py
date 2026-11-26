@@ -177,3 +177,62 @@ def test_parent_death_liveness(tmp_path: Path, native_available: None) -> None:
                     child.kill()
             except psutil.NoSuchProcess:
                 pass
+
+
+@pytest.mark.regression_capture("duckdb-worker-control-protocol")
+def test_worker_repeated_probe_invalidates_child(native_available: None) -> None:
+    worker = _WorkerProcess()
+    try:
+        worker.open()
+        worker.recommendations()
+        with pytest.raises(_ControlError):
+            worker.recommendations()
+        assert worker.abort().confirmed_exit
+        with pytest.raises(_ControlError):
+            worker.open()
+    finally:
+        worker.abort()
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+def test_parent_eof_interrupts_busy_control_handler(tmp_path: Path) -> None:
+    marker = tmp_path / "busy"
+    code = textwrap.dedent(
+        """
+        import sys
+        import time
+        from pathlib import Path
+        from recon_core.adapters.duckdb import _resource_worker as worker
+
+        def blocked_probe():
+            Path(sys.argv[1]).touch()
+            time.sleep(120)
+            raise AssertionError("Busy probe unexpectedly finished")
+
+        worker._recommendations = blocked_probe
+        worker._main()
+        """
+    )
+    child = subprocess.Popen(
+        [sys.executable, "-c", code, str(marker)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        assert child.stdin is not None
+        _write_control(child.stdin, _ControlPacket(_ControlKind.PROBE, 1))
+        deadline = time.monotonic() + 15
+        while not marker.exists() and child.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert marker.exists() and child.poll() is None
+        child.stdin.close()
+        assert child.wait(timeout=15) == 75
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=10)
+        if child.stdin is not None:
+            child.stdin.close()
+        if child.stdout is not None:
+            child.stdout.close()
