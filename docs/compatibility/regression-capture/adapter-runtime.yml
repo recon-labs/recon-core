@@ -794,6 +794,7 @@ captures:
       - tests/adapters/test_windows_scratch_security.py::test_native_security_handle_must_match_requested_object
       - tests/adapters/test_windows_scratch_security.py::test_native_ancestor_permissions_distinguish_path_control
       - tests/adapters/test_windows_scratch_security.py::test_native_ancestor_trusted_installer_identity_is_exact
+      - tests/adapters/test_windows_scratch_security.py::test_native_ancestor_owner_rights_follow_verified_owner
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
