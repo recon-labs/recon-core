@@ -1,5 +1,7 @@
 # Milestone 8.1 Prework: Scan Policy And Execution Advisories
 
+**REOPENED - NOT IMPLEMENTATION-READY.** The earlier accepted design below is historical baseline, not coding authority. Reassess the footprint-driven policy, inherited 64 MiB default, resource enforcement and warning calculation using [mandatory resource-safety assignments](execution-resource-safety-assignments.md). Preserve binding, privacy, comparison semantics and no silent scope change. Expand A10-A13 and affected A1-A9, BDD, responsibility/source map, test plan, DoD and phase steps; reassess split and compatibility. Revise, approve and integrate before coding. Previous metadata/binding experiments do not prove useful resource defaults.
+
 ## Status and approval boundary
 
 Split Decision: Already Split / Follow Existing Split.
@@ -270,16 +272,15 @@ and research; public docs contain only Recon-native decisions.
 - Actual regression decision, capture statuses, full branch validation,
   review-fix loop, design-integrity/responsibility review, local-success
   second pass, exact latest validated revision and user approval recorded.
-- Phase exit maps A1-A9 and each capture to tests, docs, gates and next
+- Revised phase exit must map A1-A13 and each capture to tests, docs, gates and next
   handoff; no orphan requirement. M8.2 starts only after exit and its own
   prework; M8.3 owns serialized schema and final CLI.
 
 ## Readiness verdict
 
-Design prework is locked once integrated. Maintainer approval and initial
-supported-version binding feasibility are established for the scoped local
-policy; no universal actual-cost or hostile filesystem guarantee. Exact
-runtime implementation proofs remain mandatory. Start TDD only after
-integration and explicit implementation authorization. Stop for design
-review if the proposed binding cannot be implemented without weakening
-admission or changing protected interfaces. No new ecosystem repository due.
+Blocked: the prior approved design is historical only. Representative binding
+feasibility remains useful evidence, not proof of resource safety or calibrated
+defaults. Complete the reopened research and design prerequisites, reassess
+compatibility and split, revise ADR 0026 and A1-A13 prework, obtain explicit
+approval and integrate before TDD. Do not proceed against PR #32 baseline.
+No new ecosystem repository is due. No runtime or gate completion claim.

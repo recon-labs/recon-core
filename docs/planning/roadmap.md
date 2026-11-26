@@ -19,6 +19,8 @@ decimal milestone split rules.
 
 ## Version 0.1
 
+M8.1 design reopened: hardware-aware local policy and empirical default calibration belong in M8.1; deadline/cancellation and cumulative resource coordination in M8.2; safe resource metadata in M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
+
 Primary goal:
 
 > Prove the Reconciliation as Code workflow end to end.

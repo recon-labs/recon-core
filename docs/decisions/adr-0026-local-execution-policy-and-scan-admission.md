@@ -1,7 +1,12 @@
 # ADR 0026: Local Execution Policy And Scan Admission
 
-Status: Accepted design; implementation and conformance proof pending.
-Current runtime behavior is unchanged.
+Status: Reopened; implementation authorization suspended pending revised design.
+Current runtime behavior is unchanged. The prior decision below is retained
+as historical baseline. The inherited 64 MiB cap, hard footprint policy,
+settings/defaults and resource enforcement are not locked for coding. See
+[mandatory resource-safety assignments](../planning/execution-resource-safety-assignments.md). Preserve
+binding, privacy and comparison semantics; revise policy with measured proof.
+No replacement default or syntax is decided here.
 
 ## Context
 

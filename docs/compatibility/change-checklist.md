@@ -12,6 +12,12 @@ review. This checklist is a process guide; it is not a CI gate.
 
 ### Milestone and planning impact
 
+- [ ] Evaluated Gate 4L and [resource-safety assignments](../planning/execution-resource-safety-assignments.md)
+      for execution, profiling, transfer, write, cache, concurrency and generated-work
+      changes; expanded applicable R1-R10 families into exact owner, cases,
+      tests and exit proof or documented genuine non-applicability. No reopened
+      design or unresolved required control proof is bypassed.
+
 - [ ] Confirmed any milestone implementation has current lightweight prework
       matching `docs/planning/milestone-process.md`.
 - [ ] Confirmed any milestone step plan covers applicable prework or

@@ -2,6 +2,8 @@
 
 ## Scope and ordering
 
+M8.1 design reopened; implementation blocked. [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
+
 Split Decision: Required. The maintainer approved the implementation-bearing
 split and the adapter-aware advisory direction. M8 is an umbrella, not an
 implementation target. M8.1 -> M8.2 -> M8.3, then M9. The baseline is the
@@ -21,18 +23,18 @@ attribution privately.
 
 | Assignment | M8.1 - scan-budget configuration and enforcement | M8.2 - execution planning and run lifecycle | M8.3 - result publication and CLI finalization |
 | --- | --- | --- | --- |
-| Implementation | Local policy settings and validation, non-executing evidence, Core admission, basic structured advisories and in-memory metadata. | Existing RunService execution plan, invocation ID, truthful timing and status/reason lifecycle, cleanup and scope metadata handoff. | Versioned local JSON, safe projection, atomic publication and stale-output policy, final summary and exit codes. |
+| Implementation | Local policy settings and validation, hardware-aware native controls and measured defaults, non-executing evidence, Core admission, basic structured advisories and in-memory metadata. | Existing RunService execution plan, invocation ID, truthful timing and status/reason lifecycle, deadline/cancellation, cumulative resource/concurrency policy, cleanup and scope metadata handoff. | Versioned local JSON, safe projection including resource evidence and enforcement outcomes, atomic publication and stale-output policy, final summary and exit codes. |
 | Non-goals | No production adapters, query endpoints, contract YAML policy, automatic scope/SQL rewrites, selector/sampling execution, results writer. | No new check semantics, selectors, writer, evidence or sink writes, alternate executor. | No evidence/failure-detail export, production result tables, state, external sinks, partial runs, selector execution or raw numeric exposure. |
 | Risk/public surfaces | Config/CLI if admitted, adapter evidence, typed plan admission, diagnostics, existing capability behavior. | Run/check status and reason, service lifecycle, timing, placement, invocation scope, in-memory result interfaces. | Versioned result schema/path, artifact lifecycle, CLI/exit codes, diagnostics, privacy, scope/references, automation consumers. |
 | Required gates | 4L primary; 4I/4A/4B/4C/4J as applicable; 3F2, 6, 8C scoped native-plan proof if touched; Gate 5E only if any existing writer is touched (no new result writer). | 5 primary; 4I/4L integration; 3F2, 6, 4J where adapter/profile handling touched; 1A/ADR 0014 prerequisite semantics; selector-readiness; sink metadata reservation only. | 5/5E primary; 3F2, 6, 4J where relevant; 4I/4L recorded metadata; selector-readiness; local-only sink metadata boundary under ADR 0022; 4O only if approximate values/derived differences proposed; 8 renderer publication requirements if referencing rendered SQL. |
 | ADR/decision topics | ADR 0021/0025; safe local default and explicit limit, settings home/precedence, estimate evidence, hard versus warning admission, privacy and allowed recommendation classes; new ADR if durable config/adapter decision requires. | ADR 0014/0021/0022/0025; create run lifecycle/result semantics ADR using next available number, not occupied ADR 0021; run ID, timing, auto-compile vs existing artifacts, stale inputs, execution plan, aggregation, severity, cleanup, scope. | ADR 0022/0025 and lifecycle ADR extension or separate publication decision; versioned schema, field allowlist, artifact and sink refs, stale result policy, publish ordering, terminal/exit mapping and write failures. |
 | Required docs | Config/CLI and scan policy docs, adapter interface/compatibility, check engine, testing, inventory/matrix and assigned prework. | CLI services, check engine/result model, architecture CLI/artifacts, compatibility and lifecycle ADR/prework. | Result model, artifact model, CLI/README/quickstart, diagnostics, compatibility inventory/matrix and versioning, testing, evidence boundary and prework. |
-| Acceptance/conformance dimensions to expand before coding | A1-A9 below. | B1-B7 below. | C1-C9 below. |
+| Acceptance/conformance dimensions to expand before coding | A1-A13 below (reopened prework required). | B1-B10 below. | C1-C10 below. |
 | Responsibility-map rows to expand | Config loader validates user input only; adapter supplies non-executing evidence only; scan policy computes admission; RunService consumes proof before execution; advisory projection cannot modify plan. | Existing RunService owns orchestration and cleanup; engine owns check semantics; plan metadata owns intended scope; result models aggregate existing status taxonomy; no I/O writer in engine. | Dedicated Core artifact writer owns atomic publication/cleanup; allowlisted safe projection owns schema/redaction; RunService owns outcome coordination; CLI renders final result/exit category, not direct storage. |
 | BDD/workflows | Valid bounded local run, unsafe/unknown/over-limit block, larger known-scope opt-in, advisory-only risk, unsupported suggestion no execution change. | Pass/fail/mixed run, no checks, prerequisite blocked, load/setup/execution/cleanup failures, truthful timing and preserved preflight. | Successful and failed checks generate trustworthy allowed artifacts, unsafe/write-failed path does not leave misleading output, consistent exit/terminal, suppressed sensitive payload, no external sink. |
 | Required tests | Config/validation, real DuckDB scan guard and admission, service and check engine negative cases, no-scan spies, safe diagnostics, advisory invariant tests, preserve existing row-count/key/aggregate coverage. | Service/engine lifecycle and timing tests, ordering, dependency and mixed status tests, distinct connection failures, plan and scope, no generated results, preserve A tests. | Version/schema serialization, writer path and atomicity/failure/cleanup tests, privacy and CLI tests for every outcome, integration tests against real local adapter, carry forward A/B tests. |
 | Phase exit | TDD RED/GREEN and fresh cumulative review against approved matrix; prove no capability shrink or accidental production claim; record carryover, docs and validation. | Same review; prove status/timing/cleanup and preserved admission/semantics, no writes. | Same review plus final umbrella coverage/orphan check, full required branch-wide validation, compatibility/changelog review and maintainer approval. |
-| Blockers before coding | Split integrated; own prework, targeted research and user decisions locked; complete case matrix, source/responsibility map, BDD, test plan, DoD and approval. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
+| Blockers before coding | Reopened design: revise ADR, research native controls and measure default calibration; recheck split, compatibility, complete A1-A13 matrix, source/responsibility map, BDD, test plan, DoD, integration and explicit approval. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
 
 ## Required acceptance row families and carryover
 
@@ -52,6 +54,10 @@ cases. No row can be silently dropped.
 | A7 | Preserve currently supported row count, key safety and numeric aggregates, including precision, null/group presence and runtime transport; explicitly decide any proposed changed admission for row count, never narrow silently. |
 | A8 | Safe diagnostics across config, metadata and adapter lifecycle; no sensitive identifiers, raw SQL/plan, credentials, values or native errors; unsupported recommendations marked future. |
 | A9 | In-memory scan/advisory decision handoff; no generated artifacts, new sink, API stability claim or unbounded fetch. |
+| A10 | Hardware and environment availability; RAM/CPU/cgroup, disk/headroom, native memory/thread/spill control, unsupported/version cases, isolation/restoration. |
+| A11 | Physical footprint, logical input, operator/intermediate estimates, actual use and transport as distinct evidence; compression/skew/repeated scans/join growth. |
+| A12 | Measured default calibration on constrained/capable environments; larger safe workloads and small costly workloads; no arbitrary low ceiling. |
+| A13 | Native control and actual bound scope proof, no reliance on unimplemented controls or hidden fallback; explicit unavailable/failed control outcomes. |
 | B1 | Invocation identity and timing including failure/cleanup; current pre-engine finished timestamp corrected. |
 | B2 | Explicit plan and artifact load/compile/freshness behavior; no automatic behavior without decision. |
 | B3 | Pass/fail/warn/error/skipped/blocked/not_executable/no_checks and mixed precedence; prerequisite semantics. |
@@ -59,6 +65,9 @@ cases. No row can be silently dropped.
 | B5 | Preserve A admission, capability and advisory evidence; no execution on hard block or hidden fallback. |
 | B6 | Whole-project invocation scope with future selected-scope readiness, artifact/sink references only as allowed in memory. |
 | B7 | Privacy-safe lifecycle/plan metadata and no result/evidence/state writes. |
+| B8 | Deadlines, timeout, cancellation requested versus confirmed, interrupted outcomes and safe retry. |
+| B9 | Connection/transaction/spill cleanup, resource failure and primary versus cleanup errors. |
+| B10 | Per-check/cumulative resource envelopes, concurrency and fan-out; no automatic escalation. |
 | C1 | Versioned schema, path and invocation/timing/status/scope fields, backward/forward compatibility policy. |
 | C2 | Allowlisted placement, adapter/capability, scan evidence and advisory fields, availability/reasons, no misleading claims. |
 | C3 | Privacy matrix for every public field, diagnostic code/message/context/hint and raw values/keys/counts/diffs/SQL/plan/error text. |
@@ -67,6 +76,7 @@ cases. No row can be silently dropped.
 | C6 | Terminal counts/status and consistent exit mapping, diagnostic preservation, failure precedence, privacy. |
 | C7 | Local artifact references and future sink placeholders only; no evidence/table/state writes. |
 | C8 | Selector readiness: truthful full scope now, no subset implementation or false completeness. |
+| C10 | Allowlisted effective policy, actual versus estimated resource evidence, unavailable versus zero, enforcement, timeout/cancel/cleanup, privacy. |
 | C9 | All A/B regressions plus full final CI, capture decision advisory, pre-commit, cumulative review and compatibility/changelog assessment. |
 
 Regression capture assignments: preserve stable gate IDs in the index, never
@@ -120,7 +130,6 @@ Recheck gate attachment index, compatibility, current files and captures at
 each prework/exit. If an omitted requirement or conflict is found, block and
 correct the split assignment, not invent a scope decision.
 
-Next: follow the approved [M8.1 prework](milestone-8-1-prework.md) and
-local admission policy after integration and implementation authorization.
-Preserve all binding/conformance proof obligations at implementation exit. No experimental repo is due during these phases; keep
+Next: reopen and revise M8.1 prework with measured resource-control evidence,
+updated policy and expanded matrix; obtain explicit approval before coding. No experimental repo is due during these phases; keep
 checking ecosystem checkpoints. No milestone prework is declared satisfied.
