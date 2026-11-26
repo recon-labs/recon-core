@@ -168,3 +168,10 @@ and obtain maintainer approval with synchronized gate and split changes.
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
 Maintainer-approved split direction: M8.1.1 -> targeted M7.4 correction -> M8.1.2. M8.1.1 owns A4/A7/A8/A13 binding portions and B9 prerequisite; M8.1.2 owns remaining A1-A13/R1-R10 and any earlier required B8-B10 controls. Per-check fresh owned read-only transaction, no writable fallback, exact qualified table identity, temporary base-table scope uniformly, legacy 64 MiB key/SUM only. Detailed split matrix and implementation prework pending. Earlier open split-direction notes superseded; no runtime approval.
+
+## M8.1.1 detailed prework checkpoint
+
+See [M8.1.1 proposed prework](milestone-8-1-1-prework.md) for private binding integration,
+acceptance/test matrix, lifecycle decision L1 and exit proof. Scope direction
+approved; implementation blocked until remaining design decisions and review
+are approved. M8.1.2 and targeted M7.4 correction retain separate owners.

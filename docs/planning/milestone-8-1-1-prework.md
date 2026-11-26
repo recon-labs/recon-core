@@ -61,7 +61,7 @@ collaborators cannot bypass actual native proof. Private test seam only;
 if public interface change is necessary, stop for compatibility review.
 
 Order: preliminary scope -> setup/capabilities -> prerequisites/dispatch
--> open RO -> verify file/catalog -> BEGIN -> resolve exact relations ->
+-> open RO -> verify file -> BEGIN -> verify actual catalog and resolve exact relations ->
 Core admission -> render existing typed plan -> verify active proof before
 each native read -> evaluate bounded result -> rollback -> close -> finalize.
 On error invalidate lease, rollback if begun, close if opened, preserve
