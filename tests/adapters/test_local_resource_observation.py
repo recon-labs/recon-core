@@ -1,12 +1,14 @@
 """Independent local resource observations; no native query or policy decision."""
 
+from collections.abc import Callable
 from fractions import Fraction
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
 from recon_core.adapters._local_resource_observation import (
     _observe_linux_constraints,
+    _observe_local_resources,
     _parse_available_memory,
     _parse_cpu_set,
     _scratch_memory_backed,
@@ -19,9 +21,9 @@ _MOUNTS = (
 _MEMBERSHIP = "0::/team/job\n"
 
 
-def _reader(files: dict[str, str]):
+def _reader(files: dict[str, str]) -> Callable[[Path], str]:
     def read(path: Path) -> str:
-        return files[str(path)]
+        return files[path.as_posix()]
 
     return read
 
@@ -139,9 +141,13 @@ def test_effective_cpu_evidence_cpuset(value: str, expected: int | None) -> None
 
 @pytest.mark.parametrize(
     ("text", "expected"),
-    [("MemTotal: 100 kB\nMemAvailable: 20 kB\n", 20480),
-     ("MemFree: 20 kB\n", None), ("MemAvailable: 0 kB\n", 0),
-     ("MemAvailable: 20 MB\n", None), ("MemAvailable: -1 kB\n", None)],
+    [
+        ("MemTotal: 100 kB\nMemAvailable: 20 kB\n", 20480),
+        ("MemFree: 20 kB\n", None),
+        ("MemAvailable: 0 kB\n", 0),
+        ("MemAvailable: 20 MB\n", None),
+        ("MemAvailable: -1 kB\n", None),
+    ],
 )
 def test_host_memory_is_available_not_total_or_free(text: str, expected: int | None) -> None:
     assert _parse_available_memory(text) == expected
@@ -149,13 +155,37 @@ def test_host_memory_is_available_not_total_or_free(text: str, expected: int | N
 
 @pytest.mark.parametrize(
     ("path", "expected"),
-    [(Path("/tmp/owned"), True), (Path("/tmp-other/owned"), False),
-     (Path("/network/owned"), None), (Path("/unusual/owned"), None)],
+    [
+        (PurePosixPath("/tmp/owned"), True),
+        (PurePosixPath("/tmp-other/owned"), False),
+        (PurePosixPath("/network/owned"), None),
+        (PurePosixPath("/unusual/owned"), None),
+    ],
 )
-def test_scratch_filesystem_evidence(path: Path, expected: bool | None) -> None:
+def test_scratch_filesystem_evidence(path: PurePosixPath, expected: bool | None) -> None:
     mounts = _MOUNTS + (
         "31 20 0:28 / /tmp rw - tmpfs tmpfs rw\n"
         "32 20 0:29 / /network rw - nfs server rw\n"
         "33 20 0:30 / /unusual rw - mystery none rw\n"
     )
     assert _scratch_memory_backed(path, mounts) is expected
+
+
+def test_memory_high_is_not_a_hard_memory_limit() -> None:
+    files = _v2_files()
+    files["/sys/fs/cgroup/team/job/memory.high"] = "50"
+    result = _observe_linux_constraints(_MEMBERSHIP, _MOUNTS, _reader(files), 4096)
+    assert result.memory_headroom_bytes == 148
+
+
+def test_observe_real_scratch_without_creating_files(tmp_path: Path) -> None:
+    result = _observe_local_resources(tmp_path)
+    assert result.scratch_free_bytes is not None
+    assert result.scratch_free_bytes >= 0
+    assert result.memory_headroom_bytes is None or result.memory_headroom_bytes >= 0
+    assert result.cpu_capacity is None or result.cpu_capacity >= 0
+    assert not list(tmp_path.iterdir())
+    missing = _observe_local_resources(tmp_path / "missing")
+    assert missing.scratch_free_bytes is None
+    assert missing.scratch_memory_backed is None
+    assert not (tmp_path / "missing").exists()
