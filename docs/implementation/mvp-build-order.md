@@ -788,6 +788,28 @@ non-executing estimate proof, bounded-result versus bounded-scan distinction,
 privacy-safe advisory and no scan after hard block. See the split matrix for
 additional dimensions and carryover obligations.
 
+### Milestone 8.1.1: shared database binding prerequisite
+
+Approved scope direction, pending detailed prework and coding approval.
+Own fresh read-only per-check execution context, transaction, exact
+qualified relation binding, pre-data-query scope/identity proof and safe
+cleanup for row count/key/SUM. Apply temporary local base-table-only
+project-run policy; keep existing key/SUM 64 MiB cap only until M8.1.2,
+no new row-count footprint cap. Follow Gate 4Q [execution scope assignments](../planning/execution-scope-assignments.md).
+No new type, resource-default, view, outside-root, caller-context or
+cross-system execution. Actual native integration and compatibility
+proof required. After verified exit, targeted M7.4 grouped SQL correction
+is mandatory before M8.1.2.
+
+### Milestone 8.1.2: hardware-aware resource policy and admission
+
+Pending; depends on M8.1.1 and verified M7.4 correction. Own remaining
+M8.1 resource settings, workload evidence, admission, native controls,
+measured defaults and advisories. Resolve R1-R10, applicable earlier
+lifecycle prerequisites and A1-A13 before coding; no blanket footprint
+default or unproven hard ceilings. M8.1 umbrella cannot close until
+both children and correction verified.
+
 ## Milestone 8.2: execution planning and run lifecycle
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
@@ -972,6 +994,8 @@ Tests and exit proof:
 
 ## Milestone 10: examples and docs alignment
 
+Gate 4Q: verify temporary scope restrictions and pending S1-S8 delivery owners; M10.8 and M13.5 are mandatory post-MVP work, not permission to claim broad support.
+
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: MVP readiness requires useful zero-config and explicit-limit behavior on representative constrained/capable environments, larger-than-RAM cases where supported, and honest limitations. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
@@ -1031,6 +1055,7 @@ Future gate-to-milestone mapping summary:
 | Gate 3L | Post-MVP Milestone 12.5 | Any discovery/profile/suggest, metadata, profiling, or relation-scope feature |
 | Gate 3M | Post-MVP Milestone 12.5 | Post-MVP Milestones 25.6, 42, 42.5, and any generated tests |
 | Gate 3A amendment | Post-MVP Milestone 11 | Post-MVP Milestone 12.5 and Milestone 7.4 aggregate suggestion/execution boundaries |
+| Gate 4Q | M10.8 / M13.5 | S1-S8 scope restoration/expansion, M8.1.1 temporary limitation, M18 query endpoints, M29 conformance. |
 | Gate 4P | Milestone 9.5 | Mandatory existing key/aggregate retrofit; see type compatibility assignments for later expansions. |
 | Gate 4L | Cross-cutting | M8.1 admission/resources; M8.2 lifecycle; M8.3 safe output; every scan, profiling, movement, write, cache, concurrent and integration path per [mandatory assignments](../planning/execution-resource-safety-assignments.md). M7.3/7.4 baseline unchanged. |
 | Gate 4M | Post-MVP Milestones 24/25/26 area | Post-MVP Milestones 10.6, 24, 25, 26, 27, and 27.5 |
@@ -1195,6 +1220,28 @@ Recommended commit message:
 ```text
 feat: add user-facing agent onboarding
 ```
+
+## Post-MVP Milestone 10.8: safe local execution scope restoration
+
+Mandatory pending implementation owner for S1-S5 local contexts in
+[execution scope assignments](../planning/execution-scope-assignments.md).
+Build after M10 release-readiness and M10.5-M10.7. Restore safely authorized
+outside-project files and ordinary local views; implement scoped attached
+local catalogs, explicit populated in-memory/caller-owned integration and
+external local file relations. No unrestricted view/query/file access.
+Use shared M8 binding/resource/lifecycle and M9.5 type domains; no alternate
+runner or automatic writable fallback. Resolve explicit permissions,
+dependency identity, scope, side effects, transaction ownership, lock
+conflicts, settings isolation, workload, bounded transport and cleanup.
+
+Gate 4Q primary; Gates 4/4I/4L/4P, 4A/4B/4C/4J, 5/5E, 6, 8/8C as
+applicable. Expand S1-S5/R1-R10/T1-T10 to exact approved matrix, ADR,
+BDD, owner map, tests and exit proof. Native positive/negative actual
+Recon execution, dependency drift, denied access, unsupported scope,
+failure/cleanup, prior checks and pinned-version/scale regressions.
+Do not close on documentation alone; named scope exceptions require
+explicit maintainer-approved successor and release limitation. M18
+owns authored SQL; M13.5 remote/cross-system; M29 conformance.
 
 ## Post-MVP Milestone 11: aggregate metrics expansion
 
@@ -1411,6 +1458,28 @@ Recommended commit message:
 ```text
 feat: add explicit source-target column mapping
 ```
+
+## Post-MVP Milestone 13.5: safe cross-context reconciliation
+
+Mandatory pending implementation owner for S5 remote and S6 in
+[execution scope assignments](../planning/execution-scope-assignments.md).
+Build after M10.8, experimental PostgreSQL/Snowflake capability baselines,
+M9.5 and M12/M13 metadata/mapping. Implement explicit bounded comparison
+across separate connections/databases and proven cross-system contexts,
+including scoped remote/file-backed endpoints where supported. Resolve
+operation/comparison placement, native pushdown, explicit movement or
+materialization, consistent/fresh source and target evidence, type
+compatibility, permissions, budgets, cleanup, evidence and diagnostics.
+No default unrestricted transfer, arbitrary remote access, silent
+Python fallback or unsupported adapter claims.
+
+Gate 4Q, 4I, 4L, 4P, 4B/4C/4J, 5/5E, 6, 8/8C and other applicable
+gates. Require approved S/R/T acceptance matrix, native/differential
+tests across claimed combinations and resource envelopes, negative
+capability and privacy proof, explicit unsupported matrix and real
+implementation exit. Any deferred subcase has named approved delivery
+owner, not just a later test-kit gate. M18 query endpoints and M29
+shared conformance remain separate.
 
 ## Post-MVP Milestone 14: macro reference semantics and validation
 
@@ -1648,6 +1717,8 @@ feat: add endpoint resource references
 ```
 
 ## Post-MVP Milestone 18: executable query endpoints
+
+Mandatory Gate 4Q S7: reuse proven scope and binding from [execution scope assignments](../planning/execution-scope-assignments.md); no endpoint bypass.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
@@ -2302,6 +2373,8 @@ feat: add recon list command
 ```
 
 ## Post-MVP Milestone 29: adapter test kit and adapter package split
+
+Mandatory Gate 4Q S8: shared conformance for scoped restoration and cross-system capabilities, see [execution scope assignments](../planning/execution-scope-assignments.md).
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 

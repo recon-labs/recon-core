@@ -133,3 +133,7 @@ than leaving it implicit.
 - `docs/decisions/adr-0022-evidence-privacy-failure-detail-and-result-sinks.md`
 - `docs/framework/repository-strategy.md`
 - `docs/planning/ecosystem-roadmap.md`
+
+## Execution scope restoration checkpoint
+
+Apply [Gate 4Q execution scope restoration assignments](../planning/execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.

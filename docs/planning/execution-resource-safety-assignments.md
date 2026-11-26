@@ -103,3 +103,7 @@ gate satisfaction is authorized here.
 ## Mandatory M9.5 delivery checkpoint
 
 M9.5 mandatory type compatibility retrofit: assess R1/R3/R5/R7/R9/R10 for conversion and canonical key workload, intermediate growth, metadata binding, pruning, aggregate arithmetic, scheduling and supported-version scale; re-evaluate other R families when touched. M9.5 cannot bypass M8 admission or claim type proof as resource proof. See [type compatibility assignments](type-compatibility-assignments.md).
+
+## Execution scope restoration checkpoint
+
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.

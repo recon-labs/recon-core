@@ -296,3 +296,7 @@ M9.5 owns the pending lossless type compatibility implementation. Review shared 
 ## Reopened next-action dependency
 
 Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The exact split and approval remain pending.
+
+## Execution scope restoration checkpoint
+
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
