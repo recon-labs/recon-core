@@ -858,6 +858,10 @@ captures:
       - tests/adapters/test_scratch_namespace.py::test_windows_unsafe_ancestor_refuses_namespace_creation
       - tests/adapters/test_scratch_namespace.py::test_windows_changed_ancestor_retains_existing_storage
       - tests/adapters/test_scratch_namespace.py::test_windows_shared_read_and_add_directory_ancestor_remains_usable
+      - tests/adapters/test_scratch_namespace.py::test_darwin_broadened_root_file_refuses_reopen
+      - tests/adapters/test_scratch_namespace.py::test_darwin_broadened_session_file_is_retained
+      - tests/adapters/test_scratch_namespace.py::test_darwin_deny_only_file_acl_remains_usable
+      - tests/adapters/test_scratch_namespace.py::test_darwin_file_acl_checks_actual_open_handle
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -875,4 +879,6 @@ captures:
       Revalidate the complete Windows base ancestor chain before creation,
       reopen, session operations and recovery. Shared read and add-directory
       rights may qualify; path-control grants must not authorize storage.
-      Full native ticket identity and POSIX leaf evidence remain prerequisites.
+      Inspect Darwin extended leaf ACLs on the actual operation descriptor;
+      retain data when ACL grants or descriptor identity cannot be qualified.
+      Full native ticket identity and POSIX leaf mount evidence remain prerequisites.
