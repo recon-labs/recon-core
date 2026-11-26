@@ -28,7 +28,6 @@ from recon_core.adapters.lifecycle import (
 from recon_core.adapters.models import QueryResult, Relation
 from recon_core.diagnostics import Diagnostic
 
-
 # The lease binds the typed check family as well as the exact relations.
 _AGGREGATE_BINDING_OPERATIONS = frozenset({"sum_diff", "grouped_aggregate_diff"})
 _COUNT_BINDING_OPERATIONS = frozenset(

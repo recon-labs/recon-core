@@ -541,6 +541,7 @@ def test_quoted_relation_and_temp_shadow_keep_exact_binding(tmp_path: Path, duck
 
 
 @pytest.mark.parametrize("operation", ["row_count_diff", "sum_diff"])
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_lease_rejects_wrong_transport_family(tmp_path: Path, duckdb: Any, operation: str) -> None:
     path = tmp_path / "local.data"
     writer = duckdb.connect(str(path))
