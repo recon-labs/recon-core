@@ -1100,9 +1100,7 @@ def test_missing_bound_grouped_renderer_refuses_before_runner(tmp_path: Path, in
             return None
 
     renderer = _RoutingRenderer if invalid == "missing" else InvalidRenderer
-    result = _route(
-        tmp_path, True, adapter, renderer(_routing_plan(True)), bound_runner=Runner()
-    )
+    result = _route(tmp_path, True, adapter, renderer(_routing_plan(True)), bound_runner=Runner())
     assert result.status is CheckStatus.ERROR
     assert result.diagnostics[-1].code == "RC_ADAPTER_RENDERER_METADATA_INVALID"
     assert not result.executed
