@@ -743,3 +743,97 @@ def test_bound_count_reader_preserves_exact_count_and_diff() -> None:
     assert result.columns == columns
     assert result.rows == ((2**62, 2**62 + 1, -1),)
     assert result.row_count == 1
+
+
+@pytest.mark.regression_capture("duckdb-controlled-owned-session")
+def test_owned_controls_precede_transaction_and_cleanup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
+
+    path = tmp_path / "fixture.db"
+    path.touch()
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    identity = guard._current_file_identity(path.resolve())
+    assert identity is not None
+    request = _NativeControlRequest(128 << 20, 1, 32 << 20, scratch.resolve())
+    calls: list[str] = []
+    settings = {
+        "memory_limit": "128.0 MiB",
+        "threads": 1,
+        "max_temp_directory_size": "32.0 MiB",
+        "temp_directory": str(scratch.resolve()),
+    }
+
+    class Connection:
+        def execute(self, query: str) -> Any:
+            calls.append(query)
+            if query.startswith("SELECT current_setting"):
+                return SimpleNamespace(fetchmany=lambda size: [(settings[query.split("'")[1]],)])
+            return self
+
+        def close(self) -> None:
+            calls.append("close")
+
+    def connect(database: str, *, read_only: bool, config: dict[str, str]) -> Connection:
+        assert database == str(identity.path)
+        assert read_only
+        assert config == {
+            "memory_limit": str(128 << 20) + " bytes",
+            "threads": "1",
+            "temp_directory": str(scratch.resolve()),
+        }
+        calls.append("connect")
+        return Connection()
+
+    monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
+    session = binding._OwnedDuckDbSession(identity, native_controls=request)
+    session.open()
+    assert calls[0] == "connect"
+    assert calls[1] == f"SET max_temp_directory_size = '{32 << 20} bytes'"
+    assert calls[-1] == "BEGIN TRANSACTION"
+    assert len(calls) == 7
+    assert session.close() == ()
+    assert calls[-2:] == ["ROLLBACK", "close"]
+    assert session.released
+
+
+@pytest.mark.regression_capture("duckdb-controlled-owned-session")
+def test_unverified_required_setting_prevents_transaction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
+
+    path = tmp_path / "fixture.db"
+    path.touch()
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    identity = guard._current_file_identity(path.resolve())
+    assert identity is not None
+    request = _NativeControlRequest(128 << 20, 1, 32 << 20, scratch.resolve())
+    calls: list[str] = []
+
+    class Connection:
+        def execute(self, query: str) -> Any:
+            calls.append(query)
+            if query.startswith("SELECT current_setting"):
+                return SimpleNamespace(fetchmany=lambda size: [("PRIVATE_SENTINEL",)])
+            return self
+
+        def close(self) -> None:
+            calls.append("close")
+
+    monkeypatch.setattr(
+        binding, "import_module", lambda name: SimpleNamespace(connect=lambda *a, **kw: Connection())
+    )
+    session = binding._OwnedDuckDbSession(identity, native_controls=request)
+    try:
+        with pytest.raises(binding._BoundSessionError) as caught:
+            session.open()
+        assert caught.value.diagnostic.code == "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE"
+        assert "PRIVATE_SENTINEL" not in str(caught.value)
+        assert "BEGIN TRANSACTION" not in calls
+        with pytest.raises(binding._BoundSessionError):
+            session.bind(check_id="c", operation="row_count_diff", source="s", target="t")
+        assert not session.released
+    finally:
+        assert session.close() == ()
+    assert session.released
+    assert calls[-1] == "close"
