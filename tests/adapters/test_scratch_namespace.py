@@ -290,12 +290,13 @@ def test_windows_shared_read_and_add_directory_ancestor_remains_usable(tmp_path:
 
     base = tmp_path.resolve() / "base"
     base.mkdir()
-    subprocess.run(
-        ["icacls", str(base), "/grant", "*S-1-1-0:(RX,AD)"],
-        capture_output=True,
-        timeout=15,
-        check=True,
-    )
+    for grant in ("RX", "(AD)"):
+        subprocess.run(
+            ["icacls", str(base), "/grant", f"*S-1-1-0:{grant}"],
+            capture_output=True,
+            timeout=15,
+            check=True,
+        )
     root = _open_namespace(base, base)
     session = root.create_session()
     session.release()
