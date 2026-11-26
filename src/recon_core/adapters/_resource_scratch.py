@@ -160,9 +160,7 @@ def _marker_identity(device: str, inode: str) -> _Identity:
     return result
 
 
-def _marker(
-    path: Path, expected: bytes, policy: "_DirectoryPolicy | None" = None
-) -> None:
+def _marker(path: Path, expected: bytes, policy: "_DirectoryPolicy | None" = None) -> None:
     info = _inspect(path, directory=False, policy=policy)
     if info.st_size != len(expected):
         raise _ScratchError()
@@ -440,7 +438,9 @@ class _ScratchRoot:
         _marker(self.ticket.path / "owner", _root_marker(self.ticket), self._directory_policy)
         if (
             _identity(
-                _inspect(self.ticket.path / "root.lock", directory=False, policy=self._directory_policy)
+                _inspect(
+                    self.ticket.path / "root.lock", directory=False, policy=self._directory_policy
+                )
             )
             != self.ticket.lock_identity
         ):
@@ -454,7 +454,9 @@ class _ScratchRoot:
         while True:
             try:
                 lock = _FileLease.acquire(
-                    self.ticket.path / "root.lock", self.ticket.lock_identity, self._directory_policy
+                    self.ticket.path / "root.lock",
+                    self.ticket.lock_identity,
+                    self._directory_policy,
                 )
                 break
             except _BusyError:
@@ -484,11 +486,15 @@ class _ScratchRoot:
             or spill.st_dev != ticket.identity.device
             or os.path.ismount(ticket.path / "spill")
             or _identity(
-                _inspect(ticket.path / "parent.lock", directory=False, policy=self._directory_policy)
+                _inspect(
+                    ticket.path / "parent.lock", directory=False, policy=self._directory_policy
+                )
             )
             != ticket.parent_identity
             or _identity(
-                _inspect(ticket.path / "worker.lock", directory=False, policy=self._directory_policy)
+                _inspect(
+                    ticket.path / "worker.lock", directory=False, policy=self._directory_policy
+                )
             )
             != ticket.worker_identity
         ):
@@ -512,10 +518,14 @@ class _ScratchRoot:
                     nonce,
                     _identity(_inspect(path, directory=True)),
                     _identity(
-                        _inspect(path / "parent.lock", directory=False, policy=self._directory_policy)
+                        _inspect(
+                            path / "parent.lock", directory=False, policy=self._directory_policy
+                        )
                     ),
                     _identity(
-                        _inspect(path / "worker.lock", directory=False, policy=self._directory_policy)
+                        _inspect(
+                            path / "worker.lock", directory=False, policy=self._directory_policy
+                        )
                     ),
                     _identity(_inspect(path / "spill", directory=True)),
                 )
@@ -524,7 +534,9 @@ class _ScratchRoot:
                 )
                 try:
                     # Publish only after the parent's lease is held.
-                    _write_new(path / "owner", _session_marker(self.ticket, ticket), self._directory_policy)
+                    _write_new(
+                        path / "owner", _session_marker(self.ticket, ticket), self._directory_policy
+                    )
                     self._verify_session(ticket)
                     return _ParentLease(self, ticket, parent)
                 except BaseException:
