@@ -7,6 +7,7 @@ or a proof of filesystem locking semantics.
 """
 
 import ctypes as ct
+import os
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -275,9 +276,42 @@ def _verify_private_directory(path: Path) -> None:
     _verify_private_object(path, directory=True)
 
 
-def _verify_private_file(path: Path) -> None:
-    """Verify actual leaf owner and effective private file ACL."""
-    _verify_private_object(path, directory=False)
+def _verify_private_file(path: Path, *, fd: int | None = None) -> None:
+    """Verify the actual leaf, using the operation's handle when supplied."""
+    if fd is None:
+        _verify_private_object(path, directory=False)
+        return
+    try:
+        before = path.lstat()
+        if (
+            not path.is_absolute()
+            or path.resolve(strict=True) != path
+            or not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or getattr(before, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+        ):
+            raise _WindowsScratchSecurityError()
+
+        def matches(info: os.stat_result) -> bool:
+            return (
+                info.st_dev == before.st_dev
+                and info.st_ino == before.st_ino
+                and info.st_ino > 0
+                and info.st_nlink == 1
+                and stat.S_ISREG(info.st_mode)
+                and not getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            )
+
+        if not matches(os.fstat(fd)):
+            raise _WindowsScratchSecurityError()
+        kernel, security = _libraries()
+        handle = import_module("msvcrt").get_osfhandle(fd)
+        with _process_user(kernel, security) as (sid, _):
+            _verify_descriptor(security, handle, sid, kernel, directory=False)
+        if not matches(os.fstat(fd)) or not matches(path.lstat()):
+            raise _WindowsScratchSecurityError()
+    except Exception:
+        raise _WindowsScratchSecurityError() from None
 
 
 def _verify_private_object(path: Path, *, directory: bool) -> None:
