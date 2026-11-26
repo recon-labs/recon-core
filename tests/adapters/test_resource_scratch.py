@@ -267,3 +267,70 @@ time.sleep(120)
         if process.poll() is None:
             process.kill()
             process.wait(timeout=10)
+
+
+@pytest.mark.regression_capture("owned-scratch-discovery")
+def test_reopen_and_discover_abandoned_sessions(root: _ScratchRoot) -> None:
+    abandoned = root.create_session()
+    live = root.create_session()
+    incomplete = root.ticket.path / "unrecognized"
+    incomplete.mkdir()
+    (incomplete / "keep").write_bytes(b"keep")
+    abandoned.release()
+    try:
+        reopened = _ScratchRoot.reopen(root.ticket.path)
+        assert reopened.ticket == root.ticket
+        summary = reopened.recover_abandoned()
+        assert (summary.removed, summary.live, summary.retained) == (1, 1, 1)
+        assert not abandoned.ticket.path.exists()
+        assert live.ticket.path.exists()
+        assert (incomplete / "keep").read_bytes() == b"keep"
+        assert not hasattr(summary, "paths")
+    finally:
+        live.release()
+
+
+@pytest.mark.regression_capture("owned-scratch-discovery")
+@pytest.mark.parametrize("damage", ["oversized", "wrong-root", "wrong-session", "missing-marker"])
+def test_discovery_rejects_unverified_marker(root: _ScratchRoot, damage: str) -> None:
+    parent = root.create_session()
+    ticket = parent.ticket
+    parent.release()
+    marker = ticket.path / "owner"
+    if damage == "oversized":
+        marker.write_bytes(b"9" * 4096)
+    elif damage == "wrong-root":
+        parts = marker.read_bytes().split(b":")
+        parts[1] = b"0" * 32
+        marker.write_bytes(b":".join(parts))
+    elif damage == "wrong-session":
+        parts = marker.read_bytes().split(b":")
+        parts[2] = b"0" * 32
+        marker.write_bytes(b":".join(parts))
+    else:
+        marker.unlink()
+    summary = _ScratchRoot.reopen(root.ticket.path).recover_abandoned()
+    assert summary.removed == 0 and summary.retained == 1
+    assert ticket.path.exists()
+
+
+@pytest.mark.regression_capture("owned-scratch-discovery")
+def test_reopen_rejects_replaced_root_lock(root: _ScratchRoot) -> None:
+    lock = root.ticket.path / "root.lock"
+    old = root.ticket.path / "old.lock"
+    lock.rename(old)
+    lock.write_bytes(b"\0")
+    os.chmod(lock, 0o600)
+    old.unlink()
+    with pytest.raises(_ScratchError):
+        _ScratchRoot.reopen(root.ticket.path)
+
+
+def test_reopen_never_adopts_plain_directory(tmp_path: Path) -> None:
+    path = tmp_path.resolve() / "arbitrary"
+    path.mkdir(mode=0o700)
+    sentinel = path / "keep"
+    sentinel.write_bytes(b"keep")
+    with pytest.raises(_ScratchError):
+        _ScratchRoot.reopen(path)
+    assert sentinel.read_bytes() == b"keep"
