@@ -150,6 +150,23 @@ path_surface_routing:
       surfaces:
         - diagnostics
         - redaction
+        - validation_defaults
+        - scan_safety
+    - path: src/recon_core/config/_local_resource_policy.py
+      surfaces:
+        - diagnostics
+        - redaction
+        - validation_defaults
+        - scan_safety
+    - path: tests/config/test_project_config.py
+      surfaces:
+        - diagnostics
+        - redaction
+        - validation_defaults
+        - scan_safety
+    - path: tests/check_engine/test_local_resource_targets.py
+      surfaces:
+        - scan_safety
     - path: src/recon_core/compiled_artifact_schema.py
       surfaces:
         - artifact_lifecycle
