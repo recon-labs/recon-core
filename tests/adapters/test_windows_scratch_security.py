@@ -55,3 +55,29 @@ def test_native_acl_inheritance_is_not_protection(tmp_path: Path) -> None:
     inherited.mkdir()
     with pytest.raises(_WindowsScratchSecurityError):
         _verify_private_directory(inherited)
+
+
+@pytest.mark.regression_capture("windows-scratch-private-acl")
+def test_native_impersonation_cannot_authorize_process_namespace(tmp_path: Path) -> None:
+    from ctypes import wintypes as wt
+
+    from recon_core.adapters._windows_scratch_security import _api, _libraries
+
+    root = tmp_path.resolve() / "private"
+    _create_private_directory(root)
+    _, security = _libraries()
+    impersonate = _api(security, "ImpersonateSelf", wt.BOOL, wt.DWORD)
+    revert = _api(security, "RevertToSelf", wt.BOOL)
+    candidate = tmp_path.resolve() / "impersonated"
+    assert impersonate(2), "Could not establish native thread impersonation."
+    try:
+        with pytest.raises(_WindowsScratchSecurityError):
+            _create_private_directory(candidate)
+        with pytest.raises(_WindowsScratchSecurityError):
+            _verify_private_directory(root)
+        assert not candidate.exists()
+    finally:
+        assert revert(), "Could not restore native process security context."
+    _verify_private_directory(root)
+    _create_private_directory(candidate)
+    _verify_private_directory(candidate)
