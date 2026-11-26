@@ -43,9 +43,7 @@ def test_qualified_relation_binding_preserves_distinct_unicode_tables(
     finally:
         connection.close()
 
-    config = ConnectionConfig(
-        name="warehouse", type="duckdb", config={"database": "local.data"}
-    )
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": "local.data"})
     status = guard.bounded_local_duckdb_scan_status(
         config,
         source_relation=identifier,
@@ -53,4 +51,4 @@ def test_qualified_relation_binding_preserves_distinct_unicode_tables(
         project_root=tmp_path,
     )
     assert status.local_dev
-    assert status.bounded, "Native distinct identifiers must not be collapsed by Unicode folding."
+    assert status.bounded, "Distinct identifiers must not be collapsed by Unicode folding."

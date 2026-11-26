@@ -4,6 +4,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
+from string import ascii_lowercase, ascii_uppercase
 from typing import Any
 
 from recon_core.adapters.runtime_safety import (
@@ -14,6 +15,7 @@ from recon_core.profiles import ConnectionConfig
 
 _MAX_BOUNDED_LOCAL_DUCKDB_BYTES = 64 * 1024 * 1024
 _DUCKDB_LOCAL_SIDECAR_SUFFIXES = (".wal", ".tmp")
+_ASCII_IDENTIFIER_TRANSLATION = str.maketrans(ascii_uppercase, ascii_lowercase)
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,21 +220,27 @@ def _duckdb_relation_is_local_base_table(
     *,
     local_catalog_names: frozenset[str],
 ) -> bool:
-    predicates = ["lower(table_name) = lower(?)"]
-    parameters: list[str] = [relation.identifier]
+    # DuckDB identifiers are ASCII-case-insensitive, not Unicode-case-insensitive.
+    # Use the same normalization in catalog and relation lookups.
+    predicates = ["translate(table_name, ?, ?) = ?"]
+    parameters = [ascii_uppercase, ascii_lowercase, _duckdb_identifier_key(relation.identifier)]
     if relation.schema is not None:
-        predicates.append("lower(table_schema) = lower(?)")
-        parameters.append(relation.schema)
+        predicates.append("translate(table_schema, ?, ?) = ?")
+        parameters.extend(
+            (ascii_uppercase, ascii_lowercase, _duckdb_identifier_key(relation.schema))
+        )
     if relation.catalog is not None:
-        predicates.append("lower(table_catalog) = lower(?)")
-        parameters.append(relation.catalog)
+        predicates.append("translate(table_catalog, ?, ?) = ?")
+        parameters.extend(
+            (ascii_uppercase, ascii_lowercase, _duckdb_identifier_key(relation.catalog))
+        )
 
     rows = connection.execute(
         "select table_catalog, table_schema, table_name, table_type "
         "from information_schema.tables "
-        f"where {' and '.join(predicates)}",
+        f"where {' and '.join(predicates)} limit 2",
         parameters,
-    ).fetchall()
+    ).fetchmany(2)
     local_rows = tuple(
         row
         for row in rows
@@ -250,4 +258,4 @@ def _duckdb_relation_is_local_base_table(
 
 
 def _duckdb_identifier_key(identifier: str) -> str:
-    return identifier.casefold()
+    return identifier.translate(_ASCII_IDENTIFIER_TRANSLATION)
