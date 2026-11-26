@@ -790,6 +790,7 @@ captures:
       - tests/adapters/test_windows_scratch_security.py::test_native_impersonation_cannot_authorize_process_namespace
       - tests/adapters/test_windows_scratch_security.py::test_native_private_file_inheritance_and_explicit_acl
       - tests/adapters/test_windows_scratch_security.py::test_native_file_acl_broadening_is_rejected
+      - tests/adapters/test_windows_scratch_security.py::test_native_file_owner_boundary
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -805,6 +806,9 @@ captures:
       uncertainty until an equivalent worker security context is proven.
       Inspect actual leaf ACLs as well as directories; inherited or explicit
       owner-only file grants may qualify, but additional trustees do not.
+      Windows can assign the built-in Administrators group as the default
+      leaf owner; verify that exact privileged owner separately from the sole
+      user grant. Directory ownership remains strictly the current user.
 
   - id: scratch-filesystem-scope-evidence
     title: Scratch filesystem evidence follows the opened directory mount
