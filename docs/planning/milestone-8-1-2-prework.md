@@ -1,6 +1,79 @@
 # Milestone 8.1.2 - Adaptive Local Resource Policy And Admission
 
-## Status and approval boundary
+## Current status: whole design reopened (2026-11-27)
+
+**Implementation suspended by maintainer.** The previous detailed design and
+implementation authorization below are historical, not coding authority.
+Reopen the complete resource policy, execution placement, worker/transport,
+resource observation, temporary storage and recovery design. No merge,
+production activation, guard removal, or successor implementation before
+revised detailed prework, evidence and separate approval. Preserve existing
+candidate code, tests and historical evidence until explicit disposition.
+Split Decision: Already Split / Follow Existing Split; reassess the B8-B10
+prerequisite boundary with M8.2, not a new documentation-only milestone.
+
+### Design audit and native-first direction
+
+Resource safety is an outcome contract, not a mandate to reproduce OS
+resource management. The current candidate is disproportionately coupled
+to platform ACL, mount, identity, resource hierarchy and lifecycle internals.
+Native test success does not establish the value or long-term compatibility
+of each mechanism. The following is the approved redesign direction;
+individual replacement mechanisms, defaults and scope changes remain
+proposals requiring proof and detailed approval.
+
+| Area | Priority and proposed disposition |
+| --- | --- |
+| Exact read-only binding, typed plans, exact comparison, bounded native results, privacy, no unrelated mutation | Essential; preserve M8.1.1 and M7.4 protections and existing public compatibility. |
+| Default admission, optional footprint cap | Essential; remove arbitrary default footprint guard only after replacement proof. Explicit authored cap all nine families; no implicit sampling or data movement. |
+| Native memory/thread/spill controls | Essential at the promised scope; prefer native defaults and explicit supported settings, compare measured adaptive tuning. Readback alone insufficient; no hard RSS/disk/CPU guarantee. |
+| Host/container/CPU/disk observations | Beneficial, generally optional; use maintained portable/native interfaces and trustworthy available facts. No mandatory exhaustive hierarchy, external-process ownership or process enumeration; unknown is not zero or unlimited. |
+| Reserve formulas and pressure polling | Reopen; justify incremental benefit over native defaults with real workloads. No locked 25%/10% default, arbitrary workload deadline, or universal resource monitoring subsystem. Known limits and actual failure remain distinct from advisory estimates. |
+| Per-check subprocess, IPC, watchdog and placement proof | Conditional, not mandatory mechanisms. Compare existing owned connection with native controls/interrupt against a standard owned child when demonstrably necessary. Shared process/machine is not inherently unsafe. Never kill a shared process or alter unrelated connections; setting restoration alone does not prove noninterference during execution. If child selected, prove bounded exact transport, privacy, termination and cleanup; no duplicate executor. |
+| Private temporary storage and normal cleanup | Essential; prefer unique secure standard-library directories under selected base and normal native close/cleanup. Targeted platform-specific protection only if necessary to meet actual privacy/ownership outcome. No implicit location switch. |
+| Stable project namespace, persistent tickets, native ACL/mount allowlists, two-lease protocol, abandoned directory recovery | Reopen; proposed removal of mandatory automatic recovery. Prefer never adopting/sweeping old directories; leave uncertain residue for user/OS retention policy. If a particular additional mechanism is retained, justify it by concrete failure of simpler approaches. Preserve existing tests until explicit replacement/retirement approval. |
+| Error, cancellation, diagnostics and L1 | Essential outcomes; distinguish requested from confirmed stop, native error from mismatch, current cleanup uncertainty from unrelated old residue. Warn about known material uncertainty, not OS version labels. Affected context only; do not promise discovery of unknown abandoned data. |
+| Future compatibility | Essential P1-P6, all R1-R10 dispositions, risk-based older/current and rolling native lanes, actual OS/build/architecture/Python/engine evidence, failure injection and recheck. No mandatory OS-version allowlist or uniform engine mechanism. |
+
+### Redesign preflight and exit blockers
+
+1. Compare native-default direct execution, explicitly configured direct
+   execution, and conditional standard subprocess isolation using actual
+   bound Recon SQL and all four existing DuckDB pins. Demonstrate settings
+   effects and simultaneous observer connection behavior, cancellation,
+   errors, cleanup and exact results. If native global settings interfere,
+   do not silently override unrelated sessions. Decide which settings/modes
+   require isolation; no fallback/retry or termination of unowned process.
+2. Compare useful native defaults against optional portable resource
+   observations, explicit controls and measured tuning in constrained and
+   capable environments, including large safe versus small costly workloads,
+   changing shared load, unavailable metrics, full disk, and startup spill
+   cap mismatch. Reassess each existing config leaf, default, scope,
+   precedence and diagnostic; no new dependency or public syntax lock yet.
+3. Prove simple per-execution scratch creation/normal cleanup and actual
+   privacy on older/current representative platforms and supported Python;
+   concurrent independent invocations, arbitrary existing paths, replacement,
+   errors, abrupt exit and retained residue. Retain no-delete-unowned
+   invariant. Automatic abandoned recovery is a proposed scope reduction,
+   not yet an approved implementation removal. No blanket filesystem refusal
+   solely because optional classification is missing.
+4. Reconcile every A1-A13/R1-R10/B8-B10/P1-P6 variant, existing regression
+   capture and gate assignment with the selected architecture. Keep
+   regression outcomes; explicitly replace, retire or reassign only
+   mechanism-specific cases with rationale, owner, equivalent proof where
+   applicable, and maintainer approval. Record exact tested evidence, not
+   fabricated test nodes. Preserve M8.2 remaining invocation lifecycle,
+   M8.3 C10, M9.5 type and M10.8 scope restoration, M29 conformance and
+   all future adapter responsibilities.
+5. Present revised configuration, responsibility map, acceptance matrix,
+   BDD, test plan, compatibility/diagnostic semantics, candidate code reuse
+   or removal decisions, and DoD for separate approval. Only then authorize
+   test-first implementation. No gate closure from this audit.
+
+The prior prework below remains a historical baseline for disposition and
+traceability, not a competing implementation plan.
+
+## Historical status and approval boundary (superseded)
 
 Maintainer approved the detailed design and documentation integration on
 2026-11-26. Implementation separately approved and in progress; exit proof remains pending. The design is not evidence of implemented behavior
