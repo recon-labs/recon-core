@@ -1,0 +1,59 @@
+name: Temporary M8.1.2 disk spill and worker proof
+on:
+  push:
+    branches: [experiment/m812-disk-worker-proof-20261126]
+    paths: ['scripts/temporary_m812_disk_worker.py', '.github/workflows/temporary-m812-disk-worker.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        duckdb: ['1.0.0', '1.3.2', '1.4.5', '2.0.1']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bounded synthetic filesystem and worker cases
+        env:
+          PIN: ${{ matrix.duckdb }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=$(mktemp -d)
+          MOUNT="$ROOT/scratch"
+          mkdir "$MOUNT" "$ROOT/fixture"
+          trap 'docker rm -f recon-m812-disk >/dev/null 2>&1 || true; if mountpoint -q "$MOUNT"; then sudo umount "$MOUNT"; fi; rm -rf "$ROOT"' EXIT
+          python -m pip install -e . "duckdb==$PIN"
+          python -c 'import duckdb,os; assert duckdb.__version__==os.environ["PIN"]'
+          python -u scripts/temporary_m812_disk_worker.py setup "$ROOT/fixture"
+          truncate -s 2048M "$ROOT/scratch.img"
+          mkfs.ext4 -q -F -m 0 "$ROOT/scratch.img"
+          sudo mount -o loop "$ROOT/scratch.img" "$MOUNT"
+          sudo chmod 777 "$MOUNT"
+          touch "$MOUNT/probe-owned"
+          findmnt -n -o FSTYPE,SOURCE --target "$MOUNT"
+          printf 'FROM python:3.11-slim\nWORKDIR /app\nCOPY . /app\nRUN pip install --no-cache-dir . duckdb==%s\n' "$PIN" > "$ROOT/Dockerfile"
+          docker build -q -f "$ROOT/Dockerfile" -t recon-m812-disk .
+          for spec in "512 narrow k 128 1 1024" "2048 spill wide 512 1 1536" "2048 spill wide 768 1 1536" "2048 full wide 512 1 1536" "2048 cancel wide 512 1 1536"; do
+            read -r ram mode key mem threads cap <<< "$spec"
+            echo "CASE $spec"
+            set +e
+            timeout --kill-after=5s 75s docker run --name recon-m812-disk --network none --memory "${ram}m" --memory-swap "${ram}m" --cpus 2 -v "$ROOT/fixture:/fixture:ro" -v "$MOUNT:/scratch:rw" recon-m812-disk python -u scripts/temporary_m812_disk_worker.py parent /fixture "$mode" "$key" "$mem" "$threads" "$cap"
+            rc=$?
+            set -e
+            docker inspect --format 'OOMKilled={{.State.OOMKilled}} ExitCode={{.State.ExitCode}}' recon-m812-disk || true
+            docker rm -f recon-m812-disk >/dev/null || true
+            echo "CASE_EXIT $rc"
+            sudo find "$MOUNT" -mindepth 1 -maxdepth 1 -name 'case-*' -type d -exec rm -rf {} +
+          done
+          sudo umount "$MOUNT"
+          rm -rf "$ROOT"
+          test ! -e "$ROOT"
+          echo ROOT_CLEANUP true
