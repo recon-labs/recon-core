@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from recon_core.adapters._resource_scratch import (
+    _Identity,
     _Recovery,
     _ScratchError,
     _ScratchRoot,
@@ -60,7 +61,7 @@ def test_scratch_live_owner_races(root: _ScratchRoot) -> None:
 
 
 @pytest.mark.regression_capture("owned-scratch-untrusted-retained")
-@pytest.mark.parametrize("damage", ["marker", "missing-lock", "unexpected-entry", "nested-spill"])
+@pytest.mark.parametrize("damage", ["marker", "missing-lock", "unexpected-entry", "nested-spill", "replaced-lock", "replaced-spill"])
 def test_untrusted_scratch_never_deleted(root: _ScratchRoot, damage: str) -> None:
     parent = root.create_session()
     ticket = parent.ticket
@@ -73,6 +74,14 @@ def test_untrusted_scratch_never_deleted(root: _ScratchRoot, damage: str) -> Non
         (ticket.path / "worker.lock").unlink()
     elif damage == "unexpected-entry":
         (ticket.path / "unowned").write_bytes(b"keep")
+    elif damage == "replaced-lock":
+        (ticket.path / "worker.lock").rename(ticket.path / "worker.old")
+        (ticket.path / "worker.lock").write_bytes(b"\0")
+        (ticket.path / "worker.old").unlink()
+    elif damage == "replaced-spill":
+        (ticket.path / "spill").rename(ticket.path / "old-spill")
+        (ticket.path / "spill").mkdir(mode=0o700)
+        sentinel = ticket.path / "old-spill" / "keep.tmp"
     else:
         (ticket.path / "spill" / "nested").mkdir()
     assert root.recover(ticket) is _Recovery.RETAINED
@@ -124,19 +133,37 @@ import time
 from pathlib import Path
 from uuid import UUID
 from recon_core.adapters._resource_scratch import _Identity, _RootTicket, _SessionTicket, _ScratchRoot
-r = _RootTicket(Path(sys.argv[1]), UUID(sys.argv[2]), _Identity(int(sys.argv[3]), int(sys.argv[4])))
-s = _SessionTicket(Path(sys.argv[5]), UUID(sys.argv[6]), _Identity(int(sys.argv[7]), int(sys.argv[8])))
+def identity(index):
+    return _Identity(int(sys.argv[index]), int(sys.argv[index + 1]))
+r = _RootTicket(Path(sys.argv[1]), UUID(sys.argv[2]), identity(3), identity(5))
+s = _SessionTicket(
+    Path(sys.argv[7]), UUID(sys.argv[8]), identity(9), identity(11), identity(13), identity(15)
+)
 lease = _ScratchRoot(r).claim_worker(s)
-Path(sys.argv[9]).touch()
+Path(sys.argv[17]).touch()
 time.sleep(120)
 """
     r = root.ticket
+
+    def parts(identity: _Identity) -> list[str]:
+        return [str(identity.device), str(identity.inode)]
+
     child = subprocess.Popen(
         [
-            sys.executable, "-c", script,
-            str(r.path), str(r.nonce), str(r.identity.device), str(r.identity.inode),
-            str(ticket.path), str(ticket.nonce), str(ticket.identity.device),
-            str(ticket.identity.inode), str(marker),
+            sys.executable,
+            "-c",
+            script,
+            str(r.path),
+            str(r.nonce),
+            *parts(r.identity),
+            *parts(r.lock_identity),
+            str(ticket.path),
+            str(ticket.nonce),
+            *parts(ticket.identity),
+            *parts(ticket.parent_identity),
+            *parts(ticket.worker_identity),
+            *parts(ticket.spill_identity),
+            str(marker),
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
