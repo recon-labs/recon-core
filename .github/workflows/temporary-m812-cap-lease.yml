@@ -1,0 +1,156 @@
+name: Temporary M8.1.2 spill control and local lease proof
+on:
+  push:
+    branches: [experiment/m812-disk-worker-proof-20261126]
+    paths: ['.github/workflows/temporary-m812-cap-lease.yml']
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        duckdb: ['1.0.0', '1.3.2', '1.4.5', '2.0.1']
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compare actual spill behavior and crash-released file locks
+        shell: bash
+        env:
+          PIN: ${{ matrix.duckdb }}
+        run: |
+          set -euo pipefail
+          python -m pip install "duckdb==$PIN"
+          cat > m812_cap_lease.py <<'PY'
+          import json, os, pathlib, subprocess, sys, tempfile, time
+          import duckdb
+          
+          def log(**fields):
+              print(json.dumps(fields,sort_keys=True),flush=True)
+          
+          def lock(f):
+              if sys.platform=="win32":
+                  import msvcrt
+                  f.seek(0)
+                  msvcrt.locking(f.fileno(),msvcrt.LK_NBLCK,1)
+              else:
+                  import fcntl
+                  fcntl.flock(f.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+          
+          def child(root,mode,cap):
+              with (root/"lease").open("r+b") as lease:
+                  lock(lease)
+                  scratch=root/mode
+                  scratch.mkdir()
+                  config={"memory_limit":"128MiB","threads":"1","temp_directory":str(scratch)}
+                  if mode!="set-small":
+                      config["max_temp_directory_size"]=cap
+                  conn=duckdb.connect(str(root/"fixture.db"),read_only=True,config=config)
+                  try:
+                      if mode=="set-small":
+                          conn.execute("SET max_temp_directory_size='1MiB'")
+                      log(mode=mode,readback=conn.execute("select current_setting('max_temp_directory_size')").fetchone()[0])
+                      (root/"active").touch()
+                      # All input keys are deterministic and unique by the leading integer.
+                      actual=conn.execute("SELECT count(*), sum(s) FROM (SELECT k,sum(v) s FROM fixture GROUP BY k)").fetchone()
+                      log(mode=mode,exact=actual==(1000000,1000000),result=True)
+                  except Exception as exc:
+                      msg=str(exc).lower()
+                      log(mode=mode,result=False,exception=type(exc).__name__,mentions_temp=("temp" in msg or "spill" in msg),mentions_limit=("limit" in msg or "maximum" in msg))
+                  finally:
+                      conn.close()
+          
+          def parent():
+              assert duckdb.__version__==os.environ["PIN"]
+              with tempfile.TemporaryDirectory(prefix="m812-cap-") as raw:
+                  root=pathlib.Path(raw)
+                  (root/"lease").write_bytes(b"0")
+                  with duckdb.connect(str(root/"fixture.db"),config={"threads":"2","memory_limit":"768MiB"}) as con:
+                      wide="||".join(f"md5((i+{j*1000000})::varchar)" for j in range(6))
+                      con.execute(f"create table fixture as select i::varchar||':'||{wide} k,1::bigint v from range(1000000) t(i)")
+                  for mode,cap in [("startup-small","1MiB"),("set-small","1MiB"),("large","2048MiB")]:
+                      (root/"active").unlink(missing_ok=True)
+                      p=subprocess.Popen([sys.executable,__file__,"child",raw,mode,cap],stdin=subprocess.DEVNULL)
+                      start=time.monotonic()
+                      peak=0
+                      blocked=False
+                      try:
+                          while p.poll() is None and time.monotonic()-start<60:
+                              if (root/"active").exists():
+                                  if not blocked:
+                                      with (root/"lease").open("r+b") as lease:
+                                          try:
+                                              lock(lease)
+                                          except OSError:
+                                              blocked=True
+                                  for f in (root/mode).rglob("*"):
+                                      try:
+                                          if f.is_file():
+                                              pass
+                                      except OSError:
+                                          pass
+                                  size=0
+                                  for f in (root/mode).rglob("*"):
+                                      try:
+                                          if f.is_file():
+                                              size+=f.stat().st_size
+                                      except OSError:
+                                          pass
+                                  peak=max(peak,size)
+                              time.sleep(.01)
+                          if p.poll() is None:
+                              p.kill()
+                              p.wait(timeout=5)
+                              log(mode=mode,deadline=True)
+                      finally:
+                          if p.poll() is None:
+                              p.kill()
+                              p.wait(timeout=5)
+                      with (root/"lease").open("r+b") as lease:
+                          lock(lease)
+                      log(mode=mode,peak_spill=peak,active_lock_blocked=blocked,lock_after_exit=True,exit=p.returncode,seconds=round(time.monotonic()-start,3))
+                  # Independent crash test of an exclusive lock, without a query race.
+                  proc=subprocess.Popen([sys.executable,__file__,"hold",raw],stdin=subprocess.DEVNULL)
+                  try:
+                      end=time.monotonic()+10
+                      while not (root/"locked").exists() and proc.poll() is None and time.monotonic()<end:
+                          time.sleep(.02)
+                      assert (root/"locked").exists() and proc.poll() is None
+                      with (root/"lease").open("r+b") as lease:
+                          try:
+                              lock(lease)
+                          except OSError:
+                              log(crash_lease_conflict=True)
+                          else:
+                              raise AssertionError("live worker lock unexpectedly acquired")
+                      proc.kill()
+                      proc.wait(timeout=5)
+                      with (root/"lease").open("r+b") as lease:
+                          lock(lease)
+                      log(crash_lease_released=True)
+                  finally:
+                      if proc.poll() is None:
+                          proc.kill()
+                          proc.wait(timeout=5)
+              assert not root.exists()
+              log(cleanup=True)
+          
+          if __name__=="__main__":
+              if len(sys.argv)>1 and sys.argv[1]=="child":
+                  child(pathlib.Path(sys.argv[2]),sys.argv[3],sys.argv[4])
+              elif len(sys.argv)>1 and sys.argv[1]=="hold":
+                  root=pathlib.Path(sys.argv[2])
+                  with (root/"lease").open("r+b") as lease:
+                      lock(lease)
+                      (root/"locked").touch()
+                      while True:
+                          time.sleep(.1)
+              else:
+                  parent()
+          
+          PY
+          python -u m812_cap_lease.py
