@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from numbers import Integral
 from typing import Any
 
+from recon_core.adapters.base import BaseAdapter
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
 from recon_core.adapters.lifecycle import ADAPTER_QUERY_FAILED
 from recon_core.adapters.models import Relation
@@ -203,6 +204,20 @@ def safe_string_attribute(instance: object, attribute_name: str) -> str | None:
     except Exception:
         return None
     return value if isinstance(value, str) and value else None
+
+
+def adapter_matches_connection(adapter: BaseAdapter, connection: ConnectionConfig) -> bool:
+    """Check the actual adapter binding without exposing its private metadata."""
+    try:
+        actual = adapter.connection
+        return (
+            isinstance(actual, ConnectionConfig)
+            and safe_string_attribute(adapter, "adapter_type") == connection.type
+            and actual.name == connection.name
+            and same_connection_context(actual, connection)
+        )
+    except Exception:
+        return False
 
 
 def exception_hint(prefix: str, exc: Exception) -> str:

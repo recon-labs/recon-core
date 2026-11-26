@@ -422,6 +422,7 @@ captures:
       - tests/adapters/test_duckdb_bound_execution.py::test_actual_attached_catalog_is_not_local_base_table
       - tests/services/test_run_service_bound_execution.py::test_legacy_family_wrong_factory_binding_never_opens
       - tests/services/test_run_service_bound_execution.py::test_project_run_never_borrows_or_closes_supplied_connection
+      - tests/check_engine/test_execution_boundaries.py::test_project_binding_runner_does_not_depend_on_check_family
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred

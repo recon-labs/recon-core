@@ -21,8 +21,11 @@ from recon_core.adapters.lifecycle import ADAPTER_QUERY_FAILED
 from recon_core.adapters.models import QueryResult
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
 from recon_core.check_engine._bound_protocol import _BoundEvaluation
-from recon_core.check_engine.aggregate import _aggregate_adapter_matches_connection
-from recon_core.check_engine.execution_support import error_result, not_executable_result
+from recon_core.check_engine.execution_support import (
+    adapter_matches_connection,
+    error_result,
+    not_executable_result,
+)
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.check_engine.scan_budget import BOUNDED_LOCAL_SCAN_REQUIRED, SCAN_BUDGET_EXCEEDED
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -107,7 +110,7 @@ class _ProjectBoundRunner:
             or source.type != "duckdb"
             or source.type != target.type
             or source.config != target.config
-            or not _aggregate_adapter_matches_connection(adapter, source)
+            or not adapter_matches_connection(adapter, source)
         ):
             return not_executable_result(
                 check,

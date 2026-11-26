@@ -64,7 +64,6 @@ from recon_core.check_engine import (
 )
 from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.aggregate import (
-    _aggregate_adapter_matches_connection,
     _aggregate_capability_blocker,
     _aggregate_capability_diagnostics,
     _aggregate_collaborator_blocker,
@@ -73,6 +72,7 @@ from recon_core.check_engine.aggregate import (
     is_supported_aggregate_plan_shape,
 )
 from recon_core.check_engine.engine import _AggregateExecutionContext, _ProjectExecutionContext
+from recon_core.check_engine.execution_support import adapter_matches_connection
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
@@ -366,7 +366,7 @@ def _prepare_runtime_execution_dependencies(
             )
             continue
         assert setup_result.adapter is not None
-        if verify_binding and not _aggregate_adapter_matches_connection(
+        if verify_binding and not adapter_matches_connection(
             setup_result.adapter, connection
         ):
             setup_diagnostics.append(

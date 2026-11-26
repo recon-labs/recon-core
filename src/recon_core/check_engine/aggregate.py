@@ -39,6 +39,7 @@ from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.dispatch import UNSUPPORTED_TYPED_OPERATION
 from recon_core.check_engine.execution_support import (
     ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
+    adapter_matches_connection,
     error_result,
     has_materialization_policy,
     has_reserved_value,
@@ -537,22 +538,6 @@ def _guard_integer(result: object, column: str) -> int:
     return result.row[0]
 
 
-def _aggregate_adapter_matches_connection(
-    adapter: BaseAdapter, connection: ConnectionConfig
-) -> bool:
-    """Check the actual adapter binding without exposing its private metadata."""
-    try:
-        actual = adapter.connection
-        return (
-            isinstance(actual, ConnectionConfig)
-            and safe_string_attribute(adapter, "adapter_type") == connection.type
-            and actual.name == connection.name
-            and same_connection_context(actual, connection)
-        )
-    except Exception:
-        return False
-
-
 def _aggregate_collaborator_blocker(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
@@ -598,7 +583,7 @@ def _execute_aggregate_check(
         or target_connection is None
         or source_connection.name != contract.source.connection
         or not same_connection_context(source_connection, target_connection)
-        or not _aggregate_adapter_matches_connection(adapter, source_connection)
+        or not adapter_matches_connection(adapter, source_connection)
     ):
         return _aggregate_connection_blocker(check, contract)
     scan_blocker = _aggregate_scan_blocker(check, contract, decision)
