@@ -80,11 +80,45 @@ def main(root, group):
     emit("COMPLETE",group=group,cases=len(results),all_expected=all(results))
     return all(results)
 
+
+def collation_isolation():
+    with tempfile.TemporaryDirectory(prefix="recon-collation-probe-") as d:
+        db=Path(d)/"collation.duckdb"
+        c=duckdb.connect(str(db),config={"threads":"1"})
+        try:
+            c.execute("create table src(k varchar collate nocase,v bigint); create table dst(k varchar collate nocase,v bigint); insert into src values ('a',5); insert into dst values ('A',4)")
+        finally:
+            c.close()
+        c=duckdb.connect(str(db),read_only=True)
+        try:
+            queries={
+              "native_literals_equal":"select 'a' collate nocase = 'A' collate nocase",
+              "native_literals_null_safe":"select 'a' collate nocase is not distinct from 'A' collate nocase",
+              "base_equal":"select s.k=t.k from src s cross join dst t",
+              "base_null_safe":"select s.k is not distinct from t.k from src s cross join dst t",
+              "grouped_equal":"with s as (select k,sum(v) v from src group by k),t as (select k,sum(v) v from dst group by k) select s.k=t.k from s cross join t",
+              "grouped_null_safe":"with s as (select k,sum(v) v from src group by k),t as (select k,sum(v) v from dst group by k) select s.k is not distinct from t.k from s cross join t",
+              "native_group_count":"select count(*) from (select k from (select k from src union all select k from dst) q group by k) q",
+              "native_full_join_equal":"select count(*) from src s full outer join dst t on s.k=t.k",
+              "native_full_join_null_safe":"select count(*) from src s full outer join dst t on s.k is not distinct from t.k",
+            }
+            for name,q in queries.items():
+                try: emit("COLLATION",name=name,result=c.execute(q).fetchmany(2))
+                except Exception as e: emit("COLLATION",name=name,error=type(e).__name__)
+        finally:
+            c.close()
+    emit("ROOT_CLEANUP",removed=not Path(d).exists())
+
 if __name__=="__main__":
+    if len(sys.argv)>1 and sys.argv[1]=="collation":
+        collation_isolation()
+        sys.exit(0)
     if len(sys.argv)>1:
         resource.setrlimit(resource.RLIMIT_FSIZE,(128*1024**2,128*1024**2))
         sys.exit(0 if main(sys.argv[1],sys.argv[2]) else 2)
     emit("ENV",version=duckdb.__version__,cpu=os.cpu_count())
+    subprocess.run([sys.executable,__file__,"collation"],check=True,timeout=30)
+    sys.exit(0)
     outcomes=[]
     for group in ("semantic","scale-small","scale-large"):
         with tempfile.TemporaryDirectory(prefix="recon-bound-probe-") as d:
