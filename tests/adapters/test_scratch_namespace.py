@@ -164,3 +164,66 @@ def test_darwin_acl_inspection_failure_is_uncertainty(
 
     monkeypatch.setattr(namespace, "_darwin_no_acl_grants_native", unavailable)
     assert not namespace._darwin_no_acl_grants(tmp_path, tmp_path.stat())
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows native file ACL proof")
+@pytest.mark.parametrize("name", ["owner", "root.lock"])
+def test_windows_broadened_root_file_refuses_reopen(tmp_path: Path, name: str) -> None:
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    file = root.ticket.path / name
+    original = file.read_bytes()
+    result = subprocess.run(
+        ["icacls", str(file), "/grant", "*S-1-1-0:R"],
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0
+    with pytest.raises(_NamespaceError):
+        _open_namespace(base, base)
+    assert file.read_bytes() == original
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows native file ACL proof")
+@pytest.mark.parametrize("name", ["owner", "parent.lock", "worker.lock", "spill/fixture.tmp"])
+def test_windows_broadened_session_file_is_retained(tmp_path: Path, name: str) -> None:
+    from recon_core.adapters._resource_scratch import _Recovery
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    parent = root.create_session()
+    ticket = parent.ticket
+    spill = ticket.path / "spill" / "fixture.tmp"
+    spill.write_bytes(b"synthetic")
+    parent.release()
+    result = subprocess.run(
+        ["icacls", str(ticket.path / name), "/grant", "*S-1-1-0:R"],
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert root.recover(ticket) is _Recovery.RETAINED
+    assert root.recover_abandoned().retained == 1
+    assert spill.read_bytes() == b"synthetic"
+    assert (ticket.path / "owner").is_file()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows opened file ACL proof")
+def test_windows_file_acl_checks_actual_open_handle(tmp_path: Path) -> None:
+    from recon_core.adapters._windows_scratch_security import (
+        _verify_private_file,
+        _WindowsScratchSecurityError,
+    )
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    first = root.ticket.path / "owner"
+    second = root.ticket.path / "root.lock"
+    with first.open("rb") as stream:
+        _verify_private_file(first, fd=stream.fileno())
+        with pytest.raises(_WindowsScratchSecurityError):
+            _verify_private_file(second, fd=stream.fileno())
