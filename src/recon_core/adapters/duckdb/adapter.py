@@ -13,6 +13,7 @@ from recon_core.adapters._aggregate_runtime import (
     _NumericDomain,
     _NumericValue,
 )
+from recon_core.adapters._project_binding import _InvalidAggregateResultError
 from recon_core.adapters.base import BaseAdapter
 from recon_core.adapters.capabilities import AdapterCapabilities, CapabilitySupport
 from recon_core.adapters.duckdb.renderer import DuckDbSqlRenderer as DuckDbSqlRenderer
@@ -164,10 +165,6 @@ def _read_query_result(connection: Any, query: str) -> QueryResult:
     columns = tuple(str(column[0]) for column in description)
     rows = tuple(tuple(row) for row in cursor.fetchall())
     return QueryResult(columns=columns, rows=rows, row_count=len(rows))
-
-
-class _InvalidAggregateResultError(ValueError):
-    """Private malformed numeric transport; never include raw query or values."""
 
 
 def _read_type_description(

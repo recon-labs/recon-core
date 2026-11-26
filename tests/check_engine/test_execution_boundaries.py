@@ -10,6 +10,7 @@ from recon_core.check_engine import prerequisites as prerequisites_module
 from recon_core.check_engine import result_metadata as result_metadata_module
 from recon_core.check_engine import runtime as runtime_module
 from recon_core.check_engine import scan_budget as scan_budget_module
+from recon_core.services import _bound_runner as bound_runner_module
 from recon_core.services import run as run_service_module
 
 
@@ -38,6 +39,7 @@ def test_check_engine_and_run_service_do_not_import_duckdb_runtime_modules() -> 
         Path(runtime_module.__file__),
         Path(scan_budget_module.__file__),
         Path(run_service_module.__file__),
+        Path(bound_runner_module.__file__),
     )
 
     for module_path in module_paths:

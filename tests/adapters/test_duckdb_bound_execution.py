@@ -404,9 +404,7 @@ def test_aggregate_describe_cannot_bypass_invalidated_binding(
     assert executed[-1] == "ROLLBACK"
 
 
-@pytest.mark.parametrize(
-    "rows", [None, [("invalid",)], [(1, None, "path")], [(1, "local", 123)]]
-)
+@pytest.mark.parametrize("rows", [None, [("invalid",)], [(1, None, "path")], [(1, "local", 123)]])
 def test_malformed_catalog_evidence_is_not_scope_refusal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rows: Any
 ) -> None:

@@ -8,6 +8,10 @@ from stat import S_ISREG
 from string import ascii_lowercase, ascii_uppercase
 from typing import Any
 
+from recon_core.adapters._project_binding import (
+    _LocalFileIdentity,
+    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
+)
 from recon_core.adapters.models import Relation
 from recon_core.adapters.runtime_safety import (
     RuntimeSafetyCheckRequest,
@@ -15,18 +19,8 @@ from recon_core.adapters.runtime_safety import (
 )
 from recon_core.profiles import ConnectionConfig
 
-_MAX_BOUNDED_LOCAL_DUCKDB_BYTES = 64 * 1024 * 1024
 _DUCKDB_LOCAL_SIDECAR_SUFFIXES = (".wal", ".tmp")
 _ASCII_IDENTIFIER_TRANSLATION = str.maketrans(ascii_uppercase, ascii_lowercase)
-
-
-@dataclass(frozen=True, slots=True)
-class _LocalFileIdentity:
-    path: Path
-    device: int
-    inode: int
-    size: int
-    modified_ns: int
 
 
 class _BindingMetadataError(ValueError):

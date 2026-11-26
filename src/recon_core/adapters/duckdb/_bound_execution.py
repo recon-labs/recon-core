@@ -1,17 +1,23 @@
 """Private owned read-only DuckDB transaction for project-run binding."""
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from importlib import import_module
 from typing import Any
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
+from recon_core.adapters._project_binding import (
+    _BindingLease,
+    _BindingScope,
+    _BoundSessionError,
+    _diagnostic,
+    _LocalFileIdentity,
+    _proof_error,
+)
 from recon_core.adapters.duckdb.adapter import _read_aggregate_result, _read_query_result
 from recon_core.adapters.duckdb.runtime_scan_guard import (
     _current_file_identity,
     _duckdb_relation_name,
     _local_duckdb_catalog_names,
-    _LocalFileIdentity,
     _resolve_local_base_table,
 )
 from recon_core.adapters.lifecycle import (
@@ -20,44 +26,7 @@ from recon_core.adapters.lifecycle import (
     ADAPTER_QUERY_FAILED,
 )
 from recon_core.adapters.models import QueryResult, Relation
-from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
-
-
-class _BoundSessionError(RuntimeError):
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.diagnostic = _diagnostic(code, message)
-
-
-def _diagnostic(code: str, message: str) -> Diagnostic:
-    return Diagnostic(
-        code=code,
-        severity=DiagnosticSeverity.ERROR,
-        message=message,
-        resource_type="adapter",
-        resource_name="duckdb",
-    )
-
-
-def _proof_error() -> _BoundSessionError:
-    return _BoundSessionError(
-        "RC_RUNTIME_BINDING_PROOF_FAILED", "Execution binding could not be verified."
-    )
-
-
-@dataclass(frozen=True, slots=True)
-class _BindingScope:
-    check_id: str = field(repr=False)
-    operation: str
-    source: Relation = field(repr=False)
-    target: Relation = field(repr=False)
-
-
-@dataclass(frozen=True, slots=True, eq=False)
-class _BindingLease:
-    """Identity-only proof owned by one single-use transaction."""
-
-    scope: _BindingScope = field(repr=False)
+from recon_core.diagnostics import Diagnostic
 
 
 class _VerifiedReadConnection:

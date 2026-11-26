@@ -5,18 +5,17 @@ from copy import deepcopy
 from pathlib import Path
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
-from recon_core.adapters.base import BaseAdapter
-from recon_core.adapters.duckdb._bound_execution import (
+from recon_core.adapters._project_binding import (
     _BindingLease,
     _BoundSessionError,
-    _OwnedDuckDbSession,
-)
-from recon_core.adapters.duckdb.adapter import _InvalidAggregateResultError
-from recon_core.adapters.duckdb.runtime_scan_guard import (
+    _InvalidAggregateResultError,
     _local_file_identity,
     _LocalFileIdentity,
     _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
+    _new_owned_session,
+    _OwnedSession,
 )
+from recon_core.adapters.base import BaseAdapter
 from recon_core.adapters.lifecycle import ADAPTER_QUERY_FAILED
 from recon_core.adapters.models import QueryResult
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
@@ -30,7 +29,7 @@ from recon_core.profiles import ConnectionConfig
 
 
 class _SessionReader:
-    def __init__(self, session: _OwnedDuckDbSession, lease: _BindingLease) -> None:
+    def __init__(self, session: _OwnedSession, lease: _BindingLease) -> None:
         self._session = session
         self._lease = lease
 
@@ -137,7 +136,7 @@ class _ProjectBoundRunner:
             )
         if contract.source.relation is None or contract.target.relation is None:
             return _scope_refusal(check, contract)
-        session = _OwnedDuckDbSession(identity)
+        session = _new_owned_session(source.type, identity)
         try:
             session.open()
             lease = session.bind(

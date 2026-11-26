@@ -16,17 +16,17 @@ from recon_core.adapters import (
     prepare_runtime_adapter,
 )
 from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
+from recon_core.adapters._project_binding import (
+    _local_file_identity,
+    _LocalFileIdentity,
+    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
+)
 from recon_core.adapters.capabilities import ADAPTER_CAPABILITY_UNSUPPORTED, AdapterCapabilities
 from recon_core.adapters.default_renderers import (
     _default_aggregate_runtime_renderers,
     default_runtime_renderers_by_adapter_type,
 )
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
-from recon_core.adapters.duckdb.runtime_scan_guard import (
-    _local_file_identity,
-    _LocalFileIdentity,
-    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
-)
 from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
 from recon_core.adapters.registry import (
     ADAPTER_API_VERSION_UNSUPPORTED,
@@ -64,6 +64,7 @@ from recon_core.check_engine import (
     RunStatus,
     is_supported_row_count_plan_shape,
 )
+from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.aggregate import (
     _aggregate_adapter_matches_connection,
     _aggregate_capability_blocker,
@@ -73,7 +74,6 @@ from recon_core.check_engine.aggregate import (
     is_aggregate_check_type,
     is_supported_aggregate_plan_shape,
 )
-from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.engine import _AggregateExecutionContext, _ProjectExecutionContext
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
