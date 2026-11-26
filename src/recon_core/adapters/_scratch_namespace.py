@@ -15,7 +15,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from recon_core.adapters._resource_scratch import _ScratchRoot
+from recon_core.adapters._resource_scratch import _RootExistsError, _ScratchRoot
 from recon_core.adapters._scratch_filesystem import (
     _FilesystemEvidence,
     _observe_posix_file_filesystem,
@@ -280,7 +280,12 @@ def _open_namespace(base: Path, project: Path) -> _ScratchRoot:
         try:
             path.lstat()
         except FileNotFoundError:
-            return _ScratchRoot.create(path, directory_policy=policy)
+            try:
+                return _ScratchRoot.create(path, directory_policy=policy)
+            except _RootExistsError:
+                # Another creator won exclusive mkdir. Reopen only a fully
+                # verified, published root; never repair a partial directory.
+                pass
         return _ScratchRoot.reopen(path, directory_policy=policy)
     except Exception:
         raise _NamespaceError() from None
