@@ -228,3 +228,76 @@ def test_windows_file_acl_checks_actual_open_handle(tmp_path: Path) -> None:
         _verify_private_file(first, fd=stream.fileno())
         with pytest.raises(_WindowsScratchSecurityError):
             _verify_private_file(second, fd=stream.fileno())
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows ancestor ACL proof")
+@pytest.mark.parametrize("ancestor", ["base", "parent"])
+def test_windows_unsafe_ancestor_refuses_namespace_creation(tmp_path: Path, ancestor: str) -> None:
+    parent = tmp_path.resolve() / "parent"
+    parent.mkdir()
+    base = parent / "base"
+    base.mkdir()
+    path = _namespace_path(base, base)
+    affected = base if ancestor == "base" else parent
+    subprocess.run(
+        ["icacls", str(affected), "/grant", "*S-1-1-0:(DC)"],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    with pytest.raises(_NamespaceError):
+        _open_namespace(base, base)
+    assert not path.exists()
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows ancestor ACL proof")
+@pytest.mark.parametrize("ancestor", ["base", "parent"])
+def test_windows_changed_ancestor_retains_existing_storage(tmp_path: Path, ancestor: str) -> None:
+    from recon_core.adapters._resource_scratch import _Recovery, _ScratchError
+
+    parent = tmp_path.resolve() / "parent"
+    parent.mkdir()
+    base = parent / "base"
+    base.mkdir()
+    root = _open_namespace(base, base)
+    session = root.create_session()
+    session.release()
+    fixture = session.ticket.path / "spill" / "fixture.tmp"
+    fixture.write_bytes(b"synthetic")
+    affected = base if ancestor == "base" else parent
+    subprocess.run(
+        ["icacls", str(affected), "/grant", "*S-1-1-0:(DC)"],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    with pytest.raises(_NamespaceError):
+        _open_namespace(base, base)
+    with pytest.raises(_ScratchError):
+        root.create_session()
+    assert root.recover(session.ticket) is _Recovery.RETAINED
+    summary = root.recover_abandoned()
+    assert not summary.complete and summary.removed == 0
+    assert fixture.read_bytes() == b"synthetic"
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows ancestor ACL proof")
+def test_windows_shared_read_and_add_directory_ancestor_remains_usable(tmp_path: Path) -> None:
+    from recon_core.adapters._resource_scratch import _Recovery
+
+    base = tmp_path.resolve() / "base"
+    base.mkdir()
+    subprocess.run(
+        ["icacls", str(base), "/grant", "*S-1-1-0:(RX,AD)"],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    root = _open_namespace(base, base)
+    session = root.create_session()
+    session.release()
+    assert _open_namespace(base, base).ticket == root.ticket
+    assert root.recover(session.ticket) is _Recovery.REMOVED
