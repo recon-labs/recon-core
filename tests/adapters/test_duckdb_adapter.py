@@ -25,7 +25,12 @@ def test_duckdb_optional_extra_is_declared() -> None:
     pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
 
     assert "duckdb" in pyproject["project"]["optional-dependencies"]
-    assert pyproject["project"]["optional-dependencies"]["duckdb"] == ["duckdb>=1.0"]
+    assert pyproject["project"]["optional-dependencies"]["duckdb"] == [
+        "duckdb>=1.0",
+        "psutil>=7.2.2",
+    ]
+    mandatory = pyproject["project"]["dependencies"]
+    assert not any(requirement.startswith(("duckdb", "psutil")) for requirement in mandatory)
 
 
 def test_duckdb_renderer_imports_remain_compatible() -> None:
