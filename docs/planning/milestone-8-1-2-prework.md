@@ -3,8 +3,7 @@
 ## Status and approval boundary
 
 Maintainer approved the detailed design and documentation integration on
-2026-11-26. Implementation remains separately approval-gated after integration
-and review of this prework. The design is not evidence of implemented behavior
+2026-11-26. Implementation separately approved and in progress; exit proof remains pending. The design is not evidence of implemented behavior
 or satisfied gates. M8.1.1 shared binding (PR #38) and targeted M7.4 grouped SQL
 correction (PR #39) are verified on main. Split Decision: Already Split /
 Follow Existing Split. M8.1.2 is mandatory before M8.2. The existing temporary
@@ -193,9 +192,30 @@ success and failure without changing status or exit category.
 
 ## Readiness verdict
 
-Design approved for documentation integration. Implementation authorization
-is still pending. The candidate reserve and thread algorithm, native
+Design approved for documentation integration. Implementation is authorized and in progress; exit approval is pending. The candidate reserve and thread algorithm, native
 observation/dependency choices, complete IPC/domain bounds, full scratch
 ownership and lifecycle proof must be verified during implementation and
 before exit. If a required mechanism cannot be safely implemented, stop for
 design correction and approval; do not narrow capability or mark gates done.
+
+## Mandatory platform compatibility acceptance (P1-P6)
+
+Apply the [Gate 4L platform subfamilies P1-P6](execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) in addition to every existing A/R/B obligation. This is an approved refinement of this phase, not a new runtime allowlist or a scope expansion.
+
+| Family | Required variants and expected behavior | Planned test ownership (existing or to implement) |
+| --- | --- | --- |
+| P1 / A2,A7,A10 | Unknown/new/older OS or compatible engine/dependency version with verified required controls; exact comparison succeeds, no version-label-only refusal or warning. | tests/services/test_run_service_resource_policy.py::test_untested_platform_with_verified_controls; native worker conformance |
+| P2 / A3,A6,A10 | Missing/changed/denied/malformed host, cgroup, job, CPU, filesystem or optional estimate API; keep independent trustworthy facts, unknown distinct from zero, continue with actionable advice if required protection independently proven. | tests/adapters/test_local_resource_observation.py; tests/adapters/test_portable_resource_observation.py; tests/services/test_run_service_resource_policy.py::test_partial_observation_advisory |
+| P3 / A4,A13 | Required control absent, ineffective readback, unsafe scope or missing proof; independently verified equivalent mechanism at the same scope or affected check refusal before data read; actual resource failure ERROR; preserve unrelated checks and L1. | tests/adapters/test_duckdb_resource_worker.py::test_native_control_application; tests/services/test_run_service_resource_policy.py::test_required_control_unavailable_or_verified_alternative |
+| P4 / A6,A8,A9 | Warning on successful or failing run explains missing dimension, consequence, decision and supported recovery; terminal/captured logs, bounded deduplication, sanitized diagnostics; no comparison/exit change from advisory alone. | tests/cli/test_main.py and tests/services/test_run_service_resource_policy.py::test_resource_advisory_terminal_and_privacy; M8.3 structured publication |
+| P5 / A10,A12 | Distinct older/current OS images per applicable family, actual version/build/architecture evidence, Python and native pins, constrained/capable and unsupported cases, actual native controls and lifecycle, synthetic future/API-change variants. | native observation/worker/scratch tests; persistent compatibility CI and exact run/job proof |
+| P6 / A12 | Persistent pinned and rolling matrix, periodic/on-demand/change/release checks, failure triage, supported regression capture, recorded coverage gaps and next gate. | CI workflow and compatibility matrix; branch-wide regression advisory and exact test nodes |
+
+These are planned node names where tests do not yet exist; replace with exact
+implemented nodes and native evidence, not invented passing tests. Existing
+portable observation unit tests alone do not satisfy P1-P6. Complete the
+persistent multi-version CI workflow and run it on the exact integration
+revision before exit. User-facing CLI/config/limitations documentation and
+changelog must describe actual supported alternatives, warnings, best-effort
+versus required protection, and tested versus untested versions. Do not
+advertise these features as available on main before implementation merges.
