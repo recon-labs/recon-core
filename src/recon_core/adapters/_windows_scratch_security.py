@@ -1,7 +1,7 @@
-"""Private Windows directory ACL provider.
+"""Private Windows scratch ACL provider.
 
 Use an explicit protected owner-only inheritable DACL at creation, then
-inspect the actual descriptor through an existing directory handle. This
+inspect the actual descriptor through an existing object handle. This
 is cooperative local-user privacy, not protection from privileged actors
 or a proof of filesystem locking semantics.
 """
@@ -18,7 +18,7 @@ from typing import Any
 
 class _WindowsScratchSecurityError(RuntimeError):
     def __init__(self) -> None:
-        super().__init__("Windows scratch directory privacy could not be verified.")
+        super().__init__("Windows scratch privacy could not be verified.")
 
 
 class _SecurityAttributes(ct.Structure):
@@ -167,7 +167,9 @@ def _create_private_directory(path: Path) -> None:
         raise _WindowsScratchSecurityError() from None
 
 
-def _verify_descriptor(security: Any, handle: Any, sid: ct.c_void_p, kernel: Any) -> None:
+def _verify_descriptor(
+    security: Any, handle: Any, sid: ct.c_void_p, kernel: Any, *, directory: bool
+) -> None:
     get_info = _api(
         security,
         "GetSecurityInfo",
@@ -217,7 +219,8 @@ def _verify_descriptor(security: Any, handle: Any, sid: ct.c_void_p, kernel: Any
             or not descriptor
             or not equal(owner, sid)
             or not control(descriptor, ct.byref(flags), ct.byref(revision))
-            or flags.value & 0x1004 != 0x1004
+            or not flags.value & 4  # SE_DACL_PRESENT
+            or (directory and not flags.value & 0x1000)  # SE_DACL_PROTECTED
             or not valid_acl(dacl)
             or not acl_info(dacl, ct.byref(size), ct.sizeof(size), 2)
             or size.count != 1
@@ -227,11 +230,13 @@ def _verify_descriptor(security: Any, handle: Any, sid: ct.c_void_p, kernel: Any
         if not get_ace(dacl, 0, ct.byref(raw)) or not raw.value:
             raise _WindowsScratchSecurityError()
         ace = _Ace.from_address(raw.value)
-        # ACCESS_ALLOWED_ACE with exactly OI|CI, not inherit-only, not
-        # conditional/object-specific, and FILE_ALL_ACCESS.
+        # The directory's exact protected grant is inheritable. For a
+        # regular file the effective owner grant may be inherited or explicit;
+        # inheritance flags for child objects have no place on this leaf.
+        allowed_flags = (3,) if directory else (0, 0x10)
         if (
             ace.kind != 0
-            or ace.flags != 3
+            or ace.flags not in allowed_flags
             or ace.mask != 0x001F01FF
             or ace.size < ct.sizeof(_Ace) + 8
             or ace.size > size.used
@@ -251,12 +256,22 @@ def _verify_descriptor(security: Any, handle: Any, sid: ct.c_void_p, kernel: Any
 
 def _verify_private_directory(path: Path) -> None:
     """Verify actual owner, protected DACL and inheritable grant."""
+    _verify_private_object(path, directory=True)
+
+
+def _verify_private_file(path: Path) -> None:
+    """Verify actual leaf owner and effective private file ACL."""
+    _verify_private_object(path, directory=False)
+
+
+def _verify_private_object(path: Path, *, directory: bool) -> None:
     try:
         before = path.lstat()
         if (
             not path.is_absolute()
             or path.resolve(strict=True) != path
-            or not stat.S_ISDIR(before.st_mode)
+            or not (stat.S_ISDIR(before.st_mode) if directory else stat.S_ISREG(before.st_mode))
+            or (not directory and before.st_nlink != 1)
             or getattr(before, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
         ):
             raise _WindowsScratchSecurityError()
@@ -281,11 +296,13 @@ def _verify_private_directory(path: Path) -> None:
             raise _WindowsScratchSecurityError()
         try:
             with _process_user(kernel, security) as (sid, _):
-                _verify_descriptor(security, handle, sid, kernel)
+                _verify_descriptor(security, handle, sid, kernel, directory=directory)
             after = path.lstat()
-            if (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino) or getattr(
-                after, "st_file_attributes", 0
-            ) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+            if (
+                (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
+                or getattr(after, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                or (not directory and after.st_nlink != 1)
+            ):
                 raise _WindowsScratchSecurityError()
         finally:
             close(handle)
