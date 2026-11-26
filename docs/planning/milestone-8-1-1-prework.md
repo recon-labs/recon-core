@@ -67,31 +67,74 @@ each native read -> evaluate bounded result -> rollback -> close -> finalize.
 On error invalidate lease, rollback if begun, close if opened, preserve
 primary and cleanup diagnostics, no retry/reuse.
 
-L1 (pending maintainer approval): current RunService opens connections
-before engine and aborts whole run on connect failure. Recommend new
-native open/begin/metadata/guard/query failures are check-local ERROR,
-executed=false, dependent checks blocked; unrelated eligible checks may
-continue when safe. Existing service-level profile/factory/capability
-configuration failures and aggregate capability blocker semantics remain.
-Run/CLI overall error precedence preserved. On cleanup failure, never
-publish unqualified PASS; proposed ERROR with no result values, retain
-primary outcome/diagnostics safely. Do not imply no SQL attempted from
-executed=false. If cleanup state uncertain, stop further work for affected
-context; unrelated context only when containment is proven, otherwise
-abort remaining work. Exact diagnostic and status mapping, including
-cleanup and dependency precedence, must be reviewed/approved. Alternative
-whole-run abort requires explicit orchestration mechanism, not a redundant
-pre-opening connection. Catalog-only safety refusal becomes check-level
-not_executable before data query; retain existing safe reason taxonomy.
-No coding before L1 and full compatibility/gate review.
+## L1 - approved failure isolation and cleanup semantics
+
+Maintainer approved check-local native failures on 2026-11-26. Preserve
+existing service-level configuration failures (profile/factory/legacy
+capability setup), aggregate check-level capability blocker, artifact,
+plan, placement, rendering and prerequisite precedence. No native open
+for checks that are blocked at dispatch or prerequisite stage. Other
+eligible checks continue after a native failure only if all acquired
+resources are confirmed released. Do not reuse sessions or retry a failed
+check. For this initial in-process implementation no independent
+containment is assumed when close is uncertain: latch a run-local native
+execution stop, do not open any further native session, retain structural
+and prerequisite blockers and previously finalized results. M8.2 can
+extend isolation only with proof. Never report whole-run success.
+
+All ERROR results below have executed=false, reason_code=None,
+blocked_by empty and no value/failure-count or output references. The flag
+means no trustworthy completed check result, not no SQL attempted.
+NOT_EXECUTABLE has an existing reason and zero data SQL for scope refusal.
+BLOCKED is reserved for actual prerequisite IDs; do not fabricate a
+prerequisite for cleanup quarantine. Run/contract aggregate precedence
+remains ERROR > FAIL > BLOCKED > NOT_EXECUTABLE > WARN > PASS > SKIPPED;
+ERROR maps to RUNTIME_ERROR. Preserve existing distinct safe run-local
+connection ordinals where required; no raw native exception, path,
+relation, key, value, SQL or profile content in new diagnostics.
+
+| Stage | Status/reason | Diagnostic code and fixed safe message |
+| --- | --- | --- |
+| Unsupported cross-context placement | not_executable / unsupported_execution_placement | RC_ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED (existing) |
+| Missing/outside/non-file/unapproved scope, sidecar, ambiguous/view/temp/external/catalog mismatch before lease | not_executable / bounded_local_scan_required | RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED: Check requires a verified local base-table execution scope. |
+| Key/SUM file exceeds legacy cap | not_executable / scan_budget_exceeded | RC_RUNTIME_SCAN_BUDGET_EXCEEDED: Check exceeds the temporary local file limit. |
+| Executing preflight requested | not_executable / unsafe_scan_preflight | RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT (existing); no scan |
+| Native open or BEGIN failure | error / none | RC_ADAPTER_CONNECTION_FAILED: Read-only execution session could not be opened or initialized. |
+| Required metadata operation raises or returns malformed evidence | error / none | RC_RUNTIME_BINDING_PROOF_FAILED: Execution binding could not be verified. |
+| Active lease wrong, ended, missing, drifted or invalidated | error / none | RC_RUNTIME_BINDING_PROOF_FAILED: Execution binding could not be verified. |
+| Native read or strict type-guard query raises | error / none | RC_ADAPTER_QUERY_FAILED (existing sanitized family message) |
+| Aggregate guard result not valid | error / none | RC_RUNTIME_AGGREGATE_RESULT_INVALID (existing) |
+| Invalid row/key/aggregate result envelope | error / none | Existing family result-invalid diagnostic |
+| ROLLBACK fails | error / none | RC_ADAPTER_CLOSE_FAILED: Read-only transaction cleanup failed. |
+| CLOSE fails | error / none | RC_ADAPTER_CLOSE_FAILED: Read-only execution session cleanup failed. |
+| Later eligible native work stopped by uncertain cleanup | error / none | RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE: Execution stopped because prior session cleanup could not be confirmed. |
+| Failed/errored/non-executable prerequisite | blocked / prerequisite_failed, prerequisite_error or prerequisite_not_executable | RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE (existing, actual IDs) |
+
+New diagnostic proposals are two Core-owned run codes above; use fixed
+actionable hints (verify local file and supported relation, close other
+writer if present, resolve cleanup before retrying) and error severity.
+Do not copy exception messages. If a trustworthy data FAIL was evaluated
+but cleanup fails, overall check becomes ERROR with no values, retain
+safe primary failure diagnostic or fixed safe outcome note (including
+row-count FAIL which may have no failure diagnostic), plus distinct
+rollback/close diagnostics. If primary ERROR or scope refusal preceded
+cleanup failure, retain its safe diagnostics and report ERROR.
+If ROLLBACK fails but CLOSE succeeds, session released; unrelated
+eligible checks may continue. If CLOSE is uncertain, stop subsequent
+native work as above. Close attempt after rollback failure is required;
+no claim of confirmed release from clearing a Python reference. A
+finally-based ownership path closes on exceptions; a failed close is
+reported, never hidden. On interrupted execution, preserve existing
+interrupt behavior and attempt cleanup; no confirmed cancellation or
+worker containment claim (M8.2). No new public result fields/statuses.
 
 ## Acceptance matrix and planned test nodes
 
 New tests/adapters/test_duckdb_bound_execution.py and
 tests/services/test_run_service_bound_execution.py. Names below are
-planned nodes, not claimed existing tests. Each variant requires exact
-expected status/reason/diagnostics, zero data SQL where blocked, native
-truth and cleanup assertions; expand before RED commit. Four existing
+planned nodes, not claimed existing tests. Use the expanded variant table below for exact outcomes, zero data SQL
+where blocked, native truth and cleanup assertions; bind actual test node
+IDs at RED/GREEN, not before tests exist. Four existing
 pins 1.0.0/1.3.2/1.4.5/2.0.1.
 
 | ID | Test and variants | Expected behavior |
@@ -105,7 +148,7 @@ pins 1.0.0/1.3.2/1.4.5/2.0.1.
 | J7 | test_snapshot_and_guard_sequence: row/key/scalar/grouped, stable, writer conflict, same-type replacement, injected mutation | Native consistent result or explicit error |
 | J8 | test_read_only_and_cleanup: success, open/begin/metadata/guard/query/rollback/close, primary plus cleanup | Approved L1 semantics; primary error retained; no leak/reuse |
 | J9 | test_mixed_checks_and_prerequisites: failed predecessor, connection failure, unrelated success, uncertain cleanup, alias | Approved L1 precedence; no dependent SQL |
-| J10 | test_bound_native_semantics: all seven existing check families; pass/fail, empty, null, composite, type mismatch, numeric boundaries | Current supported semantics, bounded transport, strict guards |
+| J10 | test_bound_native_semantics: all nine existing check types; pass/fail, empty, null, composite, type mismatch, numeric boundaries | Current supported semantics, bounded transport, strict guards |
 | J11 | test_scope_restrictions_and_public_contracts: view/outside/attached/external/memory/borrowed/helper/compile SQL | Explicit temporary blocks; no API/compile/artifact regressions |
 | J12 | test_sensitive_diagnostics_and_no_writes: config, path, catalog, SQL, native error, values, keys, stale outputs | Safe output; source and compiled artifacts unchanged |
 
@@ -154,8 +197,8 @@ ADRs 0021/0026/0022/0014/0009/0020 as applicable. Review matching capture
 routes and rows: view-external, WAL, relative path, identifier case, suffix,
 capability, metadata-open, bounded docs, native transport/domain/summary/
 renderer/lifecycle and privacy/check-engine/CLI. No status change on planning.
-Assignment-family orphan check complete; detailed variants, gate satisfaction
-and final public compatibility inventory pending.
+Assignment-family orphan check complete; expanded matrix and public
+compatibility disposition below. Gate implementation proof remains pending.
 
 Research: prior pinned feasibility runs 45789213714, 45790491531 and
 45798041091 justify dependency and native design, not actual Recon
@@ -168,8 +211,82 @@ transaction/cleanup, (2) RED/GREEN lease/qualified binding/admission,
 (3) RED/GREEN service integration and L1/prerequisites/all check families,
 (4) native semantic/privacy/public contract regression + docs/changelog,
 (5) full required CI, regression-capture decision, cumulative review,
-gate proof and exit approval. Expand exact variants and test references,
-finalize compatibility and L1 before code. Ruff format/lint, mypy, pytest,
+gate proof and exit approval. Review the expanded variants and test references below,
+finalize compatibility and design review before code. Ruff format/lint, mypy, pytest,
 pinned native suites, pre-commit and capture routing required. Prior local
 waivers for #34/#35 docs do not waive runtime validation. M7.4 correction
 blocked until verified M8.1.1 exit. No implementation approval.
+
+
+## Expanded acceptance variants (planned, not executed)
+
+Codes below refer to L1 or existing family-specific validation. Each
+failure variant asserts safe messages, no source values on non-executed
+results, no fallback/retry, and appropriate resource ownership counts.
+N = new native adapter test file; S = new RunService integration test file
+named above. Parameterized names are planned test IDs; all four pins must
+execute native coverage with RECON_REQUIRE_DUCKDB_TESTS=1, not skip it.
+
+| Family / planned node | Required independent variants and truth | Expected result / no-data proof |
+| --- | --- | --- |
+| J1 S::test_preflight_never_opens_session | invalid artifact, invalid typed shape, reserved placement/materialization, unsupported query, malformed relation, blocked rendering, unresolved tolerance, missing prerequisite, unsupported capability | existing family-specific error/not_executable/blocked or service configuration error; zero owned open, no data SQL; for each compare to existing baseline node |
+| J2 N/S::test_file_scope_admission | local relative, local absolute, arbitrary suffix, same canonical symlink inside root | admit; same actual canonical file and identity; no created file; 1 RO open/BEGIN/ROLLBACK/CLOSE |
+| J2 N/S::test_file_scope_admission | missing, directory, nonregular, outside, symlink escape, retained WAL/tmp, inaccessible stat | scope refusal, bounded_local_scan_required; no data SQL; early path checks before factory/open where possible; no new DB |
+| J3 N/S::test_legacy_footprint_policy | size cap-1, cap, cap+1 (unit policy evidence); native representative below and above cap using bounded fixture | key/SUM allowed at/below, scan_budget_exceeded above; row count still admitted all sizes if scope proven; no physical scan-bound claim |
+| J4 N/S::test_qualified_relation_binding | src, main.src, actual_catalog.main.src, explicit other.src, ASCII case variant, embedded quote, distinct non-ASCII tables | exact expected table by independent count/data truth, qualified identifiers; preserve existing parsing; no wrong-table match |
+| J4 N/S::test_qualified_relation_binding | unqualified duplicates across schemas, wrong explicit catalog/schema, missing, ordinary and external-backed view, temp/attached | bounded_local_scan_required; no data SQL, no automatic attach/extension load |
+| J5 S::test_actual_session_and_aliases | one profile name, two identical normalized config names, wrong factory config/name/type, different contexts | one fresh native RO connection per eligible check; wrong factory metadata existing config rejection, different context unsupported placement; no data on block |
+| J5 N/S::test_actual_session_and_aliases | preexisting same-file RW connection, RO/RO coexistence, close then retry in independent invocation | RW conflict ERROR connection code, no fallback; allowed RO reads; fresh later invocation works |
+| J6 N/S::test_lease_invalidation | mismatched check, operation, source/target, session token, ended transaction, replayed lease, file replacement/size/mtime drift, sidecar appears after admission | ERROR binding proof code; no subsequent native read (including hidden DESCRIBE); earlier attempted query not concealed |
+| J7 N/S::test_snapshot_and_guard_sequence | row count, each key type, scalar and grouped sum; one native connection, actual guard SQL order, scope metadata read in transaction, final SQL qualified; stable input | exact native truth; one transaction, no mutation/intervening caller SQL, no stale proof |
+| J7 N/S::test_snapshot_and_guard_sequence | conflicting writer/attempted temp shadow/DDL/replace via test seam, invalidated session between aggregate guards and final | native lock rejection, verified original snapshot, or explicit error before next data read; never wrong-table/false pass. Prior two-RW snapshot experiment not proof of RO/RW coexistence |
+| J8 N/S::test_read_only_and_cleanup | normal pass/fail, open fails, BEGIN fails, metadata raises, guard raises, query raises, malformed result | exact L1 code/shape; rollback iff begun, close iff acquired; no publish before cleanup |
+| J8 N/S::test_read_only_and_cleanup | rollback raises and close succeeds; close raises; rollback+close raise; primary error/fail plus each cleanup variant | ERROR no values; distinct cleanup and safe primary diagnostics; no repeat use; release only when close success |
+| J9 S::test_mixed_checks_and_prerequisites | first check open/query error, dependent blocked, unrelated check same file and different file (cleanup confirmed) | ERROR, prerequisite_error, unrelated native pass/fail, run runtime error; no dependent data |
+| J9 S::test_mixed_checks_and_prerequisites | first check close uncertain, independent and aliased remaining checks, dependent, malformed plan | first ERROR; later eligible native ERROR context unavailable without open; actual dependents BLOCKED, structural blockers unchanged; no continuation of native work |
+| J10 S::test_bound_native_semantics | row_count_diff; null_source_keys/null_target_keys; duplicate_source_keys/duplicate_target_keys; missing_keys/extra_keys; sum_diff/grouped_aggregate_diff; matching and differing truth, empty, null and composite, exact domains, tolerance boundary/nonfinite as existing | baseline status/reason/value semantics where allowed; strict physical mismatches remain prior error; all nine types, preserve existing full native numeric suite |
+| J11 S::test_scope_restrictions_and_public_contracts | previously executable ordinary row-count view/outside-root file/large local base table; attached/external/in-memory/borrowed; direct prepared low-level helper and unchanged compile SQL | first two now explicitly not_executable; large local row count not capped; unsupported contexts not newly admitted; legacy helper/API/compiled artifacts unchanged |
+| J12 N/S::test_sensitive_diagnostics_and_no_writes | injected path/catalog/profile/SQL/key/value/error sentinels, same/different failed connections, stale generated outputs, actual source DB bytes | sanitized code/message/hint/context, distinct safe ordinals, immutable source/compiled artifacts and no new outputs |
+
+Resource proof does not assume a test spy is production admission.
+Keep old native tests for full numeric boundary matrix and exact SQL
+renderer snapshots. Explicitly test every native read call site,
+including metadata fallback in _read_aggregate_result's DESCRIBE
+path. Use bounded metadata retrieval (at most two matches to reject
+ambiguity), never fetch table rows to prove scope.
+
+## Compatibility and regression carryover disposition
+
+Reviewed public-contract-inventory.md, adapter-api.md, compatibility-matrix.md,
+current CheckResult/CheckReason constraints, prerequisites and service exit
+mapping. Preserve BaseAdapter, SqlRenderer, Relation, QueryResult, exported
+prepared-helper and CheckExecutionContext/CheckEngine signatures,
+ADAPTER_API_VERSION=1, compiled schema and SQL, check status/reason enums,
+native type/transport contract and CLI categories. Intentional behavioral
+changes: row-count scope restriction; native open/cleanup failure timing
+and isolation; catalog refusal after metadata-only open rather than before
+factory; explicit legacy cap diagnostic; two additive safe runtime
+diagnostics. No version bump or new user config. Update actual capability,
+CLI, errors, testing and changelog/known-limitations docs only with
+verified implementation. No production claims. M10.8/M13.5/M18/M29 own S
+delivery; M9.5 owns T expansion; M8.1.2 owns resource defaults.
+
+| Capture rows (existing stable IDs) | Assigned proof |
+| --- | --- |
+| hidden-bounded-local-fixture-marker-removed; duckdb-view-external-scan-guard; duckdb-wal-sidecar-scan-guard; key-safety-duckdb-relative-path-project-root; key-safety-duckdb-identifier-case-metadata; key-safety-duckdb-local-database-filename-suffix; bounded-scan-docs-no-user-provided-classification | J2/J3/J4/J11, retain non-executing safety |
+| key-safety-adapter-capability-preflight; key-safety-duckdb-metadata-open-failure-adapter-diagnostic; aggregate-native-service-lifecycle | J1/J5/J8/J9, stage change explicitly approved |
+| duckdb-private-bounded-aggregate-transport; duckdb-private-typed-numeric-transport; duckdb-private-aggregate-native-domain-guards; duckdb-private-bounded-grouped-summary; duckdb-private-aggregate-renderer-separation | J6/J7/J10/J11, grouped optimization remains separate |
+| python-package-import-surface-guard | J11 |
+| key-safety-shape-blocker-precedence; duplicate-key-excludes-null-containing-tuples; key-safety-empty-grain-keys-shape-blocker; key-safety-invalid-relation-diagnostic-precedence; key-safety-prerequisites-block-dependent-checks | J1/J9/J10 |
+| aggregate-admission-typed-plan-boundary; aggregate-admission-tolerance-policy; aggregate-admission-endpoint-precedence; aggregate-runtime-scan-preflight; aggregate-runtime-private-routing; aggregate-runtime-capability-isolation | J1/J3/J5/J6/J7/J9 |
+| aggregate-core-numeric-comparison; aggregate-core-grouped-summary; aggregate-native-service-numeric-semantics; aggregate-native-service-group-presence | J7/J10 |
+| aggregate-core-result-privacy; aggregate-service-output-privacy; yaml-diagnostic-redaction; yaml-profile-and-source-privacy | J8/J11/J12; retain original parse/compile fixtures |
+| compiled-artifact-yaml-loader-diagnostics; compile-command-terminal-contract | J1/J11/J12; no writer or compile command changes |
+
+All listed capture statuses unchanged. Review actual diff against routing
+at each RED/GREEN and exit, including new service tests (explicit route if
+not matched), record covered/migrated/deferred only under gate policy with
+actual exact nodes. Existing primary-owner M8 carryovers for publication,
+privacy and CLI remain assigned to M8.2/M8.3 where not touched. No orphaned
+requirement at this prework assignment level. Final design integrity review
+and separate implementation approval required before coding.
