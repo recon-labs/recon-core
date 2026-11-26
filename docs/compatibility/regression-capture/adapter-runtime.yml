@@ -787,6 +787,7 @@ captures:
     current_tests:
       - tests/adapters/test_windows_scratch_security.py::test_native_private_directory_creation
       - tests/adapters/test_windows_scratch_security.py::test_native_acl_broadening_is_rejected
+      - tests/adapters/test_windows_scratch_security.py::test_native_impersonation_cannot_authorize_process_namespace
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -798,6 +799,8 @@ captures:
       Create with a protected inheritable owner grant, then verify the actual
       owner and DACL through a directory handle. Mode bits and inherited
       defaults alone do not prove Windows privacy.
+      Process identity does not authorize an impersonating thread; retain
+      uncertainty until an equivalent worker security context is proven.
 
   - id: scratch-filesystem-scope-evidence
     title: Scratch filesystem evidence follows the opened directory mount
