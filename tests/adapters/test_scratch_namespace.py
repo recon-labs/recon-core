@@ -441,5 +441,7 @@ def test_linux_same_device_file_bind_mount_retains_storage(tmp_path: Path) -> No
         assert root.recover_abandoned().retained == 1
         assert leaf.read_bytes() == b"synthetic"
     finally:
-        subprocess.run(["sudo", "-n", "umount", str(leaf)], capture_output=True, timeout=15, check=True)
+        subprocess.run(
+            ["sudo", "-n", "umount", str(leaf)], capture_output=True, timeout=15, check=True
+        )
     assert root.recover(session.ticket) is _Recovery.REMOVED
