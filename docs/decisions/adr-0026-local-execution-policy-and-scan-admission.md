@@ -160,3 +160,48 @@ prework for exact readiness and conformance requirements.
 Apply [Gate 4Q execution scope restoration assignments](../planning/execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
 Reopened binding direction: fresh owned read-only per check, per-check transaction, verified exact relation identity, no writable fallback. Uniform protected local base-table scope approved; keep legacy 64 MiB key/SUM guard only, do not add it to row count. Resource policy/defaults remain reopened. Exact private integration, diagnostic, path/identity and acceptance proof require separate detailed approval.
+
+## M8.1.1 proposed binding lifecycle amendment
+
+See [M8.1.1 prework](../planning/milestone-8-1-1-prework.md). Maintainer approved L1 check-local native
+failure isolation; configuration/setup precedence retained. Cleanup
+uncertainty stops further native work without proven isolation. Final
+check ERROR carries no comparison values; dependent checks use actual
+prerequisite blockers. Existing status/reason/exit taxonomy and public
+API signatures remain unchanged. Two proposed additive Core runtime
+diagnostics: RC_RUNTIME_BINDING_PROOF_FAILED and
+RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE. Existing connection/query/close
+codes retain safe messages. This is pending design review/implementation,
+not current runtime behavior or new public stable capability. Resource
+settings and defaults remain reopened.
+
+## Mandatory M8.1.2 resource policy handoff
+
+M8.1.2 is the mandatory implementation owner of the reopened resource/default
+design, not an optional later optimization. Execution order: M8.1.1
+binding preflight (what will actually run) -> verified targeted M7.4
+grouped SQL correction -> M8.1.2 resource preflight/admission (whether
+the bound workload may run under effective policy) -> M8.2. M8.1 cannot
+exit until both children and the correction are verified. M8.1.1 retains
+the legacy 64 MiB key/SUM-only guard temporarily; neither it nor earlier
+40/20 MiB proposals or experimental control values are approved defaults.
+No footprint-derived universal workload ceiling, arbitrary replacement
+threshold, or blanket rejection solely because an advisory estimate is
+unknown. Scope proof and proven enforceable safeguards remain mandatory;
+unknown required safety evidence fails closed. Reassess admission by
+operation and actual available RAM/CPU/container/disk/headroom, explicit
+user limits, engine-specific control guarantees and workload evidence.
+Prove useful zero-config behavior for representative capable and constrained
+machines, larger safe files/workloads and small expensive workloads, across
+the pinned versions; avoid unnecessary restrictions without weakening safety.
+Distinguish estimates/advisories, physical footprint, actual resource use,
+bounded transport and engine/process controls. No executing production
+preflight, silent sampling or fallback. Resolve R1-R10 and A1-A13, including
+calibrated defaults, override precedence, unknown/unsupported cases,
+native-control limits and earlier required cancellation/containment.
+Use corrected actual Recon SQL and previous private research/CI evidence;
+do not infer defaults from earlier experiments. If M8.2 protections are
+required for admission, explicitly pull them forward with approved split
+changes. Exact settings, thresholds, controls and detailed M8.1.2 prework
+remain open; separate design approval, implementation and native exit proof
+required.
