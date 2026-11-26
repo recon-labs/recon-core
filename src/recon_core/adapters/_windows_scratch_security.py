@@ -188,11 +188,27 @@ def _ancestor_trusted_principal(security: Any, principal: ct.c_void_p, user: ct.
     valid = _api(security, "IsValidSid", wt.BOOL, ct.c_void_p)
     equal = _api(security, "EqualSid", wt.BOOL, ct.c_void_p, ct.c_void_p)
     well_known = _api(security, "IsWellKnownSid", wt.BOOL, ct.c_void_p, ct.c_int)
-    return bool(
-        principal
-        and valid(principal)
-        and (equal(principal, user) or well_known(principal, 22) or well_known(principal, 26))
-    )
+    if not principal or not valid(principal):
+        return False
+    if equal(principal, user) or well_known(principal, 22) or well_known(principal, 26):
+        return True
+    # Microsoft's fixed Windows Modules Installer service SID. This is an
+    # OS-defined security identity, not a machine-specific account name.
+    # The privileged servicing boundary applies to ancestors only.
+    # See Microsoft Learn: Access Control: Understanding Windows File And
+    # Registry Permissions (2008).
+    kernel, _ = _libraries()
+    convert = _api(security, "ConvertStringSidToSidW", wt.BOOL, wt.LPCWSTR, ct.POINTER(ct.c_void_p))
+    free = _api(kernel, "LocalFree", ct.c_void_p, ct.c_void_p)
+    installer = ct.c_void_p()
+    if not convert(
+        "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464", ct.byref(installer)
+    ):
+        raise _WindowsScratchSecurityError()
+    try:
+        return bool(equal(principal, installer))
+    finally:
+        free(installer)
 
 
 def _verify_descriptor(
