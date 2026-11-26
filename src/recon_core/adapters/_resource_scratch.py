@@ -75,9 +75,7 @@ def _identity(info: os.stat_result) -> _Identity:
     return _Identity(info.st_dev, info.st_ino)
 
 
-def _object_identity(
-    path: Path, info: os.stat_result, *, fd: int | None = None
-) -> _Identity:
+def _object_identity(path: Path, info: os.stat_result, *, fd: int | None = None) -> _Identity:
     """Use full native Windows identity; preserve POSIX device/inode identity."""
     baseline = _identity(info)
     if fd is not None and _identity(os.fstat(fd)) != baseline:
