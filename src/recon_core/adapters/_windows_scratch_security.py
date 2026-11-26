@@ -271,6 +271,92 @@ def _verify_descriptor(
             local_free(descriptor)
 
 
+class _FileIdInfo(ct.Structure):
+    _fields_ = [("volume", ct.c_uint64), ("identifier", ct.c_ubyte * 16)]
+
+
+class _FileStandardInfo(ct.Structure):
+    _fields_ = [
+        ("allocation", ct.c_int64),
+        ("size", ct.c_int64),
+        ("links", wt.DWORD),
+        ("delete_pending", ct.c_ubyte),
+        ("directory", ct.c_ubyte),
+    ]
+
+
+class _FileAttributeTagInfo(ct.Structure):
+    _fields_ = [("attributes", wt.DWORD), ("tag", wt.DWORD)]
+
+
+def _native_object_identity(kernel: Any, handle: Any, *, directory: bool) -> tuple[int, bytes]:
+    """Read native identity and object shape, not a translated path or stat ID."""
+    query = _api(
+        kernel,
+        "GetFileInformationByHandleEx",
+        wt.BOOL,
+        wt.HANDLE,
+        ct.c_int,
+        ct.c_void_p,
+        wt.DWORD,
+    )
+    identity = _FileIdInfo()
+    standard = _FileStandardInfo()
+    attributes = _FileAttributeTagInfo()
+    if (
+        not query(handle, 18, ct.byref(identity), ct.sizeof(identity))
+        or not query(handle, 1, ct.byref(standard), ct.sizeof(standard))
+        or not query(handle, 9, ct.byref(attributes), ct.sizeof(attributes))
+        or not any(identity.identifier)
+        or bool(standard.directory) != directory
+        or standard.delete_pending
+        or (not directory and standard.links != 1)
+        or attributes.attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    ):
+        raise _WindowsScratchSecurityError()
+    return identity.volume, bytes(identity.identifier)
+
+
+@contextmanager
+def _open_security_handle(kernel: Any, path: Path) -> Iterator[Any]:
+    open_file = _api(
+        kernel,
+        "CreateFileW",
+        wt.HANDLE,
+        wt.LPCWSTR,
+        wt.DWORD,
+        wt.DWORD,
+        ct.c_void_p,
+        wt.DWORD,
+        wt.DWORD,
+        wt.HANDLE,
+    )
+    close = _api(kernel, "CloseHandle", wt.BOOL, wt.HANDLE)
+    # READ_CONTROL | FILE_READ_ATTRIBUTES, share read/write (not delete),
+    # OPEN_EXISTING, BACKUP_SEMANTICS | OPEN_REPARSE_POINT.
+    handle = open_file(str(path), 0x20080, 3, None, 3, 0x02200000, None)
+    if handle in (None, ct.c_void_p(-1).value):
+        raise _WindowsScratchSecurityError()
+    try:
+        yield handle
+    finally:
+        close(handle)
+
+
+def _confirm_native_identity(
+    kernel: Any, path: Path, handle: Any, *, directory: bool
+) -> None:
+    identity = _native_object_identity(kernel, handle, directory=directory)
+    # Independently reopen while the inspected object remains held. The native
+    # volume and full file ID must agree, even if path stat observations agree.
+    with _open_security_handle(kernel, path) as named:
+        if (
+            _native_object_identity(kernel, named, directory=directory) != identity
+            or _native_object_identity(kernel, handle, directory=directory) != identity
+        ):
+            raise _WindowsScratchSecurityError()
+
+
 def _verify_private_directory(path: Path) -> None:
     """Verify actual owner, protected DACL and inheritable grant."""
     _verify_private_object(path, directory=True)
@@ -306,8 +392,10 @@ def _verify_private_file(path: Path, *, fd: int | None = None) -> None:
             raise _WindowsScratchSecurityError()
         kernel, security = _libraries()
         handle = import_module("msvcrt").get_osfhandle(fd)
+        _confirm_native_identity(kernel, path, handle, directory=False)
         with _process_user(kernel, security) as (sid, _):
             _verify_descriptor(security, handle, sid, kernel, directory=False)
+        _confirm_native_identity(kernel, path, handle, directory=False)
         if not matches(os.fstat(fd)) or not matches(path.lstat()):
             raise _WindowsScratchSecurityError()
     except Exception:
@@ -326,27 +414,11 @@ def _verify_private_object(path: Path, *, directory: bool) -> None:
         ):
             raise _WindowsScratchSecurityError()
         kernel, security = _libraries()
-        open_file = _api(
-            kernel,
-            "CreateFileW",
-            wt.HANDLE,
-            wt.LPCWSTR,
-            wt.DWORD,
-            wt.DWORD,
-            ct.c_void_p,
-            wt.DWORD,
-            wt.DWORD,
-            wt.HANDLE,
-        )
-        close = _api(kernel, "CloseHandle", wt.BOOL, wt.HANDLE)
-        # READ_CONTROL, share read/write (not delete), OPEN_EXISTING,
-        # BACKUP_SEMANTICS | OPEN_REPARSE_POINT.
-        handle = open_file(str(path), 0x20000, 3, None, 3, 0x02200000, None)
-        if handle in (None, ct.c_void_p(-1).value):
-            raise _WindowsScratchSecurityError()
-        try:
+        with _open_security_handle(kernel, path) as handle:
+            _confirm_native_identity(kernel, path, handle, directory=directory)
             with _process_user(kernel, security) as (sid, _):
                 _verify_descriptor(security, handle, sid, kernel, directory=directory)
+            _confirm_native_identity(kernel, path, handle, directory=directory)
             after = path.lstat()
             if (
                 (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
@@ -354,7 +426,5 @@ def _verify_private_object(path: Path, *, directory: bool) -> None:
                 or (not directory and after.st_nlink != 1)
             ):
                 raise _WindowsScratchSecurityError()
-        finally:
-            close(handle)
     except Exception:
         raise _WindowsScratchSecurityError() from None
