@@ -2,6 +2,9 @@
 
 import importlib
 import os
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -233,3 +236,65 @@ def test_malformed_native_setting_shape_is_not_a_recommendation(rows: object) ->
     result = _read_native_recommendations(native)
     assert result.memory_bytes is None
     assert result.threads is None
+
+
+@pytest.mark.regression_capture("duckdb-native-spill-setting-effect")
+def test_native_spill_setting_effect_not_readback(tmp_path: Path, duckdb: Any) -> None:
+    """Known spilling synthetic workload must hit the applied managed cap."""
+
+    database = tmp_path / "spill-fixture.duckdb"
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    setup = duckdb.connect(
+        str(database), config={"threads": "2", "memory_limit": "768MiB"}
+    )
+    try:
+        wide = "||".join(f"md5((i+{j * 1000000})::varchar)" for j in range(6))
+        setup.execute(
+            f"CREATE TABLE fixture AS SELECT i::varchar||':'||{wide} k, "
+            "1::bigint v FROM range(1000000) t(i)"
+        )
+    finally:
+        setup.close()
+    code = textwrap.dedent(
+        """
+        import sys
+        from pathlib import Path
+        import duckdb
+        from recon_core.adapters.duckdb._native_resource_controls import (
+            _NativeControlRequest, _native_startup_config, _apply_native_controls
+        )
+
+        request = _NativeControlRequest(128 << 20, 1, 1 << 20, Path(sys.argv[2]))
+        native = duckdb.connect(
+            sys.argv[1], read_only=True, config=_native_startup_config(request)
+        )
+        try:
+            actual = _apply_native_controls(native, request)
+            assert actual.spill.contains(1 << 20)
+            try:
+                native.execute(
+                    "SELECT count(*), sum(s) FROM "
+                    "(SELECT k,sum(v) s FROM fixture GROUP BY k)"
+                ).fetchone()
+            except duckdb.OutOfMemoryException as error:
+                # Inspect only synthetic native test error text; never publish it.
+                message = str(error).lower()
+                assert ("temp" in message or "spill" in message) and (
+                    "limit" in message or "maximum" in message
+                ), "Native error did not establish the managed spill limit"
+            else:
+                raise AssertionError("Known spilling workload bypassed the managed limit")
+        finally:
+            native.close()
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(database), str(scratch)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, "Native spill control effect was not established."
+    assert not any(path.is_file() for path in scratch.rglob("*"))
