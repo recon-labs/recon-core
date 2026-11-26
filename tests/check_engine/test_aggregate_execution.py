@@ -1105,3 +1105,43 @@ def test_missing_bound_grouped_renderer_refuses_before_runner(tmp_path: Path, in
     assert result.diagnostics[-1].code == "RC_ADAPTER_RENDERER_METADATA_INVALID"
     assert not result.executed
     assert adapter.calls == []
+
+@pytest.mark.parametrize("bad", ["key_guard", "input_guard", "domain", "plan"])
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_invalid_proof_prevents_final_query(tmp_path: Path, bad: str) -> None:
+    plan = _routing_plan(True)
+    connection = ConnectionConfig(name="warehouse", type="duckdb")
+    adapter = _RoutingAdapter(connection, [])
+    results = _routing_results(True, _I)
+    guard_index = {"key_guard": 0, "input_guard": 1, "domain": 2}
+    if bad != "plan":
+        index = guard_index[bad]
+        results[index] = _AggregateQueryResult(
+            ("numeric_domain" if bad == "domain" else "type_check",), (_I,), (0,)
+        )
+    reader = _RoutingAdapter(connection, results)
+
+    class Renderer(_RoutingRenderer):
+        def render_plan(self, *args: object, **kwargs: object) -> object:
+            pytest.fail("No strict renderer fallback.")
+
+        def render_bound_grouped_plan(self, *args: object, **kwargs: object) -> object:
+            return replace(plan, type_guards=()) if bad == "plan" else plan
+
+    class Runner:
+        def run(
+            self, check: object, contract: object, prepared: object, evaluate: object
+        ) -> CheckResult:
+            return evaluate(Relation(identifier="s"), Relation(identifier="t"), reader)
+
+    result = _route(tmp_path, True, adapter, Renderer(plan), bound_runner=Runner())
+    assert result.status is CheckStatus.ERROR
+    assert not result.executed
+    assert result.diagnostics[-1].code == (
+        "RC_ADAPTER_RENDERER_METADATA_INVALID"
+        if bad == "plan"
+        else "RC_RUNTIME_AGGREGATE_RESULT_INVALID"
+    )
+    assert len(reader.calls) == (0 if bad == "plan" else guard_index[bad] + 1)
+    assert adapter.calls == []
+    assert all("result" not in query for query, _ in reader.calls)

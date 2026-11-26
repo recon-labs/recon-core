@@ -626,3 +626,55 @@ def test_bound_grouped_renderer_requires_qualified_grouped_operations(grouped: b
     )
     with pytest.raises(ValueError, match="Bound grouped rendering requires"):
         renderer.render_bound_grouped_plan(_operations(("k",) if grouped else ()), **relations)
+
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_arbitrary_integer_differential(tmp_path: Path, duckdb: Any) -> None:
+    version = tuple(int(part) for part in duckdb.__version__.split(".")[:2])
+    if version < (1, 4):
+        connection = duckdb.connect()
+        try:
+            if version < (1, 3):
+                with pytest.raises(duckdb.Error):
+                    connection.execute("select 1::VARINT")
+            else:
+                assert connection.execute("select typeof(1::VARINT)").fetchone() == ("VARINT",)
+        finally:
+            connection.close()
+        return
+    digits = "1" + "0" * 5000 + "1"
+    ddl = (
+        f"create table src as select 1 k,cast('{digits}' as BIGNUM) v;"
+        "create table dst as select 1 k,0::BIGNUM v;"
+    )
+    strict, bound = _bound_grouped_results(tmp_path, duckdb, ddl, ("k",))
+    assert strict == bound
+    expected = int(Decimal(digits))
+    assert bound.row == (1, 0, 0, 0, 0, 1, 0, expected, expected)
+
+
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_wide_skewed_composite_regression(tmp_path: Path, duckdb: Any) -> None:
+    # Common group 1 has asymmetric row counts but equal added sums.
+    key = "repeat('wide',32) || i::varchar"
+    ddl = (
+        f"create table src as select {key} k,i%17 j,5::double v from range(1000) q(i);"
+        f"create table dst as select {key} k,i%17 j,4::double v from range(1,1001) q(i);"
+        "insert into src select repeat('wide',32)||'1',1,2::double from range(100);"
+        "insert into dst select repeat('wide',32)||'1',1,4::double from range(50);"
+    )
+    strict, bound = _bound_grouped_results(tmp_path, duckdb, ddl, ("k", "j"))
+    assert strict == bound
+    assert bound.row == (1001, 1, 1, 0, 0, 999, 0, 1.0, 1.0)
+
+
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_invalid_numeric_precedence(tmp_path: Path, duckdb: Any) -> None:
+    ddl = (
+        "create table src as select * from (values (1,'NaN'::double),"
+        "(2,'Infinity'::double),(3,1e308::double),(4,4::double)) q(k,v);"
+        "create table dst as select * from (values (2,NULL::double),"
+        "(3,-1e308::double),(4,1::double)) q(k,v);"
+    )
+    strict, bound = _bound_grouped_results(tmp_path, duckdb, ddl, ("k",))
+    assert strict == bound
+    assert bound.row == (4, 0, 0, 0, 0, 1, 3, 3.0, 3.0)
