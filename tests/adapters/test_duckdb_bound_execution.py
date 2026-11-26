@@ -746,7 +746,9 @@ def test_bound_count_reader_preserves_exact_count_and_diff() -> None:
 
 
 @pytest.mark.regression_capture("duckdb-controlled-owned-session")
-def test_owned_controls_precede_transaction_and_cleanup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_owned_controls_precede_transaction_and_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
 
     path = tmp_path / "fixture.db"
@@ -798,7 +800,9 @@ def test_owned_controls_precede_transaction_and_cleanup(tmp_path: Path, monkeypa
 
 
 @pytest.mark.regression_capture("duckdb-controlled-owned-session")
-def test_unverified_required_setting_prevents_transaction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unverified_required_setting_prevents_transaction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
 
     path = tmp_path / "fixture.db"
@@ -821,7 +825,9 @@ def test_unverified_required_setting_prevents_transaction(tmp_path: Path, monkey
             calls.append("close")
 
     monkeypatch.setattr(
-        binding, "import_module", lambda name: SimpleNamespace(connect=lambda *a, **kw: Connection())
+        binding,
+        "import_module",
+        lambda name: SimpleNamespace(connect=lambda *a, **kw: Connection()),
     )
     session = binding._OwnedDuckDbSession(identity, native_controls=request)
     try:
