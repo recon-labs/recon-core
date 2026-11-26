@@ -559,3 +559,23 @@ captures:
       the control. Apply the native SET before transaction and metadata work.
       Preserve rounded byte intervals, exact integer thread evidence and
       sanitized failures; readback alone never proves physical quota.
+
+  - id: duckdb-native-spill-setting-effect
+    title: Post-connect managed spill limit affects a known spilling workload
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_native_spill_setting_effect_not_readback
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_controls
+        rationale: The synthetic native negative case is not full bound worker, pressure or physical quota proof.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A13 and native control effects
+    notes: >
+      The readback-only startup control regression is preserved with a real
+      post-connect SET effect case on the supported native pins. A controlled
+      native resource error is not a successful comparison or a hard disk quota.
