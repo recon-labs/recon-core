@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import IO, Protocol
 from uuid import UUID, uuid4
 
-from recon_core.adapters._windows_scratch_security import _api, _libraries
+from recon_core.adapters._windows_scratch_security import _api, _libraries, _windows_ticket_identity
 
 
 class _ScratchError(RuntimeError):
@@ -75,6 +75,29 @@ def _identity(info: os.stat_result) -> _Identity:
     return _Identity(info.st_dev, info.st_ino)
 
 
+def _object_identity(
+    path: Path, info: os.stat_result, *, fd: int | None = None
+) -> _Identity:
+    """Use full native Windows identity; preserve POSIX device/inode identity."""
+    baseline = _identity(info)
+    if fd is not None and _identity(os.fstat(fd)) != baseline:
+        raise _ScratchError()
+    if os.name == "nt":
+        native = _Identity(
+            *_windows_ticket_identity(path, directory=stat.S_ISDIR(info.st_mode), fd=fd)
+        )
+        if _identity(path.lstat()) != baseline:
+            raise _ScratchError()
+        return native
+    return baseline
+
+
+def _checked_identity(
+    path: Path, *, directory: bool, policy: "_DirectoryPolicy | None" = None
+) -> _Identity:
+    return _object_identity(path, _inspect(path, directory=directory, policy=policy))
+
+
 def _inspect(
     path: Path, *, directory: bool, policy: "_DirectoryPolicy | None" = None
 ) -> os.stat_result:
@@ -121,8 +144,9 @@ def _read_marker(
     info = _inspect(path, directory=False, policy=policy)
     if not 0 < info.st_size <= maximum:
         raise _ScratchError()
+    expected_identity = _object_identity(path, info)
     with path.open("rb") as stream:
-        if _identity(os.fstat(stream.fileno())) != _identity(info):
+        if _object_identity(path, info, fd=stream.fileno()) != expected_identity:
             raise _ScratchError()
         if policy is not None:
             policy.verify_file(path, fd=stream.fileno())
@@ -164,8 +188,9 @@ def _marker(path: Path, expected: bytes, policy: "_DirectoryPolicy | None" = Non
     info = _inspect(path, directory=False, policy=policy)
     if info.st_size != len(expected):
         raise _ScratchError()
+    expected_identity = _object_identity(path, info)
     with path.open("rb") as stream:
-        if _identity(os.fstat(stream.fileno())) != _identity(info):
+        if _object_identity(path, info, fd=stream.fileno()) != expected_identity:
             raise _ScratchError()
         if policy is not None:
             policy.verify_file(path, fd=stream.fileno())
@@ -177,16 +202,20 @@ def _identity_text(identity: _Identity) -> str:
     return f"{identity.device}:{identity.inode}"
 
 
+_ROOT_MARKER_PREFIX = b"RC-SCRATCH-2" if os.name == "nt" else b"RC-SCRATCH-1"
+_SESSION_MARKER_PREFIX = b"RC-SESSION-2" if os.name == "nt" else b"RC-SESSION-1"
+
+
 def _root_marker(ticket: _RootTicket) -> bytes:
     return (
-        f"RC-SCRATCH-1:{ticket.nonce.hex}:{_identity_text(ticket.identity)}:"
+        f"{_ROOT_MARKER_PREFIX.decode('ascii')}:{ticket.nonce.hex}:{_identity_text(ticket.identity)}:"
         f"{_identity_text(ticket.lock_identity)}"
     ).encode("ascii")
 
 
 def _session_marker(root: _RootTicket, session: _SessionTicket) -> bytes:
     return (
-        f"RC-SESSION-1:{root.nonce.hex}:{session.nonce.hex}:"
+        f"{_SESSION_MARKER_PREFIX.decode('ascii')}:{root.nonce.hex}:{session.nonce.hex}:"
         + ":".join(
             _identity_text(identity)
             for identity in (
@@ -257,11 +286,12 @@ class _FileLease:
         cls, path: Path, expected: _Identity, policy: "_DirectoryPolicy | None" = None
     ) -> "_FileLease":
         info = _inspect(path, directory=False, policy=policy)
-        if info.st_size != 1 or _identity(info) != expected:
+        expected_identity = _object_identity(path, info)
+        if info.st_size != 1 or expected_identity != expected:
             raise _ScratchError()
         stream = path.open("r+b", buffering=0)
         try:
-            if _identity(os.fstat(stream.fileno())) != _identity(info):
+            if _object_identity(path, info, fd=stream.fileno()) != expected_identity:
                 raise _ScratchError()
             if policy is not None:
                 policy.verify_file(path, fd=stream.fileno())
@@ -334,8 +364,8 @@ class _ScratchRoot:
             ticket = _RootTicket(
                 path,
                 uuid4(),
-                _identity(_inspect(path, directory=True)),
-                _identity(_inspect(path / "root.lock", directory=False, policy=directory_policy)),
+                _checked_identity(path, directory=True),
+                _checked_identity(path / "root.lock", directory=False, policy=directory_policy),
             )
             _write_new(path / "owner", _root_marker(ticket), directory_policy)
             return cls(ticket, directory_policy=directory_policy)
@@ -357,7 +387,7 @@ class _ScratchRoot:
                 directory_policy.verify_directory(path)
             nonce, dev, ino, lock_dev, lock_ino = _read_marker(
                 path / "owner",
-                prefix=b"RC-SCRATCH-1",
+                prefix=_ROOT_MARKER_PREFIX,
                 nonces=1,
                 identities=2,
                 policy=directory_policy,
@@ -383,7 +413,7 @@ class _ScratchRoot:
             self._directory_policy.verify_directory(path)
         root_nonce, nonce, *values = _read_marker(
             path / "owner",
-            prefix=b"RC-SESSION-1",
+            prefix=_SESSION_MARKER_PREFIX,
             nonces=2,
             identities=4,
             policy=self._directory_policy,
@@ -433,14 +463,12 @@ class _ScratchRoot:
     def _verify_root(self) -> None:
         if self._directory_policy is not None:
             self._directory_policy.verify_directory(self.ticket.path)
-        if _identity(_inspect(self.ticket.path, directory=True)) != self.ticket.identity:
+        if _checked_identity(self.ticket.path, directory=True) != self.ticket.identity:
             raise _ScratchError()
         _marker(self.ticket.path / "owner", _root_marker(self.ticket), self._directory_policy)
         if (
-            _identity(
-                _inspect(
-                    self.ticket.path / "root.lock", directory=False, policy=self._directory_policy
-                )
+            _checked_identity(
+                self.ticket.path / "root.lock", directory=False, policy=self._directory_policy
             )
             != self.ticket.lock_identity
         ):
@@ -475,26 +503,22 @@ class _ScratchRoot:
             self._directory_policy.verify_directory(ticket.path / "spill")
         if (
             ticket.path != self.ticket.path / ticket.nonce.hex
-            or _identity(_inspect(ticket.path, directory=True)) != ticket.identity
+            or _checked_identity(ticket.path, directory=True) != ticket.identity
             or ticket.identity.device != self.ticket.identity.device
         ):
             raise _ScratchError()
         _marker(ticket.path / "owner", _session_marker(self.ticket, ticket), self._directory_policy)
         spill = _inspect(ticket.path / "spill", directory=True)
         if (
-            _identity(spill) != ticket.spill_identity
-            or spill.st_dev != ticket.identity.device
+            _object_identity(ticket.path / "spill", spill) != ticket.spill_identity
+            or ticket.spill_identity.device != ticket.identity.device
             or os.path.ismount(ticket.path / "spill")
-            or _identity(
-                _inspect(
-                    ticket.path / "parent.lock", directory=False, policy=self._directory_policy
-                )
+            or _checked_identity(
+                ticket.path / "parent.lock", directory=False, policy=self._directory_policy
             )
             != ticket.parent_identity
-            or _identity(
-                _inspect(
-                    ticket.path / "worker.lock", directory=False, policy=self._directory_policy
-                )
+            or _checked_identity(
+                ticket.path / "worker.lock", directory=False, policy=self._directory_policy
             )
             != ticket.worker_identity
         ):
@@ -516,18 +540,14 @@ class _ScratchRoot:
                 ticket = _SessionTicket(
                     path,
                     nonce,
-                    _identity(_inspect(path, directory=True)),
-                    _identity(
-                        _inspect(
-                            path / "parent.lock", directory=False, policy=self._directory_policy
-                        )
+                    _checked_identity(path, directory=True),
+                    _checked_identity(
+                        path / "parent.lock", directory=False, policy=self._directory_policy
                     ),
-                    _identity(
-                        _inspect(
-                            path / "worker.lock", directory=False, policy=self._directory_policy
-                        )
+                    _checked_identity(
+                        path / "worker.lock", directory=False, policy=self._directory_policy
                     ),
-                    _identity(_inspect(path / "spill", directory=True)),
+                    _checked_identity(path / "spill", directory=True),
                 )
                 parent = _FileLease.acquire(
                     path / "parent.lock", ticket.parent_identity, self._directory_policy
@@ -631,7 +651,7 @@ class _ScratchRoot:
         if (
             not stat.S_ISREG(info.st_mode)
             or info.st_nlink != 1
-            or info.st_dev != ticket.identity.device
+            or _object_identity(path, info).device != ticket.identity.device
             or path.resolve(strict=True) != path
             or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
             or (os.name == "posix" and info.st_uid != os.getuid())
