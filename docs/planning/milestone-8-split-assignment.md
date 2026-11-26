@@ -136,8 +136,7 @@ checking ecosystem checkpoints. No milestone prework is declared satisfied.
 
 ## Reopened execution dependency and next action
 
-Status: planning only; implementation blocked. The shared binding design
-is the next design task, not the M7.4 renderer edit. Follow this dependency
+Status: shared binding verified and merged; targeted M7.4 preflight/design next, not runtime implementation approval. Follow this dependency
 order for the reopened work:
 
 1. Integrate the mandatory Gate 4P/M9.5 planning amendment after review and
@@ -158,30 +157,29 @@ order for the reopened work:
    type-compatibility retrofit and M10.
 
 The M8.1.1/M8.1.2 split and binding scope direction are approved; M8.1.1
-implementation is on draft PR #38 and exit remains pending. Do not duplicate
+implementation and scoped exit are complete on main (PR #38). Do not duplicate
 lifecycle machinery, weaken admission, begin the renderer correction early
 or use this routing checkpoint as approval for successor implementation. If feasibility requires a different sequence, stop
 and obtain maintainer approval with synchronized gate and split changes.
 
 ## Execution scope restoration checkpoint
 
-Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented on draft PR #38; final verification and exit approval remain pending. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
 Maintainer-approved split direction: M8.1.1 -> targeted M7.4 correction -> M8.1.2. M8.1.1 owns A4/A7/A8/A13 binding portions and B9 prerequisite; M8.1.2 owns remaining A1-A13/R1-R10 and any earlier required B8-B10 controls. Per-check fresh owned read-only transaction, no writable fallback, exact qualified table identity, temporary base-table scope uniformly, legacy 64 MiB key/SUM only. Detailed split matrix and binding prework are recorded below. M8.1.1 implementation was separately approved; successor approval remains pending.
 
 ## M8.1.1 detailed prework checkpoint
 
-See [M8.1.1 proposed prework](milestone-8-1-1-prework.md) for private binding integration,
+See [M8.1.1 prework and exit evidence](milestone-8-1-1-prework.md) for private binding integration,
 expanded acceptance/test matrix, approved lifecycle decision L1 and exit
-proof. M8.1.1 implementation is approved and in final verification; no successor
-implementation before verified exit and separate approval. M8.1.2 and targeted M7.4 correction retain separate owners.
+proof. M8.1.1 exit is verified; no successor implementation before its own finalized prework and separate approval. M8.1.2 and targeted M7.4 correction retain separate owners.
 
 
 ## M8.1 implementation-bearing split assignment matrix
 
 | Assignment | M8.1.1 shared binding | Targeted M7.4 correction | M8.1.2 resource policy |
 | --- | --- | --- | --- |
-| Status/dependency | Implemented on draft PR #38; final CI, acceptance and gate exit pending | Pending; M8.1.1 verified exit first | Pending; corrected SQL and verified prerequisite first |
+| Status/dependency | Completed and merged; scoped exit verified | Pending; M8.1.1 prerequisite satisfied, own prework and approval pending | Pending; corrected SQL and verified prerequisite first |
 | Scope | Fresh RO check session, transaction, qualified bound scope, lease, path/metadata proof, interim cap, L1 lifecycle | Private grouped join optimization with verified stable binding | Hardware-aware limits, workload evidence, admission, measured defaults and structured advice |
 | Non-goals | No new resource defaults, new types, grouped optimization, writers, expanded S contexts | No global equality rewrite, new type support or duplicate session | No new types, writer, selector or automatic scope mutation |
 | Risk and contracts | Runtime admission, row-count restrictions, failure isolation, privacy, compatibility | Strict type/key/numeric semantics, runtime performance and bounded transport | Config/defaults, native controls, supported evidence/limits, lifecycle enforcement |
@@ -194,7 +192,7 @@ implementation before verified exit and separate approval. M8.1.2 and targeted M
 | Tests | Exact J tests plus native/public regressions and captures | Exact renderer, native differential and scale, all supported pins | Config/unit/engine/native resource tests, hardware envelopes and control failure cases |
 | Contract impact | Approved temporary S restriction and L1; additive safe diagnostics only; no signature/schema changes | No public compile SQL or semantics change | Settings and admission only after approval, documented compatibility and migration |
 | Exit | Actual bound native proof, J rows, carryover, full CI, privacy and approved exit | Verified performance correction and full semantic regression, approved exit | Full revised matrix, measured resource evidence, gate proof and approved exit |
-| Blocker before coding | Satisfied before M8.1.1 coding; final acceptance/gate proof and exit approval remain | M8.1.1 exit, own finalized correction prework and code approval | M7.4 correction exit, resource decisions, proof and explicit approval |
+| Blocker before coding | Satisfied, scoped exit complete | Own finalized correction prework and code approval | M7.4 correction exit, resource decisions, proof and explicit approval |
 
 Assignment-level orphan review: A1-A13 remain owned, binding portions above
 and remaining in M8.1.2; B1-B10 stay M8.2 except explicit prerequisites;

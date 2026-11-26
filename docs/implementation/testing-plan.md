@@ -638,3 +638,7 @@ protection. Record exact evidence, equivalent checks, missing proof and
 cleanup. Missing required proof remains a blocker to readiness or gate
 satisfaction, not a reason to weaken tests. Ordinary design, implementation,
 merge and release approval requirements are unaffected.
+
+## Targeted M7.4 grouped correction testing checkpoint
+
+Follow the [correction prework](../planning/milestone-7-4-prework.md#targeted-bound-grouped-runtime-correction---proposed-prework), including G1-G11 and exact-head review. Preserve strict low-level and public rendering, require actual owned binding and ordered guards for the optimized private grouped path, and verify native truth and scale across the four pinned engines. Test-first critical regressions require actual RED proof; no new timing SLA or version exclusions. No implementation approval from this planning checkpoint.

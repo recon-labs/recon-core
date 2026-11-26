@@ -299,14 +299,13 @@ Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execut
 
 ## Execution scope restoration checkpoint
 
-Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented on draft PR #38; final verification and exit approval remain pending. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
 ## M8.1.1 detailed prework checkpoint
 
-See [M8.1.1 proposed prework](milestone-8-1-1-prework.md) for private binding integration,
+See [M8.1.1 prework and exit evidence](milestone-8-1-1-prework.md) for private binding integration,
 expanded acceptance/test matrix, approved lifecycle decision L1 and exit
-proof. Implementation blocked until final design review and explicit
-coding approval. M8.1.2 and targeted M7.4 correction retain separate owners.
+proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own design and coding approvals.
 
 ## Mandatory M8.1.2 resource policy handoff
 
