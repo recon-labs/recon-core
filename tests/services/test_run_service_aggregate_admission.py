@@ -1681,6 +1681,6 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         queries = [query for query in statements[5:-2] if not query.startswith("DESCRIBE ")]
         assert len(queries) == {"sum_diff": 3, "grouped_aggregate_diff": 4}.get(check.check_type, 1)
         assert all(f'"{catalog}"."qa".' in query for query in queries)
-        assert all(query.lower().startswith(("select ", "with ")) for query in queries)
+        assert all(query.lower().split(maxsplit=1)[0] in {"select", "with"} for query in queries)
     assert database.read_bytes() == before
     _assert_no_runtime_outputs(tmp_path)
