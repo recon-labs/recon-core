@@ -184,8 +184,27 @@ def _trusted_owner(
     return bool(equal(owner, user) or (not directory and well_known(owner, 26)))
 
 
+def _ancestor_trusted_principal(
+    security: Any, principal: ct.c_void_p, user: ct.c_void_p
+) -> bool:
+    valid = _api(security, "IsValidSid", wt.BOOL, ct.c_void_p)
+    equal = _api(security, "EqualSid", wt.BOOL, ct.c_void_p, ct.c_void_p)
+    well_known = _api(security, "IsWellKnownSid", wt.BOOL, ct.c_void_p, ct.c_int)
+    return bool(
+        principal
+        and valid(principal)
+        and (equal(principal, user) or well_known(principal, 22) or well_known(principal, 26))
+    )
+
+
 def _verify_descriptor(
-    security: Any, handle: Any, sid: ct.c_void_p, kernel: Any, *, directory: bool
+    security: Any,
+    handle: Any,
+    sid: ct.c_void_p,
+    kernel: Any,
+    *,
+    directory: bool,
+    ancestor: bool = False,
 ) -> None:
     get_info = _api(
         security,
@@ -234,38 +253,58 @@ def _verify_descriptor(
             not owner
             or not dacl
             or not descriptor
-            or not _trusted_owner(security, owner, sid, directory=directory)
+            or not (
+                _ancestor_trusted_principal(security, owner, sid)
+                if ancestor
+                else _trusted_owner(security, owner, sid, directory=directory)
+            )
             or not control(descriptor, ct.byref(flags), ct.byref(revision))
             or not flags.value & 4  # SE_DACL_PRESENT
-            or (directory and not flags.value & 0x1000)  # SE_DACL_PROTECTED
+            or (directory and not ancestor and not flags.value & 0x1000)  # SE_DACL_PROTECTED
             or not valid_acl(dacl)
             or not acl_info(dacl, ct.byref(size), ct.sizeof(size), 2)
-            or size.count != 1
+            or (not ancestor and size.count != 1)
         ):
             raise _WindowsScratchSecurityError()
-        raw = ct.c_void_p()
-        if not get_ace(dacl, 0, ct.byref(raw)) or not raw.value:
-            raise _WindowsScratchSecurityError()
-        ace = _Ace.from_address(raw.value)
-        # The directory's exact protected grant is inheritable. For a
-        # regular file the effective owner grant may be inherited or explicit;
-        # inheritance flags for child objects have no place on this leaf.
-        allowed_flags = (3,) if directory else (0, 0x10)
-        if (
-            ace.kind != 0
-            or ace.flags not in allowed_flags
-            or ace.mask != 0x001F01FF
-            or ace.size < ct.sizeof(_Ace) + 8
-            or ace.size > size.used
-        ):
-            raise _WindowsScratchSecurityError()
-        trustee = ct.c_void_p(raw.value + ct.sizeof(_Ace))
-        if (
-            not valid_sid(trustee)
-            or ace.size != ct.sizeof(_Ace) + sid_length(trustee)
-            or not equal(trustee, sid)
-        ):
-            raise _WindowsScratchSecurityError()
+        for index in range(size.count):
+            raw = ct.c_void_p()
+            if not get_ace(dacl, index, ct.byref(raw)) or not raw.value:
+                raise _WindowsScratchSecurityError()
+            ace = _Ace.from_address(raw.value)
+            if (
+                ace.kind not in (0, 1)
+                or ace.size < ct.sizeof(_Ace) + 8
+                or ace.size > size.used
+            ):
+                raise _WindowsScratchSecurityError()
+            trustee = ct.c_void_p(raw.value + ct.sizeof(_Ace))
+            if not valid_sid(trustee) or ace.size != ct.sizeof(_Ace) + sid_length(trustee):
+                raise _WindowsScratchSecurityError()
+            if ancestor:
+                # Simple deny entries cannot grant path control. Inherit-only
+                # entries do not apply to this directory; descendants are
+                # checked independently. Unknown ACE types/flags stay unknown.
+                if ace.flags & ~0x1F:
+                    raise _WindowsScratchSecurityError()
+                if ace.kind == 1 or ace.flags & 8:
+                    continue
+                # Untrusted effective grants may list, traverse, read and add
+                # subdirectories, but must not permit deleting/renaming,
+                # changing security, or writing reparse-relevant attributes.
+                # A positive allowlist also rejects unresolved generic rights.
+                safe = 0x001200AD  # SYNCHRONIZE, READ_CONTROL, RA, X, REA, AD, RD
+                if ace.mask & ~safe and not _ancestor_trusted_principal(security, trustee, sid):
+                    raise _WindowsScratchSecurityError()
+            else:
+                # Exact private owner grant; directories propagate to children.
+                allowed_flags = (3,) if directory else (0, 0x10)
+                if (
+                    ace.kind != 0
+                    or ace.flags not in allowed_flags
+                    or ace.mask != 0x001F01FF
+                    or not equal(trustee, sid)
+                ):
+                    raise _WindowsScratchSecurityError()
     finally:
         if descriptor:
             local_free(descriptor)
@@ -400,7 +439,12 @@ def _verify_private_file(path: Path, *, fd: int | None = None) -> None:
         raise _WindowsScratchSecurityError() from None
 
 
-def _verify_private_object(path: Path, *, directory: bool) -> None:
+def _verify_ancestor_directory(path: Path) -> None:
+    """Verify an existing ancestor without requiring owner-only read access."""
+    _verify_private_object(path, directory=True, ancestor=True)
+
+
+def _verify_private_object(path: Path, *, directory: bool, ancestor: bool = False) -> None:
     try:
         before = path.lstat()
         if (
@@ -415,7 +459,9 @@ def _verify_private_object(path: Path, *, directory: bool) -> None:
         with _open_security_handle(kernel, path) as handle:
             _confirm_native_identity(kernel, path, handle, directory=directory)
             with _process_user(kernel, security) as (sid, _):
-                _verify_descriptor(security, handle, sid, kernel, directory=directory)
+                _verify_descriptor(
+                    security, handle, sid, kernel, directory=directory, ancestor=ancestor
+                )
             _confirm_native_identity(kernel, path, handle, directory=directory)
             after = path.lstat()
             if (
