@@ -12,9 +12,9 @@ from recon_core.adapters._portable_resource_observation import (
     _classify_mounted_filesystem,
     _finite_rlimit,
     _observe_portable_resources,
+    _PortableFacts,
     _read_portable_facts,
     _windows_drive_kind,
-    _PortableFacts,
     _WindowsScope,
 )
 
@@ -157,7 +157,7 @@ def test_macos_unlimited_process_limit_is_not_finite() -> None:
         RLIM_INFINITY=(1 << 63) - 1,
         RLIMIT_AS=1,
         RLIMIT_DATA=2,
-        getrlimit=lambda name: (((1 << 63) - 1, 0) if name == 1 else (1000, 2000)),
+        getrlimit=lambda name: ((1 << 63) - 1, 0) if name == 1 else (1000, 2000),
     )
     assert _finite_rlimit(resource, "RLIMIT_AS") is None
     assert _finite_rlimit(resource, "RLIMIT_DATA") == 1000
