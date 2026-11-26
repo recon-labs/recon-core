@@ -1,5 +1,7 @@
 # Milestone 8.1 Prework: Scan Policy And Execution Advisories
 
+**REOPENED - NOT IMPLEMENTATION-READY.** The earlier accepted design below is historical baseline, not coding authority. Reassess the footprint-driven policy, inherited 64 MiB default, resource enforcement and warning calculation using [mandatory resource-safety assignments](execution-resource-safety-assignments.md). Preserve binding, privacy, comparison semantics and no silent scope change. Expand A10-A13 and affected A1-A9, BDD, responsibility/source map, test plan, DoD and phase steps; reassess split and compatibility. Revise, approve and integrate before coding. Previous metadata/binding experiments do not prove useful resource defaults.
+
 ## Status and approval boundary
 
 Split Decision: Already Split / Follow Existing Split.
@@ -276,7 +278,7 @@ and research; public docs contain only Recon-native decisions.
 
 ## Readiness verdict
 
-Design prework is locked once integrated. Maintainer approval and initial
+The earlier readiness conclusion is superseded; design is reopened. Maintainer approval and initial
 supported-version binding feasibility are established for the scoped local
 policy; no universal actual-cost or hostile filesystem guarantee. Exact
 runtime implementation proofs remain mandatory. Start TDD only after

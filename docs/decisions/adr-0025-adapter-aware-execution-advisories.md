@@ -9,6 +9,8 @@ prove that an operational database can safely supply or transfer it.
 
 ## Decision
 
+Distinguish physical footprint, logical input estimates, operator/intermediate workload, configured controls and actual observed resources. Native controls and hardware-aware default calibration require supported-version evidence and bounded benchmarks. A small file, low estimate or bounded output does not prove safety; no arbitrary default, universal score or process-memory guarantee without proof. See [mandatory resource-safety assignments](../planning/execution-resource-safety-assignments.md).
+
 Recon will distinguish execution admission from advisory guidance. Core owns
 the final admission decision under explicit policy and typed plans. Adapters
 may supply trustworthy, capability-specific non-executing evidence; neither

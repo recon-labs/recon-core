@@ -748,9 +748,9 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Review the [phase prework](../planning/milestone-8-1-prework.md) and ADR 0026. Start implementation only after prework integration and
-explicit implementation authorization; prove the bound execution contract
-and approved compatibility boundary through the phase matrix.
+Resource-safety checkpoint: REOPENED - implementation blocked until revised design is approved and integrated. Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Exact defaults and resource controls are not locked. A10-A13 are mandatory. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
+Review the [reopened phase prework](../planning/milestone-8-1-prework.md) and ADR 0026. Prior approval does not authorize implementation; revise and reapprove the design first.
 
 Build:
 
@@ -780,6 +780,8 @@ additional dimensions and carryover obligations.
 
 ## Milestone 8.2: execution planning and run lifecycle
 
+Resource-safety checkpoint: Own deadlines, timeout/cancellation confirmation, connection/transaction/spill cleanup, cumulative run-resource budgeting and bounded concurrency policy; B8-B10. M8.1 must prove any control needed for its own admission before relying on it. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build:
 
 - extend existing run service and check-engine orchestration with an explicit
@@ -801,6 +803,8 @@ distinct cleanup errors, privacy-safe plan metadata, no hidden fallback and
 no writes. Preserve admission and advisory decisions from the preceding phase.
 
 ## Milestone 8.3: run-result publication and CLI finalization
+
+Resource-safety checkpoint: Publish allowlisted resource policy, actual versus estimated use, unavailable versus zero, enforcement and timeout/cancel/cleanup outcomes; C10. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build:
 
@@ -825,6 +829,8 @@ unauthorized writes. The final phase must satisfy the umbrella acceptance
 requirements and the normal full validation and review-fix loop.
 
 ## Milestone 9: evidence
+
+Resource-safety checkpoint: Budget evidence retrieval, export/movement, memory/disk and cleanup independently of output size. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build:
 
@@ -873,6 +879,8 @@ Tests:
   reconciled.
 
 ## Milestone 10: examples and docs alignment
+
+Resource-safety checkpoint: MVP readiness requires useful zero-config and explicit-limit behavior on representative constrained/capable environments, larger-than-RAM cases where supported, and honest limitations. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build:
 
@@ -929,7 +937,7 @@ Future gate-to-milestone mapping summary:
 | Gate 3L | Post-MVP Milestone 12.5 | Any discovery/profile/suggest, metadata, profiling, or relation-scope feature |
 | Gate 3M | Post-MVP Milestone 12.5 | Post-MVP Milestones 25.6, 42, 42.5, and any generated tests |
 | Gate 3A amendment | Post-MVP Milestone 11 | Post-MVP Milestone 12.5 and Milestone 7.4 aggregate suggestion/execution boundaries |
-| Gate 4L | Cross-cutting | Milestones 7.3, 7.4, 8, 9, Post-MVP Milestones 10.6, 12.5, 18, 21, 24, 25, 25.5, 29, and 31 |
+| Gate 4L | Cross-cutting | M8.1 admission/resources; M8.2 lifecycle; M8.3 safe output; every scan, profiling, movement, write, cache, concurrent and integration path per [mandatory assignments](../planning/execution-resource-safety-assignments.md). M7.3/7.4 baseline unchanged. |
 | Gate 4M | Post-MVP Milestones 24/25/26 area | Post-MVP Milestones 10.6, 24, 25, 26, 27, and 27.5 |
 | Gate 4N | Post-MVP Milestone 25.6 | Post-MVP Milestone 25.7, Post-MVP Milestone 31, and any adaptive threshold or drift feature |
 | Gate 5G | Post-MVP Milestone 10.7 | Post-MVP Milestones 12.5, 32.2, 32.5, 42, and 42.5 |
@@ -941,6 +949,8 @@ Future gate-to-milestone mapping summary:
 | Gate 9A | Post-MVP Milestone 42 | Post-MVP Milestone 42.5, Post-MVP Milestone 31, and Post-MVP Milestone 29 semantic package conformance |
 
 ## Post-MVP Milestone 10.5: artifact freshness and cache optimization
+
+Resource-safety checkpoint: Invalidate stale admission evidence, including policy, binding and environment changes. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this only after Milestones 1-10 are complete and after the 0.1
 release-readiness decision.
@@ -979,6 +989,8 @@ feat: add artifact freshness checks
 ```
 
 ## Post-MVP Milestone 10.6: minimal contract and path selectors
+
+Resource-safety checkpoint: Recompute admission and cumulative work for actual selected scope. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after Post-MVP Milestone 10.5 defines artifact freshness and scoped
 generated-output rules.
@@ -1040,6 +1052,8 @@ feat: add minimal contract selectors
 
 ## Post-MVP Milestone 10.7: user-facing agent onboarding pack and installer
 
+Resource-safety checkpoint: Teach resource settings, limitations and safe override behavior in onboarding. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after the MVP release-readiness decision and after the core docs can
 describe the supported local project workflow accurately.
 
@@ -1082,6 +1096,8 @@ feat: add user-facing agent onboarding
 ```
 
 ## Post-MVP Milestone 11: aggregate metrics expansion
+
+Resource-safety checkpoint: Prove metric/group intermediate workload and native PostgreSQL operational safeguards at experimental checkpoint. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after Milestones 1-10 are complete and after the 0.1
 release-readiness decision. It also depends on Milestone 7.4's current
@@ -1132,6 +1148,8 @@ feat: expand aggregate metric checks
 
 ## Post-MVP Milestone 12: schema policy and metadata checks
 
+Resource-safety checkpoint: Distinguish metadata-only from scanning and bound catalog fan-out; prove native adapter metadata/resource capability. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after the adapter API and metadata model exist.
 
 Goal:
@@ -1171,6 +1189,8 @@ feat: add schema policy checks
 ```
 
 ## Post-MVP Milestone 12.5: metadata discovery, data profiling, contract suggestions, and relation scope selection
+
+Resource-safety checkpoint: Implement richer workload/plan analysis and evidence-backed recommendations, including cardinality/skew, join growth, repeated scans, widths, indexing/pruning, bounded profiling and explicit subset/window/sample coverage tradeoffs. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after adapter metadata access is designed and after the project can
 represent safe multi-relation output without confusing suggestions for accepted
@@ -1235,6 +1255,8 @@ feat: add metadata discovery and suggestions
 ```
 
 ## Post-MVP Milestone 13: explicit source-target column mapping
+
+Resource-safety checkpoint: Prove mapping/cast/width workload impacts and Snowflake warehouse-native resource, pruning and billing evidence at experimental checkpoint. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after the adapter metadata model, resolved column artifacts, schema
 policy behavior, run results, and evidence model are stable enough to show
@@ -1319,6 +1341,8 @@ feat: validate macro references
 
 ## Post-MVP Milestone 15: macro-assisted rendering helpers
 
+Resource-safety checkpoint: Reassess macro-generated operations and prohibit policy bypass. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this only after adapter APIs, typed plans, compiled SQL artifacts, run
 results, and evidence semantics are stable enough to show exactly what will
 run.
@@ -1357,6 +1381,8 @@ feat: add macro-assisted SQL rendering
 ```
 
 ## Post-MVP Milestone 15.5: check-pack invocation config and controls
+
+Resource-safety checkpoint: Budget expanded check packs and repeated work. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after the validation rulebook enforces current strict invocation
 behavior and before local/package check-pack resources become executable.
@@ -1510,6 +1536,8 @@ feat: add endpoint resource references
 
 ## Post-MVP Milestone 18: executable query endpoints
 
+Resource-safety checkpoint: Prove authored query read-only scope, non-executing evidence, binding and enforcement. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after adapter query execution boundaries and compiled SQL visibility
 are locked.
 
@@ -1542,6 +1570,8 @@ feat: execute query endpoints
 ```
 
 ## Post-MVP Milestone 19: rich selectors and subset execution expansion
+
+Resource-safety checkpoint: Recompute selected-scope and cumulative work; no hidden subset. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after minimal contract/path selectors prove the selected-scope
 metadata, artifact freshness, and run/evidence behavior.
@@ -1609,6 +1639,8 @@ feat: resolve authored defaults
 
 ## Post-MVP Milestone 21: row-level value check execution
 
+Resource-safety checkpoint: Prove join multiplicity, intermediate work, resource controls and bounded movement/detail. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after column resolution, tolerance/null/normalization resolution,
 adapter metadata, and key safety checks are executable.
 
@@ -1643,6 +1675,8 @@ feat: execute row-level value checks
 
 ## Post-MVP Milestone 22: timestamp tolerance and timezone execution
 
+Resource-safety checkpoint: Assess normalization and timestamp workload and pruning. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after adapters can expose timestamp metadata and render timestamp
 operations safely.
 
@@ -1672,6 +1706,8 @@ feat: execute timestamp tolerance checks
 
 ## Post-MVP Milestone 23: row hash and canonical hash comparison
 
+Resource-safety checkpoint: Budget hashing, canonicalization and confirmation workload. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this only after hash canonicalization and adapter compatibility are
 designed.
 
@@ -1699,6 +1735,8 @@ feat: add safe row hash checks
 ```
 
 ## Post-MVP Milestone 24: sampling execution modes
+
+Resource-safety checkpoint: Budget sample construction as well as comparison; sample size is not scan size. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after sampling policy resolution, adapter capability requirements,
 and evidence fields are locked for each mode.
@@ -1739,6 +1777,8 @@ feat: execute deterministic sampling policies
 
 ## Post-MVP Milestone 24.5: multi-policy sampling composition
 
+Resource-safety checkpoint: Budget combined sampling policy expansion and repeated work. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after individual sampling modes, sample-key references, state
 behavior, and evidence fields are stable enough to show exactly which records
 were checked.
@@ -1770,6 +1810,8 @@ feat: compose sampling policies
 ```
 
 ## Post-MVP Milestone 25: state, watermarks, and persisted samples
+
+Resource-safety checkpoint: Budget bootstrap, incremental windows, state reads/writes and samples; no silent full-scan fallback. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after run lifecycle, result semantics, and local artifact storage
 rules are stable.
@@ -1814,6 +1856,8 @@ feat: add local reconciliation state
 
 ## Post-MVP Milestone 25.5: production result tables
 
+Resource-safety checkpoint: Bound sink writes, batches, retries, movement and cleanup. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after run result semantics, basic evidence, local state shape, and
 profile/adapter execution boundaries are stable.
 
@@ -1854,6 +1898,8 @@ feat: add production result tables
 ```
 
 ## Post-MVP Milestone 25.6: historical profiles, drift, and statistical baseline checks
+
+Resource-safety checkpoint: Budget repeated profiling, history/drift scans and retention. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after local state, run lifecycle, historical metric storage, and
 result/evidence semantics are stable enough to explain what history was used.
@@ -1897,6 +1943,8 @@ feat: add baseline drift checks
 
 ## Post-MVP Milestone 25.7: quality rollups, ownership, and SLA scorecards
 
+Resource-safety checkpoint: Budget rollup refresh/fan-out; no misleading completeness. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after run results, evidence, history, and score input semantics are
 stable.
 
@@ -1937,6 +1985,8 @@ feat: add quality scorecards
 
 ## Post-MVP Milestone 26: first CDC implementation
 
+Resource-safety checkpoint: Bound CDC window scans, key movement, summaries and exact confirmation. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after state/window behavior, CDC key semantics, adapter execution,
 run results, and evidence can explain CDC scope.
 
@@ -1976,6 +2026,8 @@ feat: add first CDC checks
 
 ## Post-MVP Milestone 27: asymmetric CDC delete representation
 
+Resource-safety checkpoint: Bound asymmetric delete comparisons, state and transfer. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this only after the first CDC implementation exists and delete behavior
 needs to support different source and target representations.
 
@@ -2005,6 +2057,8 @@ feat: add asymmetric CDC delete checks
 ```
 
 ## Post-MVP Milestone 27.5: advanced CDC modes and propagation checks
+
+Resource-safety checkpoint: Bound propagation/fan-out and confirmation. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after the first CDC implementation and delete representation rules
 are stable enough that advanced CDC checks can report exactly which movement
@@ -2040,6 +2094,8 @@ feat: expand CDC propagation checks
 ```
 
 ## Post-MVP Milestone 28: future CLI commands and options
+
+Resource-safety checkpoint: Resource CLI overrides require explicit precedence, validation and enforcement; debug cannot bypass. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build each command or option only after its underlying service semantics are
 stable.
@@ -2111,6 +2167,8 @@ feat: add recon list command
 ```
 
 ## Post-MVP Milestone 29: adapter test kit and adapter package split
+
+Resource-safety checkpoint: Finalize shared version-specific native controls, evidence, resource envelopes, timeout/cancel/cleanup, bounded transfer/spill, useful defaults, unsupported cases and performance regression conformance before adapter promotion. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after the adapter API, typed check-plan payloads, capability
 catalog, and local/dev adapter behavior are stable enough to externalize.
@@ -2260,6 +2318,8 @@ feat: add adapter compliance tests
 
 ## Post-MVP Milestone 30: semi-structured and JSON comparison
 
+Resource-safety checkpoint: Budget JSON/nested expansion, width and extraction. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after adapter metadata and typed operation payloads can represent
 semi-structured projections safely.
 
@@ -2287,6 +2347,8 @@ feat: add semi-structured comparisons
 ```
 
 ## Post-MVP Milestone 31: advanced evidence and reports
+
+Resource-safety checkpoint: Bound export queries, rows/bytes, pagination, memory, disk, network and cleanup. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after basic evidence, run results, failure details, and sensitive
 data defaults are stable.
@@ -2326,6 +2388,8 @@ feat: add advanced evidence outputs
 
 ## Post-MVP Milestone 32: Hub and external integrations
 
+Resource-safety checkpoint: Integrations preserve budgets, retry/concurrency and cancellation semantics; no bypass. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this only after package, adapter, artifact, and compatibility contracts
 are stable enough for external automation.
 
@@ -2363,6 +2427,8 @@ docs: define hub index metadata
 ```
 
 ## Post-MVP Milestone 32.1: lineage and observability event export
+
+Resource-safety checkpoint: Publish only allowlisted resource evidence and bounded event transport. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after run, check, contract, result, and evidence metadata are stable
 enough for external systems to consume without redefining Recon semantics.
@@ -2406,6 +2472,8 @@ feat: export observability events
 
 ## Post-MVP Milestone 32.2: optional local Recon MCP server and agent tool interface
 
+Resource-safety checkpoint: Agent tools respect policy, cancellation and bounded outputs. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after CLI and Python command surfaces are stable enough to expose
 through a structured local tool interface.
 
@@ -2448,6 +2516,8 @@ feat: add local recon mcp interface
 ```
 
 ## Post-MVP Milestone 32.5: workflow actions and remediation integrations
+
+Resource-safety checkpoint: Budget action retries/fan-out separately; no unapproved mutation. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this only after run results, evidence, integration boundaries, and
 permission rules are stable.
@@ -2516,6 +2586,8 @@ feat: add source-location diagnostics
 ```
 
 ## Post-MVP Milestone 34: named identities and multi-grain contracts
+
+Resource-safety checkpoint: Budget multi-grain fan-out and repeated comparisons. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this only after simple contract-level `grain.keys` and `cdc.keys`
 behavior is stable and after a concrete advanced check-pack or CDC need exists.
@@ -2603,6 +2675,8 @@ docs: define deprecation policy
 
 ## Post-MVP Milestone 37: remote and database state backend
 
+Resource-safety checkpoint: Bound remote state I/O, retention, lock and retries. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this after local state, run lifecycle, connection/profile handling, and
 adapter execution are stable.
 
@@ -2688,6 +2762,8 @@ docs: plan docs and examples split
 
 ## Post-MVP Milestone 40: hosted service, UI, and enterprise controls
 
+Resource-safety checkpoint: Prove hosted tenant isolation, quotas, concurrency, cancellation and fair allocation separately. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this only if product direction explicitly expands beyond the open-source
 core framework.
 
@@ -2746,6 +2822,8 @@ docs: define domain package boundaries
 
 ## Post-MVP Milestone 42: semantic and AI-assisted comparison packages
 
+Resource-safety checkpoint: Budget semantic expansion and generated comparisons. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+
 Build this only after core exact comparison, evidence, package compatibility,
 privacy, adapter conformance, and result wording are stable.
 
@@ -2786,6 +2864,8 @@ feat: add semantic comparison packages
 ```
 
 ## Post-MVP Milestone 42.5: optional Recon AI assistant package
+
+Resource-safety checkpoint: Budget AI-suggested execution/tool fan-out; suggestions do not authorize scans. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this only after deterministic discovery, suggestion, package, MCP,
 action, privacy, and semantic-package boundaries are mature enough to keep AI
