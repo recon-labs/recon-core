@@ -1,0 +1,22 @@
+name: Temporary M8 binding compatibility probe
+on:
+  push:
+    branches: [experiment/m8-1-binding-compatibility-20261126]
+    paths: ['.github/workflows/temporary-m8-binding-probe.yml', 'scripts/temporary_m8_binding_probe.py']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        duckdb: ['1.0.0', '1.3.2', '1.4.5', '2.0.1']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e '.[duckdb]' 'duckdb==${{ matrix.duckdb }}'
+      - run: python scripts/temporary_m8_binding_probe.py
