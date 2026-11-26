@@ -175,6 +175,18 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: src/recon_core/adapters/_windows_scratch_security.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
+    - path: tests/adapters/test_windows_scratch_security.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
     - path: src/recon_core/adapters/_resource_scratch.py
       surfaces:
         - adapter_runtime
