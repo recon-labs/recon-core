@@ -449,20 +449,30 @@ def test_linux_same_device_file_bind_mount_retains_storage(tmp_path: Path) -> No
 
 @pytest.mark.regression_capture("scratch-namespace-qualification")
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows native ticket identity")
-def test_windows_tickets_persist_full_native_object_identity(tmp_path: Path) -> None:
+@pytest.mark.parametrize("extended", [False, True])
+def test_windows_tickets_persist_full_native_object_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extended: bool
+) -> None:
+    from recon_core.adapters import _windows_scratch_security as native
     from recon_core.adapters._resource_scratch import _Identity, _Recovery
-    from recon_core.adapters._windows_scratch_security import (
-        _libraries,
-        _native_object_identity,
-        _open_security_handle,
-    )
+
+    if extended:
+        original = native._native_object_identity
+
+        def full_width(kernel: object, handle: object, *, directory: bool) -> tuple[int, bytes]:
+            volume, identifier = original(kernel, handle, directory=directory)
+            # Preserve the actual distinction between objects while proving
+            # that a wider native identity is not truncated to Python stat.
+            return volume ^ (1 << 63), bytes([*identifier[:15], identifier[15] ^ 128])
+
+        monkeypatch.setattr(native, "_native_object_identity", full_width)
 
     base = tmp_path.resolve()
     root = _open_namespace(base, base)
     session = root.create_session()
     ticket = session.ticket
     session.release()
-    kernel, _ = _libraries()
+    kernel, _ = native._libraries()
     for path, expected, directory in (
         (root.ticket.path, root.ticket.identity, True),
         (root.ticket.path / "root.lock", root.ticket.lock_identity, False),
@@ -471,8 +481,8 @@ def test_windows_tickets_persist_full_native_object_identity(tmp_path: Path) -> 
         (ticket.path / "worker.lock", ticket.worker_identity, False),
         (ticket.path / "spill", ticket.spill_identity, True),
     ):
-        with _open_security_handle(kernel, path) as handle:
-            volume, identifier = _native_object_identity(kernel, handle, directory=directory)
+        with native._open_security_handle(kernel, path) as handle:
+            volume, identifier = native._native_object_identity(kernel, handle, directory=directory)
         assert expected == _Identity(volume, int.from_bytes(identifier, "little"))
     reopened = _open_namespace(base, base)
     assert reopened.ticket == root.ticket
