@@ -44,6 +44,7 @@ class _RootTicket:
     path: Path = field(repr=False)
     nonce: UUID
     identity: _Identity
+    lock_identity: _Identity
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +52,9 @@ class _SessionTicket:
     path: Path = field(repr=False)
     nonce: UUID
     identity: _Identity
+    parent_identity: _Identity
+    worker_identity: _Identity
+    spill_identity: _Identity
 
 
 def _identity(info: os.stat_result) -> _Identity:
@@ -92,16 +96,29 @@ def _marker(path: Path, expected: bytes) -> None:
             raise _ScratchError()
 
 
+def _identity_text(identity: _Identity) -> str:
+    return f"{identity.device}:{identity.inode}"
+
+
 def _root_marker(ticket: _RootTicket) -> bytes:
-    return f"RC-SCRATCH-1:{ticket.nonce.hex}:{ticket.identity.device}:{ticket.identity.inode}".encode(
-        "ascii"
-    )
+    return (
+        f"RC-SCRATCH-1:{ticket.nonce.hex}:{_identity_text(ticket.identity)}:"
+        f"{_identity_text(ticket.lock_identity)}"
+    ).encode("ascii")
 
 
 def _session_marker(root: _RootTicket, session: _SessionTicket) -> bytes:
     return (
         f"RC-SESSION-1:{root.nonce.hex}:{session.nonce.hex}:"
-        f"{session.identity.device}:{session.identity.inode}"
+        + ":".join(
+            _identity_text(identity)
+            for identity in (
+                session.identity,
+                session.parent_identity,
+                session.worker_identity,
+                session.spill_identity,
+            )
+        )
     ).encode("ascii")
 
 
@@ -112,15 +129,13 @@ class _FileLease:
         self._stream = stream
 
     @classmethod
-    def acquire(cls, path: Path) -> "_FileLease":
+    def acquire(cls, path: Path, expected: _Identity) -> "_FileLease":
         info = _inspect(path, directory=False)
-        if info.st_size != 1:
+        if info.st_size != 1 or _identity(info) != expected:
             raise _ScratchError()
         stream = path.open("r+b", buffering=0)
         try:
             if _identity(os.fstat(stream.fileno())) != _identity(info):
-                raise _ScratchError()
-            if stream.read(1) != b"\0":
                 raise _ScratchError()
             stream.seek(0)
             try:
@@ -138,6 +153,9 @@ class _FileLease:
                 if exc.errno in (errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK):
                     raise _Busy() from None
                 raise _ScratchError() from None
+            stream.seek(0)
+            if stream.read(1) != b"\0":
+                raise _ScratchError()
             return cls(stream)
         except BaseException:
             stream.close()
@@ -181,8 +199,11 @@ class _ScratchRoot:
             if not path.is_absolute() or path.parent.resolve(strict=True) != path.parent:
                 raise _ScratchError()
             path.mkdir(mode=0o700)
-            ticket = _RootTicket(path, uuid4(), _identity(_inspect(path, directory=True)))
             _write_new(path / "root.lock", b"\0")
+            ticket = _RootTicket(
+                path, uuid4(), _identity(_inspect(path, directory=True)),
+                _identity(_inspect(path / "root.lock", directory=False)),
+            )
             _write_new(path / "owner", _root_marker(ticket))
             return cls(ticket)
         except (OSError, RuntimeError, ValueError):
@@ -200,7 +221,7 @@ class _ScratchRoot:
         deadline = time.monotonic() + 5
         while True:
             try:
-                lock = _FileLease.acquire(self.ticket.path / "root.lock")
+                lock = _FileLease.acquire(self.ticket.path / "root.lock", self.ticket.lock_identity)
                 break
             except _Busy:
                 if time.monotonic() >= deadline:
@@ -221,7 +242,15 @@ class _ScratchRoot:
             raise _ScratchError()
         _marker(ticket.path / "owner", _session_marker(self.ticket, ticket))
         spill = _inspect(ticket.path / "spill", directory=True)
-        if spill.st_dev != ticket.identity.device or (ticket.path / "spill").is_mount():
+        if (
+            _identity(spill) != ticket.spill_identity
+            or spill.st_dev != ticket.identity.device
+            or (ticket.path / "spill").is_mount()
+            or _identity(_inspect(ticket.path / "parent.lock", directory=False))
+            != ticket.parent_identity
+            or _identity(_inspect(ticket.path / "worker.lock", directory=False))
+            != ticket.worker_identity
+        ):
             raise _ScratchError()
 
     def create_session(self) -> _ParentLease:
@@ -230,11 +259,16 @@ class _ScratchRoot:
                 nonce = uuid4()
                 path = self.ticket.path / nonce.hex
                 path.mkdir(mode=0o700)
-                ticket = _SessionTicket(path, nonce, _identity(_inspect(path, directory=True)))
                 (path / "spill").mkdir(mode=0o700)
                 _write_new(path / "parent.lock", b"\0")
                 _write_new(path / "worker.lock", b"\0")
-                parent = _FileLease.acquire(path / "parent.lock")
+                ticket = _SessionTicket(
+                    path, nonce, _identity(_inspect(path, directory=True)),
+                    _identity(_inspect(path / "parent.lock", directory=False)),
+                    _identity(_inspect(path / "worker.lock", directory=False)),
+                    _identity(_inspect(path / "spill", directory=True)),
+                )
+                parent = _FileLease.acquire(path / "parent.lock", ticket.parent_identity)
                 try:
                     # Publish only after the parent's lease is held.
                     _write_new(path / "owner", _session_marker(self.ticket, ticket))
@@ -252,9 +286,9 @@ class _ScratchRoot:
             with self._guard():
                 self._verify_session(ticket)
                 try:
-                    abandoned = _FileLease.acquire(ticket.path / "parent.lock")
+                    abandoned = _FileLease.acquire(ticket.path / "parent.lock", ticket.parent_identity)
                 except _Busy:
-                    return _FileLease.acquire(ticket.path / "worker.lock")
+                    return _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity)
                 abandoned.release()
                 raise _ScratchError()
         except (OSError, RuntimeError, ValueError):
@@ -271,12 +305,12 @@ class _ScratchRoot:
     def _recover_locked(self, ticket: _SessionTicket) -> _Recovery:
         self._verify_session(ticket)
         try:
-            parent = _FileLease.acquire(ticket.path / "parent.lock")
+            parent = _FileLease.acquire(ticket.path / "parent.lock", ticket.parent_identity)
         except _Busy:
             return _Recovery.LIVE
         try:
             try:
-                worker = _FileLease.acquire(ticket.path / "worker.lock")
+                worker = _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity)
             except _Busy:
                 return _Recovery.LIVE
             try:
