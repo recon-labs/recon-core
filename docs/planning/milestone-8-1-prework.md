@@ -1,6 +1,6 @@
 # Milestone 8.1 Prework: Scan Policy And Execution Advisories
 
-**HISTORICAL UMBRELLA BASELINE - not implementation authority.** M8.1.1 and targeted M7.4 correction are verified on main; [M8.1.2 approved prework](milestone-8-1-2-prework.md) is the current resource design, pending separate implementation approval. The prior footprint-driven design below is retained for history, not coding authority.
+**HISTORICAL UMBRELLA BASELINE - not implementation authority.** M8.1.1 and targeted M7.4 correction are verified on main; [M8.1.2 approved prework](milestone-8-1-2-prework.md) records the reopened whole resource design (2026-11-27); implementation suspended and prior mechanisms historical pending revision. The prior footprint-driven design below is retained for history, not coding authority.
 
 ## Status and approval boundary
 
@@ -342,7 +342,7 @@ required.
 
 Maintainer-approved adaptive, adapter-aware, minimally restrictive local execution with portable best-effort protection, strict controls only when proven and isolation where necessary. Preserve native spilling and larger-than-memory work. No universal CI-derived ratios or caps. Distinguish execution scope from client transport, use engine-specific mechanisms and never downgrade required enforcement. Apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) to all future adapters and expansions. Exact settings, defaults, worker design and pulled-forward lifecycle requirements remain pending detailed prework and separate approval. No successor implementation authorized.
 
-## Approved M8.1.2 integration checkpoint (2026-11-26)
+## Historical approved M8.1.2 integration checkpoint (2026-11-26; reopened 2026-11-27)
 
 The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
 historical footprint-driven resource decisions and earlier pending-design
