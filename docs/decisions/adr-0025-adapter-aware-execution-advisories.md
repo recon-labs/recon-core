@@ -49,6 +49,27 @@ The build order and ecosystem roadmap own sequencing. Exact thresholds,
 settings, evidence types, fields, wording, and backend estimate strategies
 remain subject to milestone-specific research and high-risk prework.
 
+## Platform compatibility and graceful degradation
+
+Untested versions are not runtime allowlists or blockers. Admission depends
+on actual execution-scope capability and independently verified required
+protection. Optional unavailable, unsupported or malformed observations
+produce actionable safe advice and do not prevent otherwise safe work.
+Verified equivalent mechanisms may be used at the same scope without
+changing reconciliation meaning; required protection that cannot be
+established refuses only affected execution. Native failures are errors,
+not mismatches. Diagnostics explain what is unknown, practical impact,
+whether work continues, and supported remediation, with bounded
+deduplication and no sensitive values. Deliver through ordinary terminal
+diagnostics, including successful checks, so orchestration capture can
+retain them. No promise that every orchestrator captures every stream.
+The [mandatory platform subfamilies P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l)
+govern current and future adapter/version/deployment conformance, actual
+native evidence, periodic compatibility validation and regression carryover.
+Tested compatibility is distinct from untested best-effort execution;
+no automatic version-based refusal, silent downgrade or universal OS
+mechanism.
+
 ## Alternatives and reasoning
 
 A universal row-count threshold ignores workload and engine differences.
