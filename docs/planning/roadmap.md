@@ -19,7 +19,7 @@ decimal milestone split rules.
 
 ## Version 0.1
 
-M8.1 design reopened: hardware-aware local policy and empirical default calibration belong in M8.1; deadline/cancellation and cumulative resource coordination in M8.2; safe resource metadata in M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
+M8.1.2 adaptive design approved; see [M8.1.2 approved prework](milestone-8-1-2-prework.md). It owns hardware-aware local policy, calibration and one-worker stop, scratch recovery and per-check resource scope. Remaining invocation deadlines/cancellation/retry and cumulative resource coordination belong to M8.2; safe resource metadata to M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
 
 Primary goal:
 
@@ -320,4 +320,23 @@ M9.5 (lossless type compatibility for existing key and aggregate checks) is a ma
 
 ## Execution scope restoration checkpoint
 
-Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+
+## Approved M8.1.2 integration checkpoint (2026-11-26)
+
+The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
+historical footprint-driven resource decisions and earlier pending-design
+statements. Design approval is not implementation or exit approval. Existing
+runtime remains unchanged until implementation. M8.1.1 and targeted M7.4
+correction are verified on main. No default database size or workload timeout;
+optional authored footprint ceiling applies to all nine local project check
+families. Native managed resource targets are not physical quotas. The
+DuckDB-specific 25% memory and 10% disk reserve candidates require actual
+combined calibration before default lock; no universal ratio. Required scope
+and controls fail closed; optional estimate uncertainty is not a blanket block.
+M8.1.2 owns B8 one-worker cancellation/confirmed exit/parent liveness, B9
+native/IPC/owned scratch cleanup and crash-safe recovery, B10 serial per-check
+worker and re-observation prerequisites. M8.2 owns remaining run-wide
+lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
+publication. Preserve all future adapter applicability, type and scope gates.
+No gate closed; separate implementation authorization required.

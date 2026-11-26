@@ -2,7 +2,7 @@
 
 ## Scope and ordering
 
-M8.1 design reopened; implementation blocked. [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
+M8.1.2 detailed design approved; implementation authorization pending. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
 
 Split Decision: Required. The maintainer approved the implementation-bearing
 split and the adapter-aware advisory direction. M8 is an umbrella, not an
@@ -29,12 +29,12 @@ attribution privately.
 | Required gates | 4L primary; 4I/4A/4B/4C/4J as applicable; 3F2, 6, 8C scoped native-plan proof if touched; Gate 5E only if any existing writer is touched (no new result writer). | 5 primary; 4I/4L integration; 3F2, 6, 4J where adapter/profile handling touched; 1A/ADR 0014 prerequisite semantics; selector-readiness; sink metadata reservation only. | 5/5E primary; 3F2, 6, 4J where relevant; 4I/4L recorded metadata; selector-readiness; local-only sink metadata boundary under ADR 0022; 4O only if approximate values/derived differences proposed; 8 renderer publication requirements if referencing rendered SQL. |
 | ADR/decision topics | ADR 0021/0025; safe local default and explicit limit, settings home/precedence, estimate evidence, hard versus warning admission, privacy and allowed recommendation classes; new ADR if durable config/adapter decision requires. | ADR 0014/0021/0022/0025; create run lifecycle/result semantics ADR using next available number, not occupied ADR 0021; run ID, timing, auto-compile vs existing artifacts, stale inputs, execution plan, aggregation, severity, cleanup, scope. | ADR 0022/0025 and lifecycle ADR extension or separate publication decision; versioned schema, field allowlist, artifact and sink refs, stale result policy, publish ordering, terminal/exit mapping and write failures. |
 | Required docs | Config/CLI and scan policy docs, adapter interface/compatibility, check engine, testing, inventory/matrix and assigned prework. | CLI services, check engine/result model, architecture CLI/artifacts, compatibility and lifecycle ADR/prework. | Result model, artifact model, CLI/README/quickstart, diagnostics, compatibility inventory/matrix and versioning, testing, evidence boundary and prework. |
-| Acceptance/conformance dimensions to expand before coding | A1-A13 below (reopened prework required). | B1-B10 below. | C1-C10 below. |
+| Acceptance/conformance dimensions to expand before coding | A1-A13 below (remaining portions in approved M8.1.2 prework). | B1-B10 below. | C1-C10 below. |
 | Responsibility-map rows to expand | Config loader validates user input only; adapter supplies non-executing evidence only; scan policy computes admission; RunService consumes proof before execution; advisory projection cannot modify plan. | Existing RunService owns orchestration and cleanup; engine owns check semantics; plan metadata owns intended scope; result models aggregate existing status taxonomy; no I/O writer in engine. | Dedicated Core artifact writer owns atomic publication/cleanup; allowlisted safe projection owns schema/redaction; RunService owns outcome coordination; CLI renders final result/exit category, not direct storage. |
 | BDD/workflows | Valid bounded local run, unsafe/unknown/over-limit block, larger known-scope opt-in, advisory-only risk, unsupported suggestion no execution change. | Pass/fail/mixed run, no checks, prerequisite blocked, load/setup/execution/cleanup failures, truthful timing and preserved preflight. | Successful and failed checks generate trustworthy allowed artifacts, unsafe/write-failed path does not leave misleading output, consistent exit/terminal, suppressed sensitive payload, no external sink. |
 | Required tests | Config/validation, real DuckDB scan guard and admission, service and check engine negative cases, no-scan spies, safe diagnostics, advisory invariant tests, preserve existing row-count/key/aggregate coverage. | Service/engine lifecycle and timing tests, ordering, dependency and mixed status tests, distinct connection failures, plan and scope, no generated results, preserve A tests. | Version/schema serialization, writer path and atomicity/failure/cleanup tests, privacy and CLI tests for every outcome, integration tests against real local adapter, carry forward A/B tests. |
 | Phase exit | TDD RED/GREEN and fresh cumulative review against approved matrix; prove no capability shrink or accidental production claim; record carryover, docs and validation. | Same review; prove status/timing/cleanup and preserved admission/semantics, no writes. | Same review plus final umbrella coverage/orphan check, full required branch-wide validation, compatibility/changelog review and maintainer approval. |
-| Blockers before coding | Reopened design: revise ADR, research native controls and measure default calibration; recheck split, compatibility, complete A1-A13 matrix, source/responsibility map, BDD, test plan, DoD, integration and explicit approval. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
+| Blockers before coding | Approved M8.1.2 design and dedicated prework; validate integration and obtain separate implementation authorization. Candidate tuning, combined worker/recovery and native proof remain mandatory implementation/exit obligations. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
 
 ## Required acceptance row families and carryover
 
@@ -65,9 +65,9 @@ cases. No row can be silently dropped.
 | B5 | Preserve A admission, capability and advisory evidence; no execution on hard block or hidden fallback. |
 | B6 | Whole-project invocation scope with future selected-scope readiness, artifact/sink references only as allowed in memory. |
 | B7 | Privacy-safe lifecycle/plan metadata and no result/evidence/state writes. |
-| B8 | Deadlines, timeout, cancellation requested versus confirmed, interrupted outcomes and safe retry. |
-| B9 | Connection/transaction/spill cleanup, resource failure and primary versus cleanup errors. |
-| B10 | Per-check/cumulative resource envelopes, concurrency and fan-out; no automatic escalation. |
+| B8 | M8.1.2: one-worker stop/confirmed exit, parent liveness and interrupted outcomes. M8.2: remaining invocation deadlines/timeouts, cancellation lifecycle and safe retry. |
+| B9 | M8.1.1: native binding cleanup/L1. M8.1.2: worker/IPC/native/scratch cleanup, crash recovery and primary versus cleanup error. M8.2: remaining run-wide lifecycle/cleanup. |
+| B10 | M8.1.2: one active worker per check, re-observation, per-check resource scope. M8.2: cumulative envelopes, concurrency and fan-out. No automatic escalation. |
 | C1 | Versioned schema, path and invocation/timing/status/scope fields, backward/forward compatibility policy. |
 | C2 | Allowlisted placement, adapter/capability, scan evidence and advisory fields, availability/reasons, no misleading claims. |
 | C3 | Privacy matrix for every public field, diagnostic code/message/context/hint and raw values/keys/counts/diffs/SQL/plan/error text. |
@@ -136,6 +136,8 @@ checking ecosystem checkpoints. No milestone prework is declared satisfied.
 
 ## Reopened execution dependency and next action
 
+Historical sequence below; steps 1-4 are verified on main, step 5 design approved. Follow the current integration checkpoint below for remaining work.
+
 Status: shared binding verified and merged; [targeted M7.4 correction prework](milestone-7-4-prework.md#targeted-bound-grouped-runtime-correction---approved-prework) verified and merged (PR #39). Follow this dependency
 order for the reopened work:
 
@@ -166,7 +168,7 @@ and obtain maintainer approval with synchronized gate and split changes.
 
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
-Maintainer-approved split direction: M8.1.1 -> targeted M7.4 correction -> M8.1.2. M8.1.1 owns A4/A7/A8/A13 binding portions and B9 prerequisite; M8.1.2 owns remaining A1-A13/R1-R10 and any earlier required B8-B10 controls. Per-check fresh owned read-only transaction, no writable fallback, exact qualified table identity, temporary base-table scope uniformly, legacy 64 MiB key/SUM only. Detailed split matrix and binding prework are recorded below. M8.1.1 implementation was separately approved; successor approval remains pending.
+Maintainer-approved split direction: M8.1.1 -> targeted M7.4 correction -> M8.1.2. M8.1.1 owns A4/A7/A8/A13 binding portions and B9 prerequisite; M8.1.2 owns remaining A1-A13/R1-R10 and explicitly assigned B8-B10 worker prerequisites. Per-check fresh owned read-only transaction, no writable fallback, exact qualified table identity, temporary base-table scope uniformly, legacy 64 MiB key/SUM only. Detailed split matrix and binding prework are recorded below. M8.1.1 implementation was separately approved; successor approval remains pending.
 
 ## M8.1.1 detailed prework checkpoint
 
@@ -184,23 +186,23 @@ proof. M8.1.1 exit is verified; no successor implementation before its own final
 | Non-goals | No new resource defaults, new types, grouped optimization, writers, expanded S contexts | No global equality rewrite, new type support or duplicate session | No new types, writer, selector or automatic scope mutation |
 | Risk and contracts | Runtime admission, row-count restrictions, failure isolation, privacy, compatibility | Strict type/key/numeric semantics, runtime performance and bounded transport | Config/defaults, native controls, supported evidence/limits, lifecycle enforcement |
 | Gates | 4Q/4I/4L; 4A/4B/4C/4J, 5, 3F2, 6, 8C, 1A, 4P/4O/3A | 3A/3D/4O, 4B/4C/4I/4L, 6, 8C, 4P | 4L/4I, 4A/4B/4C/4J, 5/5E when touched, 3F2/6/8C, 4P/4Q |
-| ADRs | 0026 binding amendment, 0021/0022/0014/0020/0009 | 0009/0021 and approved correction prework | 0026 reopened resource decision, 0025 and applicable lifecycle decisions |
-| Docs | Binding prework, compatibility, adapter API, diagnostic/CLI/testing/limitations upon implementation | M7.4 correction prework, runtime semantics and regression proof | revised M8.1 prework, config/CLI/adapters and resource compatibility |
-| Acceptance | J1-J12 expanded; A4/A7/A8/A13 binding, B9 prerequisite, applicable T/S/R | G families from correction prework, native performance and semantic matrix | Remaining A1-A13, R1-R10, prerequisite B8-B10 if required |
+| ADRs | 0026 binding amendment, 0021/0022/0014/0020/0009 | 0009/0021 and approved correction prework | 0026 approved adaptive resource amendment, 0025 and applicable lifecycle decisions |
+| Docs | Binding prework, compatibility, adapter API, diagnostic/CLI/testing/limitations upon implementation | M7.4 correction prework, runtime semantics and regression proof | dedicated M8.1.2 prework, config/CLI/adapters and resource compatibility |
+| Acceptance | J1-J12 expanded; A4/A7/A8/A13 binding, B9 prerequisite, applicable T/S/R | G families from correction prework, native performance and semantic matrix | Remaining A1-A13, R1-R10, B8-B10 worker prerequisites (explicitly assigned below) |
 | Responsibility | Existing RunService and engine; private adapter native lease; Core policy | Existing aggregate renderer and Core strict checks | Existing policy and adapter control seam; no alternate runner |
 | BDD | Valid, stale, unsafe scope, writer conflict, mixed/prerequisite and cleanup | Stable bound grouped exact summary, nulls/empty/composite/type mismatch, bounded scale | Useful defaults and explicit limits, unknown/over-budget block, safe advisories, verified controls |
 | Tests | Exact J tests plus native/public regressions and captures | Exact renderer, native differential and scale, all supported pins | Config/unit/engine/native resource tests, hardware envelopes and control failure cases |
 | Contract impact | Approved temporary S restriction and L1; additive safe diagnostics only; no signature/schema changes | No public compile SQL or semantics change | Settings and admission only after approval, documented compatibility and migration |
 | Exit | Actual bound native proof, J rows, carryover, full CI, privacy and approved exit | Verified performance correction and full semantic regression, approved exit | Full revised matrix, measured resource evidence, gate proof and approved exit |
-| Blocker before coding | Satisfied, scoped exit complete | Satisfied; scoped exit verified | M7.4 correction exit, resource decisions, proof and explicit approval |
+| Blocker before coding | Satisfied, scoped exit complete | Satisfied; scoped exit verified | Prerequisites and resource design approved; integrated prework and separate implementation authorization; native proof at exit |
 
 Assignment-level orphan review: A1-A13 remain owned, binding portions above
-and remaining in M8.1.2; B1-B10 stay M8.2 except explicit prerequisites;
+and remaining in M8.1.2; B1-B7 and remaining B8-B10 stay M8.2; B8-B10 worker prerequisites are M8.1.2;
 C1-C10 M8.3. Earlier capture assignments retain IDs, applied by actual
 changed surfaces. No gate status or runtime implementation implied. See
 [M8.1.1 prework](milestone-8-1-1-prework.md) for approved L1 and J rows.
 
-## Mandatory M8.1.2 resource policy handoff
+## Historical M8.1.2 resource policy handoff (superseded by approved checkpoint below)
 
 M8.1.2 is the mandatory implementation owner of the reopened resource/default
 design, not an optional later optimization. Execution order: M8.1.1
@@ -231,6 +233,25 @@ changes. Exact settings, thresholds, controls and detailed M8.1.2 prework
 remain open; separate design approval, implementation and native exit proof
 required.
 
-## Adaptive resource direction and adapter carryover
+## Historical adaptive resource direction and adapter carryover (see approved checkpoint below)
 
 Maintainer-approved adaptive, adapter-aware, minimally restrictive local execution with portable best-effort protection, strict controls only when proven and isolation where necessary. Preserve native spilling and larger-than-memory work. No universal CI-derived ratios or caps. Distinguish execution scope from client transport, use engine-specific mechanisms and never downgrade required enforcement. Apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) to all future adapters and expansions. Exact settings, defaults, worker design and pulled-forward lifecycle requirements remain pending detailed prework and separate approval. No successor implementation authorized.
+
+## Approved M8.1.2 integration checkpoint (2026-11-26)
+
+The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
+historical footprint-driven resource decisions and earlier pending-design
+statements. Design approval is not implementation or exit approval. Existing
+runtime remains unchanged until implementation. M8.1.1 and targeted M7.4
+correction are verified on main. No default database size or workload timeout;
+optional authored footprint ceiling applies to all nine local project check
+families. Native managed resource targets are not physical quotas. The
+DuckDB-specific 25% memory and 10% disk reserve candidates require actual
+combined calibration before default lock; no universal ratio. Required scope
+and controls fail closed; optional estimate uncertainty is not a blanket block.
+M8.1.2 owns B8 one-worker cancellation/confirmed exit/parent liveness, B9
+native/IPC/owned scratch cleanup and crash-safe recovery, B10 serial per-check
+worker and re-observation prerequisites. M8.2 owns remaining run-wide
+lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
+publication. Preserve all future adapter applicability, type and scope gates.
+No gate closed; separate implementation authorization required.
