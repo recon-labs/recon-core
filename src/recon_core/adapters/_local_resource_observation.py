@@ -270,7 +270,7 @@ def _parse_available_memory(text: str) -> int | None:
     return amount * 1024 if amount is not None and amount <= _MAX // 1024 else None
 
 
-def _scratch_memory_backed(path: Path, mountinfo: str) -> bool | None:
+def _scratch_memory_backed(path: PurePosixPath, mountinfo: str) -> bool | None:
     posix = PurePosixPath(path.as_posix())
     matches = [mount for mount in _mounts(mountinfo) if posix.is_relative_to(mount.point)]
     if not matches:
