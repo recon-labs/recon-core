@@ -1,0 +1,48 @@
+name: Temporary M8.1.2 constrained resource envelope
+on:
+  push:
+    branches: [experiment/m8-1-2-bounded-envelope-20261126]
+    paths: ['scripts/temporary_m812_envelope_probe.py', '.github/workflows/temporary-m812-envelope-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        duckdb: ['1.0.0', '1.3.2', '1.4.5', '2.0.1']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prepare synthetic fixture and bounded containers
+        env:
+          PIN: ${{ matrix.duckdb }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=$(mktemp -d)
+          trap 'docker rm -f recon-m812-probe >/dev/null 2>&1 || true; rm -rf "$ROOT"' EXIT
+          python -m pip install -e . "duckdb==$PIN"
+          python -u scripts/temporary_m812_envelope_probe.py setup "$ROOT"
+          printf 'FROM python:3.11-slim\nWORKDIR /app\nCOPY . /app\nRUN pip install --no-cache-dir . duckdb==%s\n' "$PIN" > "$ROOT/Dockerfile"
+          docker build -q -f "$ROOT/Dockerfile" -t recon-m812-probe .
+          for spec in "512 1 128 1 128 narrow" "512 1 128 1 128 wide" "1024 2 256 1 256 wide" "2048 2 512 2 256 wide" "512 1 128 1 1 wide" "1024 2 128 1 128 isolation"; do
+            read -r ram cpu mem threads cap mode <<< "$spec"
+            echo "CASE $spec"
+            set +e
+            timeout --kill-after=5s 40s docker run --name recon-m812-probe --network none --memory "${ram}m" --memory-swap "${ram}m" --cpus "$cpu" --tmpfs /scratch:rw,size=384m,mode=0700 -v "$ROOT:/fixture:ro" recon-m812-probe python -u scripts/temporary_m812_envelope_probe.py run /fixture "$mem" "$threads" "$cap" "$mode"
+            rc=$?
+            set -e
+            docker inspect --format 'OOMKilled={{.State.OOMKilled}} ExitCode={{.State.ExitCode}}' recon-m812-probe || true
+            docker rm -f recon-m812-probe >/dev/null || true
+            echo "CASE_EXIT $rc"
+          done
+          rm -rf "$ROOT"
+          test ! -e "$ROOT"
+          echo ROOT_CLEANUP true
