@@ -303,7 +303,15 @@ def _verify_descriptor(
                 # changing security, or writing reparse-relevant attributes.
                 # A positive allowlist also rejects unresolved generic rights.
                 safe = 0x001200AD  # SYNCHRONIZE, READ_CONTROL, RA, X, REA, AD, RD
-                if ace.mask & ~safe and not _ancestor_trusted_principal(security, trustee, sid):
+                # OWNER RIGHTS (S-1-3-4) resolves to this object's owner.
+                # The owner was independently qualified above; never treat
+                # this as a generally trusted principal or private-object grant.
+                well_known = _api(security, "IsWellKnownSid", wt.BOOL, ct.c_void_p, ct.c_int)
+                if (
+                    ace.mask & ~safe
+                    and not well_known(trustee, 71)
+                    and not _ancestor_trusted_principal(security, trustee, sid)
+                ):
                     raise _WindowsScratchSecurityError()
             else:
                 # Exact private owner grant; directories propagate to children.
