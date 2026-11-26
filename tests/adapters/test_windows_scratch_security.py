@@ -203,3 +203,41 @@ def test_native_security_handle_must_match_requested_object(
         assert redirected
     verify(expected)
     verify(substitute)
+
+
+@pytest.mark.regression_capture("windows-scratch-private-acl")
+@pytest.mark.parametrize(
+    ("grant", "safe"),
+    [
+        ("RX", True),
+        ("(AD)", True),
+        ("(OI)(CI)(IO)F", True),
+        ("(DC)", False),
+        ("(DE)", False),
+        ("(WDAC)", False),
+        ("(WO)", False),
+        ("(WA)", False),
+        ("(WD)", False),
+    ],
+)
+def test_native_ancestor_permissions_distinguish_path_control(
+    tmp_path: Path, grant: str, safe: bool
+) -> None:
+    from recon_core.adapters._windows_scratch_security import _verify_ancestor_directory
+
+    root = tmp_path.resolve() / "ancestor"
+    _create_private_directory(root)
+    _verify_ancestor_directory(root)
+    result = subprocess.run(
+        ["icacls", str(root), "/grant", f"*S-1-1-0:{grant}"],
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0
+    if safe:
+        _verify_ancestor_directory(root)
+    else:
+        with pytest.raises(_WindowsScratchSecurityError):
+            _verify_ancestor_directory(root)
+    assert root.is_dir()
