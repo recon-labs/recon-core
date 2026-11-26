@@ -627,6 +627,7 @@ def test_bound_grouped_renderer_requires_qualified_grouped_operations(grouped: b
     with pytest.raises(ValueError, match="Bound grouped rendering requires"):
         renderer.render_bound_grouped_plan(_operations(("k",) if grouped else ()), **relations)
 
+
 @pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
 def test_bound_grouped_arbitrary_integer_differential(tmp_path: Path, duckdb: Any) -> None:
     version = tuple(int(part) for part in duckdb.__version__.split(".")[:2])

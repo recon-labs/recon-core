@@ -1106,6 +1106,7 @@ def test_missing_bound_grouped_renderer_refuses_before_runner(tmp_path: Path, in
     assert not result.executed
     assert adapter.calls == []
 
+
 @pytest.mark.parametrize("bad", ["key_guard", "input_guard", "domain", "plan"])
 @pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
 def test_bound_grouped_invalid_proof_prevents_final_query(tmp_path: Path, bad: str) -> None:
