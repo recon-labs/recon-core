@@ -892,6 +892,82 @@ Tests:
   selected-scope runs later without implying unselected contracts or checks were
   reconciled.
 
+## Milestone 9.5: lossless type compatibility for existing checks
+
+Status: Pending, mandatory implementation-bearing pre-MVP milestone.
+Split Decision: Required before coding if detailed prework identifies
+independent type-system or execution integration work; this assignment
+is not approval to implement. Historical M7.3 and M7.4 remain completed.
+M9.5 owns their explicit retrofit; neither historical completion nor
+M10 documentation can satisfy this milestone.
+
+Build after M8.1-M8.3, M9 and the targeted M7.4 grouped SQL correction
+are validated. M8.1 must establish reusable binding and resource
+prerequisites, not assume M9.5 implementation. If research establishes
+a need to pull M9.5 earlier, obtain approval and update dependency,
+resource/evidence and gate assignments consistently; no silent deferral
+past M10 or the 0.1 release-readiness decision.
+
+Goal: safe, useful same-context DuckDB comparison of different but
+losslessly comparable physical types in existing key and SUM checks.
+
+Build:
+
+- shared operation-aware normalized metadata and compatibility decision
+  model, separating structural equality, value comparability and explicit
+  conversion; preserve native type provenance;
+- safe exact numeric common domains for INTEGER/BIGINT and other proven
+  signed/unsigned integer combinations, exact decimal precision/scale
+  and integer-decimal combinations where representable;
+- retrofit M7.3 null/duplicate/missing/extra key semantics, composite
+  identities, collision/prerequisite behavior, and M7.4 scalar and
+  grouped SUM input/result/difference domains; retain same-type capability
+  and native floating behavior;
+- explicit typed compatibility/conversion plan, adapter capability proof,
+  bound metadata and consistent execution; no implicit engine casts;
+- distinct safe outcomes for incompatible/unknown types, conversion or
+  arithmetic failure, and actual data violations; integrate approved
+  result/evidence metadata with M8.3/M9 contracts and version policy;
+- supported type/operation/version matrix, deterministic regression
+  capture, user-facing limitations and runnable examples.
+
+Non-goals: new metrics, schema policy execution, cross-connection or
+cross-adapter execution, arbitrary string-to-number/timezone conversion,
+lossy normalization, new authored policy syntax without approved design,
+new public adapter APIs without explicit gate review. Mixed approximate
+numeric, temporal, collation/nested and richer explicit conversion
+semantics require explicit decisions and owners; M11/M12/M13/M21/M22/M30
+extend the shared model, not substitute for this required baseline.
+
+Required gates: Gate 4P primary; 1A, 3A/3C/3D/3F2, 4B/4C/4I/4L/4O,
+5/5E, 6, 7 and 8/8C as applicable. Read
+[mandatory type compatibility assignments](../planning/type-compatibility-assignments.md)
+and [resource safety assignments](../planning/execution-resource-safety-assignments.md).
+Existing ADRs 0005/0009/0010/0013/0019/0021/0026 remain authoritative until
+approved scoped amendment. Prework must resolve canonical domain,
+default versus explicit policy, metadata/transport, precision,
+conversion failures, diagnostics, API/artifact compatibility and
+resource/placement strategy with research and explicit approval.
+
+Tests and exit proof:
+
+- actual native key coverage and scalar/grouped SUM with matching and
+  differing values across INTEGER/BIGINT and representative safely
+  representable decimal domains, including both directions, empty,
+  nullable/composite/duplicate keys, collisions, exact numeric limits
+  and aggregate overflow;
+- reject unsupported/unknown/lossy conversions, no false pass or silent
+  exclusion; preserve earlier same-type results, privacy, prerequisite
+  ordering, bounded output and public compile/API compatibility unless
+  explicitly amended;
+- complete T1-T10 applicable matrix, BDD, exact test nodes, owner/source
+  map, regression captures, resource impact, representative pinned
+  DuckDB conformance and full required CI, docs and approval;
+- M10 cannot exit, tag or publish 0.1 without M9.5 completed and verified
+  on main. Any proposal to change the mandatory baseline requires a
+  separate maintainer-approved milestone and release-scope amendment;
+  M11 is expansion, not fallback ownership.
+
 ## Milestone 10: examples and docs alignment
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
@@ -913,7 +989,7 @@ Tests:
 
 ## After Milestone 10
 
-Milestones 1-10 complete the MVP build sequence.
+Milestones 1-10, including mandatory Milestone 9.5, complete the MVP build sequence. M10 release readiness is blocked until M9.5 exits.
 
 After Milestone 10, run the MVP acceptance criteria and release-readiness
 checklist before any 0.1 version bump, tag, or publish step.
@@ -953,6 +1029,7 @@ Future gate-to-milestone mapping summary:
 | Gate 3L | Post-MVP Milestone 12.5 | Any discovery/profile/suggest, metadata, profiling, or relation-scope feature |
 | Gate 3M | Post-MVP Milestone 12.5 | Post-MVP Milestones 25.6, 42, 42.5, and any generated tests |
 | Gate 3A amendment | Post-MVP Milestone 11 | Post-MVP Milestone 12.5 and Milestone 7.4 aggregate suggestion/execution boundaries |
+| Gate 4P | Milestone 9.5 | Mandatory existing key/aggregate retrofit; see type compatibility assignments for later expansions. |
 | Gate 4L | Cross-cutting | M8.1 admission/resources; M8.2 lifecycle; M8.3 safe output; every scan, profiling, movement, write, cache, concurrent and integration path per [mandatory assignments](../planning/execution-resource-safety-assignments.md). M7.3/7.4 baseline unchanged. |
 | Gate 4M | Post-MVP Milestones 24/25/26 area | Post-MVP Milestones 10.6, 24, 25, 26, 27, and 27.5 |
 | Gate 4N | Post-MVP Milestone 25.6 | Post-MVP Milestone 25.7, Post-MVP Milestone 31, and any adaptive threshold or drift feature |
@@ -1118,6 +1195,8 @@ feat: add user-facing agent onboarding
 ```
 
 ## Post-MVP Milestone 11: aggregate metrics expansion
+
+Depends on the completed M9.5 lossless type compatibility baseline; extend it, do not defer its retrofit to M11.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 

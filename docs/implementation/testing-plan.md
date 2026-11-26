@@ -603,3 +603,7 @@ Adapter integration tests that require external services can run separately.
 ## Design principle
 
 If a behavior can affect evidence trust, it needs tests.
+
+## Mandatory M9.5 delivery checkpoint
+
+M9.5 mandatory pre-MVP regression suite: execute existing key and scalar/grouped aggregate checks across proven lossless differing physical types (INTEGER/BIGINT and exact decimals), with independent truth, boundary/overflow, null/composite/collision, stale binding, negative capability and privacy cases, same-type regression and pinned native conformance. Expand T1-T10 and applicable R1-R10 to exact test IDs in approved prework; M10 exit requires implementation proof, not planned tests. See [type compatibility assignments](../planning/type-compatibility-assignments.md).

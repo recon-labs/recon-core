@@ -227,3 +227,7 @@ Every release should update:
 Do not release features that make reconciliation look successful when assumptions are unsafe.
 
 Strict errors are better than misleading evidence.
+
+## Mandatory M9.5 delivery checkpoint
+
+M9.5 (lossless type compatibility for existing key and aggregate checks) is a mandatory pre-MVP implementation milestone after M8/M9 and the targeted M7.4 correction. M10 exit and 0.1 release readiness require completed M9.5 on main; no mere planning or historical gate closure satisfies it. See the [build order](../implementation/mvp-build-order.md) and [type compatibility assignments](type-compatibility-assignments.md).

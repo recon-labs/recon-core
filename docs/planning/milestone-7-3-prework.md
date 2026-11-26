@@ -1230,3 +1230,7 @@ is tracked by the implementation docs, compatibility docs, and tests.
 ## Type compatibility delivery checkpoint
 
 Apply [Gate 4P mandatory type compatibility assignments](type-compatibility-assignments.md). Current strict physical-type execution boundaries remain unchanged. Future operation-aware lossless comparison and explicit conversion policies must be designed, implemented and proven; structural schema equality is not the same as value comparability. Do not infer compatibility from implicit engine casts. The assignment defines delivery ownership, not approved runtime behavior.
+
+## Mandatory M9.5 delivery checkpoint
+
+Historical completion is unchanged. Mandatory pending M9.5 owns the explicit retrofit of existing key and aggregate checks for losslessly compatible physical types; M10 exit is blocked until M9.5 is verified.

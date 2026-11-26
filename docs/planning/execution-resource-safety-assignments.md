@@ -99,3 +99,7 @@ questions for approval, then revise ADR 0026, A1-A13 matrix, BDD, owner map,
 test plan, DoD and implementation plan. Integrate approved prework before
 implementation authorization. No new repository, implementation or
 gate satisfaction is authorized here.
+
+## Mandatory M9.5 delivery checkpoint
+
+M9.5 mandatory type compatibility retrofit: assess R1/R3/R5/R7/R9/R10 for conversion and canonical key workload, intermediate growth, metadata binding, pruning, aggregate arithmetic, scheduling and supported-version scale; re-evaluate other R families when touched. M9.5 cannot bypass M8 admission or claim type proof as resource proof. See [type compatibility assignments](type-compatibility-assignments.md).

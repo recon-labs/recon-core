@@ -44,12 +44,13 @@ syntax must be approved through targeted research before implementation.
 
 | Milestone | Required application |
 | --- | --- |
-| 7.3 / 7.4 corrective work | Preserve existing strict admission, numeric and null semantics; repair grouped SQL only after same-binding proof. Carry forward future compatible-key/aggregate obligations; do not use the correction to silently widen or reduce support. |
+| 7.3 / 7.4 corrective work | Preserve existing strict admission, numeric and null semantics; repair grouped SQL only after same-binding proof. Carry forward compatible-key/aggregate obligations to mandatory pending M9.5; do not use the correction to silently widen or reduce support. |
 | 8.1 / 8.2 | Shared owned binding/snapshot prerequisites, qualification, resource/cast workload assessment, no stale metadata, lifecycle and cleanup. Assess whether prerequisite split must move before grouped correction. Do not lock resource calibration on defective renderer. |
 | 8.3 / 9 | Distinguish structural, compatibility, execution and data outcomes; reserve safe policy/provenance visibility without prematurely changing artifacts. |
-| 10 | Mandatory release-readiness decision: complete operation-aware compatibility design and approve the bounded initial delivery plan for existing key/aggregate checks (including INTEGER/BIGINT and safely representable exact decimals). Demonstrate actual support before claiming it. Any remaining strict MVP limitation must be explicit and maintainer-approved, with an implementation-bearing owner and blocker on mature claims. Do not postpone the decision to M29. |
+| 9.5 | Mandatory pending implementation owner: retrofit existing M7.3 keys and M7.4 scalar/grouped SUM with shared lossless exact type compatibility, including INTEGER/BIGINT and safely representable exact decimal domains. Complete T1-T10 applicable proof and preserve existing capability. After M8/M9 and grouped correction; before M10. See build order for scope and exit. |
+| 10 | Hard release-readiness dependency: M9.5 must be completed and validated on main, not merely designed. Demonstrate actual support and document remaining unsupported combinations; no 0.1 tag/publish or M10 exit while M9.5 is pending. |
 | 10.5-10.7 | Experimental shared test-kit inventory and artifact/cache/selector/onboarding semantics; no implied support. |
-| 11 | Implement/extend exact key and aggregate compatibility baseline for current checks if not delivered before M10; extend to new metrics and grouped comparisons; independently prove approximate policies with Gate 4O. PostgreSQL experimental conformance. |
+| 11 | Extend the completed M9.5 compatibility baseline to new metrics and grouped comparisons; independently prove approximate policies with Gate 4O. PostgreSQL experimental conformance. |
 | 12 | Implement structural schema equality/compatibility and normalized metadata using the shared comparison model, not a separate divergent type system. |
 | 12.5 | Metadata profiling/advice may suggest compatible types/conversions but never apply unapproved casts or infer total representability from samples. |
 | 13 | Explicit source-target mappings, key mappings, policy resolution, Snowflake experimental native/cross-system evidence; no implied cross-system execution. |
@@ -64,13 +65,11 @@ syntax must be approved through targeted research before implementation.
 
 ## Release and gate discipline
 
-Current runtime remains strict. Before locking the reopened M8.1 design,
-review Gate 4P, confirm the shared binding/correction sequence, decide the
-earliest feasible implementation owner for the initial compatibility
-baseline (prefer before MVP release if feasible; no automatic scope
-expansion), and obtain maintainer approval. M11 is the mandatory fallback
-implementation owner, not an optional backlog item. If the M10 decision
-moves or splits work, update this assignment, build order, gate,
-compatibility docs and private routing together. No claim of mature
-reconciliation compatibility until relevant capabilities are implemented
-and conformance passes; unsupported combinations remain explicit.
+Current runtime remains strict. M9.5 is the mandatory implementation owner
+for the historical M7.3/M7.4 compatibility gap. Before locking reopened
+M8.1, confirm shared binding/correction sequence and M9.5 prerequisites.
+M10 requires actual M9.5 implementation and exit proof, not a decision to
+defer; M11 is expansion only. Any proposed sequencing or scope change
+requires separate maintainer approval and synchronized assignment, build
+order, gate, compatibility and private routing changes. No mature claim
+until applicable native capability and conformance are proven.
