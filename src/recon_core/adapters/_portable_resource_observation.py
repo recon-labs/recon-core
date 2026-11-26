@@ -2,7 +2,7 @@
 
 import ctypes
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib import import_module
 from pathlib import Path, PurePath
 from typing import Any
@@ -243,6 +243,19 @@ def _observe_portable_resources(
         if kernel is not None:
             scope = _attempt(lambda: _windows_scope(kernel))
             drive = _attempt(lambda: _windows_drive(kernel, scratch))
-    return _read_portable_facts(
+    facts = _read_portable_facts(
         provider, platform, scratch, windows_scope=scope, windows_drive=drive
     )
+    if platform == "darwin":
+        resource = _attempt(lambda: import_module("resource"))
+        if resource is not None:
+            facts = replace(
+                facts,
+                process_address_space_limit_bytes=_bounded_integer(
+                    _attempt(lambda: resource.getrlimit(resource.RLIMIT_AS)[0])
+                ),
+                process_data_limit_bytes=_bounded_integer(
+                    _attempt(lambda: resource.getrlimit(resource.RLIMIT_DATA)[0])
+                ),
+            )
+    return facts
