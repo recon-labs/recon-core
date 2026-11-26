@@ -258,6 +258,30 @@ concrete adapter or infrastructure coupling, service or orchestrator boundary
 leaks, duplicated helper logic, test-helper bloat, and whether a same-branch
 low-risk refactor is required before the milestone can be considered complete.
 
+## Semantic design integrity
+
+For every milestone and substantive change, assess existing and newly
+introduced or reinforced material anti-patterns during audit/preflight,
+planning and design, implementation, fixes, cumulative review and exit.
+Use actual code, relevant collaborators, documented responsibilities,
+architecture, ADRs and tests. Do not choose a locally passing shortcut
+that violates boundaries, duplicates policy, hides failures or weakens proof.
+
+Correct necessary authorized in-scope violations, including low-risk
+same-scope refactors; block on unsafe prerequisites and propose broader or
+public-surface changes for approval. Read-only reviews remain read-only.
+Record material out-of-scope findings with evidence, impact, proposed
+correction, owner, owning milestone/workstream and rationale in existing
+planning artifacts (propose ownership if approval is needed). Revisit
+assigned follow-ups at relevant audits/prework; never defer an in-scope
+blocker to claim completion. Require no unresolved actionable material
+in-scope design violations at exit.
+
+Keep this proportionate and semantic: reuse existing prework, review and
+validation, not a new tracker, report, mandatory tool, blanket thresholds
+or general detection engine. Add deterministic checks only for concrete,
+justified problems through normal design and approval.
+
 ## Review fixes and project consistency
 
 Before a fix, identify currently supported behavior from the relevant docs,
