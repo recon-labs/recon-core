@@ -492,7 +492,7 @@ def test_native_failure_isolation_across_database_files(
     assert all(path.read_bytes() == content for path, content in before.items())
 
 
-@pytest.mark.parametrize("primary", ["data_fail", "scope_refusal"])
+@pytest.mark.parametrize("primary", ["data_fail", "scope_refusal", "query_error"])
 @pytest.mark.parametrize("cleanup", ["rollback", "close", "both"])
 @pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_primary_outcome_retained_on_cleanup_failure(
@@ -504,6 +504,12 @@ def test_primary_outcome_retained_on_cleanup_failure(
     write_duckdb_row_count_run_inputs(tmp_path, database)
     if primary == "scope_refusal":
         write_compiled_contract(tmp_path, target_relation="qa.absent")
+    if primary == "query_error":
+
+        def fail_read(*args: Any, **kwargs: Any) -> Any:
+            raise RuntimeError("private-primary-query-error")
+
+        monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", fail_read)
     real_close = binding._OwnedDuckDbSession.close
 
     def close_session(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
@@ -534,6 +540,9 @@ def test_primary_outcome_retained_on_cleanup_failure(
     )
     if primary == "scope_refusal":
         assert "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED" in {d.code for d in check.diagnostics}
+    elif primary == "query_error":
+        assert "RC_ADAPTER_QUERY_FAILED" in {d.code for d in check.diagnostics}
+        assert "private-primary-query-error" not in repr(result.diagnostics)
     else:
         assert any("failing outcome before cleanup failed" in d.message for d in check.diagnostics)
 
