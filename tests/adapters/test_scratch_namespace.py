@@ -487,3 +487,34 @@ def test_windows_tickets_persist_full_native_object_identity(
     reopened = _open_namespace(base, base)
     assert reopened.ticket == root.ticket
     assert reopened.recover(ticket) is _Recovery.REMOVED
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows native marker format")
+@pytest.mark.parametrize("legacy", ["root", "session"])
+def test_windows_legacy_markers_are_not_adopted_or_deleted(tmp_path: Path, legacy: str) -> None:
+    from recon_core.adapters._resource_scratch import _Recovery
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    session = root.create_session()
+    ticket = session.ticket
+    session.release()
+    spill = ticket.path / "spill" / "fixture.tmp"
+    spill.write_bytes(b"synthetic")
+    marker = (root.ticket.path if legacy == "root" else ticket.path) / "owner"
+    # Even otherwise matching identities cannot authorize an older schema.
+    prefix, rest = marker.read_bytes().split(b":", 1)
+    assert prefix.endswith(b"-2")
+    old = prefix[:-1] + b"1:" + rest
+    marker.write_bytes(old)
+    if legacy == "root":
+        with pytest.raises(_NamespaceError):
+            _open_namespace(base, base)
+        assert not root.recover_abandoned().complete
+    else:
+        reopened = _open_namespace(base, base)
+        assert reopened.recover_abandoned().retained == 1
+    assert root.recover(ticket) is _Recovery.RETAINED
+    assert marker.read_bytes() == old
+    assert spill.read_bytes() == b"synthetic"
