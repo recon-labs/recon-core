@@ -518,3 +518,47 @@ def test_windows_legacy_markers_are_not_adopted_or_deleted(tmp_path: Path, legac
     assert root.recover(ticket) is _Recovery.RETAINED
     assert marker.read_bytes() == old
     assert spill.read_bytes() == b"synthetic"
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+def test_concurrent_namespace_creation_reopens_completed_winner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier, Event, Lock
+
+    from recon_core.adapters._resource_scratch import _DirectoryPolicy, _ScratchRoot
+
+    base = tmp_path.resolve()
+    original = _ScratchRoot.create
+    entered = Barrier(2)
+    published = Event()
+    lock = Lock()
+    calls = 0
+
+    def racing_create(
+        path: Path, *, directory_policy: _DirectoryPolicy | None = None
+    ) -> _ScratchRoot:
+        nonlocal calls
+        with lock:
+            calls += 1
+            winner = calls == 1
+        # Both callers observed a missing namespace before entering create.
+        entered.wait(timeout=15)
+        if winner:
+            try:
+                return original(path, directory_policy=directory_policy)
+            finally:
+                published.set()
+        assert published.wait(timeout=15)
+        return original(path, directory_policy=directory_policy)
+
+    monkeypatch.setattr(_ScratchRoot, "create", staticmethod(racing_create))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(_open_namespace, base, base)
+        second = pool.submit(_open_namespace, base, base)
+        a = first.result(timeout=30)
+        b = second.result(timeout=30)
+    assert calls == 2
+    assert a.ticket == b.ticket
+    assert _open_namespace(base, base).ticket == a.ticket
