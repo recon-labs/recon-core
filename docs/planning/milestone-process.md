@@ -404,3 +404,29 @@ For every milestone that introduces or changes metadata, schema checks, key or v
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
 At entry and exit check all pending S rows, exact implementation ownership and proof, even if restriction originated in a closed milestone. No owner closure or reassignment without approved disposition.
+
+## Equivalent validation when local execution is unavailable
+
+Local execution is preferred, not a prerequisite when unavailable. Required
+validation and milestone gates remain unchanged. Use equivalent repository
+revision/diff inspection and CI proof without a separate local-execution
+waiver. Pin base/head, inspect complete changed surfaces, review all
+applicable gates, acceptance/test ownership, compatibility, privacy,
+design integrity and orphaned requirements. Review branch-wide regression
+capture decisions using the actual advisory command or an explicitly
+documented equivalent inspection of its routing and capture requirements;
+never claim an unexecuted command ran.
+
+Prefer existing CI on the exact revision, including required pre-commit,
+lint, formatting, typing, tests and supported native-version suites. Verify
+actual jobs, commands, results and skips; preserve test-first RED/GREEN
+and cumulative review requirements. When required proof is unavailable
+from existing jobs, use narrowly scoped temporary CI validation on an
+isolated branch with bounded synthetic fixtures, exact revision/version
+and commands, minimum permissions, no secrets or production data, and
+verified removal of temporary files. No temporary execution infrastructure
+on main or product branches. Respect repository security and branch
+protection. Record exact evidence, equivalent checks, missing proof and
+cleanup. Missing required proof remains a blocker to readiness or gate
+satisfaction, not a reason to weaken tests. Ordinary design, implementation,
+merge and release approval requirements are unaffected.

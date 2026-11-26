@@ -607,3 +607,29 @@ If a behavior can affect evidence trust, it needs tests.
 ## Mandatory M9.5 delivery checkpoint
 
 M9.5 mandatory pre-MVP regression suite: execute existing key and scalar/grouped aggregate checks across proven lossless differing physical types (INTEGER/BIGINT and exact decimals), with independent truth, boundary/overflow, null/composite/collision, stale binding, negative capability and privacy cases, same-type regression and pinned native conformance. Expand T1-T10 and applicable R1-R10 to exact test IDs in approved prework; M10 exit requires implementation proof, not planned tests. See [type compatibility assignments](../planning/type-compatibility-assignments.md).
+
+## Equivalent validation when local execution is unavailable
+
+Local execution is preferred, not a prerequisite when unavailable. Required
+validation and milestone gates remain unchanged. Use equivalent repository
+revision/diff inspection and CI proof without a separate local-execution
+waiver. Pin base/head, inspect complete changed surfaces, review all
+applicable gates, acceptance/test ownership, compatibility, privacy,
+design integrity and orphaned requirements. Review branch-wide regression
+capture decisions using the actual advisory command or an explicitly
+documented equivalent inspection of its routing and capture requirements;
+never claim an unexecuted command ran.
+
+Prefer existing CI on the exact revision, including required pre-commit,
+lint, formatting, typing, tests and supported native-version suites. Verify
+actual jobs, commands, results and skips; preserve test-first RED/GREEN
+and cumulative review requirements. When required proof is unavailable
+from existing jobs, use narrowly scoped temporary CI validation on an
+isolated branch with bounded synthetic fixtures, exact revision/version
+and commands, minimum permissions, no secrets or production data, and
+verified removal of temporary files. No temporary execution infrastructure
+on main or product branches. Respect repository security and branch
+protection. Record exact evidence, equivalent checks, missing proof and
+cleanup. Missing required proof remains a blocker to readiness or gate
+satisfaction, not a reason to weaken tests. Ordinary design, implementation,
+merge and release approval requirements are unaffected.
