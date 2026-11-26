@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from importlib import import_module
 from pathlib import Path
-from typing import IO
+from typing import IO, Protocol
 from uuid import UUID, uuid4
 
 from recon_core.adapters._windows_scratch_security import _api, _libraries
@@ -282,19 +282,32 @@ class _ParentLease:
             return _Recovery.RETAINED
 
 
+class _DirectoryPolicy(Protocol):
+    def create_directory(self, path: Path) -> None: ...
+    def verify_directory(self, path: Path) -> None: ...
+
+
 class _ScratchRoot:
     """Root lock serializes publication, claims and deletion, not queries."""
 
-    def __init__(self, ticket: _RootTicket) -> None:
+    def __init__(
+        self, ticket: _RootTicket, *, directory_policy: _DirectoryPolicy | None = None
+    ) -> None:
         self.ticket = ticket
+        self._directory_policy = directory_policy
 
     @classmethod
-    def create(cls, path: Path) -> "_ScratchRoot":
+    def create(
+        cls, path: Path, *, directory_policy: _DirectoryPolicy | None = None
+    ) -> "_ScratchRoot":
         """Create an exclusive root, never adopt an arbitrary existing directory."""
         try:
             if not path.is_absolute() or path.parent.resolve(strict=True) != path.parent:
                 raise _ScratchError()
-            path.mkdir(mode=0o700)
+            if directory_policy is None:
+                path.mkdir(mode=0o700)
+            else:
+                directory_policy.create_directory(path)
             _write_new(path / "root.lock", b"\0")
             ticket = _RootTicket(
                 path,
@@ -303,12 +316,14 @@ class _ScratchRoot:
                 _identity(_inspect(path / "root.lock", directory=False)),
             )
             _write_new(path / "owner", _root_marker(ticket))
-            return cls(ticket)
+            return cls(ticket, directory_policy=directory_policy)
         except (OSError, RuntimeError, ValueError):
             raise _ScratchError() from None
 
     @classmethod
-    def reopen(cls, path: Path) -> "_ScratchRoot":
+    def reopen(
+        cls, path: Path, *, directory_policy: _DirectoryPolicy | None = None
+    ) -> "_ScratchRoot":
         """Reconstruct a known namespace on caller-qualified storage.
 
         A name or directory alone is not proof. Do not repair incomplete
@@ -316,6 +331,8 @@ class _ScratchRoot:
         """
         try:
             _inspect(path, directory=True)
+            if directory_policy is not None:
+                directory_policy.verify_directory(path)
             nonce, dev, ino, lock_dev, lock_ino = _read_marker(
                 path / "owner", prefix=b"RC-SCRATCH-1", nonces=1, identities=2
             )
@@ -325,7 +342,8 @@ class _ScratchRoot:
                     _marker_nonce(nonce),
                     _marker_identity(dev, ino),
                     _marker_identity(lock_dev, lock_ino),
-                )
+                ),
+                directory_policy=directory_policy,
             )
             with root._guard():
                 pass
@@ -335,6 +353,8 @@ class _ScratchRoot:
 
     def _discover_session(self, path: Path) -> _SessionTicket:
         _inspect(path, directory=True)
+        if self._directory_policy is not None:
+            self._directory_policy.verify_directory(path)
         root_nonce, nonce, *values = _read_marker(
             path / "owner", prefix=b"RC-SESSION-1", nonces=2, identities=4
         )
@@ -381,6 +401,8 @@ class _ScratchRoot:
         return _RecoverySummary(removed, live, retained)
 
     def _verify_root(self) -> None:
+        if self._directory_policy is not None:
+            self._directory_policy.verify_directory(self.ticket.path)
         if _identity(_inspect(self.ticket.path, directory=True)) != self.ticket.identity:
             raise _ScratchError()
         _marker(self.ticket.path / "owner", _root_marker(self.ticket))
@@ -410,6 +432,9 @@ class _ScratchRoot:
             lock.release()
 
     def _verify_session(self, ticket: _SessionTicket) -> None:
+        if self._directory_policy is not None:
+            self._directory_policy.verify_directory(ticket.path)
+            self._directory_policy.verify_directory(ticket.path / "spill")
         if (
             ticket.path != self.ticket.path / ticket.nonce.hex
             or _identity(_inspect(ticket.path, directory=True)) != ticket.identity
@@ -434,8 +459,12 @@ class _ScratchRoot:
             with self._guard():
                 nonce = uuid4()
                 path = self.ticket.path / nonce.hex
-                path.mkdir(mode=0o700)
-                (path / "spill").mkdir(mode=0o700)
+                if self._directory_policy is None:
+                    path.mkdir(mode=0o700)
+                    (path / "spill").mkdir(mode=0o700)
+                else:
+                    self._directory_policy.create_directory(path)
+                    self._directory_policy.create_directory(path / "spill")
                 _write_new(path / "parent.lock", b"\0")
                 _write_new(path / "worker.lock", b"\0")
                 ticket = _SessionTicket(
