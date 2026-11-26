@@ -43,8 +43,10 @@ def test_native_maximum_integer_magnitude_is_supported() -> None:
         _roundtrip(_AggregateQueryResult(("n",), (_INTEGER,), (value << 8,)))
 
 
-@pytest.mark.parametrize("value", [Decimal("0.00"), Decimal("-0.000"), Decimal("9" * 38),
-                                  Decimal("0." + "0" * 37 + "1")])
+@pytest.mark.parametrize(
+    "value",
+    [Decimal("0.00"), Decimal("-0.000"), Decimal("9" * 38), Decimal("0." + "0" * 37 + "1")],
+)
 def test_decimal_transport_preserves_tuple(value: Decimal) -> None:
     with localcontext() as ctx:
         ctx.prec = 2
@@ -53,8 +55,9 @@ def test_decimal_transport_preserves_tuple(value: Decimal) -> None:
     assert actual.as_tuple() == value.as_tuple()
 
 
-@pytest.mark.parametrize("bits", [0, 1, 1 << 63, 0x7FF0000000000000, 0xFFF0000000000000,
-                                  0x7FF8000000000001])
+@pytest.mark.parametrize(
+    "bits", [0, 1, 1 << 63, 0x7FF0000000000000, 0xFFF0000000000000, 0x7FF8000000000001]
+)
 def test_float_transport_preserves_ieee_bits(bits: int) -> None:
     raw = bits.to_bytes(8, "big")
     value = struct.unpack(">d", raw)[0]
@@ -72,8 +75,14 @@ def test_nullable_mixed_domains_and_fixed_arity() -> None:
 
 @pytest.mark.parametrize(
     ("domain", "value"),
-    [(_INTEGER, True), (_INTEGER, 1.0), (_FLOAT, 1), (_DECIMAL, Decimal("NaN")),
-     (_DECIMAL, Decimal("1e-39")), (_DECIMAL, Decimal("9" * 39))],
+    [
+        (_INTEGER, True),
+        (_INTEGER, 1.0),
+        (_FLOAT, 1),
+        (_DECIMAL, Decimal("NaN")),
+        (_DECIMAL, Decimal("1e-39")),
+        (_DECIMAL, Decimal("9" * 39)),
+    ],
 )
 def test_wrong_domain_rejected(domain: _NumericDomain, value: object) -> None:
     with pytest.raises(_InvalidAggregateResultError):
