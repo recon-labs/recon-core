@@ -621,3 +621,47 @@ captures:
       Bound count reads use fetchmany(2), with operation-specific maximum
       arity and exact integer values. Existing Core result-shape validation
       remains authoritative and public low-level adapter reads are unchanged.
+
+  - id: duckdb-worker-control-protocol
+    title: Isolated worker rejects malformed and replayed control messages
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_resource_worker.py::test_worker_control_packet_is_closed_and_bounded
+      - tests/adapters/test_duckdb_resource_worker.py::test_worker_rejects_stale_sequence_before_native_work
+      - tests/adapters/test_duckdb_resource_worker.py::test_worker_repeated_probe_invalidates_child
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_worker_transport
+        rationale: Bootstrap messages are bounded; bound query request, scope and result framing remain required.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A5 and B8 worker protocol
+    notes: >
+      Fixed control messages reject invalid tags, truncated data and stale
+      sequences. No user database, SQL or arbitrary objects in bootstrap.
+
+  - id: duckdb-worker-process-lifecycle
+    title: Worker stop confirmation and parent liveness are independently verified
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_resource_worker.py::test_worker_termination_confirmation
+      - tests/adapters/test_duckdb_resource_worker.py::test_stop_request_is_not_confirmed_exit
+      - tests/adapters/test_duckdb_resource_worker.py::test_parent_death_liveness
+      - tests/adapters/test_duckdb_resource_worker.py::test_parent_eof_interrupts_busy_control_handler
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_worker_lifecycle
+        rationale: Actual bound native query interruption, scratch ownership and L1 integration remain required.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: B8 and B9 worker prerequisites
+    notes: >
+      A termination signal does not establish exit. Confirm reaping and
+      pipe release separately. Parent EOF watchdog is best effort, not a
+      hard guarantee for suspended or native-blocked processes.
