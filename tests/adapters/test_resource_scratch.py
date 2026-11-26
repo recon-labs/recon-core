@@ -370,6 +370,7 @@ def test_lock_permission_error_is_not_live_owner(
     from recon_core.adapters import _resource_scratch as scratch
 
     parent = root.create_session()
+
     def denied(fd: int) -> None:
         raise PermissionError(errno.EACCES, "PRIVATE_SENTINEL")
 
