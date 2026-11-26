@@ -359,3 +359,26 @@ def test_partial_deletion_is_retained(root: _ScratchRoot, monkeypatch: pytest.Mo
     summary = _ScratchRoot.reopen(root.ticket.path).recover_abandoned()
     assert summary.removed == 0 and summary.retained == 1
     assert ticket.path.exists()
+
+
+@pytest.mark.regression_capture("owned-scratch-two-lease-recovery")
+def test_lock_permission_error_is_not_live_owner(
+    root: _ScratchRoot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import errno
+
+    from recon_core.adapters import _resource_scratch as scratch
+
+    parent = root.create_session()
+    try:
+        def denied(fd: int) -> None:
+            raise PermissionError(errno.EACCES, "PRIVATE_SENTINEL")
+
+        monkeypatch.setattr(scratch, "_lock_exclusive", denied)
+        # A denied root lock is uncertainty, not evidence of a live owner.
+        assert root.recover(parent.ticket) is _Recovery.RETAINED
+        with pytest.raises(_ScratchError) as caught:
+            root.claim_worker(parent.ticket)
+        assert "PRIVATE_SENTINEL" not in str(caught.value)
+    finally:
+        parent.release()
