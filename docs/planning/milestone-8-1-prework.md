@@ -337,3 +337,7 @@ required for admission, explicitly pull them forward with approved split
 changes. Exact settings, thresholds, controls and detailed M8.1.2 prework
 remain open; separate design approval, implementation and native exit proof
 required.
+
+## Adaptive resource direction and adapter carryover
+
+Maintainer-approved adaptive, adapter-aware, minimally restrictive local execution with portable best-effort protection, strict controls only when proven and isolation where necessary. Preserve native spilling and larger-than-memory work. No universal CI-derived ratios or caps. Distinguish execution scope from client transport, use engine-specific mechanisms and never downgrade required enforcement. Apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) to all future adapters and expansions. Exact settings, defaults, worker design and pulled-forward lifecycle requirements remain pending detailed prework and separate approval. No successor implementation authorized.

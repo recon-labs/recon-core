@@ -1416,3 +1416,7 @@ existing adapter/runtime and engine evidence, with shared adapter-testkit
 obligations deferred to their established owner. Review the exact final
 revision against G1-G11, all routed regression decisions and all previously
 assigned gates before exit. G9 handoff requires verified integration.
+
+## Verified targeted correction exit
+
+PR #39 merged to main at 6ec4f402409171c236edb6565ec85616b247f2a0; tested head e242b0d8e797125e347508ce3f3320fcc25b58eb, CI 45831312113 all ten jobs passed, identical tested and merged tree. Scoped exit complete and corrected revision handed to M8.1.2. Earlier pending-exit statements historical. No new resource defaults or M9.5 collation closure.

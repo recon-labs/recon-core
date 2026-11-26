@@ -357,3 +357,7 @@ Design for the ecosystem early, but split when there is real code, real tests, a
 ## Execution scope restoration checkpoint
 
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+
+## Mandatory adapter-specific resource conformance
+
+Apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) at M11-M12 PostgreSQL, M12-M13 Snowflake, M13.5 remote/cross-context, M29 official test-kit/promotion and every later candidate, version or capability expansion. Resolve R1-R10 before scoped admission and reprove at promotion. No automatic adapter rollout or new scheduled milestone.
