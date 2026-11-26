@@ -1,6 +1,22 @@
 # Execution Resource Safety Assignments
 
-## Mandatory gate and status
+## Current redesign checkpoint (2026-11-27)
+
+M8.1.2 implementation is suspended. The [reopened prework](milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27)
+controls next work. R1-R10, A1-A13 and P1-P6 remain outcome obligations;
+B8-B10 mechanism-specific assignments are reopened, not waived. Prior approved
+worker, exhaustive native observation and automatic recovery requirements below
+are historical mechanisms pending explicit replacement dispositions. Prefer
+native controls, standard maintained APIs and the smallest proven mechanism.
+Neither shared execution resources nor missing optional observation alone
+justifies refusal. Require demonstrated benefit and scope-specific necessity
+before custom OS-level management in any future adapter; preserve actual
+noninterference, exact binding, privacy, no unrelated deletion, explicit
+control enforcement and truthful error/cleanup outcomes. M8.2, M8.3, M9.5,
+M10.8, M29 and subsequent adapter obligations retain their owners. No coding
+or gate closure until revised prework and separate approval.
+
+## Historical gate and status (mechanisms reopened)
 
 [ADR 0026](../decisions/adr-0026-local-execution-policy-and-scan-admission.md)
 has an approved adaptive resource amendment; see [M8.1.2 approved prework](milestone-8-1-2-prework.md). Do not implement the historical footprint-driven policy. Current runtime is unchanged until approved implementation. ADR 0025 and existing binding, placement, privacy and
@@ -268,7 +284,7 @@ runtime policy to CI runner resources or require the same tests/mechanisms
 for a remote adapter where the scope differs.
 
 
-## Approved M8.1.2 integration checkpoint (2026-11-26)
+## Historical approved M8.1.2 integration checkpoint (2026-11-26; reopened 2026-11-27)
 
 The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
 historical footprint-driven resource decisions and earlier pending-design
