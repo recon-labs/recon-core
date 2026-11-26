@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 import recon_core.adapters.duckdb.runtime_scan_guard as duckdb_scan_guard_module
+from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.adapters import (
     AdapterCapabilities,
     AdapterRegistry,
@@ -12,6 +13,7 @@ from recon_core.adapters import (
 from recon_core.adapters.duckdb import (
     ADAPTER_QUERY_FAILED,
 )
+from recon_core.diagnostics import Diagnostic
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 from tests.services._run_service_fixtures import (
@@ -42,9 +44,56 @@ from tests.services._run_service_fixtures import (
 )
 
 
-def test_run_service_executes_row_count_with_runtime_profile_and_adapter_context(
-    tmp_path: Path,
+@pytest.fixture
+def native_calls(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
+    """Observe real native reads and lifecycle, never replace their results."""
+    calls: dict[str, list[str]] = {"open": [], "close": [], "query": []}
+    original_open = binding._OwnedDuckDbSession.open
+    original_close = binding._OwnedDuckDbSession.close
+    original_read = binding._OwnedDuckDbSession._read_bound_query
+
+    def record_open(session: binding._OwnedDuckDbSession) -> None:
+        calls["open"].append("open")
+        original_open(session)
+
+    def record_close(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        calls["close"].append("close")
+        return original_close(session)
+
+    def record_read(
+        session: binding._OwnedDuckDbSession,
+        lease: binding._BindingLease,
+        scope: binding._BindingScope,
+        query: str,
+    ) -> QueryResult:
+        calls["query"].append(query)
+        return original_read(session, lease, scope, query)
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", record_open)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", record_close)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", record_read)
+    return calls
+
+
+def _assert_native_calls(
+    factory: RecordingDuckDbFactory, calls: dict[str, list[str]], count: int
 ) -> None:
+    assert len(calls["open"]) == len(calls["close"]) == count
+    assert len(calls["query"]) == count
+    assert all(adapter.connect_count == 0 for adapter in factory.adapters)
+    assert all(adapter.close_count == 0 for adapter in factory.adapters)
+    assert all(not adapter.queries for adapter in factory.adapters)
+
+
+def test_run_service_executes_row_count_with_runtime_profile_and_adapter_context(
+    tmp_path: Path, native_calls: dict[str, list[str]]
+) -> None:
+    _write_duckdb_row_count_tables(
+        _duckdb_module(),
+        tmp_path / "warehouse.duckdb",
+        source_rows=tuple((index,) for index in range(12)),
+        target_rows=tuple((index,) for index in range(12)),
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -80,10 +129,8 @@ profiles:
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
     assert result.diagnostics == ()
-    adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert len(factory.adapters) == 1
+    _assert_native_calls(factory, native_calls, 1)
     assert not (tmp_path / "target" / "run_results.json").exists()
     assert not (tmp_path / "reports").exists()
     assert not (tmp_path / "state").exists()
@@ -255,7 +302,7 @@ def test_run_service_executes_row_count_with_actual_duckdb_relations_fail(
 
 
 def test_run_service_sanitizes_actual_duckdb_execution_failure(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
     duckdb = _duckdb_module()
     database = tmp_path / "warehouse.duckdb"
@@ -271,14 +318,16 @@ def test_run_service_sanitizes_actual_duckdb_execution_failure(
     result = RunService(start_path=tmp_path).execute()
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
-    assert result.message == "Run failed during check-engine evaluation."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_QUERY_FAILED]
+    assert result.message == "Run completed with non-executable checks."
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
     public_text = _service_result_text(result)
-    assert "DuckDB query execution failed." in public_text
+    assert "Check requires a verified local base-table execution scope." in public_text
+    assert len(native_calls["open"]) == len(native_calls["close"]) == 1
+    assert native_calls["query"] == []
     assert "target_customers" not in public_text
     assert "source_customers" not in public_text
     assert "select" not in public_text.lower()
-    assert "count" not in public_text.lower()
+    # Check identifiers are permitted; raw native query text is not.
     assert "Catalog Error" not in public_text
     assert str(database) not in public_text
     _assert_no_runtime_outputs(tmp_path)
@@ -373,7 +422,7 @@ def test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch(
 
 @pytest.mark.regression_capture("duckdb-view-external-scan-guard")
 def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
     duckdb = _duckdb_module()
     database = tmp_path / "warehouse.duckdb"
@@ -410,7 +459,11 @@ def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_ada
     assert "secret-external" not in public_text
     assert "external_source" not in public_text
     assert "source_customers" not in public_text
-    assert factory.adapters == []
+    assert len(factory.adapters) == 1
+    assert factory.adapters[0].connect_count == 0
+    assert factory.adapters[0].queries == []
+    assert len(native_calls["open"]) == len(native_calls["close"]) == 1
+    assert native_calls["query"] == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -877,7 +930,7 @@ def test_run_service_sanitizes_actual_duckdb_key_safety_type_mismatch(
 
 
 def test_run_service_executes_key_safety_with_runtime_profile_and_adapter_context(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
     write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
@@ -911,11 +964,9 @@ profiles:
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
-    adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
-    assert "failure_count" in adapter.queries[0]
+    assert len(factory.adapters) == 1
+    _assert_native_calls(factory, native_calls, 1)
+    assert "failure_count" in native_calls["query"][0]
     assert "UNUSED_DB" not in _service_result_text(result)
     _assert_no_runtime_outputs(tmp_path)
 
@@ -974,9 +1025,19 @@ profiles:
 
 
 def test_run_service_executes_key_safety_failure_without_raw_key_output(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
-    write_bounded_local_duckdb_fixture(tmp_path)
+    _write_duckdb_key_safety_tables(
+        _duckdb_module(),
+        tmp_path / "warehouse.duckdb",
+        source_rows=(
+            (1, "private-key-a"),
+            (1, "private-key-a"),
+            (2, "private-key-b"),
+            (2, "private-key-b"),
+        ),
+        target_rows=(),
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1021,18 +1082,23 @@ profiles:
     ]
     public_text = _service_result_text(result)
     assert "customer_id" not in public_text
+    assert "private-key-a" not in public_text
+    assert "private-key-b" not in public_text
     assert "raw key" in public_text.lower()
-    adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert len(factory.adapters) == 1
+    _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
 
 
 def test_run_service_executes_key_safety_with_named_sampling_metadata(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
-    write_bounded_local_duckdb_fixture(tmp_path)
+    _write_duckdb_key_safety_tables(
+        _duckdb_module(),
+        tmp_path / "warehouse.duckdb",
+        source_rows=((None, "private-null-row"),),
+        target_rows=(),
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1069,10 +1135,9 @@ profiles:
     public_text = _service_result_text(result)
     assert "stable_hash_5_percent" not in public_text
     assert "customer_id" not in public_text
-    adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert "private-null-row" not in public_text
+    assert len(factory.adapters) == 1
+    _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -1133,8 +1198,14 @@ def test_run_service_blocks_key_safety_query_endpoints_before_adapter_query(
 
 
 def test_run_service_ignores_query_endpoint_profile_when_relation_backed_check_executes(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
+    _write_duckdb_row_count_tables(
+        _duckdb_module(),
+        tmp_path / "warehouse.duckdb",
+        source_rows=tuple((index,) for index in range(12)),
+        target_rows=tuple((index,) for index in range(12)),
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1186,9 +1257,7 @@ profiles:
     assert "select customer_id" not in public_text
     adapter = factory.adapters[0]
     assert adapter.connection.name == "warehouse"
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -1397,13 +1466,13 @@ profiles:
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_RUNTIME_SCAN_BUDGET_EXCEEDED"]
     assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 
 
 def test_run_service_executes_key_safety_for_same_context_duckdb_aliases(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
     write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
@@ -1442,9 +1511,7 @@ profiles:
     assert result.message == "Run completed with passing checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(factory.adapters) == 2
-    assert sum(adapter.connect_count for adapter in factory.adapters) == 1
-    assert sum(adapter.close_count for adapter in factory.adapters) == 1
-    assert sum(len(adapter.queries) for adapter in factory.adapters) == 1
+    _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -1543,8 +1610,14 @@ profiles:
 
 
 def test_run_service_executes_row_count_for_same_context_duckdb_aliases(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
+    _write_duckdb_row_count_tables(
+        _duckdb_module(),
+        tmp_path / "warehouse.duckdb",
+        source_rows=tuple((index,) for index in range(12)),
+        target_rows=tuple((index,) for index in range(12)),
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1584,15 +1657,19 @@ profiles:
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
     assert result.diagnostics == ()
-    assert sum(adapter.connect_count for adapter in factory.adapters) == 1
-    assert sum(adapter.close_count for adapter in factory.adapters) == 1
-    assert sum(len(adapter.queries) for adapter in factory.adapters) == 1
+    _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
 
 
 def test_run_service_executes_row_count_with_explicit_no_materialization_policy(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
+    _write_duckdb_row_count_tables(
+        _duckdb_module(),
+        tmp_path / "warehouse.duckdb",
+        source_rows=tuple((index,) for index in range(12)),
+        target_rows=tuple((index,) for index in range(12)),
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1624,10 +1701,8 @@ profiles:
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
     assert result.diagnostics == ()
-    adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert len(factory.adapters) == 1
+    _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -1759,7 +1834,7 @@ def test_run_service_rejects_key_safety_identity_mismatch_before_profile_or_adap
 
 
 def test_run_service_executes_valid_row_count_and_key_safety_checks(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
     write_bounded_local_duckdb_fixture(tmp_path)
     write_project(tmp_path, profile="local")
@@ -1803,16 +1878,20 @@ profiles:
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
-    adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 2
+    assert len(factory.adapters) == 1
+    _assert_native_calls(factory, native_calls, 2)
     _assert_no_runtime_outputs(tmp_path)
 
 
 def test_run_service_does_not_mutate_stale_outputs_during_executable_row_count(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
+    _write_duckdb_row_count_tables(
+        _duckdb_module(),
+        tmp_path / "warehouse.duckdb",
+        source_rows=tuple((index,) for index in range(12)),
+        target_rows=tuple((index,) for index in range(12)),
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -1849,5 +1928,6 @@ profiles:
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
     assert result.diagnostics == ()
+    _assert_native_calls(factory, native_calls, 1)
     for path, content in output_contents.items():
         assert path.read_text(encoding="utf-8") == content
