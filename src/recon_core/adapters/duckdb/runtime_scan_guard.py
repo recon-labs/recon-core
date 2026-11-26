@@ -9,8 +9,8 @@ from string import ascii_lowercase, ascii_uppercase
 from typing import Any
 
 from recon_core.adapters._project_binding import (
-    _LocalFileIdentity,
     _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
+    _LocalFileIdentity,
 )
 from recon_core.adapters.models import Relation
 from recon_core.adapters.runtime_safety import (

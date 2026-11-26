@@ -6,12 +6,12 @@ from pathlib import Path
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters._project_binding import (
+    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
     _BindingLease,
     _BoundSessionError,
     _InvalidAggregateResultError,
     _local_file_identity,
     _LocalFileIdentity,
-    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
     _new_owned_session,
     _OwnedSession,
 )

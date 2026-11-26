@@ -1466,7 +1466,9 @@ profiles:
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == ["RC_RUNTIME_SCAN_BUDGET_EXCEEDED"]
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED"
+    ]
     assert factory.adapters == []
     _assert_no_runtime_outputs(tmp_path)
 

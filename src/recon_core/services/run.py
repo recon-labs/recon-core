@@ -17,9 +17,9 @@ from recon_core.adapters import (
 )
 from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
 from recon_core.adapters._project_binding import (
+    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
     _local_file_identity,
     _LocalFileIdentity,
-    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
 )
 from recon_core.adapters.capabilities import ADAPTER_CAPABILITY_UNSUPPORTED, AdapterCapabilities
 from recon_core.adapters.default_renderers import (

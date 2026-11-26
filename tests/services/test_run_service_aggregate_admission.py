@@ -15,7 +15,10 @@ from recon_core.adapters import (
     ConnectionConfig,
 )
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
+from recon_core.adapters._project_binding import _BoundSessionError
 from recon_core.adapters.duckdb import AdapterLifecycleError, DuckDbAdapter
+from recon_core.adapters.duckdb import _bound_execution as binding
+from recon_core.adapters.models import QueryResult
 from recon_core.artifacts import CompiledContractLoader
 from recon_core.check_engine import CheckEngine, CheckStatus, RunResult
 from recon_core.cli.main import main
@@ -38,6 +41,84 @@ from tests.services._run_service_fixtures import (
 )
 
 _PRIVATE_TOKEN = "private-synthetic-policy-value"
+
+
+class _NativeSessionTrace:
+    """Trace actual owned-session reads; inject failures at the new private boundary."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.sessions: list[binding._OwnedDuckDbSession] = []
+        self.closes: list[binding._OwnedDuckDbSession] = []
+        self.aggregate_columns: list[tuple[str, ...]] = []
+        self.row_queries: list[str] = []
+        self.failures: dict[int, str] = {}
+        original_open = binding._OwnedDuckDbSession.open
+        original_close = binding._OwnedDuckDbSession.close
+        original_aggregate = binding._OwnedDuckDbSession._read_bound_aggregate
+        original_row = binding._OwnedDuckDbSession._read_bound_query
+
+        def open_session(session: binding._OwnedDuckDbSession) -> None:
+            self.sessions.append(session)
+            if self.failures.get(len(self.sessions)) == "connect":
+                raise _BoundSessionError(
+                    "RC_ADAPTER_CONNECTION_FAILED",
+                    "Read-only execution session could not be opened.",
+                )
+            original_open(session)
+
+        def close_session(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+            self.closes.append(session)
+            diagnostics = original_close(session)
+            index = self.sessions.index(session) + 1
+            if self.failures.get(index) == "close":
+                # Simulate failed rollback with confirmed release, not a leaked handle.
+                return diagnostics + (
+                    Diagnostic(
+                        code="RC_ADAPTER_CLOSE_FAILED",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"Read-only transaction cleanup failed (session #{index}).",
+                    ),
+                )
+            return diagnostics
+
+        def aggregate(
+            session: binding._OwnedDuckDbSession,
+            lease: binding._BindingLease,
+            scope: binding._BindingScope,
+            query: str,
+            *,
+            expected_columns: tuple[str, ...],
+        ) -> _AggregateQueryResult:
+            self.aggregate_columns.append(expected_columns)
+            failure = self.failures.get(self.sessions.index(session) + 1)
+            if failure == "query":
+                raise RuntimeError("private-injected-value qa.source_customers private-group-key")
+            result = original_aggregate(
+                session, lease, scope, query, expected_columns=expected_columns
+            )
+            if failure == "invalid_result" and len(expected_columns) > 1:
+                return _AggregateQueryResult(result.columns, result.domains, ())
+            return result
+
+        def row(
+            session: binding._OwnedDuckDbSession,
+            lease: binding._BindingLease,
+            scope: binding._BindingScope,
+            query: str,
+        ) -> QueryResult:
+            self.row_queries.append(query)
+            return original_row(session, lease, scope, query)
+
+        monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+        monkeypatch.setattr(binding._OwnedDuckDbSession, "close", close_session)
+        monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_aggregate", aggregate)
+        monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", row)
+
+
+@pytest.fixture
+def session_trace(monkeypatch: pytest.MonkeyPatch) -> _NativeSessionTrace:
+    return _NativeSessionTrace(monkeypatch)
+
 
 
 def _aggregate_check(*, grouped: bool = False, tolerance: object = None) -> dict[str, Any]:
@@ -292,8 +373,12 @@ def test_injected_public_loader_does_not_imply_verified_policy_absence(tmp_path:
 
 
 @pytest.mark.regression_capture("aggregate-admission-tolerance-policy")
-def test_mixed_run_preserves_aggregate_policy_error_and_row_count(tmp_path: Path) -> None:
-    write_duckdb_row_count_run_inputs(tmp_path, tmp_path / "warehouse.duckdb")
+def test_mixed_run_preserves_aggregate_policy_error_and_row_count(
+    tmp_path: Path, session_trace: _NativeSessionTrace
+) -> None:
+    _write_bounded_aggregate_inputs(
+        tmp_path, [_compiled_check_payload(operations=row_count_plan())]
+    )
     write_compiled_checks(
         tmp_path,
         checks=[
@@ -312,9 +397,11 @@ def test_mixed_run_preserves_aggregate_policy_error_and_row_count(tmp_path: Path
     assert _PRIVATE_TOKEN not in _service_result_text(result)
     assert len(factory.adapters) == 1
     adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert adapter.connect_count == adapter.close_count == 0
+    assert adapter.queries == []
+    assert len(session_trace.sessions) == len(session_trace.closes) == 1
+    assert len(session_trace.row_queries) == 1
+    assert session_trace.aggregate_columns == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -322,7 +409,7 @@ def test_mixed_run_preserves_aggregate_policy_error_and_row_count(tmp_path: Path
 @pytest.mark.parametrize("fixture", ["missing", "oversized", "wal", "tmp", "view", "missing_table"])
 @pytest.mark.regression_capture("aggregate-runtime-scan-preflight")
 def test_aggregate_scan_safety_blocks_before_adapter_setup(
-    tmp_path: Path, grouped: bool, fixture: str
+    tmp_path: Path, grouped: bool, fixture: str, session_trace: _NativeSessionTrace
 ) -> None:
     database = tmp_path / "warehouse.duckdb"
     if fixture == "oversized":
@@ -349,21 +436,25 @@ def test_aggregate_scan_safety_blocks_before_adapter_setup(
 
     write_duckdb_row_count_run_inputs(tmp_path, database)
     write_compiled_checks(tmp_path, checks=[_aggregate_check(grouped=grouped)])
-    factory = RecordingDuckDbFactory(
-        connect_error=RuntimeError("private-aggregate-scan-should-not-open")
-    )
+    factory = _TrackingAggregateFactory()
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
     result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
-        "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
-    ]
-    assert "aggregate" in result.diagnostics[0].message.lower()
+    expected_code = (
+        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED"
+        if fixture == "oversized"
+        else "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
+    )
+    assert [diagnostic.code for diagnostic in result.diagnostics] == [expected_code]
     assert "grain-key" not in _service_result_text(result).lower()
-    assert factory.adapters == []
+    count = 1 if fixture in {"view", "missing_table"} else 0
+    assert len(factory.adapters) == count
+    assert all(adapter.connect_count == 0 for adapter in factory.adapters)
+    assert len(session_trace.sessions) == len(session_trace.closes) == count
+    assert session_trace.aggregate_columns == session_trace.row_queries == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -537,7 +628,7 @@ def test_aggregate_service_missing_private_executor_does_not_connect(
 )
 @pytest.mark.regression_capture("aggregate-runtime-capability-isolation")
 def test_aggregate_capability_blocker_preserves_unrelated_row_count(
-    tmp_path: Path, grouped: bool, support: object
+    tmp_path: Path, grouped: bool, support: object, session_trace: _NativeSessionTrace
 ) -> None:
     _write_bounded_aggregate_inputs(
         tmp_path,
@@ -561,8 +652,11 @@ def test_aggregate_capability_blocker_preserves_unrelated_row_count(
     assert "RC_ADAPTER_CAPABILITY_UNSUPPORTED" in {d.code for d in result.diagnostics}
     assert len(factory.adapters) == 1
     adapter = factory.adapters[0]
-    assert adapter.connect_count == adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert adapter.connect_count == adapter.close_count == 0
+    assert adapter.queries == []
+    assert len(session_trace.sessions) == len(session_trace.closes) == 1
+    assert len(session_trace.row_queries) == 1
+    assert session_trace.aggregate_columns == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -570,7 +664,7 @@ def test_aggregate_capability_blocker_preserves_unrelated_row_count(
 @pytest.mark.parametrize("failure", [None, "connect", "close"])
 @pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_blocked_aggregate_shared_connection_preserves_lifecycle_privacy(
-    tmp_path: Path, grouped: bool, failure: str | None
+    tmp_path: Path, grouped: bool, failure: str | None, session_trace: _NativeSessionTrace
 ) -> None:
     _write_bounded_aggregate_inputs(
         tmp_path,
@@ -581,13 +675,12 @@ def test_blocked_aggregate_shared_connection_preserves_lifecycle_privacy(
         severity=DiagnosticSeverity.ERROR,
         message="private-injected-value qa.source_customers private-group-key",
     )
-    error = AdapterLifecycleError(diagnostic)
+    if failure is not None:
+        session_trace.failures[1] = failure
     factory = RecordingDuckDbFactory(
         capabilities=AdapterCapabilities(
             {"row_count": CapabilitySupport.FULL, "cte_support": CapabilitySupport.FULL}
         ),
-        connect_error=error if failure == "connect" else None,
-        close_error=error if failure == "close" else None,
     )
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
@@ -596,18 +689,17 @@ def test_blocked_aggregate_shared_connection_preserves_lifecycle_privacy(
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert len(factory.adapters) == 1
     adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == (0 if failure == "connect" else 1)
-    assert len(adapter.queries) == (0 if failure == "connect" else 1)
-    if failure == "connect":
-        assert engine.result is None
-    else:
-        assert engine.result is not None
-        checks = engine.result.contract_results[0].check_results
-        assert [(check.status, check.executed) for check in checks] == [
-            (CheckStatus.PASS, True),
-            (CheckStatus.NOT_EXECUTABLE, False),
-        ]
+    assert adapter.connect_count == adapter.close_count == 0
+    assert adapter.queries == []
+    assert len(session_trace.sessions) == len(session_trace.closes) == 1
+    assert len(session_trace.row_queries) == (0 if failure == "connect" else 1)
+    assert session_trace.aggregate_columns == []
+    assert engine.result is not None
+    checks = engine.result.contract_results[0].check_results
+    assert [(check.status, check.executed) for check in checks] == [
+        (CheckStatus.PASS, True) if failure is None else (CheckStatus.ERROR, False),
+        (CheckStatus.NOT_EXECUTABLE, False),
+    ]
     if failure is not None:
         assert diagnostic.code in {d.code for d in result.diagnostics}
     for token in ("private-injected-value", "qa.source_customers", "private-group-key"):
@@ -918,7 +1010,11 @@ def _tracking_registry(factory: _TrackingAggregateFactory) -> AdapterRegistry:
 @pytest.mark.parametrize("failure", [None, "query", "invalid_result", "connect", "close", "setup"])
 @pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_native_aggregate_lifecycle_and_failure_privacy(
-    tmp_path: Path, grouped: bool, failure: str | None, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    grouped: bool,
+    failure: str | None,
+    capsys: pytest.CaptureFixture[str],
+    session_trace: _NativeSessionTrace,
 ) -> None:
     _write_native_aggregate_inputs(
         tmp_path,
@@ -926,38 +1022,44 @@ def test_native_aggregate_lifecycle_and_failure_privacy(
         target_sql=_native_row("123456789012345::BIGINT"),
         grouped=grouped,
     )
-    factory = _TrackingAggregateFactory(failure)
+    factory = _TrackingAggregateFactory("setup" if failure == "setup" else None)
+    if failure is not None:
+        session_trace.failures[1] = failure
     engine = _CapturingAggregateEngine()
     result = RunService(
         start_path=tmp_path, engine=engine, adapter_registry=_tracking_registry(factory)
     ).execute()
     if failure is None:
         _assert_native_aggregate_result(tmp_path, engine, CheckStatus.PASS, result)
-    elif failure in ("query", "invalid_result"):
-        _assert_native_aggregate_result(tmp_path, engine, CheckStatus.ERROR, result)
     elif failure == "setup":
         assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
         assert engine.result is None
         assert factory.adapters == []
+        assert session_trace.sessions == []
     else:
-        assert result.exit_category is ExitCategory.RUNTIME_ERROR
-        if failure == "connect":
-            assert engine.result is None
-        else:
-            assert engine.result is not None
+        _assert_native_aggregate_result(tmp_path, engine, CheckStatus.ERROR, result)
+        expected = {
+            "query": "RC_ADAPTER_QUERY_FAILED",
+            "invalid_result": "RC_RUNTIME_AGGREGATE_RESULT_INVALID",
+            "connect": "RC_ADAPTER_CONNECTION_FAILED",
+            "close": "RC_ADAPTER_CLOSE_FAILED",
+        }
+        assert expected[failure] in {d.code for d in result.diagnostics}
     if failure != "setup":
         assert len(factory.adapters) == 1
         adapter = factory.adapters[0]
-        assert adapter.connect_count == 1
-        assert adapter.close_count == (0 if failure == "connect" else 1)
+        assert adapter.connect_count == adapter.close_count == 0
         assert adapter.public_query_count == 0
+        assert adapter.private_columns == []
+        assert len(session_trace.sessions) == len(session_trace.closes) == 1
         if failure == "connect":
-            assert adapter.private_columns == []
+            assert session_trace.aggregate_columns == []
         elif failure == "query":
-            assert adapter.private_columns == [("type_check",)]
+            assert session_trace.aggregate_columns == [("type_check",)]
         else:
-            assert len(adapter.private_columns) == (4 if grouped else 3)
-            assert len(adapter.private_columns[-1]) == (9 if grouped else 3)
+            assert len(session_trace.aggregate_columns) == (4 if grouped else 3)
+            assert len(session_trace.aggregate_columns[-1]) == (9 if grouped else 3)
+        assert session_trace.row_queries == []
     output = _service_result_text(result) + repr(engine.result)
     captured = capsys.readouterr()
     output += captured.out + captured.err
@@ -976,7 +1078,7 @@ def test_native_aggregate_lifecycle_and_failure_privacy(
 @pytest.mark.parametrize("failure", ["one_close", "both_close", "connect_and_close"])
 @pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_aggregate_lifecycle_preserves_distinct_connection_failures(
-    tmp_path: Path, grouped: bool, failure: str
+    tmp_path: Path, grouped: bool, failure: str, session_trace: _NativeSessionTrace
 ) -> None:
     database = _write_native_aggregate_inputs(
         tmp_path,
@@ -1002,37 +1104,32 @@ def test_aggregate_lifecycle_preserves_distinct_connection_failures(
     adapters: dict[str, _TrackingAggregateAdapter] = {}
 
     def factory(connection: ConnectionConfig) -> AdapterResolutionResult:
-        injected = "close"
-        if connection.name == "warehouse":
-            if failure == "one_close":
-                injected = None
-            elif failure == "connect_and_close":
-                injected = "connect"
-        adapter = _TrackingAggregateAdapter(connection=connection, failure=injected)
+        adapter = _TrackingAggregateAdapter(connection=connection, failure=None)
         adapters[connection.name] = adapter
         return AdapterResolutionResult(adapter=adapter)
 
+    session_trace.failures = {2: "close"}
+    if failure == "both_close":
+        session_trace.failures[1] = "close"
+    elif failure == "connect_and_close":
+        session_trace.failures[1] = "connect"
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
     engine = _CapturingAggregateEngine()
     result = RunService(start_path=tmp_path, engine=engine, adapter_registry=registry).execute()
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert set(adapters) == {"warehouse", "private-replica"}
-    assert all(adapter.connect_count == 1 for adapter in adapters.values())
-    assert adapters["private-replica"].close_count == 1
-    assert adapters["warehouse"].close_count == (0 if failure == "connect_and_close" else 1)
+    assert all(adapter.connect_count == adapter.close_count == 0 for adapter in adapters.values())
+    assert len(session_trace.sessions) == len(session_trace.closes) == 2
+    assert engine.result is not None
+    assert len(engine.result.contract_results) == 2
+    checks = [contract.check_results[0] for contract in engine.result.contract_results]
+    assert sum(check.status is CheckStatus.ERROR for check in checks) == (
+        1 if failure == "one_close" else 2
+    )
+    assert all(not check.executed for check in checks if check.status is CheckStatus.ERROR)
     if failure == "connect_and_close":
-        assert engine.result is None
         assert sum(d.code == "RC_ADAPTER_CONNECTION_FAILED" for d in result.diagnostics) == 1
-        assert all(not adapter.private_columns for adapter in adapters.values())
-    else:
-        assert engine.result is not None
-        assert len(engine.result.contract_results) == 2
-        assert all(
-            contract.check_results[0].status is CheckStatus.PASS
-            and contract.check_results[0].executed
-            for contract in engine.result.contract_results
-        )
     failures = [d for d in result.diagnostics if d.code == "RC_ADAPTER_CLOSE_FAILED"]
     assert len(failures) == (2 if failure == "both_close" else 1)
     for token in ("private-replica", "private-injected-value", "qa.source_customers"):
@@ -1073,7 +1170,7 @@ def test_aggregate_invalid_capability_declaration_is_non_executable(
 @pytest.mark.parametrize("override", [None, 1])
 @pytest.mark.regression_capture("aggregate-native-service-numeric-semantics")
 def test_native_aggregate_named_policy_override(
-    tmp_path: Path, grouped: bool, override: int | None
+    tmp_path: Path, grouped: bool, override: int | None, session_trace: _NativeSessionTrace
 ) -> None:
     _write_native_aggregate_inputs(
         tmp_path,
@@ -1099,10 +1196,13 @@ def test_native_aggregate_named_policy_override(
             engine.result.contract_results[0].check_results[0].status is CheckStatus.NOT_EXECUTABLE
         )
         assert factory.adapters == []
+        assert session_trace.sessions == []
     else:
         _assert_native_aggregate_result(tmp_path, engine, CheckStatus.PASS, result)
         assert len(factory.adapters) == 1
-        assert factory.adapters[0].connect_count == factory.adapters[0].close_count == 1
+        assert factory.adapters[0].connect_count == factory.adapters[0].close_count == 0
+        assert len(session_trace.sessions) == len(session_trace.closes) == 1
+        assert len(session_trace.aggregate_columns) == (4 if grouped else 3)
     assert _PRIVATE_TOKEN not in _service_result_text(result)
     assert contract_path.read_bytes() == before
     _assert_no_runtime_outputs(tmp_path)
@@ -1111,7 +1211,7 @@ def test_native_aggregate_named_policy_override(
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.regression_capture("aggregate-native-service-lifecycle")
 def test_native_aggregate_same_context_alias_and_mixed_checks(
-    tmp_path: Path, grouped: bool
+    tmp_path: Path, grouped: bool, session_trace: _NativeSessionTrace
 ) -> None:
     database = _write_native_aggregate_inputs(
         tmp_path,
@@ -1144,11 +1244,14 @@ def test_native_aggregate_same_context_alias_and_mixed_checks(
     assert len(checks) == 3
     assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
     assert len(factory.adapters) == 2
-    opened = [adapter for adapter in factory.adapters if adapter.connect_count]
-    assert len(opened) == 1
-    assert opened[0].connect_count == opened[0].close_count == 1
-    assert opened[0].public_query_count == 2
-    assert len(opened[0].private_columns) == (4 if grouped else 3)
+    assert all(
+        adapter.connect_count == adapter.close_count == 0 for adapter in factory.adapters
+    )
+    assert all(adapter.public_query_count == 0 for adapter in factory.adapters)
+    assert all(not adapter.private_columns for adapter in factory.adapters)
+    assert len(session_trace.sessions) == len(session_trace.closes) == 3
+    assert len(session_trace.row_queries) == 2
+    assert len(session_trace.aggregate_columns) == (4 if grouped else 3)
     assert "private-group-key" not in _service_result_text(result)
     _assert_no_runtime_outputs(tmp_path)
 
