@@ -1,13 +1,32 @@
 # ADR 0026: Local Execution Policy And Scan Admission
 
-Status: Accepted adaptive resource design; implementation in progress;
-native exit proof pending. Current runtime unchanged. The approved amendment
+Status: Whole adaptive resource design reopened; implementation suspended
+(2026-11-27). The previous accepted mechanism choices are historical pending
+replacement design and approval. Current runtime unchanged. The approved amendment
 below and [dedicated resource prework](../planning/milestone-8-1-2-prework.md)
 supersede the historical footprint-driven resource decision, not the
 verified read-only binding and L1 lifecycle requirements. No gate satisfaction
 or implementation claim is made.
 
-## Accepted adaptive resource amendment
+## Reopened design direction (2026-11-27)
+
+The maintainer approved reconsidering the complete implementation, including
+process placement, resource observations, calibration, transport and scratch
+recovery. Favor native controls and maintained interfaces; require concrete
+benefit and necessity for extra OS-specific mechanisms. Shared execution
+resources are not inherently unsafe. Preserve actual noninterference with
+unrelated sessions, required binding, exact outcomes, bounded results,
+private scratch and no unrelated deletion, explicit supported controls,
+truthful cancellation and cleanup. Optional missing observations are advisory
+where otherwise safe. No automatic OS-version refusal or arbitrary workload
+cap. Compare direct owned execution and conditional child isolation; do not
+assume either is suitable before native proof. Automatic crash recovery is a
+proposed scope reduction, not yet approved for removal. See the
+[reopened prework](../planning/milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27)
+for comparative proof, outcome dispositions and approval blockers. All prior
+mechanism-specific choices below are historical, not implementation authority.
+
+## Historical accepted adaptive resource amendment (reopened)
 
 Core owns the normalized project-local policy, admission, reason and advice.
 The adapter owns actual native settings, evidence, placement, binding and
