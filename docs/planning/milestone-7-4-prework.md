@@ -1201,11 +1201,12 @@ Historical completion is unchanged. Mandatory pending M9.5 owns the explicit ret
 
 ## Reopened next-action dependency
 
-Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. M8.1.1 is completed and verified on main; the targeted correction's own finalized prework and implementation approval remain pending.
+Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. M8.1.1 is completed and verified on main; the targeted correction's design is approved; final prework validation and separate runtime implementation approval remain required.
 
-## Targeted bound grouped runtime correction - proposed prework
+## Targeted bound grouped runtime correction - approved prework
 
-Status: proposed, not approved for runtime implementation. M8.1.1 scoped exit
+Status: design and legacy collation disposition approved by maintainer
+on 2026-11-26; no runtime implementation approval yet. M8.1.1 scoped exit
 completed on main at 4d3ede5029a6f052d1c18c0ef62f176e0ae15868 (PR #38,
 tested head d513a249b926f05c8264d6790af163911c90b3a1, CI 45815181891 10/10;
 tested and merged trees identical). Split Decision: Already Split / Follow
@@ -1213,7 +1214,7 @@ Existing Split; reopen only the affected M7.4 regression, no new numbered
 milestone. M8.1.2 remains mandatory afterward. High-risk: native SQL,
 binding, strict comparison, resource behavior, privacy.
 
-### Problem and proposed decision
+### Problem and approved decision
 
 The private grouped final join currently combines physical-type equality
 and null-safe key equality on each positional key. The extra type expression
@@ -1225,7 +1226,7 @@ input-type and native-domain guards before the final query. Low-level
 prepared aggregate execution can still call the same renderer without
 a bound runner. Public compile/detail rendering is a separate contract.
 
-Propose an explicit private bound-grouped rendering entry point, reachable
+Use an explicit private bound-grouped rendering entry point, reachable
 in normal execution only inside the successful owned-binding evaluation
 callback, with its existing canonical relations and bound reader. Keep the
 existing private render_plan behavior strict for unbound callers and scalar
@@ -1277,7 +1278,7 @@ B = tests/adapters/test_duckdb_bound_execution.py.
 
 ### Gate and responsibility dispositions (planning, not exit proof)
 
-- 3A/3D/3F2/6: G4/G5/G7/G11 retain existing metric, tolerance, outcome and privacy rules.
+- 3A/3D/4O/3F2/6: G4/G5/G7/G11 retain existing metric, tolerance, outcome and privacy rules.
 - 4B/4C/4I: G1/G2/G3/G7/G10 preserve private adapter-native SQL,
   typed operations, same-context placement and public signatures/compile.
 - 4L/R1-R10: G6 distinguishes input/file/work/returned observations (R1),
@@ -1327,9 +1328,10 @@ safe error and no weaker fallback.
    explicit collation DDL and bounded scale. Record actual outcomes and
    limitations, cleanup experiment-only files. Resolve any baseline or
    candidate discrepancy before locking design. Prior unbound experiments
-   are not sufficient. Bound feasibility and independent native collation isolation have been observed on all four pins. The pre-existing legacy collation discrepancy below requires a maintainer disposition before design lock.
-2. Finalize design, acceptance/source map and docs after evidence; obtain
-   maintainer design/implementation approval. No implementation until then.
+   are not sufficient. Bound feasibility and independent native collation isolation have been observed on all four pins. The maintainer approved the legacy collation disposition below.
+2. Design, acceptance/source map and collation disposition approved;
+   validate final prework and obtain separate implementation approval.
+   No implementation until then.
 3. Test-first: actual RED evidence for critical path-selection/semantic
    regression and performance SQL structure; additive sibling proofs,
    preserve existing captures. Implement the smallest design-conformant
@@ -1343,7 +1345,7 @@ safe error and no weaker fallback.
 5. After verified integration, record G9 handoff; mandatory M8.1.2
    prework/calibration follows, not approved by this correction.
 
-### Feasibility and remaining decision
+### Feasibility and approved carryover
 
 On fresh actual owned read-only sessions, the existing strict and candidate
 final SQL produced identical outcomes across all paired native cases
@@ -1362,11 +1364,12 @@ both return unequal. The existing strict SQL and candidate both produce
 two one-sided groups, while later tested pins match. This is not introduced
 by the candidate and is not a universal statement about collations. The
 correction must not silently change that baseline, exclude a version, or
-introduce casts, case-folding or version-specific SQL. Proposed owner for
-operation-aware collation metadata and grouped comparison semantics is
-mandatory M9.5 (T1/T5/T6/T10); this disposition requires explicit
-maintainer approval before design lock. If the existing contract requires
-correction earlier, revise scope and prework instead. Carry the precise
-native case into the assigned conformance plan and retain differential
-proof on all four pins here. Do not claim portable collation support.
+introduce casts, case-folding or version-specific SQL. The maintainer approved mandatory M9.5 as the implementation owner for
+this existing defect (T1/T5/T6/T10), with exact delivery and exit proof in
+[type compatibility assignments](type-compatibility-assignments.md#mandatory-m95-grouped-collation-correction).
+M7.4 must retain an explicit four-pin differential regression for the
+observed baseline, not claim it is correct collation behavior or skip the
+legacy case. Any new candidate discrepancy remains an in-scope blocker.
+Do not claim portable collation support. The M9.5 case must be resolved
+before M10 exit and 0.1 release readiness, not deferred to M11 or M29.
 No production code or gate satisfaction claimed by this prework.
