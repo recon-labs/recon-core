@@ -752,7 +752,7 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); correction implemented on draft PR #39; final cumulative validation, exit approval and M8.1.2 design approval remain pending.
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 detailed design approval remains pending.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
@@ -3212,7 +3212,7 @@ Build the smallest complete loop first, then widen capability.
 
 See [M8.1.1 prework and exit evidence](../planning/milestone-8-1-1-prework.md) for private binding integration,
 expanded acceptance/test matrix, approved lifecycle decision L1 and exit
-proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own approvals; M7.4 implementation approved and in final cumulative validation; exit pending.
+proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own approvals; targeted M7.4 correction verified and merged (PR #39); M8.1.2 prework remains open.
 
 ## Mandatory M8.1.2 resource policy handoff
 
@@ -3244,3 +3244,7 @@ required for admission, explicitly pull them forward with approved split
 changes. Exact settings, thresholds, controls and detailed M8.1.2 prework
 remain open; separate design approval, implementation and native exit proof
 required.
+
+## Mandatory adapter-specific resource conformance checkpoint
+
+Apply [Gate 4L adapter-specific resource applicability and proof](../planning/execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) during M8.1.2, M8.2/M8.3, M10/M10.8, M11-M12 PostgreSQL, M12-M13 Snowflake, M13.5, M18, M29 and all later adapter admission, version, deployment and execution expansions. Explicit R1-R10 dispositions and native tests before scoped admission and promotion; preserve actual resource regression capture and M29 carryover. No universal DuckDB mechanisms or CI-derived thresholds.

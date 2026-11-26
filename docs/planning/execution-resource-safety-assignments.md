@@ -107,7 +107,7 @@ M9.5 mandatory type compatibility retrofit: assess R1/R3/R5/R7/R9/R10 for conver
 
 ## Execution scope restoration checkpoint
 
-Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented on draft PR #38; acceptance and exit approval remain pending. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
 ## Mandatory M8.1.2 resource policy handoff
 
@@ -139,3 +139,61 @@ required for admission, explicitly pull them forward with approved split
 changes. Exact settings, thresholds, controls and detailed M8.1.2 prework
 remain open; separate design approval, implementation and native exit proof
 required.
+
+## Mandatory adapter-specific resource applicability and proof
+
+Resource safety is a shared policy and evidence contract, not a shared
+engine implementation. Core owns common admission, precedence, required
+protection, outcomes and safe evidence semantics. The adapter owns native
+capability discovery, actual execution location, settings and measurements,
+control effects, permissions and cleanup. Treat client transport, local,
+remote and distributed execution as independent resource scopes.
+
+Maintainer-approved direction: adaptive, adapter-aware, minimally restrictive
+defaults with portable best-effort local protection and conditional isolation.
+Hard guarantees require verified enforcement at the requested scope; never
+silently downgrade a hard requirement. Preserve native spilling and safe
+larger-than-memory work; account for scratch headroom and cleanup.
+No universal CI-derived caps, fixed ratios or DuckDB-specific mechanisms
+imposed on other engines. Use actual environment, workload, capabilities
+and explicit user/admin constraints. Optional unknown estimates alone do
+not block independently proven required protection. Resource failure is
+not a reconciliation mismatch. No implicit sampling, relaxed retry,
+additional transfer, engine switching, privilege escalation or unauthorized
+shared infrastructure changes.
+
+Before scoped experimental admission of any new adapter, version, operation,
+deployment or placement, and again before official promotion or capability
+expansion, review every R1-R10 family. Record applicability, execution
+scope, native mechanism or alternative proof, units and control scope,
+permission/version/environment constraints, effective enforcement versus
+advisory or unknown evidence, expected outcomes, concrete positive and
+negative test nodes, owner and recheck milestone. Keep enforced,
+best-effort/advisory, unsupported, unknown and not applicable distinct.
+Non-applicability requires a rationale; missing APIs alone do not justify
+it. Required unproven protection blocks only the affected capability;
+approved alternative proof is allowed. Deferred mandatory proof is a
+blocker for that capability, not an exit waiver. No universal setting names
+or new public schema are authorized by this rule.
+
+| Checkpoint | Additional mandatory adapter-specific proof |
+| --- | --- |
+| M8.1.2 DuckDB | Actual hardware/container/scratch scope, native controls and spill across supported versions, disk-backed larger-than-memory work, low/full disk, setting interference/isolation, readback versus effect, cancellation prerequisite and scratch cleanup; safe larger files and costly small compressed inputs independently. |
+| M8.2 / M8.3 | Remaining run-wide resource/cancellation/cleanup lifecycle; safe publication of effective policy and actual outcomes. |
+| M10 / M10.8 | Useful zero-config and explicit overrides on constrained/capable environments; reprove restored/expanded local scopes. |
+| M11-M12 PostgreSQL experimental | Server/session/transaction and permission-specific controls, per-operation and parallel-worker memory multiplication, temporary file limits, operational workload, timeout/confirmed cancellation, settings restoration/pool isolation, bounded client transfer. |
+| M12-M13 Snowflake experimental | Assigned warehouse/role, queue/concurrency, scan/pruning evidence, credit/billing attribution and quota limitations, native timeout/cancellation, bounded client transfer. No automatic resize or shared monitor modification. |
+| M13.5 / M18 | Actual remote/cross-context placement and transfer budgets; authored query admission, binding and native protection for actual operations. |
+| M29 | Capability-specific shared test-kit contract and native proof before promotion; all supported versions, deployment/permission limits, unsupported cases, actual resource/cleanup and performance regressions. |
+| M29 onward, every new adapter candidate | Same pre-creation, scoped admission, release and expansion gates. Distributed engines require separate driver/executor/cluster resources, shuffle/spill, skew, scheduler allocation, task retry/fan-out and remote cancellation where applicable. No new engine support or milestone assumed. |
+
+At implementation capture actual resource regressions in existing
+regression-capture metadata with reproducible test nodes, scoped proof
+and adapter-testkit carryover. M8.1.2 must address oversized-safe workload,
+compressed-costly workload, spill-limit readback/effect mismatch, global
+setting interference and cleanup. M29 retains native regressions and tests
+shared invariants with engine-appropriate fixtures. Later adapter regressions
+require equivalent owner, gate, proof and recheck assignments. Existing
+metadata and branch-wide advisory checks remain mandatory; passing metadata
+or benchmarks alone does not establish gate satisfaction. Reuse existing
+planning/capture mechanisms, not a parallel tracker.

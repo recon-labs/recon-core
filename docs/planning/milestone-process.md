@@ -427,7 +427,7 @@ For every milestone that introduces or changes metadata, schema checks, key or v
 
 ## Execution scope restoration checkpoint
 
-Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
 At entry and exit check all pending S rows, exact implementation ownership and proof, even if restriction originated in a closed milestone. No owner closure or reassignment without approved disposition.
 
@@ -461,3 +461,5 @@ protection. Record exact evidence, equivalent checks, missing proof and
 cleanup. Missing required proof remains a blocker to readiness or gate
 satisfaction, not a reason to weaken tests. Ordinary design, implementation,
 merge and release approval requirements are unaffected.
+
+For every adapter admission, version/deployment or execution expansion apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof). Before coding resolve R1-R10 dispositions, alternative proof or blocked capability; at exit verify native evidence and regression carryover, not just metadata or common-interface success.
