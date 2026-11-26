@@ -31,6 +31,10 @@ class _BusyError(_ScratchError):
     pass
 
 
+class _RootExistsError(_ScratchError):
+    """Exclusive root directory creation lost to an existing name."""
+
+
 class _Recovery(Enum):
     REMOVED = auto()
     LIVE = auto()
@@ -354,10 +358,13 @@ class _ScratchRoot:
         try:
             if not path.is_absolute() or path.parent.resolve(strict=True) != path.parent:
                 raise _ScratchError()
-            if directory_policy is None:
-                path.mkdir(mode=0o700)
-            else:
-                directory_policy.create_directory(path)
+            try:
+                if directory_policy is None:
+                    path.mkdir(mode=0o700)
+                else:
+                    directory_policy.create_directory(path)
+            except FileExistsError:
+                raise _RootExistsError() from None
             _write_new(path / "root.lock", b"\0", directory_policy)
             ticket = _RootTicket(
                 path,
@@ -367,6 +374,8 @@ class _ScratchRoot:
             )
             _write_new(path / "owner", _root_marker(ticket), directory_policy)
             return cls(ticket, directory_policy=directory_policy)
+        except _RootExistsError:
+            raise
         except (OSError, RuntimeError, ValueError):
             raise _ScratchError() from None
 
