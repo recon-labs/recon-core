@@ -302,3 +302,85 @@ def test_windows_shared_read_and_add_directory_ancestor_remains_usable(tmp_path:
     session.release()
     assert _open_namespace(base, base).ticket == root.ticket
     assert root.recover(session.ticket) is _Recovery.REMOVED
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin native file ACL proof")
+def test_darwin_broadened_root_file_refuses_reopen(tmp_path: Path) -> None:
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    marker = root.ticket.path / "owner"
+    original = marker.read_bytes()
+    subprocess.run(
+        ["chmod", "+a", "everyone allow read", str(marker)],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    assert marker.stat().st_mode & 0o077 == 0
+    with pytest.raises(_NamespaceError):
+        _open_namespace(base, base)
+    assert marker.read_bytes() == original
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin native file ACL proof")
+@pytest.mark.parametrize("name", ["owner", "parent.lock", "worker.lock", "spill/fixture.tmp"])
+def test_darwin_broadened_session_file_is_retained(tmp_path: Path, name: str) -> None:
+    from recon_core.adapters._resource_scratch import _Recovery
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    parent = root.create_session()
+    ticket = parent.ticket
+    spill = ticket.path / "spill" / "fixture.tmp"
+    spill.write_bytes(b"synthetic")
+    parent.release()
+    subprocess.run(
+        ["chmod", "+a", "everyone allow read", str(ticket.path / name)],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    assert root.recover(ticket) is _Recovery.RETAINED
+    assert root.recover_abandoned().retained == 1
+    assert spill.read_bytes() == b"synthetic"
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin native file ACL proof")
+def test_darwin_deny_only_file_acl_remains_usable(tmp_path: Path) -> None:
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    marker = root.ticket.path / "owner"
+    subprocess.run(
+        ["chmod", "+a", "everyone deny write", str(marker)],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    try:
+        assert _open_namespace(base, base).ticket == root.ticket
+    finally:
+        subprocess.run(
+            ["chmod", "-N", str(marker)], capture_output=True, timeout=15, check=True
+        )
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin native file ACL proof")
+def test_darwin_file_acl_checks_actual_open_handle(tmp_path: Path) -> None:
+    from recon_core.adapters._scratch_namespace import _NamespaceDirectoryPolicy
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    policy = root._directory_policy
+    assert isinstance(policy, _NamespaceDirectoryPolicy)
+    first = root.ticket.path / "owner"
+    second = root.ticket.path / "root.lock"
+    with first.open("rb") as stream:
+        policy.verify_file(first, fd=stream.fileno())
+        with pytest.raises(_NamespaceError):
+            policy.verify_file(second, fd=stream.fileno())
+        assert not stream.closed
+        assert stream.read()
