@@ -272,16 +272,15 @@ and research; public docs contain only Recon-native decisions.
 - Actual regression decision, capture statuses, full branch validation,
   review-fix loop, design-integrity/responsibility review, local-success
   second pass, exact latest validated revision and user approval recorded.
-- Phase exit maps A1-A9 and each capture to tests, docs, gates and next
+- Revised phase exit must map A1-A13 and each capture to tests, docs, gates and next
   handoff; no orphan requirement. M8.2 starts only after exit and its own
   prework; M8.3 owns serialized schema and final CLI.
 
 ## Readiness verdict
 
-The earlier readiness conclusion is superseded; design is reopened. Maintainer approval and initial
-supported-version binding feasibility are established for the scoped local
-policy; no universal actual-cost or hostile filesystem guarantee. Exact
-runtime implementation proofs remain mandatory. Start TDD only after
-integration and explicit implementation authorization. Stop for design
-review if the proposed binding cannot be implemented without weakening
-admission or changing protected interfaces. No new ecosystem repository due.
+Blocked: the prior approved design is historical only. Representative binding
+feasibility remains useful evidence, not proof of resource safety or calibrated
+defaults. Complete the reopened research and design prerequisites, reassess
+compatibility and split, revise ADR 0026 and A1-A13 prework, obtain explicit
+approval and integrate before TDD. Do not proceed against PR #32 baseline.
+No new ecosystem repository is due. No runtime or gate completion claim.

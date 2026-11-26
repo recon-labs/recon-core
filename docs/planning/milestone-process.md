@@ -43,6 +43,20 @@ If this prework is missing, stale, or inconsistent, do the pre-milestone
 alignment work before coding. Low-risk classification does not remove this
 requirement.
 
+## Mandatory execution resource safety checkpoint
+
+For every milestone audit, prework and phase exit affecting execution, profiling,
+movement, writes, caching, concurrent or generated work, evaluate the
+[resource-safety assignments](execution-resource-safety-assignments.md), Gate 4L
+and the applicable placement, lifecycle and conformance gates. Assign each
+applicable R1-R10 family to the owning implementation phase and expand it into
+concrete acceptance variants, test nodes, BDD, responsibility map and exit
+proof. Record explicit rationale for genuinely non-applicable families. Check
+new or moved execution paths and ecosystem introduction checkpoints. A reopened
+ADR or unresolved required proof blocks implementation; prior approval does
+not authorize coding a superseded design. No phase may exit by merely citing
+this assignment or silently deferring an applicable requirement.
+
 ## High-risk upgrade
 
 For high-risk milestones and public-surface changes, the lightweight prework is

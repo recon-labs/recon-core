@@ -754,7 +754,9 @@ Review the [reopened phase prework](../planning/milestone-8-1-prework.md) and AD
 
 Build:
 
-- first explicit local scan-budget configuration/opt-in and validation,
+- first explicit local resource-policy configuration and validation, calibrated
+  hardware-aware defaults, optional footprint limit and proven native resource
+  controls; exact settings and thresholds remain reopened,
 - trustworthy non-executing local scope estimates, conservative fallback only
   when justified, and Recon-owned execution admission,
 - adapter-aware execution advisory foundation: distinct scan, returned-row and
@@ -763,8 +765,8 @@ Build:
   recommendations without changing the authored comparison,
 - typed in-memory policy/decision metadata for later lifecycle and result work.
 
-Required prework: Gate 4L, applicable Gate 4A/4B/4C/4I/4J, 3F2, 6 and
-ADR 0025. Lock configuration ownership, units, precedence, truthful estimate
+Required prework: Gate 4L, applicable Gate 4A/4B/4C/4I/4J/8C, 3F2, 6,
+ADR 0025 and reopened ADR 0026. Expand A1-A13. Lock configuration ownership, units, precedence, truthful estimate
 availability, hard versus advisory thresholds, and compatibility with existing
 row-count, grain-key and aggregate checks. Never use executing plan modes as
 non-executing preflight. Unknown required scope fails closed; no opt-in bypass.
