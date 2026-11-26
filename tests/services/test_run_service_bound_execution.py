@@ -211,6 +211,17 @@ def test_preflight_never_opens_session(
             row_count_plan() if blocker != "shape" else [{"type": "row_count", "side": "source"}]
         ),
         rendering={"status": "blocked", "sql_paths": []} if blocker == "rendering" else None,
+        diagnostics=(
+            [
+                {
+                    "code": "RC_ADAPTER_RENDERING_BLOCKED_BY_COMPILE_DIAGNOSTICS",
+                    "severity": "error",
+                    "message": "Synthetic rendering blocker.",
+                }
+            ]
+            if blocker == "rendering"
+            else None
+        ),
     )
     if blocker == "query":
         write_compiled_contract(tmp_path, source_relation=None, source_query="select 1")
