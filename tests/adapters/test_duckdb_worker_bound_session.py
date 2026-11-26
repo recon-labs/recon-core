@@ -121,9 +121,15 @@ def test_unbound_or_refused_worker_cannot_execute(
     session = controlled_session
     try:
         session.open()
-        assert session.bind(
-            check_id="private-check", operation="row_count_diff", source="not_base", target="dst"
-        ) is None
+        assert (
+            session.bind(
+                check_id="private-check",
+                operation="row_count_diff",
+                source="not_base",
+                target="dst",
+            )
+            is None
+        )
         with pytest.raises(_BoundSessionError):
             session.bind(
                 check_id="private-check", operation="row_count_diff", source="src", target="dst"
