@@ -2,7 +2,7 @@
 
 This composes opened-directory filesystem facts and native directory privacy
 with the existing lease coordinator. It is not yet production admission:
-Windows ancestor proof, full handle identity, POSIX file qualification, equivalent providers
+Full native ticket identity, POSIX file qualification, equivalent providers
 for other filesystems and worker-owned qualification remain prerequisites.
 """
 
@@ -24,6 +24,7 @@ from recon_core.adapters._windows_scratch_security import (
     _create_private_directory,
     _libraries,
     _process_user,
+    _verify_ancestor_directory,
     _verify_private_directory,
     _verify_private_file,
 )
@@ -179,6 +180,11 @@ class _NamespaceDirectoryPolicy:
             raise _NamespaceError()
         if os.name == "posix":
             _posix_ancestor_check(self.base)
+        elif os.name == "nt":
+            for ancestor in (self.base, *self.base.parents):
+                _verify_ancestor_directory(ancestor)
+        else:
+            raise _NamespaceError()
 
     def _within_namespace(self, path: Path) -> None:
         if not path.is_absolute() or not path.is_relative_to(self.namespace):
