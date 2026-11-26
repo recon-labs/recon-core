@@ -2,9 +2,12 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from fractions import Fraction
+from math import ceil
 from typing import Final
 
 from recon_core.check_engine.models import CheckReason
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 SCAN_ESTIMATE_UNKNOWN: Final = "RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN"
@@ -220,4 +223,129 @@ def _aggregate_scan_budget_decision(decision: ScanBudgetDecision) -> ScanBudgetD
             ),
         ),
         label="Aggregate",
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _LocalResourceInputs:
+    """Independently established effective observations, not admission proof.
+
+    None means unavailable; a measured zero remains zero. Native automatic
+    memory and thread settings are recommendations, not hardware ceilings.
+    """
+
+    memory_headroom_bytes: int | None = None
+    cpu_capacity: Fraction | None = None
+    scratch_free_bytes: int | None = None
+    scratch_memory_backed: bool | None = None
+    native_memory_bytes: int | None = None
+    native_threads: int | None = None
+    native_spill_ceiling_bytes: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _LocalResourceTuning:
+    """Adapter-supplied candidate reserve ratios, not universal defaults."""
+
+    memory_reserve_divisor: int
+    disk_reserve_divisor: int
+
+    def __post_init__(self) -> None:
+        for divisor in (self.memory_reserve_divisor, self.disk_reserve_divisor):
+            if type(divisor) is not int or divisor < 2:
+                raise ValueError("Invalid resource reserve tuning.")
+
+
+@dataclass(frozen=True, slots=True)
+class _LocalResourceTargets:
+    """Calculated managed targets, never a guarantee of actual enforcement."""
+
+    managed_memory_bytes: int | None
+    threads: int | None
+    spill_bytes: int | None
+    memory_reserve_bytes: int | None
+    disk_reserve_bytes: int | None
+    reduced_authored_targets: tuple[str, ...]
+
+
+def _remaining_after_reserve(
+    available: int | None, authored_reserve: int | None, divisor: int
+) -> tuple[int | None, int | None]:
+    if available is None:
+        return None, None
+    reserve = (
+        authored_reserve if authored_reserve is not None else (available + divisor - 1) // divisor
+    )
+    return max(0, available - reserve), reserve
+
+
+def _bounded_target(available: int | None, *ceilings: int | None) -> int | None:
+    if available is None:
+        return None
+    return min((available, *(value for value in ceilings if value is not None)))
+
+
+def _preferred_target(authored: int | None, native: int | None) -> int | None:
+    return authored if authored is not None else native
+
+
+def _calculate_local_resource_targets(
+    policy: _LocalResourcePolicy,
+    inputs: _LocalResourceInputs,
+    tuning: _LocalResourceTuning,
+) -> _LocalResourceTargets:
+    """Calculate candidate settings without admitting, probing or executing a check."""
+
+    for value in (
+        inputs.memory_headroom_bytes,
+        inputs.scratch_free_bytes,
+        inputs.native_memory_bytes,
+        inputs.native_threads,
+        inputs.native_spill_ceiling_bytes,
+    ):
+        if value is not None and (type(value) is not int or value < 0):
+            raise ValueError("Invalid resource observation.")
+    if inputs.cpu_capacity is not None and (
+        type(inputs.cpu_capacity) is not Fraction or inputs.cpu_capacity < 0
+    ):
+        raise ValueError("Invalid resource observation.")
+    if inputs.scratch_memory_backed is not None and type(inputs.scratch_memory_backed) is not bool:
+        raise ValueError("Invalid resource observation.")
+
+    memory_available, memory_reserve = _remaining_after_reserve(
+        inputs.memory_headroom_bytes, policy.memory_reserve_bytes, tuning.memory_reserve_divisor
+    )
+    memory = _bounded_target(
+        memory_available, _preferred_target(policy.managed_memory_bytes, inputs.native_memory_bytes)
+    )
+    cpu = ceil(inputs.cpu_capacity) if inputs.cpu_capacity is not None else None
+    threads = _bounded_target(cpu, _preferred_target(policy.threads, inputs.native_threads))
+    disk_available, disk_reserve = _remaining_after_reserve(
+        inputs.scratch_free_bytes, policy.disk_reserve_bytes, tuning.disk_reserve_divisor
+    )
+    if inputs.scratch_memory_backed is None:
+        disk_available = None
+    elif inputs.scratch_memory_backed:
+        if memory_available is None or memory is None:
+            disk_available = None
+        else:
+            disk_available = _bounded_target(disk_available, memory_available - memory)
+    spill = _bounded_target(disk_available, policy.spill_bytes, inputs.native_spill_ceiling_bytes)
+
+    reduced = tuple(
+        name
+        for name, authored, effective in (
+            ("managed-memory-mib", policy.managed_memory_bytes, memory),
+            ("threads", policy.threads, threads),
+            ("spill-mib", policy.spill_bytes, spill),
+        )
+        if authored is not None and effective is not None and effective < authored
+    )
+    return _LocalResourceTargets(
+        managed_memory_bytes=memory,
+        threads=threads,
+        spill_bytes=spill,
+        memory_reserve_bytes=memory_reserve,
+        disk_reserve_bytes=disk_reserve,
+        reduced_authored_targets=reduced,
     )
