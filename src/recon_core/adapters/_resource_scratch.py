@@ -35,6 +35,14 @@ class _Recovery(Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class _RecoverySummary:
+    removed: int = 0
+    live: int = 0
+    retained: int = 0
+    complete: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class _Identity:
     device: int
     inode: int
@@ -84,6 +92,54 @@ def _inspect(path: Path, *, directory: bool) -> os.stat_result:
 def _write_new(path: Path, data: bytes) -> None:
     with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as stream:
         stream.write(data)
+
+
+# The largest native file identity component is Windows FILE_ID_128.
+# Bound marker reads by the closed schema, not by directory contents.
+_IDENTITY_DIGITS = 39
+_IDENTITY_MAX = (1 << 128) - 1
+
+
+def _read_marker(path: Path, *, prefix: bytes, nonces: int, identities: int) -> list[str]:
+    maximum = len(prefix) + nonces * 33 + identities * 2 * (1 + _IDENTITY_DIGITS)
+    info = _inspect(path, directory=False)
+    if not 0 < info.st_size <= maximum:
+        raise _ScratchError()
+    with path.open("rb") as stream:
+        if _identity(os.fstat(stream.fileno())) != _identity(info):
+            raise _ScratchError()
+        data = stream.read(maximum + 1)
+    if len(data) != info.st_size or len(data) > maximum:
+        raise _ScratchError()
+    fields = data.decode("ascii").split(":")
+    if fields[0] != prefix.decode("ascii") or len(fields) != 1 + nonces + 2 * identities:
+        raise _ScratchError()
+    return fields[1:]
+
+
+def _marker_nonce(value: str) -> UUID:
+    if len(value) != 32:
+        raise _ScratchError()
+    nonce = UUID(hex=value)
+    if nonce.hex != value:
+        raise _ScratchError()
+    return nonce
+
+
+def _marker_identity(device: str, inode: str) -> _Identity:
+    if any(
+        not 1 <= len(value) <= _IDENTITY_DIGITS or not value.isascii() or not value.isdecimal()
+        for value in (device, inode)
+    ):
+        raise _ScratchError()
+    result = _Identity(int(device), int(inode))
+    if (
+        not 0 <= result.device <= _IDENTITY_MAX
+        or not 0 < result.inode <= _IDENTITY_MAX
+        or (str(result.device), str(result.inode)) != (device, inode)
+    ):
+        raise _ScratchError()
+    return result
 
 
 def _marker(path: Path, expected: bytes) -> None:
@@ -210,6 +266,79 @@ class _ScratchRoot:
             return cls(ticket)
         except (OSError, RuntimeError, ValueError):
             raise _ScratchError() from None
+
+    @classmethod
+    def reopen(cls, path: Path) -> "_ScratchRoot":
+        """Reconstruct a known namespace on caller-qualified storage.
+
+        A name or directory alone is not proof. Do not repair incomplete
+        roots, replace their locks, or adopt directories without markers.
+        """
+        try:
+            _inspect(path, directory=True)
+            nonce, dev, ino, lock_dev, lock_ino = _read_marker(
+                path / "owner", prefix=b"RC-SCRATCH-1", nonces=1, identities=2
+            )
+            root = cls(
+                _RootTicket(
+                    path,
+                    _marker_nonce(nonce),
+                    _marker_identity(dev, ino),
+                    _marker_identity(lock_dev, lock_ino),
+                )
+            )
+            with root._guard():
+                pass
+            return root
+        except (OSError, RuntimeError, ValueError):
+            raise _ScratchError() from None
+
+    def _discover_session(self, path: Path) -> _SessionTicket:
+        _inspect(path, directory=True)
+        root_nonce, nonce, *values = _read_marker(
+            path / "owner", prefix=b"RC-SESSION-1", nonces=2, identities=4
+        )
+        if _marker_nonce(root_nonce) != self.ticket.nonce or path.name != nonce:
+            raise _ScratchError()
+        identities = tuple(
+            _marker_identity(values[i], values[i + 1]) for i in range(0, len(values), 2)
+        )
+        ticket = _SessionTicket(
+            path, _marker_nonce(nonce), identities[0], identities[1], identities[2], identities[3]
+        )
+        self._verify_session(ticket)
+        return ticket
+
+    def recover_abandoned(self) -> _RecoverySummary:
+        """Stream a best-effort pass over this namespace only.
+
+        Reacquire root coordination for each candidate. Concurrent changes
+        may be seen on a later pass; never assert all abandoned data is gone.
+        Counts are safe for diagnostics; names and values are not returned.
+        """
+        removed = live = retained = 0
+        try:
+            with self._guard():
+                pass
+            with os.scandir(self.ticket.path) as entries:
+                for entry in entries:
+                    if entry.name in ("root.lock", "owner"):
+                        continue
+                    with self._guard():
+                        try:
+                            ticket = self._discover_session(self.ticket.path / entry.name)
+                            result = self._recover_locked(ticket)
+                        except (OSError, RuntimeError, ValueError):
+                            result = _Recovery.RETAINED
+                    if result is _Recovery.REMOVED:
+                        removed += 1
+                    elif result is _Recovery.LIVE:
+                        live += 1
+                    else:
+                        retained += 1
+        except (OSError, RuntimeError, ValueError):
+            return _RecoverySummary(removed, live, retained, complete=False)
+        return _RecoverySummary(removed, live, retained)
 
     def _verify_root(self) -> None:
         if _identity(_inspect(self.ticket.path, directory=True)) != self.ticket.identity:
