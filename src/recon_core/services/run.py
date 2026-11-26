@@ -366,9 +366,7 @@ def _prepare_runtime_execution_dependencies(
             )
             continue
         assert setup_result.adapter is not None
-        if verify_binding and not adapter_matches_connection(
-            setup_result.adapter, connection
-        ):
+        if verify_binding and not adapter_matches_connection(setup_result.adapter, connection):
             setup_diagnostics.append(
                 Diagnostic(
                     code=ADAPTER_METADATA_INVALID,
