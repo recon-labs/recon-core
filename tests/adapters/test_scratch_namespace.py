@@ -445,3 +445,35 @@ def test_linux_same_device_file_bind_mount_retains_storage(tmp_path: Path) -> No
             ["sudo", "-n", "umount", str(leaf)], capture_output=True, timeout=15, check=True
         )
     assert root.recover(session.ticket) is _Recovery.REMOVED
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows native ticket identity")
+def test_windows_tickets_persist_full_native_object_identity(tmp_path: Path) -> None:
+    from recon_core.adapters._resource_scratch import _Identity, _Recovery
+    from recon_core.adapters._windows_scratch_security import (
+        _libraries,
+        _native_object_identity,
+        _open_security_handle,
+    )
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    session = root.create_session()
+    ticket = session.ticket
+    session.release()
+    kernel, _ = _libraries()
+    for path, expected, directory in (
+        (root.ticket.path, root.ticket.identity, True),
+        (root.ticket.path / "root.lock", root.ticket.lock_identity, False),
+        (ticket.path, ticket.identity, True),
+        (ticket.path / "parent.lock", ticket.parent_identity, False),
+        (ticket.path / "worker.lock", ticket.worker_identity, False),
+        (ticket.path / "spill", ticket.spill_identity, True),
+    ):
+        with _open_security_handle(kernel, path) as handle:
+            volume, identifier = _native_object_identity(kernel, handle, directory=directory)
+        assert expected == _Identity(volume, int.from_bytes(identifier, "little"))
+    reopened = _open_namespace(base, base)
+    assert reopened.ticket == root.ticket
+    assert reopened.recover(ticket) is _Recovery.REMOVED
