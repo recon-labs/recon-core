@@ -229,3 +229,56 @@ def _observe_scratch_filesystem(path: Path) -> _FilesystemEvidence:
         return facts
     except Exception:
         return _FilesystemEvidence()
+
+
+def _observe_posix_file_filesystem(path: Path, *, fd: int | None = None) -> _FilesystemEvidence:
+    """Compare native mount evidence of the named and actual operation file."""
+    try:
+        if sys.platform not in ("linux", "darwin") or not path.is_absolute():
+            return _FilesystemEvidence()
+        before = path.lstat()
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_ino <= 0
+            or before.st_nlink != 1
+            or before.st_uid != os.geteuid()
+            or path.resolve(strict=True) != path
+        ):
+            return _FilesystemEvidence()
+
+        def identity(info: os.stat_result) -> tuple[int, ...]:
+            return info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_nlink
+
+        def observe(handle: int) -> _FilesystemEvidence:
+            info = os.fstat(handle)
+            if identity(info) != identity(before):
+                return _FilesystemEvidence()
+            return (
+                _linux_facts(handle, info)
+                if sys.platform == "linux"
+                else _darwin_facts(handle, info)
+            )
+
+        # Linux O_PATH does not require file read permission or open devices
+        # for I/O. Darwin uses a no-follow nonblocking read descriptor.
+        flags = os.O_NOFOLLOW | (
+            os.O_PATH if sys.platform == "linux" else os.O_RDONLY | os.O_NONBLOCK
+        )
+        named = os.open(path, flags)
+        try:
+            facts = observe(named)
+            if facts.mount_identity is None:
+                return _FilesystemEvidence()
+            if fd is not None and observe(fd) != facts:
+                return _FilesystemEvidence()
+            if (
+                identity(path.lstat()) != identity(before)
+                or observe(named) != facts
+                or (fd is not None and observe(fd) != facts)
+            ):
+                return _FilesystemEvidence()
+            return facts
+        finally:
+            os.close(named)
+    except Exception:
+        return _FilesystemEvidence()
