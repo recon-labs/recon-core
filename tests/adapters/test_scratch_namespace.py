@@ -130,3 +130,37 @@ def test_changed_mount_retains_existing_storage(
     assert not summary.complete
     assert summary.removed == 0
     assert parent.ticket.path.is_dir()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin ACL proof")
+def test_darwin_deny_only_acl_does_not_block_private_directory(tmp_path: Path) -> None:
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    result = subprocess.run(
+        ["chmod", "+a", "everyone deny delete", str(root.ticket.path)],
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0
+    try:
+        assert _open_namespace(base, base).ticket == root.ticket
+    finally:
+        subprocess.run(
+            ["chmod", "-N", str(root.ticket.path)],
+            capture_output=True,
+            timeout=15,
+            check=True,
+        )
+
+
+def test_darwin_acl_inspection_failure_is_uncertainty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from recon_core.adapters import _scratch_namespace as namespace
+
+    def unavailable(path: Path, info: os.stat_result) -> bool:
+        raise AttributeError("PRIVATE_SENTINEL")
+
+    monkeypatch.setattr(namespace, "_darwin_no_acl_grants_native", unavailable)
+    assert not namespace._darwin_no_acl_grants(tmp_path, tmp_path.stat())
