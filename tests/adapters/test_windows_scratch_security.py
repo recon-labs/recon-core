@@ -273,3 +273,28 @@ def test_native_ancestor_trusted_installer_identity_is_exact() -> None:
                 assert not _trusted_owner(security, principal, user, directory=False)
             finally:
                 free(principal)
+
+
+@pytest.mark.regression_capture("windows-scratch-private-acl")
+def test_native_ancestor_owner_rights_follow_verified_owner(tmp_path: Path) -> None:
+    from recon_core.adapters._windows_scratch_security import _verify_ancestor_directory
+
+    root = tmp_path.resolve() / "owner-rights"
+    _create_private_directory(root)
+    subprocess.run(
+        ["icacls", str(root), "/grant", "*S-1-3-4:(OI)(CI)F"],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    _verify_ancestor_directory(root)
+    with pytest.raises(_WindowsScratchSecurityError):
+        _verify_private_directory(root)
+    subprocess.run(
+        ["icacls", str(root), "/grant", "*S-1-1-0:(DC)"],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    with pytest.raises(_WindowsScratchSecurityError):
+        _verify_ancestor_directory(root)
