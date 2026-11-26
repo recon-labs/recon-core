@@ -245,7 +245,7 @@ class _ScratchRoot:
         if (
             _identity(spill) != ticket.spill_identity
             or spill.st_dev != ticket.identity.device
-            or (ticket.path / "spill").is_mount()
+            or os.path.ismount(ticket.path / "spill")
             or _identity(_inspect(ticket.path / "parent.lock", directory=False))
             != ticket.parent_identity
             or _identity(_inspect(ticket.path / "worker.lock", directory=False))
