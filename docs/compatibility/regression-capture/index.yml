@@ -167,6 +167,14 @@ path_surface_routing:
     - path: tests/check_engine/test_local_resource_targets.py
       surfaces:
         - scan_safety
+    - path: src/recon_core/adapters/_local_resource_observation.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/adapters/test_local_resource_observation.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
     - path: src/recon_core/compiled_artifact_schema.py
       surfaces:
         - artifact_lifecycle
