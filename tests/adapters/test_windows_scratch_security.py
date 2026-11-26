@@ -155,3 +155,51 @@ def test_native_file_owner_boundary() -> None:
                 assert _trusted_owner(security, owner, user, directory=False) is allowed
             finally:
                 free(owner)
+
+
+@pytest.mark.regression_capture("windows-scratch-private-acl")
+@pytest.mark.parametrize("directory", [True, False])
+def test_native_security_handle_must_match_requested_object(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, directory: bool
+) -> None:
+    from typing import Any
+
+    from recon_core.adapters import _windows_scratch_security as native
+
+    root = tmp_path.resolve() / "private"
+    _create_private_directory(root)
+    expected, substitute = root / "expected", root / "substitute"
+    if directory:
+        _create_private_directory(expected)
+        _create_private_directory(substitute)
+        verify = native._verify_private_directory
+    else:
+        expected.write_bytes(b"expected")
+        substitute.write_bytes(b"substitute")
+        verify = native._verify_private_file
+    verify(expected)
+    verify(substitute)
+    original = native._api
+    redirected = False
+
+    def api(library: Any, name: str, result: Any, *args: Any) -> Any:
+        function = original(library, name, result, *args)
+        if name != "CreateFileW":
+            return function
+
+        def open_file(path: str, *values: Any) -> Any:
+            nonlocal redirected
+            if not redirected and path == str(expected):
+                redirected = True
+                return function(str(substitute), *values)
+            return function(path, *values)
+
+        return open_file
+
+    with monkeypatch.context() as context:
+        context.setattr(native, "_api", api)
+        with pytest.raises(_WindowsScratchSecurityError):
+            verify(expected)
+        assert redirected
+    verify(expected)
+    verify(substitute)
