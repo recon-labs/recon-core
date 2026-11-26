@@ -11,6 +11,11 @@ from fractions import Fraction
 from pathlib import Path, PurePosixPath
 from typing import Final, TypeVar
 
+from recon_core.adapters._portable_resource_observation import (
+    _observe_portable_resources,
+    _PortableFacts,
+)
+
 _MAX: Final = (1 << 63) - 1
 _MOUNT_ESCAPE: Final = re.compile(r"\\(040|011|012|134)")
 _MEMORY_FS: Final = frozenset({"tmpfs", "ramfs", "devtmpfs"})
@@ -49,12 +54,14 @@ class _LocalObservation:
     scratch_free_bytes: int | None
     scratch_memory_backed: bool | None
     platform: str
+    portable: _PortableFacts = _PortableFacts()
 
     @property
     def memory_headroom_bytes(self) -> int | None:
         return _minimum(
             self.host_available_bytes,
             self.linux_constraints.memory_headroom_bytes if self.linux_constraints else None,
+            self.portable.process_commit_headroom_bytes,
         )
 
     @property
@@ -298,6 +305,7 @@ def _observe_local_resources(scratch: Path) -> _LocalObservation:
     scratch_kind = None
     affinity = None
     free = None
+    portable = _PortableFacts()
     if sys.platform == "linux":
         meminfo = _safe_read(_read_text, PurePosixPath("/proc/meminfo"))
         mountinfo = _safe_read(_read_text, PurePosixPath("/proc/self/mountinfo"))
@@ -318,10 +326,17 @@ def _observe_local_resources(scratch: Path) -> _LocalObservation:
         resolved = scratch.resolve(strict=True)
         if resolved.is_dir():
             free = shutil.disk_usage(resolved).free
+            portable = _observe_portable_resources(resolved, sys.platform)
             if mountinfo is not None:
                 scratch_kind = _scratch_memory_backed(PurePosixPath(resolved.as_posix()), mountinfo)
     except (OSError, RuntimeError, ValueError):
         pass
+    if host_available is None:
+        host_available = portable.host_available_bytes
+    if affinity is None:
+        affinity = portable.affinity_count
+    if sys.platform != "linux":
+        scratch_kind = portable.scratch_memory_backed
     return _LocalObservation(
         host_available_bytes=host_available,
         platform_cpu_count=os.cpu_count(),
@@ -330,4 +345,5 @@ def _observe_local_resources(scratch: Path) -> _LocalObservation:
         scratch_free_bytes=free,
         scratch_memory_backed=scratch_kind,
         platform=sys.platform,
+        portable=portable,
     )
