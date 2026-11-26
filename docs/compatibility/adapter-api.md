@@ -771,3 +771,7 @@ predicate; scalar and public compile/detail SQL are unchanged. The
 one-row summary and privacy contract are unchanged. This is not a resource
 limit or portable collation guarantee. The known DuckDB 1.0.0 grouped
 collation gap remains explicitly assigned to mandatory M9.5.
+
+## Platform and deployment resource conformance
+
+All adapter candidates and expansions must apply [Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) before scoped experimental admission and official promotion, and upon relevant platform, engine, dependency, permission or deployment changes. Core policy uses actual verified capabilities, not an OS/version allowlist. Adapter-native observations and controls preserve scope, provenance, unknown and unsupported states; optional unavailable facts warn only when independently safe, equivalent verified mechanisms may be used at the same scope, and unproven required protection refuses affected work. Native failure is ERROR. Provide actionable privacy-safe advice through normal diagnostics; no silent downgrade or altered comparison meaning. M29 shared test kit must cover P1-P6 semantics and candidate-specific native proof; remote and distributed adapters do not inherit local DuckDB mechanisms. This planning requirement does not add public adapter signatures or certify any capability.
