@@ -142,9 +142,7 @@ def test_native_file_owner_boundary() -> None:
     )
 
     kernel, security = _libraries()
-    convert = _api(
-        security, "ConvertStringSidToSidW", wt.BOOL, wt.LPCWSTR, ct.POINTER(ct.c_void_p)
-    )
+    convert = _api(security, "ConvertStringSidToSidW", wt.BOOL, wt.LPCWSTR, ct.POINTER(ct.c_void_p))
     free = _api(kernel, "LocalFree", ct.c_void_p, ct.c_void_p)
     with _process_user(kernel, security) as (user, _):
         assert _trusted_owner(security, user, user, directory=True)
