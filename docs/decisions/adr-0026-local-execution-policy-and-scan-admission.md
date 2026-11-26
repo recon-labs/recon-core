@@ -1,12 +1,86 @@
 # ADR 0026: Local Execution Policy And Scan Admission
 
-Status: Reopened; implementation authorization suspended pending revised design.
-Current runtime behavior is unchanged. The prior decision below is retained
-as historical baseline. The inherited 64 MiB cap, hard footprint policy,
-settings/defaults and resource enforcement are not locked for coding. See
-[mandatory resource-safety assignments](../planning/execution-resource-safety-assignments.md). Preserve
-binding, privacy and comparison semantics; revise policy with measured proof.
-No replacement default or syntax is decided here.
+Status: Accepted adaptive resource design; implementation authorization and
+native exit proof pending. Current runtime unchanged. The approved amendment
+below and [dedicated resource prework](../planning/milestone-8-1-2-prework.md)
+supersede the historical footprint-driven resource decision, not the
+verified read-only binding and L1 lifecycle requirements. No gate satisfaction
+or implementation claim is made.
+
+## Accepted adaptive resource amendment
+
+Core owns the normalized project-local policy, admission, reason and advice.
+The adapter owns actual native settings, evidence, placement, binding and
+control effects. Default project admission has no database-size, row-count
+or workload-time ceiling. Physical footprint is independent of work, memory,
+temporary disk and returned/transported bytes. An explicitly authored
+footprint maximum applies to all already supported local project checks,
+including row count; unknown optional estimates do not refuse independently
+proven scope/protection.
+
+The optional `execution.scan-budget.local` project configuration accepts
+positive strict integers `max-database-mib`, `warn-estimated-input-rows`,
+`managed-memory-mib`, `threads`, `spill-mib`, `memory-reserve-mib`,
+`disk-reserve-mib`, and an optional `scratch-directory` string. MiB is
+1048576 bytes. Strict validation, checked native ranges, absent/empty
+mapping semantics, maximum and reserve precedence, and path handling are
+specified in the prework. No profile/CLI/environment/contract override or
+user-authored classification. Explicit engine-managed ceilings are not hard
+RSS, physical disk or CPU guarantees; no silent downgrade of a required
+control. Reject malformed settings before native work.
+
+Calculate effective headroom using independent available host and applicable
+container/controller evidence, finite ancestor headroom and actual CPU and
+scratch constraints, preserving provenance and unknown versus zero.
+Use native engine recommendations only within independently observed
+resource constraints. Initial DuckDB tuning candidate: reserve ceil(H/4)
+of effective available memory H unless authored, cap requested/native
+managed target at remaining headroom, and cap native/requested thread target
+at ceil(effective CPU capacity). Initial disk reserve candidate ceil(F/10)
+for actual free space F unless authored; spill target bounded by remaining
+scratch capacity and native/explicit ceiling. Account for memory-backed
+scratch separately. These are adjustable adapter-local tuning heuristics
+approved for validation, not universal or locked numerical defaults;
+validate final combination, capable/constrained workloads and pressure
+before exit. No arbitrary minimum rounded upward, hidden retry or scope
+mutation.
+
+Use one isolated owned subprocess per admitted local DuckDB project check,
+with verified read-only transaction and exact binding, a matched private
+policy/lease, bounded ordered IPC preserving exact numeric domains, and
+no arbitrary external SQL. Retain existing engine, renderers and comparison
+semantics. Apply native resource controls before data work, explicitly set
+spill limit after connecting and verify readback and native effects; startup
+readback alone is insufficient. Observe actual pressure and distinguish
+managed limits, process use, filesystem use and physical quotas. Portable
+monitoring and parent-loss watchdog are best-effort, not hard containment.
+Never claim hard guarantees without independent scope-specific enforcement.
+
+Confirm worker exit before cleanup. Use private owned scratch with
+coordinated parent/worker leases and verified local ownership; later recover
+only proven inactive directories, never based on PID or age alone. If
+cleanup or termination is uncertain, preserve L1 and stop further affected
+execution. No immediate cleanup promise after parent crash. Actual resource,
+worker, protocol and cleanup failure is ERROR, not mismatch; pre-query
+required scope/control refusal is not_executable. Safe advisory diagnostics
+on success/failure do not change reconciliation status or exit meaning.
+No generated run-result/evidence/state/sink output or new public adapter
+interface. Preserve existing prepared low-level helper behavior.
+
+The dedicated prework assigns exact outcome codes, test families,
+responsibilities, B8-B10 one-worker prerequisite lifecycle and exit proof.
+Remaining invocation lifecycle and cumulative resource scheduling stay
+with the subsequent run-lifecycle phase; durable safe resource evidence
+with publication. Future adapter/version/placement admission and promotion
+must independently prove applicable resource controls and evidence;
+no requirement to reproduce DuckDB mechanisms on remote/distributed engines.
+
+## Historical decision (superseded for resource policy)
+
+The following baseline records earlier approved/reopened decisions for
+traceability. Its footprint default, optional two-field-only syntax and
+pending-design wording are not implementation authority. Existing binding,
+scope, privacy and comparison safety obligations remain in force.
 
 ## Context
 
@@ -175,7 +249,7 @@ codes retain safe messages. The approved binding is implemented and verified on 
 scoped exit approval complete; it is not a
 new public stable capability. Resource settings and defaults remain reopened.
 
-## Mandatory M8.1.2 resource policy handoff
+## Historical M8.1.2 resource policy handoff (superseded)
 
 M8.1.2 is the mandatory implementation owner of the reopened resource/default
 design, not an optional later optimization. Execution order: M8.1.1
@@ -206,6 +280,6 @@ changes. Exact settings, thresholds, controls and detailed M8.1.2 prework
 remain open; separate design approval, implementation and native exit proof
 required.
 
-## Adaptive resource direction and adapter carryover
+## Historical adaptive resource direction and adapter carryover (superseded)
 
 Maintainer-approved adaptive, adapter-aware, minimally restrictive local execution with portable best-effort protection, strict controls only when proven and isolation where necessary. Preserve native spilling and larger-than-memory work. No universal CI-derived ratios or caps. Distinguish execution scope from client transport, use engine-specific mechanisms and never downgrade required enforcement. Apply [Gate 4L adapter-specific resource applicability and proof](../planning/execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) to all future adapters and expansions. Exact settings, defaults, worker design and pulled-forward lifecycle requirements remain pending detailed prework and separate approval. No successor implementation authorized.
