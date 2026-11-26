@@ -454,7 +454,7 @@ class _ScratchRoot:
             except _BusyError:
                 return _Recovery.LIVE
             try:
-                files = self._deletion_plan(ticket)
+                self._validate_deletion(ticket)
             finally:
                 worker.release()
         finally:
@@ -462,35 +462,43 @@ class _ScratchRoot:
         # Both handles must be closed before deletion on Windows. The root
         # lock is still held; no cooperating late worker can claim the session.
         self._verify_session(ticket)
-        for path in files:
-            path.unlink()
+        with os.scandir(ticket.path / "spill") as entries:
+            for entry in entries:
+                path = ticket.path / "spill" / entry.name
+                self._verify_spill_file(path, ticket)
+                path.unlink()
         (ticket.path / "spill").rmdir()
         for name in ("parent.lock", "worker.lock", "owner"):
             (ticket.path / name).unlink()
         ticket.path.rmdir()
         return _Recovery.REMOVED
 
-    def _deletion_plan(self, ticket: _SessionTicket) -> tuple[Path, ...]:
-        if {entry.name for entry in ticket.path.iterdir()} != {
-            "owner",
-            "parent.lock",
-            "worker.lock",
-            "spill",
-        }:
+    def _validate_deletion(self, ticket: _SessionTicket) -> None:
+        expected = {"owner", "parent.lock", "worker.lock", "spill"}
+        with os.scandir(ticket.path) as entries:
+            for entry in entries:
+                if entry.name not in expected:
+                    raise _ScratchError()
+                expected.remove(entry.name)
+        if expected:
             raise _ScratchError()
+        # Validate the whole directory before any removal, with bounded
+        # memory. Recheck each entry during deletion under root coordination.
+        with os.scandir(ticket.path / "spill") as entries:
+            for entry in entries:
+                self._verify_spill_file(ticket.path / "spill" / entry.name, ticket)
+
+    def _verify_spill_file(self, path: Path, ticket: _SessionTicket) -> None:
         # DuckDB spill files need not have owner-only modes when the enclosing
         # private directory is inaccessible to other users. Never follow links,
         # hardlinks, reparse points, unexpected directories or special files.
-        files = tuple((ticket.path / "spill").iterdir())
-        for path in files:
-            info = path.lstat()
-            if (
-                not stat.S_ISREG(info.st_mode)
-                or info.st_nlink != 1
-                or info.st_dev != ticket.identity.device
-                or path.resolve(strict=True) != path
-                or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
-                or (os.name == "posix" and info.st_uid != os.getuid())
-            ):
-                raise _ScratchError()
-        return files
+        info = path.lstat()
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_nlink != 1
+            or info.st_dev != ticket.identity.device
+            or path.resolve(strict=True) != path
+            or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            or (os.name == "posix" and info.st_uid != os.getuid())
+        ):
+            raise _ScratchError()
