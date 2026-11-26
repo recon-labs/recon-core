@@ -68,8 +68,14 @@ def _process_user(kernel: Any, security: Any) -> Iterator[tuple[ct.c_void_p, str
         security, "OpenProcessToken", wt.BOOL, wt.HANDLE, wt.DWORD, ct.POINTER(ct.c_void_p)
     )
     token_info = _api(
-        security, "GetTokenInformation", wt.BOOL,
-        wt.HANDLE, ct.c_int, ct.c_void_p, wt.DWORD, ct.POINTER(wt.DWORD)
+        security,
+        "GetTokenInformation",
+        wt.BOOL,
+        wt.HANDLE,
+        ct.c_int,
+        ct.c_void_p,
+        wt.DWORD,
+        ct.POINTER(wt.DWORD),
     )
     to_string = _api(
         security, "ConvertSidToStringSidW", wt.BOOL, ct.c_void_p, ct.POINTER(ct.c_void_p)
@@ -106,8 +112,13 @@ def _create_private_directory(path: Path) -> None:
         kernel, security = _libraries()
         local_free = _api(kernel, "LocalFree", ct.c_void_p, ct.c_void_p)
         convert = _api(
-            security, "ConvertStringSecurityDescriptorToSecurityDescriptorW", wt.BOOL,
-            wt.LPCWSTR, wt.DWORD, ct.POINTER(ct.c_void_p), ct.POINTER(wt.DWORD)
+            security,
+            "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+            wt.BOOL,
+            wt.LPCWSTR,
+            wt.DWORD,
+            ct.POINTER(ct.c_void_p),
+            ct.POINTER(wt.DWORD),
         )
         create = _api(
             kernel, "CreateDirectoryW", wt.BOOL, wt.LPCWSTR, ct.POINTER(_SecurityAttributes)
@@ -137,38 +148,52 @@ def _create_private_directory(path: Path) -> None:
 
 def _verify_descriptor(security: Any, handle: Any, sid: ct.c_void_p, kernel: Any) -> None:
     get_info = _api(
-        security, "GetSecurityInfo", wt.DWORD, wt.HANDLE, ct.c_int, wt.DWORD,
-        ct.POINTER(ct.c_void_p), ct.c_void_p, ct.POINTER(ct.c_void_p),
-        ct.c_void_p, ct.POINTER(ct.c_void_p)
+        security,
+        "GetSecurityInfo",
+        wt.DWORD,
+        wt.HANDLE,
+        ct.c_int,
+        wt.DWORD,
+        ct.POINTER(ct.c_void_p),
+        ct.c_void_p,
+        ct.POINTER(ct.c_void_p),
+        ct.c_void_p,
+        ct.POINTER(ct.c_void_p),
     )
     local_free = _api(kernel, "LocalFree", ct.c_void_p, ct.c_void_p)
     equal = _api(security, "EqualSid", wt.BOOL, ct.c_void_p, ct.c_void_p)
     control = _api(
-        security, "GetSecurityDescriptorControl", wt.BOOL,
-        ct.c_void_p, ct.POINTER(ct.c_ushort), ct.POINTER(wt.DWORD)
+        security,
+        "GetSecurityDescriptorControl",
+        wt.BOOL,
+        ct.c_void_p,
+        ct.POINTER(ct.c_ushort),
+        ct.POINTER(wt.DWORD),
     )
     valid_acl = _api(security, "IsValidAcl", wt.BOOL, ct.c_void_p)
     acl_info = _api(
-        security, "GetAclInformation", wt.BOOL,
-        ct.c_void_p, ct.c_void_p, wt.DWORD, ct.c_int
+        security, "GetAclInformation", wt.BOOL, ct.c_void_p, ct.c_void_p, wt.DWORD, ct.c_int
     )
-    get_ace = _api(
-        security, "GetAce", wt.BOOL, ct.c_void_p, wt.DWORD, ct.POINTER(ct.c_void_p)
-    )
+    get_ace = _api(security, "GetAce", wt.BOOL, ct.c_void_p, wt.DWORD, ct.POINTER(ct.c_void_p))
     valid_sid = _api(security, "IsValidSid", wt.BOOL, ct.c_void_p)
     sid_length = _api(security, "GetLengthSid", wt.DWORD, ct.c_void_p)
     owner = ct.c_void_p()
     dacl = ct.c_void_p()
     descriptor = ct.c_void_p()
     try:
-        if get_info(
-            handle, 1, 5, ct.byref(owner), None, ct.byref(dacl), None, ct.byref(descriptor)
-        ) != 0:
+        if (
+            get_info(
+                handle, 1, 5, ct.byref(owner), None, ct.byref(dacl), None, ct.byref(descriptor)
+            )
+            != 0
+        ):
             raise _WindowsScratchSecurityError()
         flags, revision = ct.c_ushort(), wt.DWORD()
         size = _AclSize()
         if (
-            not owner or not dacl or not descriptor
+            not owner
+            or not dacl
+            or not descriptor
             or not equal(owner, sid)
             or not control(descriptor, ct.byref(flags), ct.byref(revision))
             or flags.value & 0x1004 != 0x1004
@@ -184,7 +209,9 @@ def _verify_descriptor(security: Any, handle: Any, sid: ct.c_void_p, kernel: Any
         # ACCESS_ALLOWED_ACE with exactly OI|CI, not inherit-only, not
         # conditional/object-specific, and FILE_ALL_ACCESS.
         if (
-            ace.kind != 0 or ace.flags != 3 or ace.mask != 0x001F01FF
+            ace.kind != 0
+            or ace.flags != 3
+            or ace.mask != 0x001F01FF
             or ace.size < ct.sizeof(_Ace) + 8
             or ace.size > size.used
         ):
@@ -206,15 +233,24 @@ def _verify_private_directory(path: Path) -> None:
     try:
         before = path.lstat()
         if (
-            not path.is_absolute() or path.resolve(strict=True) != path
+            not path.is_absolute()
+            or path.resolve(strict=True) != path
             or not stat.S_ISDIR(before.st_mode)
             or getattr(before, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
         ):
             raise _WindowsScratchSecurityError()
         kernel, security = _libraries()
         open_file = _api(
-            kernel, "CreateFileW", wt.HANDLE, wt.LPCWSTR, wt.DWORD, wt.DWORD,
-            ct.c_void_p, wt.DWORD, wt.DWORD, wt.HANDLE
+            kernel,
+            "CreateFileW",
+            wt.HANDLE,
+            wt.LPCWSTR,
+            wt.DWORD,
+            wt.DWORD,
+            ct.c_void_p,
+            wt.DWORD,
+            wt.DWORD,
+            wt.HANDLE,
         )
         close = _api(kernel, "CloseHandle", wt.BOOL, wt.HANDLE)
         # READ_CONTROL, share read/write (not delete), OPEN_EXISTING,
@@ -226,10 +262,9 @@ def _verify_private_directory(path: Path) -> None:
             with _process_user(kernel, security) as (sid, _):
                 _verify_descriptor(security, handle, sid, kernel)
             after = path.lstat()
-            if (
-                (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
-                or getattr(after, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
-            ):
+            if (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino) or getattr(
+                after, "st_file_attributes", 0
+            ) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
                 raise _WindowsScratchSecurityError()
         finally:
             close(handle)
