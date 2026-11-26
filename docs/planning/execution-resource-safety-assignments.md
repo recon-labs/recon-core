@@ -3,8 +3,7 @@
 ## Mandatory gate and status
 
 [ADR 0026](../decisions/adr-0026-local-execution-policy-and-scan-admission.md)
-is reopened. Do not implement the earlier footprint-driven policy. Current
-runtime is unchanged. ADR 0025 and existing binding, placement, privacy and
+has an approved adaptive resource amendment; see [M8.1.2 approved prework](milestone-8-1-2-prework.md). Do not implement the historical footprint-driven policy. Current runtime is unchanged until approved implementation. ADR 0025 and existing binding, placement, privacy and
 no-silent-scope-change rules remain requirements. Gate 4L owns resource
 safety and admission; Gate 4I placement/transport, Gate 5 lifecycle, Gate 5E
 output/cleanup, Gate 3L profiling and Gates 8/8C adapter conformance.
@@ -23,8 +22,8 @@ carry forward regressions when touched.
 | R3 | Native memory/thread/spill controls and bound read-only execution, enforcement capability, failure, configuration precedence, isolation/restoration; distinguish engine-managed memory from actual process ceiling. | M8.1; M11-M13; M29 |
 | R4 | Useful measured defaults and explicit overrides; optional footprint cap considered separately, no arbitrary low threshold or unsupported hardware ratio. Larger safe workload versus small costly workload. | M8.1; M10; M29 |
 | R5 | Non-executing actual binding and operation-aware admission, required scope fail closed, no executing plan preflight, hidden fallback, implicit filtering/sample or escalation. | M8.1; all execution expansions |
-| R6 | Deadline/timeout, cancel requested vs confirmed stopped, interrupted/failed/not-executed outcome, cleanup and retry. M8.1 proves any control it relies on before admission. | M8.2; M8.1 prerequisite; M11-M13; M29 |
-| R7 | Per-check and cumulative run resources, repeated scans, concurrency/fan-out; safe scheduling and budget scope. | M8.2; selectors/packs/profiling/state/integrations |
+| R6 | Deadline/timeout, cancel requested vs confirmed stopped, interrupted/failed/not-executed outcome, cleanup and retry. M8.1 proves any control it relies on before admission. | M8.1.2 worker stop/confirmed exit and cleanup prerequisite; M8.2 remaining lifecycle/deadline/retry; M11-M13; M29 |
+| R7 | Per-check and cumulative run resources, repeated scans, concurrency/fan-out; safe scheduling and budget scope. | M8.1.2 per-check serial worker/re-observation prerequisite; M8.2 cumulative/concurrency; selectors/packs/profiling/state/integrations |
 | R8 | Safe metadata handoff and durable projection, effective policy vs observed use, availability/provenance and resource outcomes, no raw plans/paths/data. | M8.1-M8.3; M9/31/32.1 |
 | R9 | Evidence-based optimization advice: join growth, skew, width, repeated scans, pushdown/index/pruning, subset/window/sample, coverage tradeoffs; no automatic changes. | M8.1 basic; M12.5 deeper; M24/25 actual modes |
 | R10 | Reproducible bounded synthetic scale/performance and failure probes across versions and resource envelopes; no universal guarantee or fixed SLA from probes. | M8.1 design/exit; M10; M10.5-10.7; M11-M13; M29 |
@@ -58,8 +57,8 @@ carry forward regressions when touched.
 | 40 | Prove hosted tenant isolation, quotas, concurrency, cancellation and fair allocation separately. |
 | 42 | Budget semantic expansion and generated comparisons. |
 | 8.1.1 | Binding preflight and owned execution context; interim existing key/SUM footprint guard only. Binding portions of R3/R5/R6/R8/R10; no new resource defaults. |
-| 8.1.2 | REOPENED - mandatory resource-policy implementation after verified M8.1.1 and targeted M7.4 correction. Own remaining R1-R10, A1-A13, measured defaults, optional footprint limit, non-executing workload evidence and proven native controls. Exact defaults and controls not locked. |
-| 8.2 | Own deadlines, timeout/cancellation confirmation, connection/transaction/spill cleanup, cumulative run-resource budgeting and bounded concurrency policy; B8-B10. M8.1 must prove any control needed for its own admission before relying on it. |
+| 8.1.2 | Approved design; implementation authorization pending. Own remaining R1-R10/A1-A13, measured defaults, optional footprint ceiling, non-executing evidence and verified native controls; B8 stop/exit/parent liveness, B9 worker/native/IPC/scratch cleanup and recovery, B10 serial per-check resource scope. Candidate tuning requires native exit proof. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). |
+| 8.2 | Own remaining B8-B10 invocation deadlines/timeouts, cancellation and retry lifecycle, run-wide cleanup, cumulative resource budgeting and bounded concurrency; reuse M8.1.2 prerequisite controls, no duplicate executor. |
 | 8.3 | Publish allowlisted resource policy, actual versus estimated use, unavailable versus zero, enforcement and timeout/cancel/cleanup outcomes; C10. |
 | 10.5 | Invalidate stale admission evidence, including policy, binding and environment changes. |
 | 10.6 | Recompute admission and cumulative work for actual selected scope. |
@@ -87,7 +86,7 @@ workloads across supported pins and available constrained/capable envelopes.
 Measure footprint, estimated input, elapsed time, reliable process memory,
 temporary disk, control effects and cleanup; document fixture truth, units,
 limitations and unavailable evidence. Never use executing inspection as
-production preflight. Use temporary CI fallback with explicit approval,
+production preflight. Use authorized temporary CI fallback under standing validation policy,
 isolated fixtures and cleanup if local execution unavailable.
 
 Compare optional footprint cap, hardware-aware defaults, explicit resource
@@ -109,7 +108,7 @@ M9.5 mandatory type compatibility retrofit: assess R1/R3/R5/R7/R9/R10 for conver
 
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
-## Mandatory M8.1.2 resource policy handoff
+## Historical M8.1.2 resource policy handoff (superseded by approved checkpoint below)
 
 M8.1.2 is the mandatory implementation owner of the reopened resource/default
 design, not an optional later optimization. Execution order: M8.1.1
@@ -197,3 +196,22 @@ require equivalent owner, gate, proof and recheck assignments. Existing
 metadata and branch-wide advisory checks remain mandatory; passing metadata
 or benchmarks alone does not establish gate satisfaction. Reuse existing
 planning/capture mechanisms, not a parallel tracker.
+
+## Approved M8.1.2 integration checkpoint (2026-11-26)
+
+The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
+historical footprint-driven resource decisions and earlier pending-design
+statements. Design approval is not implementation or exit approval. Existing
+runtime remains unchanged until implementation. M8.1.1 and targeted M7.4
+correction are verified on main. No default database size or workload timeout;
+optional authored footprint ceiling applies to all nine local project check
+families. Native managed resource targets are not physical quotas. The
+DuckDB-specific 25% memory and 10% disk reserve candidates require actual
+combined calibration before default lock; no universal ratio. Required scope
+and controls fail closed; optional estimate uncertainty is not a blanket block.
+M8.1.2 owns B8 one-worker cancellation/confirmed exit/parent liveness, B9
+native/IPC/owned scratch cleanup and crash-safe recovery, B10 serial per-check
+worker and re-observation prerequisites. M8.2 owns remaining run-wide
+lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
+publication. Preserve all future adapter applicability, type and scope gates.
+No gate closed; separate implementation authorization required.
