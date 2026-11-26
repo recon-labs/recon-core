@@ -11,6 +11,11 @@ from recon_core._yaml import (
     safe_yaml_error_message,
     yaml_error_position,
 )
+from recon_core.config._local_resource_policy import (
+    _InvalidResourcePolicy,
+    _LocalResourcePolicy,
+    _parse_local_resource_policy,
+)
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 INVALID_PROJECT_YAML = "RC_CONFIG_INVALID_PROJECT_YAML"
@@ -32,6 +37,7 @@ _ALLOWED_FIELDS = frozenset(
         "target-path",
         "report-path",
         "state-path",
+        "execution",
     }
 )
 
@@ -88,6 +94,10 @@ class ProjectConfig:
         default=(),
         compare=False,
         repr=False,
+    )
+
+    _local_resource_policy: _LocalResourcePolicy = field(
+        default_factory=_LocalResourcePolicy, repr=False, kw_only=True
     )
 
     def path_entries_for(self, field_name: str) -> tuple[ConfiguredPath, ...]:
@@ -203,6 +213,16 @@ def _project_config_from_mapping(
     report_path = _string_with_default(raw_config, "report-path", project_file, diagnostics)
     state_path = _string_with_default(raw_config, "state-path", project_file, diagnostics)
 
+    policy = _LocalResourcePolicy()
+    try:
+        policy = _parse_local_resource_policy(raw_config.get("execution", {}))
+    except _InvalidResourcePolicy as error:
+        diagnostics.append(
+            _invalid_config_diagnostic(
+                project_file, str(error), hint="Use documented project resource policy fields."
+            )
+        )
+
     if diagnostics:
         return ProjectConfigLoadResult(diagnostics=tuple(diagnostics))
 
@@ -221,6 +241,7 @@ def _project_config_from_mapping(
             target_path=target_path,
             report_path=report_path,
             state_path=state_path,
+            _local_resource_policy=policy,
             resource_path_entries=(
                 contract_path_entries
                 + sample_policy_path_entries
