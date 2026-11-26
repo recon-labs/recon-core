@@ -63,7 +63,17 @@ def test_scratch_live_owner_races(root: _ScratchRoot) -> None:
 
 
 @pytest.mark.regression_capture("owned-scratch-untrusted-retained")
-@pytest.mark.parametrize("damage", ["marker", "missing-lock", "unexpected-entry", "nested-spill", "replaced-lock", "replaced-spill"])
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "marker",
+        "missing-lock",
+        "unexpected-entry",
+        "nested-spill",
+        "replaced-lock",
+        "replaced-spill",
+    ],
+)
 def test_untrusted_scratch_never_deleted(root: _ScratchRoot, damage: str) -> None:
     parent = root.create_session()
     ticket = parent.ticket
@@ -136,7 +146,9 @@ import sys
 import time
 from pathlib import Path
 from uuid import UUID
-from recon_core.adapters._resource_scratch import _Identity, _RootTicket, _SessionTicket, _ScratchRoot
+from recon_core.adapters._resource_scratch import (
+    _Identity, _RootTicket, _SessionTicket, _ScratchRoot
+)
 def identity(index):
     return _Identity(int(sys.argv[index]), int(sys.argv[index + 1]))
 r = _RootTicket(Path(sys.argv[1]), UUID(sys.argv[2]), identity(3), identity(5))
@@ -241,9 +253,7 @@ time.sleep(120)
             time.sleep(0.02)
         assert marker.exists() and process.poll() is None
         nonce, *values = marker.read_text(encoding="ascii").split(":")
-        identities = tuple(
-            _Identity(int(values[i]), int(values[i + 1])) for i in range(0, 8, 2)
-        )
+        identities = tuple(_Identity(int(values[i]), int(values[i + 1])) for i in range(0, 8, 2))
         ticket = _SessionTicket(
             r.path / nonce, UUID(nonce), identities[0], identities[1], identities[2], identities[3]
         )
