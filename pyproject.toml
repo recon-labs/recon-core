@@ -43,6 +43,7 @@ dependencies = [
 [project.optional-dependencies]
 duckdb = [
   "duckdb>=1.0",
+  "psutil>=7.2.2",
 ]
 dev = [
   "pytest>=8.0",
