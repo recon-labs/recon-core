@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 
 import recon_core.adapters.duckdb.runtime_scan_guard as duckdb_scan_guard_module
-from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.adapters import (
     AdapterCapabilities,
     AdapterRegistry,
@@ -13,6 +12,7 @@ from recon_core.adapters import (
 from recon_core.adapters.duckdb import (
     ADAPTER_QUERY_FAILED,
 )
+from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.diagnostics import Diagnostic
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory

@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 
 import recon_core.adapters.duckdb.runtime_scan_guard as duckdb_scan_guard_module
-from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.adapters import (
     AdapterCapabilities,
     AdapterRegistry,
@@ -17,6 +16,7 @@ from recon_core.adapters.duckdb import (
     ADAPTER_QUERY_FAILED,
     DuckDbAdapterFactory,
 )
+from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
