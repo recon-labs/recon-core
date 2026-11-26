@@ -13,6 +13,12 @@ from recon_core.adapters._project_binding import (
     _LocalFileIdentity,
     _proof_error,
 )
+from recon_core.adapters.duckdb._native_resource_controls import (
+    _apply_native_controls,
+    _native_startup_config,
+    _NativeControlError,
+    _NativeControlRequest,
+)
 from recon_core.adapters.duckdb.adapter import _read_aggregate_result
 from recon_core.adapters.duckdb.runtime_scan_guard import (
     _current_file_identity,
@@ -87,8 +93,11 @@ class _VerifiedReadConnection:
 class _OwnedDuckDbSession:
     """Single-use session; the caller must close it in a finally block."""
 
-    def __init__(self, identity: _LocalFileIdentity) -> None:
+    def __init__(
+        self, identity: _LocalFileIdentity, *, native_controls: _NativeControlRequest | None = None
+    ) -> None:
         self._identity = identity
+        self._native_controls = native_controls
         self._connection: Any = None
         self._attempted = False
         self._invalidated = False
@@ -114,13 +123,30 @@ class _OwnedDuckDbSession:
         self._verify_file()
         try:
             duckdb = import_module("duckdb")
-            self._connection = duckdb.connect(str(self._identity.path), read_only=True)
+            if self._native_controls is None:
+                self._connection = duckdb.connect(str(self._identity.path), read_only=True)
+            else:
+                self._connection = duckdb.connect(
+                    str(self._identity.path),
+                    read_only=True,
+                    config=_native_startup_config(self._native_controls),
+                )
             self._released = False
         except Exception:
             raise _BoundSessionError(
                 ADAPTER_CONNECTION_FAILED,
                 "Read-only execution session could not be opened or initialized.",
             ) from None
+        self._verify_file()
+        if self._native_controls is not None:
+            try:
+                _apply_native_controls(self._connection, self._native_controls)
+            except _NativeControlError:
+                self._invalidated = True
+                raise _BoundSessionError(
+                    "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                    "Required native resource setting could not be verified.",
+                ) from None
         self._verify_file()
         try:
             self._connection.execute("BEGIN TRANSACTION")
