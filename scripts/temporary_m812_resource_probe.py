@@ -88,9 +88,9 @@ def child(db, spill, n, op, mem, threads, cap, placement):
             if op=="count":
                 operation={"type":"compare_counts"}
             elif op=="duplicate":
-                operation={"type":"duplicate_key","side":"source","keys":["k","j"]}
+                operation={"type":"duplicate_key","side":"source","identity":{"keys":["k","j"]}}
             else:
-                operation={"type":"key_diff","direction":"source_minus_target","keys":["k","j"]}
+                operation={"type":"key_diff","direction":"source_minus_target","identity":{"keys":["k","j"]}}
             query=renderer.render_operation(operation,source_relation=scope.source,target_relation=scope.target).sql
             if op!="count":
                 query=f"select count(*) as failure_count from ({query}) as recon_key_safety_failures"
