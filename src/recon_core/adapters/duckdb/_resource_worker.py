@@ -7,11 +7,12 @@ database binding and data work require the later owned-session protocol.
 import os
 import subprocess
 import sys
+from contextlib import suppress
 from dataclasses import dataclass
 from importlib import import_module
 from queue import Empty, Queue
 from threading import Lock, Thread
-from typing import BinaryIO, Protocol
+from typing import IO, Protocol
 
 from recon_core.adapters.duckdb._native_resource_controls import (
     _NativeRecommendations,
@@ -56,11 +57,9 @@ def _stop_process(process: _ChildProcess, *, timeout: float) -> _WorkerStop:
     except OSError:
         pass
     for signal in (process.terminate, process.kill):
-        try:
+        # Exit can race the signal; only the subsequent wait is proof.
+        with suppress(OSError):
             signal()
-        except OSError:
-            # Exit can race the signal; only the subsequent wait is proof.
-            pass
         result = _wait_for_exit(process, timeout)
         if result.confirmed_exit:
             return result
@@ -224,7 +223,7 @@ def _recommendations() -> _NativeRecommendations:
         connection.close()
 
 
-def _serve(commands: BinaryIO, responses: BinaryIO) -> None:
+def _serve(commands: IO[bytes], responses: IO[bytes]) -> None:
     pending: Queue[_ControlPacket] = Queue(maxsize=1)
     guard = Lock()
     active = False
@@ -286,9 +285,11 @@ def _main() -> None:
         with open(os.devnull, "wb", buffering=0) as discard:
             os.dup2(discard.fileno(), 1)
             os.dup2(discard.fileno(), 2)
-        with os.fdopen(protocol_fd, "wb", buffering=0) as responses:
-            with os.fdopen(0, "rb", buffering=0, closefd=False) as commands:
-                _serve(commands, responses)
+        with (
+            os.fdopen(protocol_fd, "wb", buffering=0) as responses,
+            os.fdopen(0, "rb", buffering=0, closefd=False) as commands,
+        ):
+            _serve(commands, responses)
     except BaseException:
         os._exit(76)
     os._exit(0)
