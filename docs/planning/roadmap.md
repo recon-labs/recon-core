@@ -340,3 +340,7 @@ worker and re-observation prerequisites. M8.2 owns remaining run-wide
 lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
 publication. Preserve all future adapter applicability, type and scope gates.
 No gate closed; separate implementation authorization required.
+
+## Platform compatibility and future adapters
+
+[Gate 4L P1-P6](execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) requires capability-based permissive execution with actionable warnings and independently verified required protections, not runtime OS-version allowlists. M8.1.2 owns initial local native and persistent multi-version CI proof; M8.2/M8.3 preserve lifecycle and publication; M10/M10.7/M10.8 recheck readiness and guidance; M11-M13 experimental adapters, M13.5/M18, M29 and every future adapter/deployment/version expansion require applicable native proof and documented compatibility. M29 owns reusable shared conformance; M32/M32.1 preserves diagnostics in integrations. No new adapter or support range is implied.
