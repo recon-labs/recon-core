@@ -469,3 +469,7 @@ until Recon implements richer typed policy support.
 
 Future policy features must update framework, implementation, compatibility,
 artifact, result, evidence, and diagnostic docs before implementation.
+
+## Type compatibility delivery checkpoint
+
+Apply [Gate 4P mandatory type compatibility assignments](../planning/type-compatibility-assignments.md). Current strict physical-type execution boundaries remain unchanged. Future operation-aware lossless comparison and explicit conversion policies must be designed, implemented and proven; structural schema equality is not the same as value comparability. Do not infer compatibility from implicit engine casts. The assignment defines delivery ownership, not approved runtime behavior.

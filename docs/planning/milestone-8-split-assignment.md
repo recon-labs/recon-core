@@ -133,3 +133,32 @@ correct the split assignment, not invent a scope decision.
 Next: reopen and revise M8.1 prework with measured resource-control evidence,
 updated policy and expanded matrix; obtain explicit approval before coding. No experimental repo is due during these phases; keep
 checking ecosystem checkpoints. No milestone prework is declared satisfied.
+
+## Reopened execution dependency and next action
+
+Status: planning only; implementation blocked. The shared binding design
+is the next design task, not the M7.4 renderer edit. Follow this dependency
+order for the reopened work:
+
+1. Integrate the mandatory Gate 4P/M9.5 planning amendment after review and
+   validation.
+2. Reassess the M8.1 split and prepare the shared owned execution-context
+   prerequisite design: stable relation identity, qualification, transaction
+   snapshot, connection ownership, admission binding, lifecycle, cleanup
+   and preservation of supported contexts. Map applicable R/T requirements
+   and gates, resolve remaining decisions, obtain explicit approval.
+3. Implement and verify that approved prerequisite via the normal
+   test-first workflow. Do not assume transaction alone is sufficient.
+4. Only after same-binding proof, prepare/approve and implement the targeted
+   M7.4 grouped-runtime performance correction; preserve current strict
+   type semantics, existing capability and public compile SQL. Historical
+   M7.4 completion is not proof of this pending correction.
+5. Resume remaining M8.1 resource-policy design and calibration using the
+   corrected SQL; finish M8.1 before M8.2, then M8.3, M9, mandatory M9.5
+   type-compatibility retrofit and M10.
+
+The binding sub-milestone number, final scope, design and implementation
+approval remain open. Do not duplicate lifecycle machinery, weaken
+admission, begin the renderer correction early or start coding from this
+routing checkpoint. If feasibility requires a different sequence, stop
+and obtain maintainer approval with synchronized gate and split changes.

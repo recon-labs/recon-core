@@ -1190,3 +1190,15 @@ The distinct-connection diagnostic regression retains separate sanitized
 setup failures without publishing connection identifiers. Cumulative review,
 final validation and phase-exit evidence remain required; this checkpoint is
 not a milestone completion claim.
+
+## Type compatibility delivery checkpoint
+
+Apply [Gate 4P mandatory type compatibility assignments](type-compatibility-assignments.md). Current strict physical-type execution boundaries remain unchanged. Future operation-aware lossless comparison and explicit conversion policies must be designed, implemented and proven; structural schema equality is not the same as value comparability. Do not infer compatibility from implicit engine casts. The assignment defines delivery ownership, not approved runtime behavior.
+
+## Mandatory M9.5 delivery checkpoint
+
+Historical completion is unchanged. Mandatory pending M9.5 owns the explicit retrofit of existing key and aggregate checks for losslessly compatible physical types; M10 exit is blocked until M9.5 is verified.
+
+## Reopened next-action dependency
+
+Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The exact split and approval remain pending.

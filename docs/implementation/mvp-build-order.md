@@ -609,6 +609,8 @@ Phase exit review:
 
 ### Milestone 7.3: grain-key safety checks
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Build:
 
 - null source/target key checks,
@@ -682,6 +684,8 @@ Phase exit review:
 
 ### Milestone 7.4: aggregate metric execution
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Build:
 
 - current ungrouped `sum_diff` execution,
@@ -748,6 +752,10 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). Exact split and design approval remain pending.
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: REOPENED - implementation blocked until revised design is approved and integrated. Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Exact defaults and resource controls are not locked. A10-A13 are mandatory. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Review the [reopened phase prework](../planning/milestone-8-1-prework.md) and ADR 0026. Prior approval does not authorize implementation; revise and reapprove the design first.
@@ -782,6 +790,8 @@ additional dimensions and carryover obligations.
 
 ## Milestone 8.2: execution planning and run lifecycle
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Own deadlines, timeout/cancellation confirmation, connection/transaction/spill cleanup, cumulative run-resource budgeting and bounded concurrency policy; B8-B10. M8.1 must prove any control needed for its own admission before relying on it. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build:
@@ -805,6 +815,8 @@ distinct cleanup errors, privacy-safe plan metadata, no hidden fallback and
 no writes. Preserve admission and advisory decisions from the preceding phase.
 
 ## Milestone 8.3: run-result publication and CLI finalization
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Publish allowlisted resource policy, actual versus estimated use, unavailable versus zero, enforcement and timeout/cancel/cleanup outcomes; C10. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -831,6 +843,8 @@ unauthorized writes. The final phase must satisfy the umbrella acceptance
 requirements and the normal full validation and review-fix loop.
 
 ## Milestone 9: evidence
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Budget evidence retrieval, export/movement, memory/disk and cleanup independently of output size. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -880,7 +894,85 @@ Tests:
   selected-scope runs later without implying unselected contracts or checks were
   reconciled.
 
+## Milestone 9.5: lossless type compatibility for existing checks
+
+Status: Pending, mandatory implementation-bearing pre-MVP milestone.
+Split Decision: Required before coding if detailed prework identifies
+independent type-system or execution integration work; this assignment
+is not approval to implement. Historical M7.3 and M7.4 remain completed.
+M9.5 owns their explicit retrofit; neither historical completion nor
+M10 documentation can satisfy this milestone.
+
+Build after M8.1-M8.3, M9 and the targeted M7.4 grouped SQL correction
+are validated. M8.1 must establish reusable binding and resource
+prerequisites, not assume M9.5 implementation. If research establishes
+a need to pull M9.5 earlier, obtain approval and update dependency,
+resource/evidence and gate assignments consistently; no silent deferral
+past M10 or the 0.1 release-readiness decision.
+
+Goal: safe, useful same-context DuckDB comparison of different but
+losslessly comparable physical types in existing key and SUM checks.
+
+Build:
+
+- shared operation-aware normalized metadata and compatibility decision
+  model, separating structural equality, value comparability and explicit
+  conversion; preserve native type provenance;
+- safe exact numeric common domains for INTEGER/BIGINT and other proven
+  signed/unsigned integer combinations, exact decimal precision/scale
+  and integer-decimal combinations where representable;
+- retrofit M7.3 null/duplicate/missing/extra key semantics, composite
+  identities, collision/prerequisite behavior, and M7.4 scalar and
+  grouped SUM input/result/difference domains; retain same-type capability
+  and native floating behavior;
+- explicit typed compatibility/conversion plan, adapter capability proof,
+  bound metadata and consistent execution; no implicit engine casts;
+- distinct safe outcomes for incompatible/unknown types, conversion or
+  arithmetic failure, and actual data violations; integrate approved
+  result/evidence metadata with M8.3/M9 contracts and version policy;
+- supported type/operation/version matrix, deterministic regression
+  capture, user-facing limitations and runnable examples.
+
+Non-goals: new metrics, schema policy execution, cross-connection or
+cross-adapter execution, arbitrary string-to-number/timezone conversion,
+lossy normalization, new authored policy syntax without approved design,
+new public adapter APIs without explicit gate review. Mixed approximate
+numeric, temporal, collation/nested and richer explicit conversion
+semantics require explicit decisions and owners; M11/M12/M13/M21/M22/M30
+extend the shared model, not substitute for this required baseline.
+
+Required gates: Gate 4P primary; 1A, 3A/3C/3D/3F2, 4B/4C/4I/4L/4O,
+5/5E, 6, 7 and 8/8C as applicable. Read
+[mandatory type compatibility assignments](../planning/type-compatibility-assignments.md)
+and [resource safety assignments](../planning/execution-resource-safety-assignments.md).
+Existing ADRs 0005/0009/0010/0013/0019/0021/0026 remain authoritative until
+approved scoped amendment. Prework must resolve canonical domain,
+default versus explicit policy, metadata/transport, precision,
+conversion failures, diagnostics, API/artifact compatibility and
+resource/placement strategy with research and explicit approval.
+
+Tests and exit proof:
+
+- actual native key coverage and scalar/grouped SUM with matching and
+  differing values across INTEGER/BIGINT and representative safely
+  representable decimal domains, including both directions, empty,
+  nullable/composite/duplicate keys, collisions, exact numeric limits
+  and aggregate overflow;
+- reject unsupported/unknown/lossy conversions, no false pass or silent
+  exclusion; preserve earlier same-type results, privacy, prerequisite
+  ordering, bounded output and public compile/API compatibility unless
+  explicitly amended;
+- complete T1-T10 applicable matrix, BDD, exact test nodes, owner/source
+  map, regression captures, resource impact, representative pinned
+  DuckDB conformance and full required CI, docs and approval;
+- M10 cannot exit, tag or publish 0.1 without M9.5 completed and verified
+  on main. Any proposal to change the mandatory baseline requires a
+  separate maintainer-approved milestone and release-scope amendment;
+  M11 is expansion, not fallback ownership.
+
 ## Milestone 10: examples and docs alignment
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: MVP readiness requires useful zero-config and explicit-limit behavior on representative constrained/capable environments, larger-than-RAM cases where supported, and honest limitations. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -899,7 +991,7 @@ Tests:
 
 ## After Milestone 10
 
-Milestones 1-10 complete the MVP build sequence.
+Milestones 1-10, including mandatory Milestone 9.5, complete the MVP build sequence. M10 release readiness is blocked until M9.5 exits.
 
 After Milestone 10, run the MVP acceptance criteria and release-readiness
 checklist before any 0.1 version bump, tag, or publish step.
@@ -939,6 +1031,7 @@ Future gate-to-milestone mapping summary:
 | Gate 3L | Post-MVP Milestone 12.5 | Any discovery/profile/suggest, metadata, profiling, or relation-scope feature |
 | Gate 3M | Post-MVP Milestone 12.5 | Post-MVP Milestones 25.6, 42, 42.5, and any generated tests |
 | Gate 3A amendment | Post-MVP Milestone 11 | Post-MVP Milestone 12.5 and Milestone 7.4 aggregate suggestion/execution boundaries |
+| Gate 4P | Milestone 9.5 | Mandatory existing key/aggregate retrofit; see type compatibility assignments for later expansions. |
 | Gate 4L | Cross-cutting | M8.1 admission/resources; M8.2 lifecycle; M8.3 safe output; every scan, profiling, movement, write, cache, concurrent and integration path per [mandatory assignments](../planning/execution-resource-safety-assignments.md). M7.3/7.4 baseline unchanged. |
 | Gate 4M | Post-MVP Milestones 24/25/26 area | Post-MVP Milestones 10.6, 24, 25, 26, 27, and 27.5 |
 | Gate 4N | Post-MVP Milestone 25.6 | Post-MVP Milestone 25.7, Post-MVP Milestone 31, and any adaptive threshold or drift feature |
@@ -951,6 +1044,8 @@ Future gate-to-milestone mapping summary:
 | Gate 9A | Post-MVP Milestone 42 | Post-MVP Milestone 42.5, Post-MVP Milestone 31, and Post-MVP Milestone 29 semantic package conformance |
 
 ## Post-MVP Milestone 10.5: artifact freshness and cache optimization
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Invalidate stale admission evidence, including policy, binding and environment changes. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -991,6 +1086,8 @@ feat: add artifact freshness checks
 ```
 
 ## Post-MVP Milestone 10.6: minimal contract and path selectors
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Recompute admission and cumulative work for actual selected scope. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -1054,6 +1151,8 @@ feat: add minimal contract selectors
 
 ## Post-MVP Milestone 10.7: user-facing agent onboarding pack and installer
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Teach resource settings, limitations and safe override behavior in onboarding. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after the MVP release-readiness decision and after the core docs can
@@ -1098,6 +1197,10 @@ feat: add user-facing agent onboarding
 ```
 
 ## Post-MVP Milestone 11: aggregate metrics expansion
+
+Depends on the completed M9.5 lossless type compatibility baseline; extend it, do not defer its retrofit to M11.
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Prove metric/group intermediate workload and native PostgreSQL operational safeguards at experimental checkpoint. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -1150,6 +1253,8 @@ feat: expand aggregate metric checks
 
 ## Post-MVP Milestone 12: schema policy and metadata checks
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Distinguish metadata-only from scanning and bound catalog fan-out; prove native adapter metadata/resource capability. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after the adapter API and metadata model exist.
@@ -1191,6 +1296,8 @@ feat: add schema policy checks
 ```
 
 ## Post-MVP Milestone 12.5: metadata discovery, data profiling, contract suggestions, and relation scope selection
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Implement richer workload/plan analysis and evidence-backed recommendations, including cardinality/skew, join growth, repeated scans, widths, indexing/pruning, bounded profiling and explicit subset/window/sample coverage tradeoffs. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -1257,6 +1364,8 @@ feat: add metadata discovery and suggestions
 ```
 
 ## Post-MVP Milestone 13: explicit source-target column mapping
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Prove mapping/cast/width workload impacts and Snowflake warehouse-native resource, pruning and billing evidence at experimental checkpoint. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -1342,6 +1451,8 @@ feat: validate macro references
 ```
 
 ## Post-MVP Milestone 15: macro-assisted rendering helpers
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Reassess macro-generated operations and prohibit policy bypass. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -1538,6 +1649,8 @@ feat: add endpoint resource references
 
 ## Post-MVP Milestone 18: executable query endpoints
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Prove authored query read-only scope, non-executing evidence, binding and enforcement. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after adapter query execution boundaries and compiled SQL visibility
@@ -1613,6 +1726,8 @@ feat: add rich selectors
 
 ## Post-MVP Milestone 20: defaults and inheritance boundaries
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Build this after project loading, compiled artifact provenance, and validation
 timing can show where inherited behavior came from.
 
@@ -1640,6 +1755,8 @@ feat: resolve authored defaults
 ```
 
 ## Post-MVP Milestone 21: row-level value check execution
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Prove join multiplicity, intermediate work, resource controls and bounded movement/detail. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -1677,6 +1794,8 @@ feat: execute row-level value checks
 
 ## Post-MVP Milestone 22: timestamp tolerance and timezone execution
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Assess normalization and timestamp workload and pruning. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after adapters can expose timestamp metadata and render timestamp
@@ -1708,6 +1827,8 @@ feat: execute timestamp tolerance checks
 
 ## Post-MVP Milestone 23: row hash and canonical hash comparison
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Budget hashing, canonicalization and confirmation workload. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this only after hash canonicalization and adapter compatibility are
@@ -1737,6 +1858,8 @@ feat: add safe row hash checks
 ```
 
 ## Post-MVP Milestone 24: sampling execution modes
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Budget sample construction as well as comparison; sample size is not scan size. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -1779,6 +1902,8 @@ feat: execute deterministic sampling policies
 
 ## Post-MVP Milestone 24.5: multi-policy sampling composition
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Budget combined sampling policy expansion and repeated work. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after individual sampling modes, sample-key references, state
@@ -1812,6 +1937,8 @@ feat: compose sampling policies
 ```
 
 ## Post-MVP Milestone 25: state, watermarks, and persisted samples
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Budget bootstrap, incremental windows, state reads/writes and samples; no silent full-scan fallback. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -1987,6 +2114,8 @@ feat: add quality scorecards
 
 ## Post-MVP Milestone 26: first CDC implementation
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Bound CDC window scans, key movement, summaries and exact confirmation. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after state/window behavior, CDC key semantics, adapter execution,
@@ -2028,6 +2157,8 @@ feat: add first CDC checks
 
 ## Post-MVP Milestone 27: asymmetric CDC delete representation
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Bound asymmetric delete comparisons, state and transfer. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this only after the first CDC implementation exists and delete behavior
@@ -2059,6 +2190,8 @@ feat: add asymmetric CDC delete checks
 ```
 
 ## Post-MVP Milestone 27.5: advanced CDC modes and propagation checks
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Bound propagation/fan-out and confirmation. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -2169,6 +2302,8 @@ feat: add recon list command
 ```
 
 ## Post-MVP Milestone 29: adapter test kit and adapter package split
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Finalize shared version-specific native controls, evidence, resource envelopes, timeout/cancel/cleanup, bounded transfer/spill, useful defaults, unsupported cases and performance regression conformance before adapter promotion. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -2320,6 +2455,8 @@ feat: add adapter compliance tests
 
 ## Post-MVP Milestone 30: semi-structured and JSON comparison
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Budget JSON/nested expansion, width and extraction. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after adapter metadata and typed operation payloads can represent
@@ -2349,6 +2486,8 @@ feat: add semi-structured comparisons
 ```
 
 ## Post-MVP Milestone 31: advanced evidence and reports
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Bound export queries, rows/bytes, pagination, memory, disk, network and cleanup. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -2429,6 +2568,8 @@ docs: define hub index metadata
 ```
 
 ## Post-MVP Milestone 32.1: lineage and observability event export
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Publish only allowlisted resource evidence and bounded event transport. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
@@ -2589,6 +2730,8 @@ feat: add source-location diagnostics
 
 ## Post-MVP Milestone 34: named identities and multi-grain contracts
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Resource-safety checkpoint: Budget multi-grain fan-out and repeated comparisons. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this only after simple contract-level `grain.keys` and `cdc.keys`
@@ -2620,6 +2763,8 @@ feat: add named contract identities
 
 ## Post-MVP Milestone 35: public contract schema stabilization
 
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
+
 Build this before any 1.0 release decision, even if it is scheduled before
 some other post-MVP capability work.
 
@@ -2648,6 +2793,8 @@ docs: stabilize public contract schema
 ```
 
 ## Post-MVP Milestone 36: deprecation and migration policy
+
+Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Build this before 1.0 stabilization or before introducing any breaking public
 contract change that needs migration guidance.

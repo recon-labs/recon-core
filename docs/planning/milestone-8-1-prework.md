@@ -284,3 +284,15 @@ defaults. Complete the reopened research and design prerequisites, reassess
 compatibility and split, revise ADR 0026 and A1-A13 prework, obtain explicit
 approval and integrate before TDD. Do not proceed against PR #32 baseline.
 No new ecosystem repository is due. No runtime or gate completion claim.
+
+## Type compatibility delivery checkpoint
+
+Apply [Gate 4P mandatory type compatibility assignments](type-compatibility-assignments.md). Current strict physical-type execution boundaries remain unchanged. Future operation-aware lossless comparison and explicit conversion policies must be designed, implemented and proven; structural schema equality is not the same as value comparability. Do not infer compatibility from implicit engine casts. The assignment defines delivery ownership, not approved runtime behavior.
+
+## Mandatory M9.5 delivery checkpoint
+
+M9.5 owns the pending lossless type compatibility implementation. Review shared binding and corrected grouped SQL dependencies before M8.1 lock; do not implement type expansion implicitly in the resource-policy correction.
+
+## Reopened next-action dependency
+
+Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The exact split and approval remain pending.
