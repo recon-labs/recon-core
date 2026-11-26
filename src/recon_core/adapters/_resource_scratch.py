@@ -199,8 +199,15 @@ def _lock_exclusive(fd: int) -> None:
         kernel, _ = _libraries()
         handle = import_module("msvcrt").get_osfhandle(fd)
         lock = _api(
-            kernel, "LockFileEx", ct.c_int, ct.c_void_p, ct.c_uint32,
-            ct.c_uint32, ct.c_uint32, ct.c_uint32, ct.POINTER(_LockOverlapped)
+            kernel,
+            "LockFileEx",
+            ct.c_int,
+            ct.c_void_p,
+            ct.c_uint32,
+            ct.c_uint32,
+            ct.c_uint32,
+            ct.c_uint32,
+            ct.POINTER(_LockOverlapped),
         )
         state = _LockOverlapped()
         # Exclusive, fail immediately, offset 0, one byte. Closing the
