@@ -370,10 +370,10 @@ def test_lock_permission_error_is_not_live_owner(
     from recon_core.adapters import _resource_scratch as scratch
 
     parent = root.create_session()
-    try:
-        def denied(fd: int) -> None:
-            raise PermissionError(errno.EACCES, "PRIVATE_SENTINEL")
+    def denied(fd: int) -> None:
+        raise PermissionError(errno.EACCES, "PRIVATE_SENTINEL")
 
+    try:
         monkeypatch.setattr(scratch, "_lock_exclusive", denied)
         with pytest.raises(_ScratchError) as lock_error:
             scratch._FileLease.acquire(root.ticket.path / "root.lock", root.ticket.lock_identity)
