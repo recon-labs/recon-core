@@ -2,7 +2,7 @@
 
 This composes opened-directory filesystem facts and native directory privacy
 with the existing lease coordinator. It is not yet production admission:
-Full native ticket identity, POSIX file qualification, equivalent providers
+Full native ticket identity, equivalent providers
 for other filesystems and worker-owned qualification remain prerequisites.
 """
 
@@ -18,6 +18,7 @@ from pathlib import Path
 from recon_core.adapters._resource_scratch import _ScratchRoot
 from recon_core.adapters._scratch_filesystem import (
     _FilesystemEvidence,
+    _observe_posix_file_filesystem,
     _observe_scratch_filesystem,
 )
 from recon_core.adapters._windows_scratch_security import (
@@ -223,22 +224,23 @@ class _NamespaceDirectoryPolicy:
             raise _NamespaceError() from None
 
     def verify_file(self, path: Path, *, fd: int | None = None) -> None:
-        """Revalidate a private leaf; full POSIX mount proof remains pending."""
+        """Revalidate a private leaf using native file and filesystem evidence."""
         try:
             self._within_namespace(path)
             if path == self.namespace:
                 raise _NamespaceError()
             if os.name == "nt":
                 _verify_private_file(path, fd=fd)
-            elif sys.platform == "darwin":
-                info = path.lstat()
-                if (
-                    not stat.S_ISREG(info.st_mode)
-                    or info.st_uid != os.geteuid()
-                    or info.st_nlink != 1
-                    or not _darwin_no_acl_grants(path, info, fd=fd)
+            elif sys.platform in ("linux", "darwin"):
+                actual = _observe_posix_file_filesystem(path, fd=fd)
+                if not _usable(actual) or actual != self.facts:
+                    raise _NamespaceError()
+                if sys.platform == "darwin" and not _darwin_no_acl_grants(
+                    path, path.lstat(), fd=fd
                 ):
                     raise _NamespaceError()
+            else:
+                raise _NamespaceError()
         except Exception:
             raise _NamespaceError() from None
 
