@@ -382,3 +382,60 @@ def test_darwin_file_acl_checks_actual_open_handle(tmp_path: Path) -> None:
             policy.verify_file(second, fd=stream.fileno())
         assert not stream.closed
         assert stream.read()
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform not in ("linux", "darwin"), reason="POSIX native mount evidence")
+def test_posix_file_mount_checks_actual_open_handle(tmp_path: Path) -> None:
+    from recon_core.adapters._scratch_namespace import _NamespaceDirectoryPolicy
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    policy = root._directory_policy
+    assert isinstance(policy, _NamespaceDirectoryPolicy)
+    marker = root.ticket.path / "owner"
+    other = root.ticket.path / "root.lock"
+    with marker.open("rb") as stream:
+        stream.seek(1)
+        policy.verify_file(marker, fd=stream.fileno())
+        assert stream.tell() == 1
+        with pytest.raises(_NamespaceError):
+            policy.verify_file(other, fd=stream.fileno())
+        assert not stream.closed
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux native file bind mount proof")
+@pytest.mark.skipif(
+    os.environ.get("RECON_TEST_NATIVE_BIND_MOUNT") != "1",
+    reason="Requires explicit disposable privileged mount test environment",
+)
+def test_linux_same_device_file_bind_mount_retains_storage(tmp_path: Path) -> None:
+    from recon_core.adapters._resource_scratch import _Recovery
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    session = root.create_session()
+    session.release()
+    leaf = session.ticket.path / "spill" / "fixture.tmp"
+    leaf.write_bytes(b"synthetic")
+    before = leaf.stat()
+    # Self-bind preserves device, inode, owner and link count, but creates a
+    # distinct mount. Only the native mount identity distinguishes it.
+    subprocess.run(
+        ["sudo", "-n", "mount", "--bind", str(leaf), str(leaf)],
+        capture_output=True,
+        timeout=15,
+        check=True,
+    )
+    try:
+        after = leaf.stat()
+        assert (after.st_dev, after.st_ino) == (before.st_dev, before.st_ino)
+        assert root.recover(session.ticket) is _Recovery.RETAINED
+        assert root.recover_abandoned().retained == 1
+        assert leaf.read_bytes() == b"synthetic"
+    finally:
+        subprocess.run(
+            ["sudo", "-n", "umount", str(leaf)], capture_output=True, timeout=15, check=True
+        )
+    assert root.recover(session.ticket) is _Recovery.REMOVED
