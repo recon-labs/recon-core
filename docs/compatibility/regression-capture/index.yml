@@ -175,6 +175,27 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+    - path: src/recon_core/adapters/duckdb/_resource_worker.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - execution_result
+        - diagnostics
+        - redaction
+    - path: src/recon_core/adapters/duckdb/_worker_control_protocol.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - execution_result
+        - diagnostics
+        - redaction
+    - path: tests/adapters/test_duckdb_resource_worker.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - execution_result
+        - diagnostics
+        - redaction
     - path: src/recon_core/adapters/duckdb/_worker_result_codec.py
       surfaces:
         - adapter_runtime
