@@ -29,6 +29,21 @@ from recon_core.adapters.models import QueryResult, Relation
 from recon_core.diagnostics import Diagnostic
 
 
+# The lease binds the typed check family as well as the exact relations.
+_AGGREGATE_BINDING_OPERATIONS = frozenset({"sum_diff", "grouped_aggregate_diff"})
+_COUNT_BINDING_OPERATIONS = frozenset(
+    {
+        "row_count_diff",
+        "null_source_keys",
+        "null_target_keys",
+        "duplicate_source_keys",
+        "duplicate_target_keys",
+        "missing_keys",
+        "extra_keys",
+    }
+)
+
+
 class _VerifiedReadConnection:
     """Only the execute seam needed by the existing result transport readers."""
 
@@ -143,6 +158,10 @@ class _OwnedDuckDbSession:
         # Only trusted internal rendered statements reach this private seam.
         # The only transport-generated follow-up is DESCRIBE of the same statement.
         self.verify_lease(lease, scope)
+        operations = _AGGREGATE_BINDING_OPERATIONS if describe else _COUNT_BINDING_OPERATIONS
+        if scope.operation not in operations:
+            self._invalidated = True
+            raise _proof_error()
 
         def execute(statement: str) -> Any:
             self.verify_lease(lease, scope)

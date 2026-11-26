@@ -622,8 +622,13 @@ never claim an unexecuted command ran.
 
 Prefer existing CI on the exact revision, including required pre-commit,
 lint, formatting, typing, tests and supported native-version suites. Verify
-actual jobs, commands, results and skips; preserve test-first RED/GREEN
-and cumulative review requirements. When required proof is unavailable
+actual jobs, commands, results and skips. Write tests before implementation;
+when local execution is unavailable, routine changes may use reviewed expected
+failure followed by verified GREEN CI without a separate RED CI run. Actual
+RED evidence remains mandatory for critical regressions, uncertain
+reproduction, material safety/correctness negative proof, and explicit gate
+requirements. Record observed versus expected failure and rationale; preserve
+all GREEN coverage and cumulative review requirements. When required proof is unavailable
 from existing jobs, use narrowly scoped temporary CI validation on an
 isolated branch with bounded synthetic fixtures, exact revision/version
 and commands, minimum permissions, no secrets or production data, and

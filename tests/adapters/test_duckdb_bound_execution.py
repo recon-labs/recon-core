@@ -536,3 +536,34 @@ def test_quoted_relation_and_temp_shadow_keep_exact_binding(tmp_path: Path, duck
         assert session.resolve_relation('temp.main.quoted"table') is None
     finally:
         assert session.close() == ()
+
+
+@pytest.mark.parametrize("operation", ["row_count_diff", "sum_diff"])
+def test_lease_rejects_wrong_transport_family(
+    tmp_path: Path, duckdb: Any, operation: str
+) -> None:
+    path = tmp_path / "local.data"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 1 AS id")
+    finally:
+        writer.close()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    try:
+        session.open()
+        lease = session.bind(check_id="check-1", operation=operation, source="src", target="src")
+        assert lease is not None
+        query = f"select count(*) as n from {render_relation(lease.scope.source)}"
+        with pytest.raises(binding._BoundSessionError) as error:
+            if operation == "row_count_diff":
+                session._read_bound_aggregate(lease, lease.scope, query, expected_columns=("n",))
+            else:
+                session._read_bound_query(lease, lease.scope, query)
+        assert error.value.diagnostic.code == "RC_RUNTIME_BINDING_PROOF_FAILED"
+        with pytest.raises(binding._BoundSessionError):
+            session.verify_lease(lease, lease.scope)
+    finally:
+        assert session.close() == ()

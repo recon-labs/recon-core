@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from recon_core.adapters.duckdb import DuckDbAdapter
 from recon_core.adapters.duckdb import _bound_execution as binding
@@ -246,3 +247,83 @@ def test_preflight_never_opens_session(
         "prerequisite": CheckStatus.BLOCKED,
     }
     assert outcome.status is expected[blocker]
+
+
+@pytest.mark.parametrize("failure", ["open", "query"])
+def test_mixed_native_failure_preserves_unrelated_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    other = tmp_path / "other.duckdb"
+    duckdb = _duckdb_module()
+    for path in (database, other):
+        _write_duckdb_row_count_tables(duckdb, path, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    profile["profiles"]["local"]["outputs"]["dev"]["connections"]["other"] = {
+        "type": "duckdb",
+        "database": str(other),
+    }
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    first = _compiled_check_payload(operations=row_count_plan())
+    dependent = _compiled_check_payload(
+        check_id="check.ecommerce_recon.customer_revenue.dependent",
+        name="dependent",
+        operations=row_count_plan(),
+    )
+    dependent["prerequisites"] = [first["id"]]
+    write_compiled_checks(tmp_path, checks=[first, dependent])
+    unrelated = _compiled_check_payload(
+        check_id="check.ecommerce_recon.other_revenue.row_count_diff",
+        operations=row_count_plan(),
+    )
+    plan: Any = unrelated["plan"]
+    plan["id"] = "plan.ecommerce_recon.other_revenue.row_count_diff"
+    write_compiled_checks(tmp_path, contract_name="other_revenue", checks=[unrelated])
+    write_compiled_contract(
+        tmp_path, contract_name="other_revenue", source_connection="other", target_connection="other"
+    )
+    opened: list[Path] = []
+    original_open = binding._OwnedDuckDbSession.open
+    original_read = binding._OwnedDuckDbSession._read_bound_query
+
+    def record_open(session: binding._OwnedDuckDbSession) -> None:
+        opened.append(session._identity.path)
+        if session._identity.path == database and failure == "open":
+            raise binding._BoundSessionError(
+                "RC_ADAPTER_CONNECTION_FAILED", "Synthetic read-only open failure."
+            )
+        original_open(session)
+
+    def read(
+        session: binding._OwnedDuckDbSession,
+        lease: binding._BindingLease,
+        scope: binding._BindingScope,
+        query: str,
+    ) -> Any:
+        if session._identity.path == database and failure == "query":
+            raise RuntimeError("private-native-query-error")
+        return original_read(session, lease, scope, query)
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", record_open)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", read)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    outcomes = {
+        check.check_id: check
+        for contract in engine.result.contract_results
+        for check in contract.check_results
+    }
+    first_result = outcomes[str(first["id"])]
+    dependent_result = outcomes[str(dependent["id"])]
+    unrelated_result = outcomes[str(unrelated["id"])]
+    assert first_result.status is CheckStatus.ERROR and not first_result.executed
+    assert first_result.source_value is None
+    assert dependent_result.status is CheckStatus.BLOCKED
+    assert dependent_result.blocked_by == (first_result.check_id,)
+    assert unrelated_result.status is CheckStatus.PASS and unrelated_result.executed
+    assert opened.count(database) == opened.count(other) == 1
+    assert "private-native-query-error" not in repr(result)
