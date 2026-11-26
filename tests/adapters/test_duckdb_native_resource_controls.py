@@ -119,9 +119,7 @@ def test_spill_setting_is_applied_after_connect(tmp_path: Path) -> None:
         ("temp_directory", "PRIVATE_SENTINEL"),
     ],
 )
-def test_required_control_readback_mismatch(
-    tmp_path: Path, setting: str, value: object
-) -> None:
+def test_required_control_readback_mismatch(tmp_path: Path, setting: str, value: object) -> None:
     native = _FakeConnection(tmp_path)
     native.values[setting] = value
     with pytest.raises(_NativeControlError) as caught:
@@ -230,9 +228,7 @@ def test_native_recommendations_on_empty_instance(duckdb: Any) -> None:
 
 @pytest.mark.parametrize("rows", [[], [(1,), (2,)], [(1, 2)], [None], "PRIVATE_SENTINEL"])
 def test_malformed_native_setting_shape_is_not_a_recommendation(rows: object) -> None:
-    native = SimpleNamespace(
-        execute=lambda sql: SimpleNamespace(fetchmany=lambda count: rows)
-    )
+    native = SimpleNamespace(execute=lambda sql: SimpleNamespace(fetchmany=lambda count: rows))
     result = _read_native_recommendations(native)
     assert result.memory_bytes is None
     assert result.threads is None
@@ -245,9 +241,7 @@ def test_native_spill_setting_effect_not_readback(tmp_path: Path, duckdb: Any) -
     database = tmp_path / "spill-fixture.duckdb"
     scratch = tmp_path / "scratch"
     scratch.mkdir()
-    setup = duckdb.connect(
-        str(database), config={"threads": "2", "memory_limit": "768MiB"}
-    )
+    setup = duckdb.connect(str(database), config={"threads": "2", "memory_limit": "768MiB"})
     try:
         wide = "||".join(f"md5((i+{j * 1000000})::varchar)" for j in range(6))
         setup.execute(
