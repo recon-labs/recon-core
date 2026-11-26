@@ -493,3 +493,24 @@ captures:
       Preserve known zero versus unavailable evidence, independently bounded
       hardware headroom, adapter-specific tuning, and memory-backed scratch
       accounting. Native automatic settings do not prove effective limits.
+  - id: local-resource-observation-hierarchy
+    title: Local resource observation preserves ancestor headroom and missing evidence
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_local_resource_observation.py::test_effective_memory_evidence_ancestor_headroom
+      - tests/adapters/test_local_resource_observation.py::test_missing_ancestor_is_not_unlimited
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: local_resource_observation
+        rationale: Native controls and full environment scope still require capability-specific conformance; preserve these facts and uncertainty.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
+      - docs/planning/execution-resource-safety-assignments.md: R2
+    notes: >
+      Use visible ancestor limits and current usage rather than host total or
+      only leaf limits. Unavailable ancestors and namespace visibility never
+      prove unlimited resources or a hard process ceiling.
