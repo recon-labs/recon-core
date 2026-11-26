@@ -406,6 +406,8 @@ captures:
     current_tests:
       - tests/adapters/test_duckdb_bound_execution.py::test_lease_invalidation
       - tests/adapters/test_duckdb_bound_execution.py::test_lease_rejects_wrong_transport_family
+      - tests/adapters/test_duckdb_bound_execution.py::test_local_file_identity_refuses_stat_failure
+      - tests/adapters/test_duckdb_bound_execution.py::test_memory_and_nonlocal_catalog_are_not_local_binding
       - tests/adapters/test_duckdb_bound_execution.py::test_aggregate_describe_cannot_bypass_invalidated_binding
       - tests/adapters/test_duckdb_bound_execution.py::test_malformed_catalog_evidence_is_not_scope_refusal
       - tests/adapters/test_duckdb_bound_execution.py::test_mismatched_table_metadata_is_invalid_evidence

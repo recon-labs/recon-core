@@ -568,3 +568,45 @@ def test_lease_rejects_wrong_transport_family(tmp_path: Path, duckdb: Any, opera
             session.verify_lease(lease, lease.scope)
     finally:
         assert session.close() == ()
+
+
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
+def test_local_file_identity_refuses_stat_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "local.data"
+    path.touch()
+    original_stat = Path.stat
+
+    def inaccessible(candidate: Path, *args: Any, **kwargs: Any) -> Any:
+        if candidate == path:
+            raise PermissionError("private-stat-error")
+        return original_stat(candidate, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", inaccessible)
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    assert guard._local_file_identity(config, tmp_path) is None
+
+
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
+def test_memory_and_nonlocal_catalog_are_not_local_binding(tmp_path: Path) -> None:
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": ":memory:"})
+    assert guard._local_file_identity(config, tmp_path) is None
+    relation = guard._duckdb_relation_name("attached.main.src")
+    assert relation is not None
+
+    class Cursor:
+        def fetchmany(self, size: int) -> list[tuple[str, ...]]:
+            assert size == 2
+            return [("attached", "main", "src", "BASE TABLE")]
+
+    class Connection:
+        def execute(self, query: str, parameters: list[str]) -> Cursor:
+            return Cursor()
+
+    assert (
+        guard._resolve_local_base_table(
+            Connection(), relation, local_catalog_names=frozenset({"local"})
+        )
+        is None
+    )

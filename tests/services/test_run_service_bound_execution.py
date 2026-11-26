@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 import yaml
+import yaml
 
 from recon_core.adapters.duckdb import DuckDbAdapter
 from recon_core.adapters.duckdb import _bound_execution as binding
@@ -331,3 +332,125 @@ def test_mixed_native_failure_preserves_unrelated_database(
     assert unrelated_result.status is CheckStatus.PASS and unrelated_result.executed
     assert opened.count(database) == opened.count(other) == 1
     assert "private-native-query-error" not in repr(result)
+
+
+@pytest.mark.parametrize("failure", ["open", "query", "uncertain_close"])
+@pytest.mark.regression_capture("project-binding-check-local-cleanup")
+def test_native_failure_isolation_across_database_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    duckdb = _duckdb_module()
+    first_file = tmp_path / "private-first.duckdb"
+    other_file = tmp_path / "private-other.duckdb"
+    for database in (first_file, other_file):
+        _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, first_file)
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    connections = profile["profiles"]["local"]["outputs"]["dev"]["connections"]
+    connections["private-other"] = {"type": "duckdb", "database": str(other_file)}
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    first = _compiled_check_payload(operations=row_count_plan())
+    dependent = _compiled_check_payload(
+        check_id="check.ecommerce_recon.customer_revenue.dependent",
+        name="dependent",
+        operations=row_count_plan(),
+    )
+    dependent["prerequisites"] = [first["id"]]
+    write_compiled_checks(tmp_path, checks=[first, dependent])
+    other = _compiled_check_payload(
+        check_id="check.ecommerce_recon.other_revenue.row_count_diff",
+        operations=row_count_plan(),
+    )
+    other["plan"] = {
+        "id": "plan.ecommerce_recon.other_revenue.row_count_diff",
+        "operations": row_count_plan(),
+        "required_capabilities": ["row_count"],
+    }
+    write_compiled_checks(tmp_path, contract_name="other_revenue", checks=[other])
+    write_compiled_contract(
+        tmp_path,
+        contract_name="other_revenue",
+        source_connection="private-other",
+        target_connection="private-other",
+    )
+    before = {path: path.read_bytes() for path in (first_file, other_file)}
+    opened: list[binding._OwnedDuckDbSession] = []
+    closed: list[binding._OwnedDuckDbSession] = []
+    reads: list[binding._OwnedDuckDbSession] = []
+    real_open = binding._OwnedDuckDbSession.open
+    real_read = binding._OwnedDuckDbSession._read_bound_query
+    real_close = binding._OwnedDuckDbSession.close
+
+    def open_session(session: binding._OwnedDuckDbSession) -> None:
+        opened.append(session)
+        if len(opened) == 1 and failure == "open":
+            raise binding._BoundSessionError(
+                "RC_ADAPTER_CONNECTION_FAILED",
+                "Read-only execution session could not be opened.",
+            )
+        real_open(session)
+
+    def read(
+        session: binding._OwnedDuckDbSession,
+        lease: binding._BindingLease,
+        scope: binding._BindingScope,
+        query: str,
+    ) -> Any:
+        reads.append(session)
+        if session is opened[0] and failure == "query":
+            raise RuntimeError("private-native-query-error")
+        return real_read(session, lease, scope, query)
+
+    def close_session(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        closed.append(session)
+        diagnostics = real_close(session)
+        if session is opened[0] and failure == "uncertain_close":
+            # Inject uncertainty after actual release so the test cannot leak a handle.
+            session._released = False
+            return diagnostics + (
+                Diagnostic(
+                    code="RC_ADAPTER_CLOSE_FAILED",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Read-only execution session cleanup failed.",
+                ),
+            )
+        return diagnostics
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", read)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", close_session)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    contracts = {contract.contract_name: contract for contract in engine.result.contract_results}
+    failed, blocked = contracts["customer_revenue"].check_results
+    unrelated = contracts["other_revenue"].check_results[0]
+    assert failed.status is CheckStatus.ERROR and not failed.executed
+    assert failed.source_value is None and failed.target_value is None
+    expected = {
+        "open": "RC_ADAPTER_CONNECTION_FAILED",
+        "query": "RC_ADAPTER_QUERY_FAILED",
+        "uncertain_close": "RC_ADAPTER_CLOSE_FAILED",
+    }
+    assert expected[failure] in {d.code for d in failed.diagnostics}
+    assert blocked.status is CheckStatus.BLOCKED
+    assert blocked.blocked_by == (failed.check_id,)
+    assert blocked.reason_code is not None and blocked.reason_code.value == "prerequisite_error"
+    assert not blocked.executed
+    assert opened == closed
+    if failure == "uncertain_close":
+        assert unrelated.status is CheckStatus.ERROR and not unrelated.executed
+        assert "RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE" in {d.code for d in unrelated.diagnostics}
+        assert len(opened) == 1
+        assert reads == opened
+    else:
+        assert unrelated.status is CheckStatus.PASS and unrelated.executed
+        assert unrelated.source_value == unrelated.target_value == 1
+        assert len(opened) == 2
+        assert reads == (opened[1:] if failure == "open" else opened)
+    public = repr(engine.result.to_dict()) + repr(result.diagnostics)
+    for token in ("private-first", "private-other", "private-native-query-error"):
+        assert token not in public
+    assert all(path.read_bytes() == content for path, content in before.items())
