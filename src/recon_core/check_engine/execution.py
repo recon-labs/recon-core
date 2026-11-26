@@ -1,6 +1,6 @@
 """Execution helpers for the first row-count runtime boundary."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from recon_core.adapters import (
     ADAPTER_OPERATION_RENDER_FAILED,
@@ -13,6 +13,7 @@ from recon_core.adapters import (
     SqlRenderer,
 )
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
+from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.dispatch import (
     UNSUPPORTED_CHECK_TYPE,
     UNSUPPORTED_EXECUTION_PLACEMENT,
@@ -54,6 +55,25 @@ def execute_row_count_check(
     *,
     renderer: SqlRenderer | None = None,
     connections_by_name: Mapping[str, ConnectionConfig] | None = None,
+) -> CheckResult:
+    """Execute one loaded row-count check against an already prepared adapter."""
+    return _execute_row_count_check(
+        check,
+        contract,
+        adapter,
+        renderer=renderer,
+        connections_by_name=connections_by_name,
+    )
+
+
+def _execute_row_count_check(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    *,
+    renderer: SqlRenderer | None = None,
+    connections_by_name: Mapping[str, ConnectionConfig] | None = None,
+    bound_runner: _BoundRunner | None = None,
 ) -> CheckResult:
     """Execute one loaded row-count check against an already prepared adapter."""
     if check.check_type != "row_count_diff":
@@ -129,6 +149,44 @@ def execute_row_count_check(
         return renderer_blocker
     assert renderer is not None
 
+    if bound_runner is not None:
+        return bound_runner.run(
+            check,
+            contract,
+            adapter,
+            lambda source, target, reader: _evaluate_row_count(
+                check,
+                contract,
+                adapter,
+                renderer=renderer,
+                source_relation=source,
+                target_relation=target,
+                read=reader.execute,
+                bound=True,
+            ),
+        )
+    return _evaluate_row_count(
+        check,
+        contract,
+        adapter,
+        renderer=renderer,
+        source_relation=source_relation,
+        target_relation=target_relation,
+        read=adapter.execute,
+    )
+
+
+def _evaluate_row_count(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    *,
+    renderer: SqlRenderer,
+    source_relation: Relation,
+    target_relation: Relation,
+    read: Callable[[str], QueryResult],
+    bound: bool = False,
+) -> CheckResult:
     rendered_query = _render_compare_counts_query(
         check,
         contract,
@@ -140,8 +198,10 @@ def execute_row_count_check(
         return rendered_query
 
     try:
-        query_result = adapter.execute(rendered_query)
+        query_result = read(rendered_query)
     except Exception as exc:
+        if bound:
+            raise
         diagnostic = adapter_exception_diagnostic(
             exc,
             connection=adapter.connection,

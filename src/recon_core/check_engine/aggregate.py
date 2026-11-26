@@ -1,13 +1,13 @@
 """Admission and bounded comparison for the explicit aggregate execution family."""
 
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from fractions import Fraction
 
 from recon_core._numeric_policy import absolute_tolerance
-from recon_core.adapters import BaseAdapter, ConnectionConfig, RenderedSql
+from recon_core.adapters import BaseAdapter, ConnectionConfig, Relation, RenderedSql
 from recon_core.adapters._aggregate_runtime import (
     _SCALAR_COLUMNS,
     _SUMMARY_COLUMNS,
@@ -35,6 +35,7 @@ from recon_core.artifacts.compiled_contract_loader import (
     LoadedCompiledContractArtifact,
     _ToleranceReferenceState,
 )
+from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.dispatch import UNSUPPORTED_TYPED_OPERATION
 from recon_core.check_engine.execution_support import (
     ADAPTER_CONNECTION_CONTEXT_UNSUPPORTED,
@@ -587,6 +588,7 @@ def _execute_aggregate_check(
     tolerance: Decimal,
     decision: ScanBudgetDecision,
     connections_by_name: Mapping[str, ConnectionConfig],
+    bound_runner: _BoundRunner | None = None,
 ) -> CheckResult:
     """Execute only the private bounded plan after admission and safety proof."""
     source_connection = connections_by_name.get(contract.source.connection)
@@ -623,6 +625,76 @@ def _execute_aggregate_check(
             diagnostics=tuple(d for d in (source_error, target_error) if d is not None),
         )
     assert source is not None and target is not None
+    if bound_runner is not None:
+        capability_blocker = _runtime_aggregate_capability_blocker(
+            check, contract, adapter, source_connection
+        )
+        if capability_blocker is not None:
+            return capability_blocker
+        return bound_runner.run(
+            check,
+            contract,
+            adapter,
+            lambda bound_source, bound_target, reader: _evaluate_aggregate(
+                check,
+                contract,
+                adapter,
+                source_connection=source_connection,
+                source=bound_source,
+                target=bound_target,
+                render=render,
+                execute=reader._execute_aggregate_query,
+                tolerance=tolerance,
+                decision=decision,
+                bound=True,
+            ),
+        )
+    return _evaluate_aggregate(
+        check,
+        contract,
+        adapter,
+        source_connection=source_connection,
+        source=source,
+        target=target,
+        render=render,
+        execute=execute,
+        tolerance=tolerance,
+        decision=decision,
+    )
+
+
+def _runtime_aggregate_capability_blocker(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    source_connection: ConnectionConfig,
+) -> CheckResult | None:
+    try:
+        capabilities: object = adapter.capabilities()
+    except Exception:
+        capabilities = None
+    diagnostics = _aggregate_capability_diagnostics(
+        check, capabilities, adapter_type=source_connection.type
+    )
+    if diagnostics:
+        return _aggregate_capability_blocker(check, contract, diagnostics)
+    return None
+
+
+def _evaluate_aggregate(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    *,
+    source_connection: ConnectionConfig,
+    source: Relation,
+    target: Relation,
+    render: Callable[..., object],
+    execute: Callable[..., _AggregateQueryResult],
+    tolerance: Decimal,
+    decision: ScanBudgetDecision,
+    bound: bool = False,
+) -> CheckResult:
     try:
         plan = _validated_runtime_plan(
             render(check.plan.operations, source_relation=source, target_relation=target), check
@@ -634,15 +706,12 @@ def _execute_aggregate_check(
             ADAPTER_RENDERER_METADATA_INVALID,
             "Aggregate runtime renderer returned an invalid private plan.",
         )
-    try:
-        capabilities: object = adapter.capabilities()
-    except Exception:
-        capabilities = None
-    diagnostics = _aggregate_capability_diagnostics(
-        check, capabilities, adapter_type=source_connection.type
-    )
-    if diagnostics:
-        return _aggregate_capability_blocker(check, contract, diagnostics)
+    if not bound:
+        capability_blocker = _runtime_aggregate_capability_blocker(
+            check, contract, adapter, source_connection
+        )
+        if capability_blocker is not None:
+            return capability_blocker
     try:
         for guard in plan.type_guards:
             proof = execute(guard.sql, expected_columns=("type_check",))
@@ -661,6 +730,8 @@ def _execute_aggregate_check(
             "Aggregate runtime returned invalid numeric preflight evidence.",
         )
     except Exception:
+        if bound:
+            raise
         return _aggregate_runtime_error(
             check,
             contract,

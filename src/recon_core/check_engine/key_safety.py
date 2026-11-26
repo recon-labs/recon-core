@@ -1,6 +1,6 @@
 """Execution helpers for relation-backed grain-key safety checks."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Final
 
 from recon_core.adapters import (
@@ -14,6 +14,7 @@ from recon_core.adapters import (
     SqlRenderer,
 )
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
+from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.dispatch import (
     UNSUPPORTED_CHECK_TYPE,
     UNSUPPORTED_EXECUTION_PLACEMENT,
@@ -73,6 +74,27 @@ def execute_key_safety_check(
     connections_by_name: Mapping[str, ConnectionConfig] | None = None,
 ) -> CheckResult:
     """Execute one loaded grain-key safety check through a bounded count query."""
+    return _execute_key_safety_check(
+        check,
+        contract,
+        adapter,
+        scan_budget_decision=scan_budget_decision,
+        renderer=renderer,
+        connections_by_name=connections_by_name,
+    )
+
+
+def _execute_key_safety_check(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    *,
+    scan_budget_decision: ScanBudgetDecision,
+    renderer: SqlRenderer | None = None,
+    connections_by_name: Mapping[str, ConnectionConfig] | None = None,
+    bound_runner: _BoundRunner | None = None,
+) -> CheckResult:
+    """Execute one loaded grain-key safety check through a bounded count query."""
     if check.check_type not in _EXPECTED_KEY_OPERATION_BY_CHECK_TYPE:
         return not_executable_result(
             check,
@@ -129,6 +151,47 @@ def execute_key_safety_check(
         return renderer_blocker
     assert renderer is not None
 
+    if bound_runner is not None:
+        return bound_runner.run(
+            check,
+            contract,
+            adapter,
+            lambda source, target, reader: _evaluate_key_safety(
+                check,
+                contract,
+                adapter,
+                scan_budget_decision=scan_budget_decision,
+                renderer=renderer,
+                source_relation=source,
+                target_relation=target,
+                read=reader.execute,
+                bound=True,
+            ),
+        )
+    return _evaluate_key_safety(
+        check,
+        contract,
+        adapter,
+        scan_budget_decision=scan_budget_decision,
+        renderer=renderer,
+        source_relation=source_relation,
+        target_relation=target_relation,
+        read=adapter.execute,
+    )
+
+
+def _evaluate_key_safety(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    *,
+    scan_budget_decision: ScanBudgetDecision,
+    renderer: SqlRenderer,
+    source_relation: Relation,
+    target_relation: Relation,
+    read: Callable[[str], QueryResult],
+    bound: bool = False,
+) -> CheckResult:
     operation = check.plan.operations[0]
     rendered_query = _render_key_safety_count_query(
         check,
@@ -142,8 +205,10 @@ def execute_key_safety_check(
         return rendered_query
 
     try:
-        query_result = adapter.execute(rendered_query)
+        query_result = read(rendered_query)
     except Exception as exc:
+        if bound:
+            raise
         diagnostic = adapter_exception_diagnostic(
             exc,
             connection=adapter.connection,

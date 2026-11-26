@@ -377,7 +377,9 @@ def test_aggregate_describe_cannot_bypass_invalidated_binding(
             pass
 
     monkeypatch.setattr(
-        binding, "import_module", lambda name: SimpleNamespace(connect=lambda *a, **kw: Connection())
+        binding,
+        "import_module",
+        lambda name: SimpleNamespace(connect=lambda *a, **kw: Connection()),
     )
     monkeypatch.setattr(binding, "_local_duckdb_catalog_names", lambda *a: frozenset({"local"}))
     monkeypatch.setattr(
