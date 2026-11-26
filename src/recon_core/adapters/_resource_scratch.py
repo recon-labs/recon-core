@@ -13,6 +13,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from importlib import import_module
 from pathlib import Path
 from typing import IO
 from uuid import UUID, uuid4
@@ -23,7 +24,7 @@ class _ScratchError(RuntimeError):
         super().__init__("Owned scratch storage could not be verified.")
 
 
-class _Busy(_ScratchError):
+class _BusyError(_ScratchError):
     pass
 
 
@@ -140,8 +141,7 @@ class _FileLease:
             stream.seek(0)
             try:
                 if os.name == "nt":
-                    import msvcrt
-
+                    msvcrt = import_module("msvcrt")
                     msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
                 elif os.name == "posix":
                     import fcntl
@@ -151,7 +151,7 @@ class _FileLease:
                     raise _ScratchError()
             except OSError as exc:
                 if exc.errno in (errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK):
-                    raise _Busy() from None
+                    raise _BusyError() from None
                 raise _ScratchError() from None
             stream.seek(0)
             if stream.read(1) != b"\0":
@@ -201,7 +201,9 @@ class _ScratchRoot:
             path.mkdir(mode=0o700)
             _write_new(path / "root.lock", b"\0")
             ticket = _RootTicket(
-                path, uuid4(), _identity(_inspect(path, directory=True)),
+                path,
+                uuid4(),
+                _identity(_inspect(path, directory=True)),
                 _identity(_inspect(path / "root.lock", directory=False)),
             )
             _write_new(path / "owner", _root_marker(ticket))
@@ -213,6 +215,11 @@ class _ScratchRoot:
         if _identity(_inspect(self.ticket.path, directory=True)) != self.ticket.identity:
             raise _ScratchError()
         _marker(self.ticket.path / "owner", _root_marker(self.ticket))
+        if (
+            _identity(_inspect(self.ticket.path / "root.lock", directory=False))
+            != self.ticket.lock_identity
+        ):
+            raise _ScratchError()
 
     @contextmanager
     def _guard(self) -> Iterator[None]:
@@ -223,7 +230,7 @@ class _ScratchRoot:
             try:
                 lock = _FileLease.acquire(self.ticket.path / "root.lock", self.ticket.lock_identity)
                 break
-            except _Busy:
+            except _BusyError:
                 if time.monotonic() >= deadline:
                     raise _ScratchError() from None
                 time.sleep(0.02)
@@ -263,7 +270,9 @@ class _ScratchRoot:
                 _write_new(path / "parent.lock", b"\0")
                 _write_new(path / "worker.lock", b"\0")
                 ticket = _SessionTicket(
-                    path, nonce, _identity(_inspect(path, directory=True)),
+                    path,
+                    nonce,
+                    _identity(_inspect(path, directory=True)),
                     _identity(_inspect(path / "parent.lock", directory=False)),
                     _identity(_inspect(path / "worker.lock", directory=False)),
                     _identity(_inspect(path / "spill", directory=True)),
@@ -286,8 +295,10 @@ class _ScratchRoot:
             with self._guard():
                 self._verify_session(ticket)
                 try:
-                    abandoned = _FileLease.acquire(ticket.path / "parent.lock", ticket.parent_identity)
-                except _Busy:
+                    abandoned = _FileLease.acquire(
+                        ticket.path / "parent.lock", ticket.parent_identity
+                    )
+                except _BusyError:
                     return _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity)
                 abandoned.release()
                 raise _ScratchError()
@@ -306,12 +317,12 @@ class _ScratchRoot:
         self._verify_session(ticket)
         try:
             parent = _FileLease.acquire(ticket.path / "parent.lock", ticket.parent_identity)
-        except _Busy:
+        except _BusyError:
             return _Recovery.LIVE
         try:
             try:
                 worker = _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity)
-            except _Busy:
+            except _BusyError:
                 return _Recovery.LIVE
             try:
                 files = self._deletion_plan(ticket)
@@ -332,7 +343,10 @@ class _ScratchRoot:
 
     def _deletion_plan(self, ticket: _SessionTicket) -> tuple[Path, ...]:
         if {entry.name for entry in ticket.path.iterdir()} != {
-            "owner", "parent.lock", "worker.lock", "spill"
+            "owner",
+            "parent.lock",
+            "worker.lock",
+            "spill",
         }:
             raise _ScratchError()
         # DuckDB spill files need not have owner-only modes when the enclosing
