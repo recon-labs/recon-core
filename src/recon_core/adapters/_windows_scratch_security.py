@@ -167,6 +167,22 @@ def _create_private_directory(path: Path) -> None:
         raise _WindowsScratchSecurityError() from None
 
 
+def _trusted_owner(
+    security: Any, owner: ct.c_void_p, user: ct.c_void_p, *, directory: bool
+) -> bool:
+    """Accept only user ownership, or a privileged default leaf owner."""
+    valid = _api(security, "IsValidSid", wt.BOOL, ct.c_void_p)
+    equal = _api(security, "EqualSid", wt.BOOL, ct.c_void_p, ct.c_void_p)
+    well_known = _api(security, "IsWellKnownSid", wt.BOOL, ct.c_void_p, ct.c_int)
+    if not owner or not user or not valid(owner) or not valid(user):
+        return False
+    # Windows may assign newly created files to Builtin Administrators
+    # rather than the token user. Privileged administrators are outside the
+    # cooperative privacy boundary. Never accept an arbitrary group owner;
+    # directories still require the exact user and the DACL is checked separately.
+    return bool(equal(owner, user) or (not directory and well_known(owner, 26)))
+
+
 def _verify_descriptor(
     security: Any, handle: Any, sid: ct.c_void_p, kernel: Any, *, directory: bool
 ) -> None:
@@ -217,7 +233,7 @@ def _verify_descriptor(
             not owner
             or not dacl
             or not descriptor
-            or not equal(owner, sid)
+            or not _trusted_owner(security, owner, sid, directory=directory)
             or not control(descriptor, ct.byref(flags), ct.byref(revision))
             or not flags.value & 4  # SE_DACL_PRESENT
             or (directory and not flags.value & 0x1000)  # SE_DACL_PROTECTED
