@@ -5,9 +5,9 @@ from fractions import Fraction
 import pytest
 
 from recon_core.check_engine.scan_budget import (
+    _calculate_local_resource_targets,
     _LocalResourceInputs,
     _LocalResourceTuning,
-    _calculate_local_resource_targets,
 )
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
 
