@@ -102,7 +102,7 @@ def _read_portable_facts(
     info = _attempt(lambda: process.memory_info())
     affinity = _attempt(lambda: process.cpu_affinity())
     affinity_count = None
-    if isinstance(affinity, (tuple, list)) and all(
+    if isinstance(affinity, tuple | list) and all(
         type(cpu) is int and cpu >= 0 for cpu in affinity
     ):
         affinity_count = len(set(affinity))
