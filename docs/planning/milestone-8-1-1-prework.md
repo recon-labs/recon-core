@@ -1,6 +1,9 @@
 # M8.1.1 - Shared Database Binding Prework
 
-Status: completed and merged in PR #38; exact tested head d513a249b926f05c8264d6790af163911c90b3a1, CI 45815181891 10/10, main merge 4d3ede5029a6f052d1c18c0ef62f176e0ae15868 with identical tree. Scoped J1-J12 exit approved; broader gates remain open. Historical design baseline
+Status: completed and merged in PR #38; tested head
+d513a249b926f05c8264d6790af163911c90b3a1, CI 45815181891 10/10,
+main merge 4d3ede5029a6f052d1c18c0ef62f176e0ae15868 with identical tree.
+Scoped J1-J12 exit approved; broader gates remain open. Historical design baseline
 e89838985ff5906f2ec5e3aa393c9ba11dff60f5 (merged PR #35).
 Split Decision: Already Split / Follow Existing Split. M8.1.1 -> targeted
 M7.4 correction -> M8.1.2. Gate 4Q/S1-S8, 4L/R1-R10, 4P/T1-T10 apply.

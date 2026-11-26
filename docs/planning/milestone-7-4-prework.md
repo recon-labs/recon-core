@@ -1327,7 +1327,7 @@ safe error and no weaker fallback.
    explicit collation DDL and bounded scale. Record actual outcomes and
    limitations, cleanup experiment-only files. Resolve any baseline or
    candidate discrepancy before locking design. Prior unbound experiments
-   are not sufficient. Current feasibility probe is not yet verified.
+   are not sufficient. Bound feasibility and independent native collation isolation have been observed on all four pins. The pre-existing legacy collation discrepancy below requires a maintainer disposition before design lock.
 2. Finalize design, acceptance/source map and docs after evidence; obtain
    maintainer design/implementation approval. No implementation until then.
 3. Test-first: actual RED evidence for critical path-selection/semantic
@@ -1343,4 +1343,30 @@ safe error and no weaker fallback.
 5. After verified integration, record G9 handoff; mandatory M8.1.2
    prework/calibration follows, not approved by this correction.
 
+### Feasibility and remaining decision
+
+On fresh actual owned read-only sessions, the existing strict and candidate
+final SQL produced identical outcomes across all paired native cases
+(9 semantic plus one 10,000-group case per pin, including mismatched key
+refusals). Candidate-only 800,000-group synthetic fixtures completed with
+the known union summary on every pin; the narrow compressed fixture does
+not establish resource safety or general performance. Previous physical
+plan evidence identified the redundant predicate regression on two pins.
+The wide/skewed/floating scale and complete native-domain/route proof remain
+implementation acceptance, not claimed by these probes.
+
+Independent truth exposed one existing discrepancy: on DuckDB 1.0.0,
+explicit case-insensitive text collation matches the two case variants
+before grouping, but native equality and null-safe equality after grouping
+both return unequal. The existing strict SQL and candidate both produce
+two one-sided groups, while later tested pins match. This is not introduced
+by the candidate and is not a universal statement about collations. The
+correction must not silently change that baseline, exclude a version, or
+introduce casts, case-folding or version-specific SQL. Proposed owner for
+operation-aware collation metadata and grouped comparison semantics is
+mandatory M9.5 (T1/T5/T6/T10); this disposition requires explicit
+maintainer approval before design lock. If the existing contract requires
+correction earlier, revise scope and prework instead. Carry the precise
+native case into the assigned conformance plan and retain differential
+proof on all four pins here. Do not claim portable collation support.
 No production code or gate satisfaction claimed by this prework.

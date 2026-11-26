@@ -136,7 +136,7 @@ checking ecosystem checkpoints. No milestone prework is declared satisfied.
 
 ## Reopened execution dependency and next action
 
-Status: shared binding verified and merged; targeted M7.4 preflight/design next, not runtime implementation approval. Follow this dependency
+Status: shared binding verified and merged; [targeted M7.4 correction prework](milestone-7-4-prework.md#targeted-bound-grouped-runtime-correction---proposed-prework) proposed, not runtime implementation approval. Follow this dependency
 order for the reopened work:
 
 1. Integrate the mandatory Gate 4P/M9.5 planning amendment after review and
