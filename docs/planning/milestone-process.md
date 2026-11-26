@@ -394,3 +394,7 @@ Use a stepwise split workflow for high-risk milestones:
 6. Validate references and report the future implementation plan.
 7. Do not code until the assigned prework for the relevant sub-milestone is
    complete.
+
+## Mandatory type-compatibility assignment review
+
+For every milestone that introduces or changes metadata, schema checks, key or value comparison, normalization, aggregation, casting, hashing, mapping, persisted identities, adapter support or evidence, read [Gate 4P mandatory type compatibility assignments](type-compatibility-assignments.md). Expand applicable T1-T10 into gate proof, matrix, BDD, tests, owner/source map and exit checklist. Report unassigned obligations and stop before implementation if applicable design or proof is missing. Historical strict MVP behavior is not a permanent compatibility design. Review the initial delivery decision before locking reopened M8.1 and the M10 release checkpoint.

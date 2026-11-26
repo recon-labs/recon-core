@@ -1190,3 +1190,7 @@ The distinct-connection diagnostic regression retains separate sanitized
 setup failures without publishing connection identifiers. Cumulative review,
 final validation and phase-exit evidence remain required; this checkpoint is
 not a milestone completion claim.
+
+## Type compatibility delivery checkpoint
+
+Apply [Gate 4P mandatory type compatibility assignments](type-compatibility-assignments.md). Current strict physical-type execution boundaries remain unchanged. Future operation-aware lossless comparison and explicit conversion policies must be designed, implemented and proven; structural schema equality is not the same as value comparability. Do not infer compatibility from implicit engine casts. The assignment defines delivery ownership, not approved runtime behavior.

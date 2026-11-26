@@ -1226,3 +1226,7 @@ The implementation session that followed this prework had to follow the
 test-first implementation sequence, required routed instructions, public
 contract review, and phase-exit validation in this artifact. Current behavior
 is tracked by the implementation docs, compatibility docs, and tests.
+
+## Type compatibility delivery checkpoint
+
+Apply [Gate 4P mandatory type compatibility assignments](type-compatibility-assignments.md). Current strict physical-type execution boundaries remain unchanged. Future operation-aware lossless comparison and explicit conversion policies must be designed, implemented and proven; structural schema equality is not the same as value comparability. Do not infer compatibility from implicit engine casts. The assignment defines delivery ownership, not approved runtime behavior.
