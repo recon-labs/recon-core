@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from recon_core.adapters._windows_scratch_security import (
-    _WindowsScratchSecurityError,
     _create_private_directory,
     _verify_private_directory,
+    _WindowsScratchSecurityError,
 )
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows native ACL proof")
