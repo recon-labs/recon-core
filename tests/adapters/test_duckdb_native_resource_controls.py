@@ -1,17 +1,20 @@
 """Native setting assignment and readback are not physical quota proof."""
 
+import importlib
+import os
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from recon_core.adapters.duckdb._native_resource_controls import (
     _apply_native_controls,
     _native_startup_config,
-    _parse_native_size,
-    _read_native_recommendations,
     _NativeControlError,
     _NativeControlRequest,
+    _parse_native_size,
+    _read_native_recommendations,
 )
 
 _MIB = 1 << 20
@@ -179,8 +182,17 @@ def test_native_zero_spill_readback_is_not_proof_of_no_spill(tmp_path: Path) -> 
     assert not result.enforcement_proven
 
 
-def test_native_control_application(tmp_path: Path) -> None:
-    duckdb = pytest.importorskip("duckdb")
+@pytest.fixture
+def duckdb() -> Any:
+    if os.environ.get("RECON_REQUIRE_DUCKDB_TESTS") == "1":
+        try:
+            return importlib.import_module("duckdb")
+        except ImportError:
+            pytest.fail("Required native control tests need .[dev,duckdb].", pytrace=False)
+    return pytest.importorskip("duckdb")
+
+
+def test_native_control_application(tmp_path: Path, duckdb: Any) -> None:
     database = tmp_path / "fixture.duckdb"
     scratch = tmp_path / "owned scratch"
     scratch.mkdir()
@@ -201,3 +213,23 @@ def test_native_control_application(tmp_path: Path) -> None:
         assert not actual.enforcement_proven
     finally:
         native.close()
+
+
+def test_native_recommendations_on_empty_instance(duckdb: Any) -> None:
+    native = duckdb.connect(":memory:")
+    try:
+        result = _read_native_recommendations(native)
+        assert result.memory_bytes is not None and result.memory_bytes > 0
+        assert result.threads is not None and result.threads > 0
+    finally:
+        native.close()
+
+
+@pytest.mark.parametrize("rows", [[], [(1,), (2,)], [(1, 2)], [None], "PRIVATE_SENTINEL"])
+def test_malformed_native_setting_shape_is_not_a_recommendation(rows: object) -> None:
+    native = SimpleNamespace(
+        execute=lambda sql: SimpleNamespace(fetchmany=lambda count: rows)
+    )
+    result = _read_native_recommendations(native)
+    assert result.memory_bytes is None
+    assert result.threads is None
