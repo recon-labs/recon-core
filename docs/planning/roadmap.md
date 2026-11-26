@@ -19,7 +19,7 @@ decimal milestone split rules.
 
 ## Version 0.1
 
-M8.1.2 adaptive design approved; see [M8.1.2 approved prework](milestone-8-1-2-prework.md). It owns hardware-aware local policy, calibration and one-worker stop, scratch recovery and per-check resource scope. Remaining invocation deadlines/cancellation/retry and cumulative resource coordination belong to M8.2; safe resource metadata to M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
+M8.1.2 whole design reopened, implementation suspended (2026-11-27); prior mechanism assignments below are historical pending revised prework. No successor implementation before approval; see [M8.1.2 approved prework](milestone-8-1-2-prework.md). It owns hardware-aware local policy, calibration and one-worker stop, scratch recovery and per-check resource scope. Remaining invocation deadlines/cancellation/retry and cumulative resource coordination belong to M8.2; safe resource metadata to M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
 
 Primary goal:
 
@@ -322,7 +322,7 @@ M9.5 (lossless type compatibility for existing key and aggregate checks) is a ma
 
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
-## Approved M8.1.2 integration checkpoint (2026-11-26)
+## Historical approved M8.1.2 integration checkpoint (2026-11-26; reopened 2026-11-27)
 
 The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
 historical footprint-driven resource decisions and earlier pending-design
