@@ -792,6 +792,7 @@ captures:
       - tests/adapters/test_windows_scratch_security.py::test_native_file_acl_broadening_is_rejected
       - tests/adapters/test_windows_scratch_security.py::test_native_file_owner_boundary
       - tests/adapters/test_windows_scratch_security.py::test_native_security_handle_must_match_requested_object
+      - tests/adapters/test_windows_scratch_security.py::test_native_ancestor_permissions_distinguish_path_control
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -812,6 +813,9 @@ captures:
       user grant. Directory ownership remains strictly the current user.
       Compare native volume and full file identifiers of independently opened
       handles; reject mismatched, reparse, delete-pending or unexpected objects.
+      Ancestor ACL candidate distinguishes effective path-control grants from
+      harmless read/traverse/add-subdirectory and inherit-only entries;
+      unknown ACL shapes remain unqualified, not blanket platform refusal.
 
   - id: scratch-filesystem-scope-evidence
     title: Scratch filesystem evidence follows the opened directory mount
