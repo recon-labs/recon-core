@@ -127,3 +127,33 @@ def test_native_file_acl_broadening_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(_WindowsScratchSecurityError):
         _verify_private_file(file)
     assert file.read_bytes() == b"synthetic"
+
+
+@pytest.mark.regression_capture("windows-scratch-private-acl")
+def test_native_file_owner_boundary() -> None:
+    import ctypes as ct
+    from ctypes import wintypes as wt
+
+    from recon_core.adapters._windows_scratch_security import (
+        _api,
+        _libraries,
+        _process_user,
+        _trusted_owner,
+    )
+
+    kernel, security = _libraries()
+    convert = _api(
+        security, "ConvertStringSidToSidW", wt.BOOL, wt.LPCWSTR, ct.POINTER(ct.c_void_p)
+    )
+    free = _api(kernel, "LocalFree", ct.c_void_p, ct.c_void_p)
+    with _process_user(kernel, security) as (user, _):
+        assert _trusted_owner(security, user, user, directory=True)
+        assert _trusted_owner(security, user, user, directory=False)
+        for value, allowed in (("S-1-5-32-544", True), ("S-1-1-0", False), ("S-1-5-32-545", False)):
+            owner = ct.c_void_p()
+            assert convert(value, ct.byref(owner))
+            try:
+                assert not _trusted_owner(security, owner, user, directory=True)
+                assert _trusted_owner(security, owner, user, directory=False) is allowed
+            finally:
+                free(owner)
