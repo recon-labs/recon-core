@@ -1,6 +1,7 @@
 """Aggregate admission must fail before profile or adapter work."""
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -27,6 +28,7 @@ from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 from tests.services._run_service_fixtures import (
     RecordingDuckDbFactory,
+    _all_key_safety_checks,
     _assert_no_runtime_outputs,
     _compiled_check_payload,
     _duckdb_module,
@@ -1530,4 +1532,156 @@ def test_aggregate_rejects_wrong_factory_connection_before_open(
     assert "RC_ADAPTER_METADATA_INVALID" in {d.code for d in result.diagnostics}
     for token in ("private-wrong-name", "private-unapproved-database", str(database)):
         assert token not in _service_result_text(result)
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("offset", [-1, 0, 1])
+@pytest.mark.parametrize("family", ["row", "key", "scalar", "grouped"])
+def test_legacy_footprint_policy(
+    tmp_path: Path, offset: int, family: str, session_trace: _NativeSessionTrace
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    with database.open("wb") as stream:
+        stream.truncate(64 * 1024 * 1024 + offset)
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    payload = {
+        "row": _compiled_check_payload(operations=row_count_plan()),
+        "key": _key_safety_payload_for("missing_keys"),
+        "scalar": _aggregate_check(),
+        "grouped": _aggregate_check(grouped=True),
+    }[family]
+    write_compiled_checks(tmp_path, checks=[payload])
+    # The sparse file is only file-size evidence, not a valid database.
+    # Observe whether admission permits an open attempt without reading it.
+    session_trace.failures[1] = "connect"
+    engine = _CapturingAggregateEngine()
+    result = RunService(
+        start_path=tmp_path,
+        engine=engine,
+        adapter_registry=_tracking_registry(_TrackingAggregateFactory()),
+    ).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    check = engine.result.contract_results[0].check_results[0]
+    if offset > 0 and family != "row":
+        assert check.status is CheckStatus.NOT_EXECUTABLE
+        assert "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics}
+        assert session_trace.sessions == []
+    else:
+        assert check.status is CheckStatus.ERROR
+        assert "RC_ADAPTER_CONNECTION_FAILED" in {d.code for d in check.diagnostics}
+        assert len(session_trace.sessions) == len(session_trace.closes) == 1
+    assert not check.executed
+    assert session_trace.aggregate_columns == session_trace.row_queries == []
+
+
+def test_large_native_database_does_not_cap_row_count(
+    tmp_path: Path, session_trace: _NativeSessionTrace
+) -> None:
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=False,
+    )
+    duckdb = _duckdb_module()
+    writer = duckdb.connect(str(database))
+    try:
+        # Deterministic high-entropy UBIGINT columns keep this synthetic
+        # fixture above the legacy cap without making the checked tables large.
+        columns = ", ".join(f"hash(i * 10 + {j}) as c{j}" for j in range(10))
+        writer.execute(f"create table padding as select {columns} from range(1250000) r(i)")
+    finally:
+        writer.close()
+    assert database.stat().st_size > 64 * 1024 * 1024
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(operations=row_count_plan()),
+            _key_safety_payload_for("missing_keys"),
+            _aggregate_check(),
+            _aggregate_check(grouped=True),
+        ],
+    )
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    row, *heavy = engine.result.contract_results[0].check_results
+    assert row.status is CheckStatus.PASS
+    assert row.source_value == row.target_value == 1
+    assert all(check.status is CheckStatus.NOT_EXECUTABLE for check in heavy)
+    assert all(
+        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics}
+        for check in heavy
+    )
+    assert len(session_trace.sessions) == len(session_trace.closes) == 1
+    assert len(session_trace.row_queries) == 1
+    assert session_trace.aggregate_columns == []
+
+
+def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("5::INTEGER"),
+        target_sql=_native_row("5::INTEGER"),
+        grouped=False,
+    )
+    duckdb = _duckdb_module()
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(operations=row_count_plan()),
+            *_all_key_safety_checks(),
+            _aggregate_check(),
+            _aggregate_check(grouped=True),
+        ],
+    )
+    native = duckdb.connect(str(database), read_only=True)
+    try:
+        catalog = native.execute("pragma database_list").fetchall()[0][1]
+    finally:
+        native.close()
+    before = database.read_bytes()
+    sessions: list[list[str]] = []
+
+    class Connection:
+        def __init__(self, connection: Any) -> None:
+            self.connection = connection
+            self.statements: list[str] = []
+            sessions.append(self.statements)
+
+        def execute(self, query: str, *args: Any, **kwargs: Any) -> Any:
+            self.statements.append(query)
+            return self.connection.execute(query, *args, **kwargs)
+
+        def close(self) -> None:
+            self.connection.close()
+            self.statements.append("CLOSE")
+
+    def connect(path: str, *, read_only: bool) -> Connection:
+        assert path == str(database)
+        assert read_only is True
+        return Connection(duckdb.connect(path, read_only=read_only))
+
+    monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.result is not None
+    checks = engine.result.contract_results[0].check_results
+    assert len(checks) == len(sessions) == 9
+    assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
+    for check, statements in zip(checks, sessions, strict=True):
+        assert statements[0] == "BEGIN TRANSACTION"
+        assert statements[-2:] == ["ROLLBACK", "CLOSE"]
+        assert statements[1] == statements[3] == "pragma database_list"
+        assert all("information_schema.tables" in statements[i] for i in (2, 4))
+        queries = [query for query in statements[5:-2] if not query.startswith("DESCRIBE ")]
+        assert len(queries) == {"sum_diff": 3, "grouped_aggregate_diff": 4}.get(check.check_type, 1)
+        assert all(f'"{catalog}"."qa".' in query for query in queries)
+        assert all(query.lower().startswith(("select ", "with ")) for query in queries)
+    assert database.read_bytes() == before
     _assert_no_runtime_outputs(tmp_path)

@@ -140,3 +140,52 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     else:
         assert unrelated.status is CheckStatus.PASS
         assert len(opened) == 2
+
+
+@pytest.mark.parametrize("read_only", [False, True])
+def test_actual_session_and_aliases_writer_conflict(tmp_path: Path, read_only: bool) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    existing = duckdb.connect(str(database), read_only=read_only)
+    engine = _CapturingEngine()
+    try:
+        result = RunService(start_path=tmp_path, engine=engine).execute()
+        assert engine.result is not None
+        check = engine.result.contract_results[0].check_results[0]
+        if read_only:
+            assert result.exit_category is ExitCategory.SUCCESS
+            assert check.status is CheckStatus.PASS
+        else:
+            assert result.exit_category is ExitCategory.RUNTIME_ERROR
+            assert check.status is CheckStatus.ERROR
+            assert "RC_ADAPTER_CONNECTION_FAILED" in {d.code for d in check.diagnostics}
+            assert not check.executed and check.source_value is None
+        assert existing.execute("select count(*) from qa.source_customers").fetchall() == [(1,)]
+    finally:
+        existing.close()
+    assert RunService(start_path=tmp_path).execute().exit_category is ExitCategory.SUCCESS
+
+
+def test_outside_project_row_count_refuses_without_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    database = tmp_path / "outside.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(project, database)
+
+    def forbidden(session: binding._OwnedDuckDbSession) -> None:
+        pytest.fail("Outside-project file must not be opened.")
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", forbidden)
+    engine = _CapturingEngine()
+    result = RunService(start_path=project, engine=engine).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    check = engine.result.contract_results[0].check_results[0]
+    assert check.status is CheckStatus.NOT_EXECUTABLE
+    assert "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED" in {d.code for d in check.diagnostics}

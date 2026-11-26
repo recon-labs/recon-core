@@ -281,9 +281,23 @@ def _resolve_local_base_table(
         for row in rows
     ):
         raise _BindingMetadataError()
+    if len(rows) > 2:
+        raise _BindingMetadataError()
     if len(rows) != 1:
         return None
     catalog, schema, identifier, table_type = rows[0]
+    if (
+        _duckdb_identifier_key(identifier) != _duckdb_identifier_key(relation.identifier)
+        or (
+            relation.schema is not None
+            and _duckdb_identifier_key(schema) != _duckdb_identifier_key(relation.schema)
+        )
+        or (
+            relation.catalog is not None
+            and _duckdb_identifier_key(catalog) != _duckdb_identifier_key(relation.catalog)
+        )
+    ):
+        raise _BindingMetadataError()
     if _duckdb_identifier_key(catalog) not in local_catalog_names or table_type != "BASE TABLE":
         return None
     return Relation(identifier=identifier, schema=schema, catalog=catalog)

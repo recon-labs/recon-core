@@ -434,3 +434,38 @@ def test_malformed_catalog_evidence_is_not_scope_refusal(
         assert error.value.diagnostic.code == "RC_RUNTIME_BINDING_PROOF_FAILED"
     finally:
         assert session.close() == ()
+
+
+@pytest.mark.parametrize("mode", ["relative", "absolute", "inside_symlink"])
+def test_local_file_identity_preserves_canonical_path(tmp_path: Path, mode: str) -> None:
+    path = tmp_path / "local.data"
+    path.touch()
+    authored = path.name if mode == "relative" else str(path)
+    if mode == "inside_symlink":
+        link = tmp_path / "link.data"
+        try:
+            link.symlink_to(path)
+        except (OSError, NotImplementedError):
+            pytest.skip("Symlinks are unavailable on this platform.")
+        authored = str(link)
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": authored})
+    assert guard._local_file_identity(config, tmp_path) == guard._current_file_identity(path)
+    assert guard._current_file_identity(path) is not None
+
+
+def test_mismatched_table_metadata_is_invalid_evidence() -> None:
+    class Cursor:
+        def fetchmany(self, size: int) -> list[tuple[str, ...]]:
+            assert size == 2
+            return [("local", "main", "unrelated", "BASE TABLE")]
+
+    class Connection:
+        def execute(self, query: str, parameters: list[str]) -> Cursor:
+            return Cursor()
+
+    relation = guard._duckdb_relation_name("src")
+    assert relation is not None
+    with pytest.raises(guard._BindingMetadataError):
+        guard._resolve_local_base_table(
+            Connection(), relation, local_catalog_names=frozenset({"local"})
+        )
