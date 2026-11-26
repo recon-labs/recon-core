@@ -2,7 +2,7 @@
 
 ## Scope and ordering
 
-M8.1.2 detailed design approved; implementation authorization pending. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
+M8.1.2 detailed design approved; implementation in progress, exit pending. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
 
 Split Decision: Required. The maintainer approved the implementation-bearing
 split and the adapter-aware advisory direction. M8 is an umbrella, not an
@@ -255,3 +255,7 @@ worker and re-observation prerequisites. M8.2 owns remaining run-wide
 lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
 publication. Preserve all future adapter applicability, type and scope gates.
 No gate closed; separate implementation authorization required.
+
+## Platform compatibility carryover
+
+The [Gate 4L P1-P6 subfamilies](execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) refine A2/A3/A4/A6/A7/A8/A9/A10/A12/A13 and R2/R3/R5/R8/R10 without changing the existing split. M8.1.2 owns local runtime graceful degradation, actual native platform proof, safe terminal warnings and persistent multi-version CI before exit. M8.2 retains run lifecycle and deduplication across the invocation; M8.3 owns structured publication preserving resource uncertainty and advisory meaning. M10/M10.7/M10.8, experimental PostgreSQL/Snowflake, M13.5/M18, M29 and every future adapter and relevant version/deployment expansion retain their assigned native P1-P6 obligations. No gate satisfied solely by documentation.
