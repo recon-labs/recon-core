@@ -1198,3 +1198,7 @@ Apply [Gate 4P mandatory type compatibility assignments](type-compatibility-assi
 ## Mandatory M9.5 delivery checkpoint
 
 Historical completion is unchanged. Mandatory pending M9.5 owns the explicit retrofit of existing key and aggregate checks for losslessly compatible physical types; M10 exit is blocked until M9.5 is verified.
+
+## Reopened next-action dependency
+
+Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The exact split and approval remain pending.
