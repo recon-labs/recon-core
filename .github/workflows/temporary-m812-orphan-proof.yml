@@ -1,0 +1,124 @@
+name: Temporary M8.1.2 parent crash watchdog proof
+on:
+  push:
+    branches: [experiment/m812-disk-worker-proof-20261126]
+    paths: ['.github/workflows/temporary-m812-orphan-proof.yml']
+permissions:
+  contents: read
+jobs:
+  orphan:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        duckdb: ['1.0.0', '2.0.1']
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Parent crash during native query
+        shell: bash
+        env:
+          PIN: ${{ matrix.duckdb }}
+        run: |
+          set -euo pipefail
+          python -m pip install "duckdb==$PIN" "psutil==7.2.2"
+          cat > m812_orphan_probe.py <<'PY'
+          import json, os, pathlib, subprocess, sys, tempfile, threading, time
+          import duckdb, psutil
+          
+          def log(**kwargs):
+              print(json.dumps(kwargs,sort_keys=True),flush=True)
+          
+          def watch_parent():
+              # A dedicated pipe with exactly one parent-owned writer.
+              if sys.stdin.buffer.read(1) == b"":
+                  os._exit(75)
+              os._exit(76)
+          
+          def child(root):
+              threading.Thread(target=watch_parent,daemon=True).start()
+              con=duckdb.connect(str(root/"fixture.db"),read_only=True,
+                  config={"memory_limit":"128MiB","threads":"1","temp_directory":str(root/"scratch"),"max_temp_directory_size":"256MiB"})
+              assert con.execute("select count(*) from fixture").fetchone()==(100,)
+              (root/"active").write_text("ready")
+              con.execute("select sum(hash(i)) from range(10000000000) t(i)").fetchone()
+              (root/"finished").write_text("unexpected")
+              con.close()
+          
+          def parent(root):
+              with (root/"worker-output").open("wb") as out:
+                  proc=subprocess.Popen([sys.executable,__file__,"child",str(root)],stdin=subprocess.PIPE,stdout=out,stderr=out,close_fds=True)
+                  (root/"identity").write_text(json.dumps({"pid":proc.pid,"created":psutil.Process(proc.pid).create_time()}))
+                  end=time.monotonic()+15
+                  while not (root/"active").exists() and proc.poll() is None and time.monotonic()<end:
+                      time.sleep(.05)
+                  if not (root/"active").exists() or proc.poll() is not None:
+                      proc.kill() if proc.poll() is None else None
+                      proc.wait(timeout=5)
+                      raise RuntimeError("worker not active")
+                  (root/"parent-ready").write_text("ready")
+                  # Retain exclusive writer while the supervisor kills this process.
+                  while True:
+                      time.sleep(.1)
+          
+          def supervisor():
+              assert duckdb.__version__==os.environ["PIN"]
+              with tempfile.TemporaryDirectory(prefix="m812-orphan-") as d:
+                  root=pathlib.Path(d)
+                  (root/"scratch").mkdir()
+                  conn=duckdb.connect(str(root/"fixture.db"))
+                  conn.execute("create table fixture as select i from range(100) t(i)")
+                  conn.close()
+                  proc=subprocess.Popen([sys.executable,__file__,"parent",d],stdin=subprocess.DEVNULL)
+                  worker=None
+                  try:
+                      end=time.monotonic()+20
+                      while not (root/"parent-ready").exists() and proc.poll() is None and time.monotonic()<end:
+                          time.sleep(.05)
+                      assert (root/"parent-ready").exists() and proc.poll() is None
+                      identity=json.loads((root/"identity").read_text())
+                      worker=psutil.Process(identity["pid"])
+                      assert worker.create_time()==identity["created"] and worker.is_running()
+                      assert not (root/"finished").exists()
+                      proc.kill()
+                      proc.wait(timeout=5)
+                      start=time.monotonic()
+                      # Observe the exact process identity, not a PID alone.
+                      def alive():
+                          try:
+                              return worker.is_running() and worker.status()!=psutil.STATUS_ZOMBIE
+                          except psutil.NoSuchProcess:
+                              return False
+                      while alive() and time.monotonic()-start<8:
+                          time.sleep(.05)
+                      assert not alive(), "orphan watchdog did not stop worker"
+                      assert not (root/"finished").exists()
+                      log(parent_killed=True,worker_not_live=True,seconds=round(time.monotonic()-start,3),platform=sys.platform,version=duckdb.__version__)
+                      observer=duckdb.connect(str(root/"fixture.db"),read_only=True)
+                      assert observer.execute("select count(*) from fixture").fetchone()==(100,)
+                      observer.close()
+                  finally:
+                      if proc.poll() is None:
+                          proc.kill()
+                          proc.wait(timeout=5)
+                      if worker is not None and worker.is_running():
+                          try:
+                              if worker.status()!=psutil.STATUS_ZOMBIE:
+                                  worker.kill()
+                                  worker.wait(timeout=5)
+                          except psutil.NoSuchProcess:
+                              pass
+              assert not root.exists()
+              log(supervisor_cleanup=True)
+          
+          if __name__=="__main__":
+              if len(sys.argv)>1:
+                  (child if sys.argv[1]=="child" else parent)(pathlib.Path(sys.argv[2]))
+              else:
+                  supervisor()
+          
+          PY
+          python -u m812_orphan_probe.py
