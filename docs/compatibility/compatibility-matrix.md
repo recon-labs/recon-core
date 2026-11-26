@@ -142,7 +142,7 @@ The current protected local base-table restriction is temporary. Safe broader lo
 
 [Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) requires explicit platform evidence separate from runtime capability decisions. Untested OS/engine/dependency versions alone do not block execution; required protection must be proven at actual scope. Optional missing observations warn where independently safe. No implied broad support claim.
 
-Current M8.1.2 design/implementation in progress; not yet released. Platform
+The local adaptive resource candidate is not released; its design is reopened and implementation suspended. Previous candidate tests are experimental evidence, not support certification. Platform
 feasibility observations across Linux, macOS and Windows and Python
 3.11/3.12/3.13 do not establish full native control, complete containment,
 all OS versions or filesystem quotas. Maintain the actual tested matrix
