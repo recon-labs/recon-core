@@ -196,6 +196,20 @@ path_surface_routing:
         - execution_result
         - diagnostics
         - redaction
+    - path: src/recon_core/adapters/duckdb/_worker_bound_session.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - execution_result
+        - diagnostics
+        - redaction
+    - path: tests/adapters/test_duckdb_worker_bound_session.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - execution_result
+        - diagnostics
+        - redaction
     - path: src/recon_core/adapters/duckdb/_worker_result_codec.py
       surfaces:
         - adapter_runtime
