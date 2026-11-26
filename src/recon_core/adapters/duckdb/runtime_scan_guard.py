@@ -226,20 +226,30 @@ def _relation_name_parts(relation_name: str | None) -> tuple[str, ...] | None:
 
 def _local_duckdb_catalog_names(connection: Any, database_path: Path) -> frozenset[str]:
     rows = connection.execute("pragma database_list").fetchall()
+    if not isinstance(rows, list | tuple):
+        raise _BindingMetadataError()
     catalog_names: set[str] = set()
+    matching_paths = 0
     resolved_database_path = database_path.resolve()
     for row in rows:
-        if not isinstance(row, tuple) or len(row) < 3:
+        if not isinstance(row, tuple) or len(row) != 3:
+            raise _BindingMetadataError()
+        index, catalog_name, catalog_path = row
+        if type(index) is not int or not isinstance(catalog_name, str) or not catalog_name:
+            raise _BindingMetadataError()
+        # In-memory/system catalog entries may not have a filesystem path.
+        if catalog_path is None or catalog_path == "":
             continue
-        catalog_name = row[1]
-        catalog_path = row[2]
-        if not isinstance(catalog_name, str) or not isinstance(catalog_path, str):
-            continue
+        if not isinstance(catalog_path, str):
+            raise _BindingMetadataError()
         try:
             if Path(catalog_path).resolve() == resolved_database_path:
+                matching_paths += 1
                 catalog_names.add(_duckdb_identifier_key(catalog_name))
-        except OSError:
-            continue
+        except (OSError, RuntimeError, ValueError):
+            raise _BindingMetadataError() from None
+    if matching_paths > 1:
+        return frozenset()
     return frozenset(catalog_names)
 
 

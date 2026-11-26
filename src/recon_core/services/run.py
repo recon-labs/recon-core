@@ -360,7 +360,8 @@ def _prepare_runtime_execution_dependencies(
         connection_index = aggregate_connection_indices.get(connection_name)
         connection = connections_by_name[connection_name]
         # Keep the scan-approved config independent of mutable factory input.
-        setup_connection = deepcopy(connection) if connection.type == "duckdb" else connection
+        verify_binding = connection_index is not None or connection.type == "duckdb"
+        setup_connection = deepcopy(connection) if verify_binding else connection
         setup_result = prepare_runtime_adapter(
             connection=setup_connection,
             required_capabilities=required_capabilities,
@@ -387,7 +388,7 @@ def _prepare_runtime_execution_dependencies(
             )
             continue
         assert setup_result.adapter is not None
-        if connection.type == "duckdb" and not _aggregate_adapter_matches_connection(
+        if verify_binding and not _aggregate_adapter_matches_connection(
             setup_result.adapter, connection
         ):
             setup_diagnostics.append(
@@ -840,7 +841,9 @@ def _scan_budget_decisions_by_check_id(
             source = connections_by_name.get(contract.source.connection)
             target = connections_by_name.get(contract.target.connection)
             same_context = (
-                source is not None and target is not None and _same_connection_context(source, target)
+                source is not None
+                and target is not None
+                and _same_connection_context(source, target)
             )
             if same_context and source is not None and source.type == "duckdb":
                 if not _contract_has_valid_relation_endpoint_shape(contract):

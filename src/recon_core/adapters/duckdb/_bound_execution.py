@@ -129,9 +129,11 @@ class _OwnedDuckDbSession:
             self._verify_file()
             if not catalogs:
                 return None
-            return _resolve_local_base_table(
+            resolved = _resolve_local_base_table(
                 self._connection, relation, local_catalog_names=catalogs
             )
+            self._verify_file()
+            return resolved
         except Exception:
             self._invalidated = True
             raise _proof_error() from None

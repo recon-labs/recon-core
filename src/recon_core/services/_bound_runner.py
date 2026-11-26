@@ -52,7 +52,9 @@ def _scope_refusal(
         check,
         contract,
         reason=(
-            CheckReason.SCAN_BUDGET_EXCEEDED if over_cap else CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED
+            CheckReason.SCAN_BUDGET_EXCEEDED
+            if over_cap
+            else CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED
         ),
         diagnostic_code=SCAN_BUDGET_EXCEEDED if over_cap else BOUNDED_LOCAL_SCAN_REQUIRED,
         message=(

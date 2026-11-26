@@ -214,7 +214,11 @@ def _row_count_execution_result_if_available(
     if _contract_has_query_endpoint(contract):
         return row_count_query_endpoint_not_executable_result(check, contract)
     decision = execution_context.scan_budget_decisions_by_check_id.get(check.id)
-    if decision is not None and not decision.allowed:
+    if (
+        getattr(execution_context, "_bound_runner", None) is not None
+        and decision is not None
+        and not decision.allowed
+    ):
         return not_executable_result(
             check,
             contract,

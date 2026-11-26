@@ -402,3 +402,37 @@ def test_aggregate_describe_cannot_bypass_invalidated_binding(
     finally:
         assert session.close() == ()
     assert executed[-1] == "ROLLBACK"
+
+
+@pytest.mark.parametrize(
+    "rows", [None, [("invalid",)], [(1, None, "path")], [(1, "local", 123)]]
+)
+def test_malformed_catalog_evidence_is_not_scope_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rows: Any
+) -> None:
+    path = tmp_path / "local.data"
+    path.touch()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+
+    class Connection:
+        def execute(self, query: str) -> Any:
+            return SimpleNamespace(fetchall=lambda: rows)
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        binding,
+        "import_module",
+        lambda name: SimpleNamespace(connect=lambda *a, **kw: Connection()),
+    )
+    session = binding._OwnedDuckDbSession(identity)
+    try:
+        session.open()
+        with pytest.raises(binding._BoundSessionError) as error:
+            session.bind(check_id="check-1", operation="sum_diff", source="src", target="dst")
+        assert error.value.diagnostic.code == "RC_RUNTIME_BINDING_PROOF_FAILED"
+    finally:
+        assert session.close() == ()
