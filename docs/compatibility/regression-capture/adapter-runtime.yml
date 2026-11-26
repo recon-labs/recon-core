@@ -864,6 +864,7 @@ captures:
       - tests/adapters/test_scratch_namespace.py::test_darwin_file_acl_checks_actual_open_handle
       - tests/adapters/test_scratch_namespace.py::test_posix_file_mount_checks_actual_open_handle
       - tests/adapters/test_scratch_namespace.py::test_linux_same_device_file_bind_mount_retains_storage
+      - tests/adapters/test_scratch_namespace.py::test_windows_tickets_persist_full_native_object_identity
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -885,4 +886,6 @@ captures:
       retain data when ACL grants or descriptor identity cannot be qualified.
       Compare POSIX native mount identity of named and actual open leaves to
       the qualified base; same-device bind mounts cannot authorize cleanup.
-      Full native ticket identity and worker qualification remain prerequisites.
+      Persist full Windows volume serial and 128-bit object identity in native
+      ticket markers; older candidate markers remain untouched and unqualified.
+      Worker qualification and stable ancestry remain prerequisites.
