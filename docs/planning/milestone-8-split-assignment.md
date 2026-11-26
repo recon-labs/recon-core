@@ -2,7 +2,7 @@
 
 ## Scope and ordering
 
-M8.1.2 detailed design approved; implementation in progress, exit pending. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
+M8.1.2 whole design reopened and implementation suspended (2026-11-27). See the [current redesign checkpoint](milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27); previous approved mechanism assignments are historical pending revision. Existing split remains; reassess B8-B10 prerequisite allocation without orphaning outcomes. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
 
 Split Decision: Required. The maintainer approved the implementation-bearing
 split and the adapter-aware advisory direction. M8 is an umbrella, not an
@@ -237,7 +237,7 @@ required.
 
 Maintainer-approved adaptive, adapter-aware, minimally restrictive local execution with portable best-effort protection, strict controls only when proven and isolation where necessary. Preserve native spilling and larger-than-memory work. No universal CI-derived ratios or caps. Distinguish execution scope from client transport, use engine-specific mechanisms and never downgrade required enforcement. Apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) to all future adapters and expansions. Exact settings, defaults, worker design and pulled-forward lifecycle requirements remain pending detailed prework and separate approval. No successor implementation authorized.
 
-## Approved M8.1.2 integration checkpoint (2026-11-26)
+## Historical approved M8.1.2 integration checkpoint (2026-11-26; reopened 2026-11-27)
 
 The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
 historical footprint-driven resource decisions and earlier pending-design
