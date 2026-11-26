@@ -16,8 +16,8 @@ from pathlib import Path
 
 from recon_core.adapters._resource_scratch import _ScratchRoot
 from recon_core.adapters._scratch_filesystem import (
-    _observe_scratch_filesystem,
     _FilesystemEvidence,
+    _observe_scratch_filesystem,
 )
 from recon_core.adapters._windows_scratch_security import (
     _create_private_directory,
