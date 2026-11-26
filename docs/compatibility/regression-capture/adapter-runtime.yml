@@ -829,6 +829,7 @@ captures:
       - tests/adapters/test_scratch_namespace.py::test_stable_project_namespace_and_recovery
       - tests/adapters/test_scratch_namespace.py::test_namespace_does_not_adopt_arbitrary_directory
       - tests/adapters/test_scratch_namespace.py::test_unknown_filesystem_does_not_authorize_creation
+      - tests/adapters/test_scratch_namespace.py::test_changed_mount_retains_existing_storage
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
