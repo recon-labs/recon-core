@@ -471,3 +471,25 @@ captures:
       Keep strict unbound and public rendering, ordered guards, native numeric
       domains and the full bounded summary; missing private collaborators fail
       closed. Native performance and semantic proof remain mandatory.
+  - id: local-adaptive-resource-targets
+    title: Adaptive local managed targets honor effective headroom and uncertainty
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_local_resource_targets.py::test_adaptive_targets_follow_effective_environment
+      - tests/check_engine/test_local_resource_targets.py::test_unknown_is_not_zero_or_unlimited
+      - tests/check_engine/test_local_resource_targets.py::test_memory_backed_scratch_cannot_double_count_headroom
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: adaptive_resource_policy
+        rationale: Shared conformance requires native evidence for each adapter; the pure calculation does not prove control enforcement.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
+      - docs/planning/execution-resource-safety-assignments.md: R2-R4
+    notes: >
+      Preserve known zero versus unavailable evidence, independently bounded
+      hardware headroom, adapter-specific tuning, and memory-backed scratch
+      accounting. Native automatic settings do not prove effective limits.
