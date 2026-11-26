@@ -118,7 +118,9 @@ def _read_portable_facts(
             )
         )
         scratch_kind = (
-            _classify_mounted_filesystem(scratch, mounts) if mounts is not None and scratch is not None else None
+            _classify_mounted_filesystem(scratch, mounts)
+            if mounts is not None and scratch is not None
+            else None
         )
     else:
         scratch_kind = None
@@ -152,9 +154,17 @@ class _BasicJobLimits(ctypes.Structure):
 
 
 class _IoCounters(ctypes.Structure):
-    _fields_ = [(name, ctypes.c_uint64) for name in (
-        "read_ops", "write_ops", "other_ops", "read_bytes", "write_bytes", "other_bytes"
-    )]
+    _fields_ = [
+        (name, ctypes.c_uint64)
+        for name in (
+            "read_ops",
+            "write_ops",
+            "other_ops",
+            "read_bytes",
+            "write_bytes",
+            "other_bytes",
+        )
+    ]
 
 
 class _ExtendedJobLimits(ctypes.Structure):
@@ -172,13 +182,13 @@ def _windows_scope(kernel: Any) -> _WindowsScope:
     kernel.GetCurrentProcess.restype = ctypes.c_void_p
     process = kernel.GetCurrentProcess()
     kernel.IsProcessInJob.argtypes = [
-        ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_int),
     ]
     in_job = ctypes.c_int()
     membership = (
-        bool(in_job.value)
-        if kernel.IsProcessInJob(process, None, ctypes.byref(in_job))
-        else None
+        bool(in_job.value) if kernel.IsProcessInJob(process, None, ctypes.byref(in_job)) else None
     )
     kernel.GetActiveProcessorGroupCount.restype = ctypes.c_uint16
     groups = kernel.GetActiveProcessorGroupCount()
@@ -187,7 +197,9 @@ def _windows_scope(kernel: Any) -> _WindowsScope:
         count = ctypes.c_uint16(groups)
         buffer = (ctypes.c_uint16 * groups)()
         kernel.GetProcessGroupAffinity.argtypes = [
-            ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.POINTER(ctypes.c_uint16)
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_uint16),
+            ctypes.POINTER(ctypes.c_uint16),
         ]
         if kernel.GetProcessGroupAffinity(process, ctypes.byref(count), buffer):
             group_count = count.value
@@ -195,8 +207,11 @@ def _windows_scope(kernel: Any) -> _WindowsScope:
     if membership is True:
         query = kernel.QueryInformationJobObject
         query.argtypes = [
-            ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p,
-            ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32)
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.POINTER(ctypes.c_uint32),
         ]
         limits = _ExtendedJobLimits()
         if query(None, 9, ctypes.byref(limits), ctypes.sizeof(limits), None):
@@ -205,9 +220,12 @@ def _windows_scope(kernel: Any) -> _WindowsScope:
             if limits.basic.flags & 0x200:
                 job_limit = _bounded_integer(limits.job_limit)
         rate = (ctypes.c_uint32 * 2)()
-        if query(None, 15, ctypes.byref(rate), ctypes.sizeof(rate), None):
-            if rate[0] & 0x5 == 0x5 and 0 < rate[1] <= 10000:
-                cpu_rate = rate[1]
+        if (
+            query(None, 15, ctypes.byref(rate), ctypes.sizeof(rate), None)
+            and rate[0] & 0x5 == 0x5
+            and 0 < rate[1] <= 10000
+        ):
+            cpu_rate = rate[1]
     return _WindowsScope(
         in_job=membership,
         processor_group_count=group_count,
@@ -220,9 +238,7 @@ def _windows_scope(kernel: Any) -> _WindowsScope:
 def _windows_drive(kernel: Any, scratch: Path) -> int | None:
     # Resolve the actual volume mount point, not just the drive letter.
     root = ctypes.create_unicode_buffer(32768)
-    kernel.GetVolumePathNameW.argtypes = [
-        ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32
-    ]
+    kernel.GetVolumePathNameW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
     if not kernel.GetVolumePathNameW(str(scratch), root, len(root)):
         return None
     kernel.GetDriveTypeW.argtypes = [ctypes.c_wchar_p]
