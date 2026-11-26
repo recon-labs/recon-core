@@ -469,3 +469,66 @@ def test_mismatched_table_metadata_is_invalid_evidence() -> None:
         guard._resolve_local_base_table(
             Connection(), relation, local_catalog_names=frozenset({"local"})
         )
+
+
+@pytest.mark.parametrize("drift", ["mtime", "replacement"])
+def test_file_drift_invalidates_active_lease(tmp_path: Path, duckdb: Any, drift: str) -> None:
+    path = tmp_path / "local.data"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 1 AS id")
+    finally:
+        writer.close()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    try:
+        session.open()
+        lease = session.bind(
+            check_id="check-1", operation="row_count_diff", source="src", target="src"
+        )
+        assert lease is not None
+        if drift == "mtime":
+            os.utime(path, ns=(identity.modified_ns, identity.modified_ns + 2000000000))
+        else:
+            replacement = tmp_path / "replacement"
+            replacement.write_bytes(path.read_bytes())
+            try:
+                replacement.replace(path)
+            except PermissionError:
+                pytest.skip("Platform does not allow replacing an open database file.")
+        with pytest.raises(binding._BoundSessionError) as error:
+            session.verify_lease(lease, lease.scope)
+        assert error.value.diagnostic.code == "RC_RUNTIME_BINDING_PROOF_FAILED"
+    finally:
+        assert session.close() == ()
+
+
+def test_quoted_relation_and_temp_shadow_keep_exact_binding(tmp_path: Path, duckdb: Any) -> None:
+    path = tmp_path / "local.data"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute('CREATE TABLE "quoted""table" AS SELECT 17 AS id')
+    finally:
+        writer.close()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    try:
+        session.open()
+        lease = session.bind(
+            check_id="check-1",
+            operation="row_count_diff",
+            source='quoted"table',
+            target='quoted"table',
+        )
+        assert lease is not None
+        # Deliberate test-only intrusion into the otherwise unshared connection.
+        session._connection.execute('CREATE TEMP TABLE "quoted""table" AS SELECT 99 AS id')
+        query = f"select id from {render_relation(lease.scope.source)}"
+        assert session._read_bound_query(lease, lease.scope, query).rows == ((17,),)
+        assert session.resolve_relation('temp.main.quoted"table') is None
+    finally:
+        assert session.close() == ()

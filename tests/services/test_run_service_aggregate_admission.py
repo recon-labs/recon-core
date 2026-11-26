@@ -1684,3 +1684,48 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         assert all(query.lower().split(maxsplit=1)[0] in {"select", "with"} for query in queries)
     assert database.read_bytes() == before
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_binding_drift_between_aggregate_guards_stops_final_read(
+    tmp_path: Path, grouped: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("5::INTEGER"),
+        target_sql=_native_row("5::INTEGER"),
+        grouped=grouped,
+    )
+    original = binding._OwnedDuckDbSession._read_bound_aggregate
+    attempted: list[tuple[str, ...]] = []
+    completed: list[tuple[str, ...]] = []
+    sidecar = database.with_name(f"{database.name}.tmp")
+
+    def read(
+        session: binding._OwnedDuckDbSession,
+        lease: binding._BindingLease,
+        scope: binding._BindingScope,
+        query: str,
+        *,
+        expected_columns: tuple[str, ...],
+    ) -> _AggregateQueryResult:
+        attempted.append(expected_columns)
+        result = original(session, lease, scope, query, expected_columns=expected_columns)
+        completed.append(expected_columns)
+        if expected_columns == ("numeric_domain",):
+            sidecar.touch()
+        return result
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_aggregate", read)
+    engine = _CapturingAggregateEngine()
+    try:
+        result = RunService(start_path=tmp_path, engine=engine).execute()
+        _assert_native_aggregate_result(tmp_path, engine, CheckStatus.ERROR, result)
+        assert "RC_RUNTIME_BINDING_PROOF_FAILED" in {d.code for d in result.diagnostics}
+        assert completed == [("type_check",)] * (2 if grouped else 1) + [("numeric_domain",)]
+        assert attempted[:-1] == completed
+        assert len(attempted[-1]) == (9 if grouped else 3)
+    finally:
+        sidecar.unlink(missing_ok=True)
+    writer = _duckdb_module().connect(str(database))
+    writer.close()

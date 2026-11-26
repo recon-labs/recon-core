@@ -17,6 +17,7 @@ from tests.services._run_service_fixtures import (
     _write_duckdb_row_count_tables,
     row_count_plan,
     write_compiled_checks,
+    write_compiled_contract,
     write_duckdb_row_count_run_inputs,
 )
 
@@ -189,3 +190,41 @@ def test_outside_project_row_count_refuses_without_open(
     check = engine.result.contract_results[0].check_results[0]
     assert check.status is CheckStatus.NOT_EXECUTABLE
     assert "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED" in {d.code for d in check.diagnostics}
+
+
+@pytest.mark.parametrize("blocker", ["shape", "query", "rendering", "prerequisite"])
+def test_preflight_never_opens_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, blocker: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    check = _compiled_check_payload(
+        operations=(
+            row_count_plan() if blocker != "shape" else [{"type": "row_count", "side": "source"}]
+        ),
+        rendering={"status": "blocked", "sql_paths": []} if blocker == "rendering" else None,
+    )
+    if blocker == "query":
+        write_compiled_contract(tmp_path, source_relation=None, source_query="select 1")
+    elif blocker == "prerequisite":
+        check["prerequisites"] = ["check.ecommerce_recon.customer_revenue.absent"]
+    write_compiled_checks(tmp_path, checks=[check])
+
+    def forbidden(session: binding._OwnedDuckDbSession) -> None:
+        pytest.fail("A preflight-blocked check must not open a native session.")
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", forbidden)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    assert not outcome.executed
+    assert outcome.status is {
+        "shape": CheckStatus.NOT_EXECUTABLE,
+        "query": CheckStatus.NOT_EXECUTABLE,
+        "rendering": CheckStatus.ERROR,
+        "prerequisite": CheckStatus.BLOCKED,
+    }[blocker]
