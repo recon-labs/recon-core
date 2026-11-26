@@ -375,6 +375,9 @@ def test_lock_permission_error_is_not_live_owner(
             raise PermissionError(errno.EACCES, "PRIVATE_SENTINEL")
 
         monkeypatch.setattr(scratch, "_lock_exclusive", denied)
+        with pytest.raises(_ScratchError) as lock_error:
+            scratch._FileLease.acquire(root.ticket.path / "root.lock", root.ticket.lock_identity)
+        assert not isinstance(lock_error.value, scratch._BusyError)
         # A denied root lock is uncertainty, not evidence of a live owner.
         assert root.recover(parent.ticket) is _Recovery.RETAINED
         with pytest.raises(_ScratchError) as caught:
