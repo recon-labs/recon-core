@@ -3268,3 +3268,7 @@ worker and re-observation prerequisites. M8.2 owns remaining run-wide
 lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
 publication. Preserve all future adapter applicability, type and scope gates.
 No gate closed; separate implementation authorization required.
+
+## Mandatory platform compatibility checkpoint
+
+Apply [Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) during M8.1.2, M8.2/M8.3, M10/M10.7/M10.8, M11-M12 PostgreSQL, M12-M13 Snowflake, M13.5, M18, M29, M32/M32.1 and future relevant adapter/version/deployment changes. M8.1.2 exit includes persistent representative multi-version OS CI with pinned and rolling lanes, periodic/on-demand/change checks, actual required control effects, unknown-platform graceful degradation and safe actionable terminal warnings. M29 owns reusable shared proof plus candidate-specific native matrices before promotion; no version allowlist at runtime. Recheck actual latest evidence at release and phase exit. See testing plan and compatibility matrix. No new milestone, adapter, or closure.
