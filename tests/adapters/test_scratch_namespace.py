@@ -412,6 +412,7 @@ def test_posix_file_mount_checks_actual_open_handle(tmp_path: Path) -> None:
 )
 def test_linux_same_device_file_bind_mount_retains_storage(tmp_path: Path) -> None:
     from recon_core.adapters._resource_scratch import _Recovery
+    from recon_core.adapters._scratch_namespace import _NamespaceDirectoryPolicy
 
     base = tmp_path.resolve()
     root = _open_namespace(base, base)
@@ -419,6 +420,9 @@ def test_linux_same_device_file_bind_mount_retains_storage(tmp_path: Path) -> No
     session.release()
     leaf = session.ticket.path / "spill" / "fixture.tmp"
     leaf.write_bytes(b"synthetic")
+    policy = root._directory_policy
+    assert isinstance(policy, _NamespaceDirectoryPolicy)
+    policy.verify_file(leaf)
     before = leaf.stat()
     # Self-bind preserves device, inode, owner and link count, but creates a
     # distinct mount. Only the native mount identity distinguishes it.
@@ -431,11 +435,11 @@ def test_linux_same_device_file_bind_mount_retains_storage(tmp_path: Path) -> No
     try:
         after = leaf.stat()
         assert (after.st_dev, after.st_ino) == (before.st_dev, before.st_ino)
+        with pytest.raises(_NamespaceError):
+            policy.verify_file(leaf)
         assert root.recover(session.ticket) is _Recovery.RETAINED
         assert root.recover_abandoned().retained == 1
         assert leaf.read_bytes() == b"synthetic"
     finally:
-        subprocess.run(
-            ["sudo", "-n", "umount", str(leaf)], capture_output=True, timeout=15, check=True
-        )
+        subprocess.run(["sudo", "-n", "umount", str(leaf)], capture_output=True, timeout=15, check=True)
     assert root.recover(session.ticket) is _Recovery.REMOVED
