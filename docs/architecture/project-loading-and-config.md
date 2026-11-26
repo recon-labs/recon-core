@@ -225,7 +225,7 @@ validation instead of compiling as silent no-ops.
 
 ## Planned local execution policy
 
-The proposed [local execution policy ADR](../decisions/adr-0026-local-execution-policy-and-scan-admission.md) defines a
+The accepted [local execution policy ADR](../decisions/adr-0026-local-execution-policy-and-scan-admission.md) defines a
 project-owned local footprint limit and optional estimated-input warning
 threshold. This is design prework, not accepted configuration syntax in the
 current implementation. Runtime policy is separate from connection secrets,

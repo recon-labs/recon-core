@@ -5,19 +5,19 @@
 Split Decision: Already Split / Follow Existing Split.
 High-risk: project configuration, runtime admission, adapter evidence,
 diagnostics, privacy and compatibility. Research decision: completed for the
-initial strategy, with remaining exact implementation binding proof below.
-The five design directions were approved; this document proposes their
-concrete syntax, policy, migration boundary and tests. Approval of those
-details is required before implementation. No code, gate satisfaction,
-or current compatibility expansion is claimed.
+strategy and representative connection-binding feasibility. The maintainer
+approved the five directions and concrete syntax, local proxy policy and
+intentional row-count admission restriction. Exact implementation and
+conformance proof remain mandatory. This is locked design prework after
+integration, not a claim of runtime completion or expanded compatibility.
 
 Authority: [split assignment](milestone-8-split-assignment.md), ADR 0021,
-0022, 0025, proposed [ADR 0026](../decisions/adr-0026-local-execution-policy-and-scan-admission.md), and build order.
+0022, 0025, [ADR 0026](../decisions/adr-0026-local-execution-policy-and-scan-admission.md), and build order.
 The previous combined scope remains divided; do not implement M8.2/M8.3.
 
 ## Scope, expected behavior and non-goals
 
-Implement the proposed ADR 0026: typed project-local execution policy,
+Implement ADR 0026: typed project-local execution policy,
 version-local footprint default and optional explicit estimated-input warning
 threshold; same-context local base-table evidence bound to actual execution,
 Core-owned fail-closed admission for row count, key safety and explicit sum,
@@ -33,7 +33,7 @@ experiments. A local footprint limit is not an actual scan-cost limit.
 
 Current row-count project-run execution bypasses bounded local admission;
 supported docs currently describe same-context relation-backed DuckDB, not
-local base-table-only row count. The explicit proposed change is to require
+local base-table-only row count. The explicit approved change is to require
 the same proven local scope as other scan-bearing operations, including
 blocking view/external/non-project/unbounded contexts. Preserve positive
 local row count, aliases, no materialization and all key/aggregate semantics.
@@ -44,8 +44,8 @@ and semantics; not an admission API. Test doubles currently use recording
 factories without real local files; use private explicit evidence fixtures,
 not a production bypass, preserve lifecycle/renderer/result tests.
 
-Configuration is additive, but runtime scope restriction requires explicit
-maintainer approval and implementation-time changelog/migration guidance.
+Configuration is additive; the runtime scope restriction has explicit
+maintainer approval and requires implementation-time changelog/migration guidance.
 No change to minimum DuckDB dependency, adapter API version, compiled
 artifact versions, public result schema or operation catalog. Public
 diagnostics must suppress relation names, profile values, raw SQL/plans,
@@ -57,7 +57,7 @@ No automatic query rewrite, staging or hidden Python fallback.
 
 | Gate | Design disposition and remaining proof |
 | --- | --- |
-| 4L | ADR 0026 locks proposed units, settings, default origin, limit semantics, evidence states and advisory distinction. Empirical metadata is advisory only. Required same-execution binding and local scope proof must be validated; no actual-cost promise. A1-A6/A9. |
+| 4L | ADR 0026 locks units, settings, default origin, limit semantics, evidence states and advisory distinction. Empirical metadata is advisory only. Required same-execution binding and local scope proof must be validated; no actual-cost promise. A1-A6/A9. |
 | 4I | Existing ADR 0021 placement and bounded transport remain; prove all admitted checks keep same-context native execution and bounded envelopes. A4/A5/A7. |
 | 4A / 4J | Preserve referenced profile resolution, secrets and setup/lifecycle diagnostic conformance; no new profile fields. A4.06/A8. |
 | 4B | Private runtime-safety collaborator; preserve public BaseAdapter, QueryResult, SqlRenderer, compiled schemas and numeric renderer behavior. Stop if public signature change required. A7/A9. |
@@ -69,12 +69,16 @@ No automatic query rewrite, staging or hidden Python fallback.
 
 The initial experiments established misleading/stale estimates, compressed
 footprint limitations, plan-version differences and an unsafe storage-info
-path. They did not prove actual same-connection binding, exact generated
-plan safety or universal bounds. Before implementation, review the proposed
-local/dev policy against Gate 4L: if a stronger actual resource guarantee
-is required, this proxy-based policy is insufficient and must be redesigned.
-Before GREEN/exit, require real supported-version proofs of binding,
-read-only operation and no data-query-after-block. No unsupported
+path. Representative supported-version feasibility checks established that
+catalog inspection and reads can share an owned read-only connection and
+transaction, that cooperating writable opens are rejected while it is live,
+and that exact qualified binding avoids temporary name shadowing. A missing
+read-only file is not created; observable path replacement and late sidecar
+changes can be detected. This is not proof of exact generated Recon SQL,
+all concurrent mutations or hostile filesystem races. The approved local
+dev policy is explicitly a footprint proxy, not an actual-cost guarantee.
+Before GREEN/exit, require real supported-version proofs of the implemented
+binding, read-only operation and no data-query-after-block. No unsupported
 fallback. If the existing connection lifecycle cannot establish the
 proposed proof, stop before weakening admission and ask for scoped design
 approval. No gate is marked satisfied merely by this document.
@@ -106,7 +110,9 @@ deferred to test-kit ownership; preserve local proof.
 | A4.01 | Project-local regular file no suffix, relative path/subdirectory, same-context aliases, case-insensitive qualified names | Admit proven local binding; preserve existing positive tests | `tests/services/test_run_service_duckdb_execution.py::test_local_admission_positive_variants` |
 | A4.02 | Missing file, directory, memory, external path, symlink escape, permission/stat failure, WAL/tmp file/dir/symlink | Block before data scan; missing file not created; no raw paths | `tests/adapters/test_runtime_safety.py::test_local_scope_rejects_unsafe_files` |
 | A4.03 | Views local/external, attached catalog, ambiguous schema, missing endpoint, malformed metadata | No data scan; preserve specific invalid-endpoint diagnostics; no raw metadata | `tests/services/test_run_service_duckdb_execution.py::test_local_admission_rejects_untrusted_relations` |
-| A4.04 | File replacement, binding mismatch, stale proof, sidecar added after preliminary probe, changed catalog/snapshot | Revalidate on actual read-only execution context; fail closed before scan; no forged proof | `tests/adapters/test_runtime_safety.py::test_execution_binding_freshness` |
+| A4.04 | File replacement, binding mismatch, stale proof, sidecar added after preliminary probe, changed catalog/snapshot | Revalidate path/identity and sidecars before/after open and before each data query on owned read-only execution context; fail closed on drift; no forged proof | `tests/adapters/test_runtime_safety.py::test_execution_binding_freshness` |
+| A4.08 | Temporary table shadow, attached catalog, changed search path, qualified and unqualified authored relation, same-context aliases | Resolve unambiguous verified catalog/schema/table identity; runtime renderer consumes qualified binding without logical scope mutation; reject untrusted shadow/attachment/context; preserve public compile output | `tests/adapters/test_runtime_safety.py::test_runtime_binding_rejects_shadowing`; `tests/services/test_run_service_duckdb_execution.py::test_runtime_uses_verified_qualified_binding` |
+| A4.09 | Real pinned-version read-only transaction, writer open in same/other process, missing database, cleanup on preflight rejection | Owned connection, no writes or missing file creation, cooperating writers blocked; rollback/close on failure; no hostile filesystem guarantee | `tests/adapters/test_runtime_safety.py::test_owned_read_only_execution_binding` |
 | A4.05 | Mixed adapters/cross-context, unsupported placement/materialization, invalid typed operations, blocked compile rendering | Existing specific reason/precedence; no unsupported scan/bridge | `tests/check_engine/test_execution_boundaries.py::test_scan_admission_preserves_dispatch_precedence` |
 | A4.06 | Missing dependency, metadata open failure, capability missing/malformed/exception, adapter connect/close failure | Preserve specific sanitized setup/runtime failures; no scan on failure; close only opened resources | `tests/services/test_run_service_adapter_lifecycle.py::test_scan_admission_lifecycle_precedence` |
 | A4.07 | Hard decision missing, malformed, wrong check/contract/context, forged allowed, policy changed | No data query; reject mismatched proof at engine router and actual executor boundary | `tests/check_engine/test_execution_boundaries.py::test_runtime_rejects_invalid_admission_proof` |
@@ -116,7 +122,7 @@ deferred to test-kit ownership; preserve local proof.
 | A6.02 | Warning plus pass/fail/error; hard block plus would-be warning; multiple checks | Status/exit mapping unchanged for warning, hard block wins; warning visibility on successful CLI | `tests/cli/test_main.py::test_run_advisory_warning_output` |
 | A6.03 | Actionable advice for footprint excess, unknown proof, optional estimate warning, future subset capability | Safe conditional hints; no hidden filters/sample/SQL rewrite, no production advice as executable | `tests/services/test_run_service_duckdb_execution.py::test_advisory_does_not_mutate_scope` |
 | A7.01 | Real local row-count pass/fail, empty, aliases, no materialization; all four versions | Preserve exact semantics; no metadata-only assumption | `tests/services/test_run_service_duckdb_execution.py::test_row_count_local_policy_semantics` |
-| A7.02 | Previously bypassed row-count view, external/non-project, oversized, missing file/metadata, in-memory | Intentional project-run restriction pending approval; not_executable or specific existing error; no query | `tests/services/test_run_service_duckdb_execution.py::test_row_count_unsafe_scope_rejected` |
+| A7.02 | Previously bypassed row-count view, external/non-project, oversized, missing file/metadata, in-memory | Approved intentional project-run restriction; not_executable or specific existing error; no query | `tests/services/test_run_service_duckdb_execution.py::test_row_count_unsafe_scope_rejected` |
 | A7.03 | Direct prepared-adapter helper, injected recording adapters, lifecycle/shape/error fixtures | Preserve helper API/semantics; explicit fixture proof for project run; no test-only production exemption | `tests/check_engine/test_row_count_execution.py::test_execute_row_count_check_passes_with_equal_counts` |
 | A7.04 | All grain-key null/duplicate/missing/extra, empty sides, composite identity, prerequisite blocked, mixed row count | Preserve key semantics and prerequisite precedence; no bypass from other allowed checks | `tests/check_engine/test_key_safety_execution.py (existing suite plus admission cases)` |
 | A7.05 | Scalar/grouped sum, exact/approximate domains, tolerance, empty groups, nulls, invalid transport, policy precedence | Preserve all M7.4 behavior and numeric lanes; no grouped detail fallback | `tests/check_engine/test_aggregate_execution.py; tests/services/test_run_service_aggregate_admission.py; tests/adapters/test_duckdb_aggregate_numeric_domains.py` |
@@ -196,8 +202,8 @@ growth after GREEN; refactor same scope if owner boundaries drift.
    lifecycle refactor is required.
 3. Runtime orchestration and row-count admission RED/GREEN: A4/A7;
    preserve existing dispatch, capability, lifecycle, prerequisite,
-   aggregate precision and existing low-level helper tests. Explicit
-   compatibility approval required for intentional row-count restrictions.
+   aggregate precision and existing low-level helper tests. Apply the approved
+   intentional row-count restriction and document migration.
 4. Advisory/metadata and CLI RED/GREEN: A5/A6/A8/A9; exact warnings,
    hard blocks, redaction, no scope mutation or outputs; preserve
    non-run commands and existing exit mapping.
@@ -270,9 +276,10 @@ and research; public docs contain only Recon-native decisions.
 
 ## Readiness verdict
 
-Design proposal is prepared, not locked. Maintainer approval required for
-the exact syntax/default policy and the intentional row-count admission
-restriction; verify the proposed same-execution proof is feasible on the
-supported versions and that the local proxy is acceptable as scoped local
-policy, not a universal actual-cost guarantee. Do not implement until
-these readiness conditions are satisfied. No new ecosystem repository due.
+Design prework is locked once integrated. Maintainer approval and initial
+supported-version binding feasibility are established for the scoped local
+policy; no universal actual-cost or hostile filesystem guarantee. Exact
+runtime implementation proofs remain mandatory. Start TDD only after
+integration and explicit implementation authorization. Stop for design
+review if the proposed binding cannot be implemented without weakening
+admission or changing protected interfaces. No new ecosystem repository due.

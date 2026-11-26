@@ -1,7 +1,7 @@
 # ADR 0026: Local Execution Policy And Scan Admission
 
-Status: Proposed; maintainer approval of exact configuration and compatibility
-boundary required before implementation. Current behavior is unchanged.
+Status: Accepted design; implementation and conformance proof pending.
+Current runtime behavior is unchanged.
 
 ## Context
 
@@ -15,7 +15,7 @@ summary is a transport constraint, not scan safety.
 ## Decision
 
 Use a project-owned execution policy, independent of contracts, profile
-credentials, compilation and comparison semantics. Proposed optional fields in
+credentials, compilation and comparison semantics. Optional fields to implement in
 recon_project.yml (config-version 1):
 
 ```yaml
@@ -48,8 +48,18 @@ no retained WAL/tmp sidecar, unambiguous local catalog binding and a
 supported execution/transport contract. Verify that proof belongs to the
 actual executing connection and selected relations immediately before any
 data query; a preliminary file/catalog probe alone is insufficient.
-Validate the resolved path, file identity and evidence freshness, and use
-a read-only bound execution context/snapshot or fail closed. Do not create
+Validate resolved path and file identity before opening, after opening and
+immediately before each data query, including sidecar and observed drift
+checks. Use a dedicated owned read-only connection and transaction for
+catalog proof and the authorized reads, without arbitrary SQL, temporary
+objects, attachment or context mutation. Resolve each runtime relation to
+its unambiguous verified catalog/schema/table identity and render that
+qualified binding through the private runtime path; do not change the
+public compile renderer or logical comparison. Read-only mode alone does
+not prevent temporary name shadowing. Fail closed if binding or freshness
+cannot be verified. This local/dev policy assumes a trusted project
+filesystem and cooperative processes; it is not a sandbox or a guarantee
+against hostile filesystem races. Do not create
 a missing file, attach other catalogs, execute a data scan as preflight,
 or rely on a user/adapter-provided final boolean. A typed plan, bounded
 result envelope and local footprint restriction form a local/dev admission
@@ -64,7 +74,7 @@ checks, not just the previous scan-heavy subset. Row count is conservatively
 classified as potentially scanning, unless a later explicitly proven
 metadata-only execution strategy is admitted. Retain current exact row
 count semantics for qualifying local base tables, including aliases and
-explicit no-materialization. The proposed compatibility restriction is
+explicit no-materialization. The approved compatibility restriction is
 intentional: previously admitted row-count views, external/non-project
 files, unbounded or missing scope no longer execute through project run;
 an explicit larger local footprint limit can admit known local scope only.
@@ -107,8 +117,8 @@ not_executable (or existing prerequisite blocked outcome) with no
 comparison values, not a data mismatch. An advisory warning is a distinct
 diagnostic, not a CheckStatus.WARN reconciliation result. Preserve check
 status and exit mapping; emit safe warning code/message/hint on successful
-run as well as failed runs, without general CLI summary redesign. Proposed
-new diagnostic RC_RUNTIME_SCAN_ESTIMATED_INPUT_ROWS_WARNING; existing safe
+run as well as failed runs, without general CLI summary redesign. New
+diagnostic RC_RUNTIME_SCAN_ESTIMATED_INPUT_ROWS_WARNING; existing safe
 diagnostics for blockers, with revised actionable hints. Use fixed safe
 wording, no raw plans, relation names, paths, values, row counts, rendered
 profiles or native errors in public advisory output by default.
@@ -133,8 +143,8 @@ a conservative local path without claiming stronger guarantees.
 ## Consequences
 
 Additive project config syntax and intentional row-count admission
-restriction require explicit approval, implementation tests, compatibility
-and changelog updates and user migration guidance. No version-floor change
+restriction have maintainer approval and require implementation tests,
+compatibility and changelog updates and user migration guidance. No version-floor change
 or public typed-operation/adapter interface or artifact-schema change is
 authorized. No result/evidence/state/sink writing, query endpoints,
 production adapters, selectors or sampling implementation. See phase
