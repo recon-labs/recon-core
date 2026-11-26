@@ -32,8 +32,9 @@ class _FilesystemEvidence:
 def _linux_mount_evidence(
     fdinfo: str, mountinfo: str, device: tuple[int, int]
 ) -> _FilesystemEvidence:
-    ids = [line.partition(":")[2].strip() for line in fdinfo.splitlines()
-           if line.startswith("mnt_id:")]
+    ids = [
+        line.partition(":")[2].strip() for line in fdinfo.splitlines() if line.startswith("mnt_id:")
+    ]
     if len(ids) != 1 or not re.fullmatch(r"[0-9]{1,20}", ids[0]):
         return _FilesystemEvidence()
     matches = []
@@ -132,18 +133,33 @@ def _windows_facts(path: Path) -> _FilesystemEvidence:
 
     kernel, _ = _libraries()
     open_file = _api(
-        kernel, "CreateFileW", wt.HANDLE, wt.LPCWSTR, wt.DWORD, wt.DWORD,
-        ct.c_void_p, wt.DWORD, wt.DWORD, wt.HANDLE
+        kernel,
+        "CreateFileW",
+        wt.HANDLE,
+        wt.LPCWSTR,
+        wt.DWORD,
+        wt.DWORD,
+        ct.c_void_p,
+        wt.DWORD,
+        wt.DWORD,
+        wt.HANDLE,
     )
     close = _api(kernel, "CloseHandle", wt.BOOL, wt.HANDLE)
     volume = _api(
-        kernel, "GetVolumeInformationByHandleW", wt.BOOL, wt.HANDLE,
-        wt.LPWSTR, wt.DWORD, ct.POINTER(wt.DWORD), ct.POINTER(wt.DWORD),
-        ct.POINTER(wt.DWORD), wt.LPWSTR, wt.DWORD
+        kernel,
+        "GetVolumeInformationByHandleW",
+        wt.BOOL,
+        wt.HANDLE,
+        wt.LPWSTR,
+        wt.DWORD,
+        ct.POINTER(wt.DWORD),
+        ct.POINTER(wt.DWORD),
+        ct.POINTER(wt.DWORD),
+        wt.LPWSTR,
+        wt.DWORD,
     )
     final_name = _api(
-        kernel, "GetFinalPathNameByHandleW", wt.DWORD,
-        wt.HANDLE, wt.LPWSTR, wt.DWORD, wt.DWORD
+        kernel, "GetFinalPathNameByHandleW", wt.DWORD, wt.HANDLE, wt.LPWSTR, wt.DWORD, wt.DWORD
     )
     drive_type = _api(kernel, "GetDriveTypeW", wt.UINT, wt.LPCWSTR)
     handle = open_file(str(path), 0x80, 3, None, 3, 0x02200000, None)
@@ -200,7 +216,9 @@ def _observe_scratch_filesystem(path: Path) -> _FilesystemEvidence:
                 info = os.fstat(fd)
                 if (info.st_dev, info.st_ino) != (before.st_dev, before.st_ino):
                     return _FilesystemEvidence()
-                facts = _linux_facts(fd, info) if sys.platform == "linux" else _darwin_facts(fd, info)
+                facts = (
+                    _linux_facts(fd, info) if sys.platform == "linux" else _darwin_facts(fd, info)
+                )
             finally:
                 os.close(fd)
         else:
