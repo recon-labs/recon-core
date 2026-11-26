@@ -3,7 +3,7 @@
 import struct
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import BinaryIO, Final
+from typing import IO, Final
 
 _MAGIC: Final = b"RCW1"
 _LAYOUT: Final = struct.Struct(">4sBQqq")
@@ -52,7 +52,7 @@ class _ControlPacket:
             raise _ControlError()
 
 
-def _read_control(stream: BinaryIO) -> _ControlPacket:
+def _read_control(stream: IO[bytes]) -> _ControlPacket:
     data = bytearray()
     try:
         while len(data) < _LAYOUT.size:
@@ -70,16 +70,15 @@ def _read_control(stream: BinaryIO) -> _ControlPacket:
         raise _ControlError() from None
 
 
-def _write_control(stream: BinaryIO, packet: _ControlPacket) -> None:
+def _write_control(stream: IO[bytes], packet: _ControlPacket) -> None:
     packet.validate()
     try:
         data = _LAYOUT.pack(_MAGIC, packet.kind, packet.sequence, packet.first, packet.second)
-        view = memoryview(data)
-        while view:
-            written = stream.write(view)
-            if written is None or not 0 < written <= len(view):
+        while data:
+            written = stream.write(data)
+            if written is None or not 0 < written <= len(data):
                 raise _ControlError()
-            view = view[written:]
+            data = data[written:]
         stream.flush()
     except Exception:
         raise _ControlError() from None
