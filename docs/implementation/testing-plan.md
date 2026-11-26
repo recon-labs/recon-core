@@ -656,7 +656,11 @@ approval remain required.
 
 [Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) is a mandatory native and shared-conformance requirement. The tested matrix describes evidence, not a runtime version allowlist.
 
-M8.1.2 owns the first persistent local-resource compatibility workflow, before
+The local-resource redesign retains outcome-based compatibility testing;
+mechanism-specific tests must receive explicit retain/replace/retire dispositions
+before implementation resumes. Native control effects, shared-session
+noninterference, actual scratch privacy, correct outcomes and graceful
+degradation remain mandatory. M8.1.2 owns the first persistent local-resource compatibility workflow, before
 exit. Keep existing required semantic/pinned-engine CI. On resource/worker,
 dependency, OS/runner or compatibility changes and before release/promotion,
 run targeted representative native platform coverage (including actual
