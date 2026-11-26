@@ -12,7 +12,7 @@ from recon_core._yaml import (
     yaml_error_position,
 )
 from recon_core.config._local_resource_policy import (
-    _InvalidResourcePolicy,
+    _InvalidResourcePolicyError,
     _LocalResourcePolicy,
     _parse_local_resource_policy,
 )
@@ -216,7 +216,7 @@ def _project_config_from_mapping(
     policy = _LocalResourcePolicy()
     try:
         policy = _parse_local_resource_policy(raw_config.get("execution", {}))
-    except _InvalidResourcePolicy as error:
+    except _InvalidResourcePolicyError as error:
         diagnostics.append(
             _invalid_config_diagnostic(
                 project_file, str(error), hint="Use documented project resource policy fields."
