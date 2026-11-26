@@ -61,6 +61,13 @@ def _namespace_path(base: Path, project: Path) -> Path:
 
 def _darwin_no_acl_grants(path: Path, expected: os.stat_result) -> bool:
     """Require absent or non-granting Darwin ACL on an unchanged open object."""
+    try:
+        return _darwin_no_acl_grants_native(path, expected)
+    except Exception:
+        return False
+
+
+def _darwin_no_acl_grants_native(path: Path, expected: os.stat_result) -> bool:
     libc = ct.CDLL(None, use_errno=True)
     get_acl = libc.acl_get_fd_np
     get_acl.argtypes = [ct.c_int, ct.c_int]
@@ -192,6 +199,12 @@ class _NamespaceDirectoryPolicy:
         self.verify_directory(path)
 
     def verify_directory(self, path: Path) -> None:
+        try:
+            self._verify_directory(path)
+        except Exception:
+            raise _NamespaceError() from None
+
+    def _verify_directory(self, path: Path) -> None:
         self._verify_base()
         self._within_namespace(path)
         for directory in (path, *(p for p in path.parents if p.is_relative_to(self.namespace))):
