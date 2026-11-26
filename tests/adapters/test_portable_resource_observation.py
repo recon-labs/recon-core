@@ -6,12 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 from recon_core.adapters._portable_resource_observation import (
-    _PortableFacts,
-    _WindowsScope,
     _classify_mounted_filesystem,
     _observe_portable_resources,
     _read_portable_facts,
     _windows_drive_kind,
+    _PortableFacts,
+    _WindowsScope,
 )
 
 
@@ -94,8 +94,8 @@ def test_conflicting_mount_evidence_is_unknown() -> None:
 
 
 @pytest.mark.parametrize(
-    ("kind", "expected"), [(0, None), (1, None), (2, False), (3, False), (4, None), (5, None),
-                           (6, True), (7, None)]
+    ("kind", "expected"),
+    [(0, None), (1, None), (2, False), (3, False), (4, None), (5, None), (6, True), (7, None)],
 )
 def test_windows_drive_kind(kind: int, expected: bool | None) -> None:
     assert _windows_drive_kind(kind) is expected
@@ -108,13 +108,16 @@ def test_windows_job_observation_is_not_host_memory_proof() -> None:
         "win32",
         PureWindowsPath("C:/temp"),
         windows_scope=_WindowsScope(
-            in_job=True, processor_group_count=2, process_commit_limit_bytes=1000,
+            in_job=True,
+            processor_group_count=2,
+            process_commit_limit_bytes=1000,
             job_commit_limit_bytes=2000,
         ),
         windows_drive=3,
     )
     assert facts.host_available_bytes == 1024
     assert facts.process_private_commit_bytes == 120
+    assert facts.process_virtual_bytes is None
     assert facts.windows_scope is not None
     assert facts.windows_scope.process_commit_limit_bytes == 1000
     assert facts.windows_scope.job_commit_limit_bytes == 2000
@@ -139,3 +142,9 @@ def test_real_optional_portable_observation(tmp_path: Path) -> None:
     assert facts.process_rss_bytes > 0
     assert not facts.scope_complete
     assert not list(tmp_path.iterdir())
+
+
+def test_missing_scratch_does_not_erase_host_facts() -> None:
+    facts = _read_portable_facts(_provider(), "darwin", None)
+    assert facts.host_available_bytes == 1024
+    assert facts.scratch_memory_backed is None
