@@ -2,7 +2,7 @@
 
 This composes opened-directory filesystem facts and native directory privacy
 with the existing lease coordinator. It is not yet production admission:
-Windows ancestor and file ACLs, full handle identity, equivalent providers
+Windows ancestor proof, full handle identity, POSIX file qualification, equivalent providers
 for other filesystems and worker-owned qualification remain prerequisites.
 """
 
@@ -25,6 +25,7 @@ from recon_core.adapters._windows_scratch_security import (
     _libraries,
     _process_user,
     _verify_private_directory,
+    _verify_private_file,
 )
 
 
@@ -201,6 +202,17 @@ class _NamespaceDirectoryPolicy:
     def verify_directory(self, path: Path) -> None:
         try:
             self._verify_directory(path)
+        except Exception:
+            raise _NamespaceError() from None
+
+    def verify_file(self, path: Path, *, fd: int | None = None) -> None:
+        """Revalidate a private leaf; POSIX file-specific proof remains pending."""
+        try:
+            self._within_namespace(path)
+            if path == self.namespace:
+                raise _NamespaceError()
+            if os.name == "nt":
+                _verify_private_file(path, fd=fd)
         except Exception:
             raise _NamespaceError() from None
 
