@@ -15,6 +15,7 @@ _MIB = 1 << 20
 _TUNING = _LocalResourceTuning(memory_reserve_divisor=4, disk_reserve_divisor=10)
 
 
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
 def test_adaptive_targets_follow_effective_environment() -> None:
     small = _calculate_local_resource_targets(
         _LocalResourcePolicy(),
@@ -91,6 +92,7 @@ def test_authored_targets_can_exceed_native_recommendations() -> None:
     assert targets.reduced_authored_targets == ("managed-memory-mib",)
 
 
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
 def test_unknown_is_not_zero_or_unlimited() -> None:
     targets = _calculate_local_resource_targets(
         _LocalResourcePolicy(managed_memory_bytes=100, threads=4, spill_bytes=100),
@@ -122,6 +124,7 @@ def test_unknown_is_not_zero_or_unlimited() -> None:
     ("memory", "native", "expected"),
     [(1000, 200, 550), (1000, None, 0), (0, 100, 0), (None, 100, None)],
 )
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
 def test_memory_backed_scratch_cannot_double_count_headroom(
     memory: int | None, native: int | None, expected: int | None
 ) -> None:
