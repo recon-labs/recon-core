@@ -152,7 +152,9 @@ def _native_startup_config(request: _NativeControlRequest) -> dict[str, str]:
     }
 
 
-def _apply_native_controls(connection: Any, request: _NativeControlRequest) -> _NativeControlReadback:
+def _apply_native_controls(
+    connection: Any, request: _NativeControlRequest
+) -> _NativeControlReadback:
     """Set spill before any transaction/metadata, then verify native reports.
 
     Only the isolated owned connection may be supplied. A failed assignment
