@@ -1201,4 +1201,4 @@ Historical completion is unchanged. Mandatory pending M9.5 owns the explicit ret
 
 ## Reopened next-action dependency
 
-Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The exact split and approval remain pending.
+Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The split and M8.1.1 implementation are approved; its verified exit and the targeted correction's own finalized prework and implementation approval remain pending.

@@ -407,3 +407,34 @@ captures:
       - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
     notes: >
       Missing groups fail even with high tolerance, including present-null versus absent. Empty and populated incompatible key types error; high-cardinality group unions return only bounded private evidence.
+  - id: project-binding-check-local-cleanup
+    title: Native cleanup errors invalidate results without fabricated prerequisites
+    area: check-engine
+    bug_class: prerequisite_blocking
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service_bound_execution.py::test_cleanup_failure_is_check_local_or_stops_native_execution
+      - tests/services/test_run_service_bound_execution.py::test_native_row_count_uses_owned_read_only_session
+      - tests/services/test_run_service_bound_execution.py::test_row_count_missing_file_does_not_create_database
+      - tests/services/test_run_service_bound_execution.py::test_outside_project_row_count_refuses_without_open
+      - tests/services/test_run_service_bound_execution.py::test_row_count_refuses_view_scope
+      - tests/services/test_run_service_bound_execution.py::test_preflight_never_opens_session
+      - tests/services/test_run_service_bound_execution.py::test_native_failure_isolation_across_database_files
+      - tests/services/test_run_service_bound_execution.py::test_primary_outcome_retained_on_cleanup_failure
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: project_binding
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: project_binding
+        rationale: Cross-adapter ownership and generalized lifecycle conformance remain future work.
+      - gate: diagnostics_privacy_carryover
+        status: deferred
+        expected_suite: project_binding
+        rationale: Generated result and evidence privacy remain in their owning phases.
+    requirement_refs:
+      - docs/planning/milestone-8-1-1-prework.md: Acceptance matrix and planned test nodes
+    notes: >
+      Cleanup failure removes comparison values, actual dependents are blocked, and unrelated eligible checks continue only after confirmed release. No writes or writable fallback.

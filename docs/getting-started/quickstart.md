@@ -14,11 +14,10 @@ Current pre-alpha status:
   and the current typed check-plan operations.
 - `recon run` loads existing compiled-check artifacts and returns explicit
   in-memory run/check statuses. It can execute relation-backed same-context
-  DuckDB `row_count_diff` checks when matching compiled-contract artifacts and
-  runtime profiles are available. It can also execute grain-key safety and
-  explicit `sum_diff` and `grouped_aggregate_diff` checks
-  only when the internal local/dev scan guard verifies bounded project-local
-  DuckDB base-table inputs. It does not write generated result, evidence, report,
+  DuckDB `row_count_diff`, grain-key safety, `sum_diff` and
+  `grouped_aggregate_diff` checks when matching compiled-contract artifacts,
+  runtime profiles and verified project-local base-table inputs are available.
+  Grain-key and SUM checks also retain a temporary 64 MiB file cap. It does not write generated result, evidence, report,
   failure-detail, or state artifacts yet.
 
 Install the DuckDB extra when you want to render SQL in this local workflow:
@@ -197,22 +196,29 @@ future work.
 
 Current `recon run` consumes compiled-check artifacts from
 `target/compiled_checks/`, joins them to matching compiled-contract metadata,
-and reports explicit in-memory results. Relation-backed same-context DuckDB
-`row_count_diff` checks can execute. Grain-key safety and explicit sum aggregate
-checks execute only when
-the internal local/dev scan guard verifies a project-local DuckDB file under the
-size cap and compiled source/target relations that resolve to local base tables;
-otherwise their scan-heavy paths are reported as non-executable instead of
-looking like passing evidence.
+and reports explicit in-memory results. Supported same-context DuckDB
+row-count, grain-key safety and explicit SUM checks require an existing regular
+database file inside the project, no retained sidecars, and verified local
+base tables. Each eligible check uses a fresh owned read-only transaction.
+The temporary 64 MiB file cap applies only to grain-key and SUM checks; row
+count has no file-size cap. This is a footprint restriction, not a calibrated
+resource limit. Unsupported scope is reported as non-executable, not passing
+evidence.
+
+For the current local execution boundary, use a populated project-local
+database, close conflicting writable connections, and reference base tables
+rather than views. In-memory, attached/external and outside-project inputs
+remain outside this temporary execution scope; broader safe scope support
+requires further implementation.
 
 ```bash
 recon run
 ```
 
 Current `recon run` does not parse authored contracts or recompile contracts. It
-opens adapters and executes SQL only for the supported same-context DuckDB
-row-count path and internally bounded local/dev grain-key safety and explicit
-sum aggregate paths. Aggregate comparison uses absolute numeric tolerance and
+executes supported same-context DuckDB row-count, grain-key safety and explicit
+SUM checks only after binding both relations in the owned read-only transaction.
+Each session is cleaned up before its result is finalized. Aggregate comparison uses absolute numeric tolerance and
 keeps aggregate values and grouped keys private. It does not write generated
 outputs.
 

@@ -3,6 +3,8 @@
 import ast
 from pathlib import Path
 
+import pytest
+
 from recon_core.check_engine import engine as engine_module
 from recon_core.check_engine import execution_support as execution_support_module
 from recon_core.check_engine import key_safety as key_safety_module
@@ -10,6 +12,7 @@ from recon_core.check_engine import prerequisites as prerequisites_module
 from recon_core.check_engine import result_metadata as result_metadata_module
 from recon_core.check_engine import runtime as runtime_module
 from recon_core.check_engine import scan_budget as scan_budget_module
+from recon_core.services import _bound_runner as bound_runner_module
 from recon_core.services import run as run_service_module
 
 
@@ -38,6 +41,7 @@ def test_check_engine_and_run_service_do_not_import_duckdb_runtime_modules() -> 
         Path(runtime_module.__file__),
         Path(scan_budget_module.__file__),
         Path(run_service_module.__file__),
+        Path(bound_runner_module.__file__),
     )
 
     for module_path in module_paths:
@@ -50,6 +54,19 @@ def test_check_engine_and_run_service_do_not_import_duckdb_runtime_modules() -> 
             or imported_module.startswith("recon_core.adapters.duckdb.")
             for imported_module in imported_modules
         )
+
+
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
+def test_project_binding_runner_does_not_depend_on_check_family() -> None:
+    imported_modules = _imported_modules(Path(bound_runner_module.__file__))
+
+    assert not imported_modules.intersection(
+        {
+            "recon_core.check_engine.aggregate",
+            "recon_core.check_engine.execution",
+            "recon_core.check_engine.key_safety",
+        }
+    )
 
 
 def test_prerequisite_helper_keeps_runtime_dependencies_out() -> None:

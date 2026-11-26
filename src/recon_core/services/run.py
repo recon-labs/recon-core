@@ -16,13 +16,16 @@ from recon_core.adapters import (
     prepare_runtime_adapter,
 )
 from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
+from recon_core.adapters._project_binding import (
+    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
+    _local_file_identity,
+    _LocalFileIdentity,
+)
 from recon_core.adapters.capabilities import ADAPTER_CAPABILITY_UNSUPPORTED, AdapterCapabilities
 from recon_core.adapters.default_renderers import (
     _default_aggregate_runtime_renderers,
     default_runtime_renderers_by_adapter_type,
 )
-from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
-from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
 from recon_core.adapters.registry import (
     ADAPTER_API_VERSION_UNSUPPORTED,
     ADAPTER_METADATA_INVALID,
@@ -59,8 +62,8 @@ from recon_core.check_engine import (
     RunStatus,
     is_supported_row_count_plan_shape,
 )
+from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.aggregate import (
-    _aggregate_adapter_matches_connection,
     _aggregate_capability_blocker,
     _aggregate_capability_diagnostics,
     _aggregate_collaborator_blocker,
@@ -68,7 +71,8 @@ from recon_core.check_engine.aggregate import (
     is_aggregate_check_type,
     is_supported_aggregate_plan_shape,
 )
-from recon_core.check_engine.engine import _AggregateExecutionContext
+from recon_core.check_engine.engine import _AggregateExecutionContext, _ProjectExecutionContext
+from recon_core.check_engine.execution_support import adapter_matches_connection
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
@@ -88,6 +92,7 @@ from recon_core.profiles.connection_references import (
     referenced_connection_names_from_compiled_contracts,
 )
 from recon_core.project import ProjectContext, load_project_context
+from recon_core.services._bound_runner import _ProjectBoundRunner
 from recon_core.services.results import ExitCategory, ServiceResult
 
 
@@ -119,22 +124,15 @@ class _CheckEngine(Protocol):
 @dataclass(frozen=True, slots=True)
 class _RuntimeExecutionDependencies:
     execution_context: CheckExecutionContext | None = None
-    opened_adapters: tuple["_OpenedAdapter", ...] = ()
     diagnostics: tuple[Diagnostic, ...] = ()
     exit_category: ExitCategory = ExitCategory.CONFIGURATION_ERROR
     message: str = ""
 
 
 @dataclass(frozen=True, slots=True)
-class _OpenedAdapter:
-    adapter: BaseAdapter
-    connection: ConnectionConfig
-    aggregate_connection_index: int | None = None
-
-
-@dataclass(frozen=True, slots=True)
 class _RuntimeScanBudgetDecisions:
     decisions_by_check_id: Mapping[str, ScanBudgetDecision]
+    identities_by_check_id: Mapping[str, _LocalFileIdentity]
     adapter_setup_required_check_ids: frozenset[str] = frozenset()
 
 
@@ -209,19 +207,7 @@ class RunService:
                 execution_context=runtime_dependencies.execution_context,
             )
         except Exception:
-            failure_result = _engine_failure_result()
-            close_diagnostics = _close_opened_adapters(runtime_dependencies.opened_adapters)
-            if close_diagnostics:
-                return ServiceResult(
-                    exit_category=failure_result.exit_category,
-                    message=failure_result.message,
-                    diagnostics=_dedupe_diagnostics(failure_result.diagnostics + close_diagnostics),
-                )
-            return failure_result
-
-        close_diagnostics = _close_opened_adapters(runtime_dependencies.opened_adapters)
-        if close_diagnostics:
-            return _run_service_result_with_close_diagnostics(run_result, close_diagnostics)
+            return _engine_failure_result()
         return _run_service_result(run_result)
 
 
@@ -352,7 +338,8 @@ def _prepare_runtime_execution_dependencies(
         connection_index = aggregate_connection_indices.get(connection_name)
         connection = connections_by_name[connection_name]
         # Keep the scan-approved config independent of mutable factory input.
-        setup_connection = deepcopy(connection) if connection_index is not None else connection
+        verify_binding = connection_index is not None or connection.type == "duckdb"
+        setup_connection = deepcopy(connection) if verify_binding else connection
         setup_result = prepare_runtime_adapter(
             connection=setup_connection,
             required_capabilities=required_capabilities,
@@ -379,16 +366,18 @@ def _prepare_runtime_execution_dependencies(
             )
             continue
         assert setup_result.adapter is not None
-        if connection_index is not None and not _aggregate_adapter_matches_connection(
-            setup_result.adapter, connection
-        ):
+        if verify_binding and not adapter_matches_connection(setup_result.adapter, connection):
             setup_diagnostics.append(
                 Diagnostic(
                     code=ADAPTER_METADATA_INVALID,
                     severity=DiagnosticSeverity.ERROR,
-                    message="Aggregate adapter binding does not match the approved connection.",
+                    message="Adapter binding does not match the approved connection.",
                     resource_type="adapter",
-                    hint=_aggregate_setup_hint(connection_index),
+                    hint=(
+                        _aggregate_setup_hint(connection_index)
+                        if connection_index is not None
+                        else "Inspect the approved connection configuration locally."
+                    ),
                 )
             )
             continue
@@ -420,23 +409,6 @@ def _prepare_runtime_execution_dependencies(
             blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer)
             if blocker is not None:
                 aggregate_blockers[check.id] = blocker
-    open_candidates = _runtime_execution_candidates(
-        adapter_candidates, excluded_check_ids=frozenset(aggregate_blockers)
-    )
-    open_result = _open_runtime_adapters(
-        open_candidates,
-        contracts_by_name=contracts_by_name,
-        adapters_by_connection=adapters_by_connection,
-        connections_by_name=connections_by_name,
-        aggregate_connection_indices=aggregate_connection_indices,
-    )
-    if open_result.diagnostics:
-        return _RuntimeExecutionDependencies(
-            diagnostics=open_result.diagnostics,
-            exit_category=ExitCategory.RUNTIME_ERROR,
-            message="Run adapter connection failed.",
-        )
-
     return _RuntimeExecutionDependencies(
         execution_context=_runtime_context(
             contracts_by_name=contracts_by_name,
@@ -447,8 +419,12 @@ def _prepare_runtime_execution_dependencies(
             tolerance_states=tolerance_states if has_aggregate_checks else None,
             aggregate_blockers_by_check_id=aggregate_blockers,
             aggregate_renderers_by_adapter_type=aggregate_renderers,
+            bound_runner=_ProjectBoundRunner(
+                context.project_root,
+                connections_by_name,
+                scan_budget_decisions.identities_by_check_id,
+            ),
         ),
-        opened_adapters=open_result.opened_adapters,
     )
 
 
@@ -462,7 +438,20 @@ def _runtime_context(
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] | None = None,
     aggregate_blockers_by_check_id: Mapping[str, CheckResult] | None = None,
     aggregate_renderers_by_adapter_type: Mapping[str, _AggregateRuntimeRenderer] | None = None,
+    bound_runner: _BoundRunner | None = None,
 ) -> CheckExecutionContext:
+    if bound_runner is not None:
+        return _ProjectExecutionContext(
+            contracts_by_name=contracts_by_name,
+            adapters_by_connection=adapters_by_connection,
+            connections_by_name=connections_by_name or {},
+            renderers_by_adapter_type=renderers_by_adapter_type or {},
+            scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id or {},
+            tolerance_states_by_contract_id=tolerance_states or {},
+            aggregate_blockers_by_check_id=aggregate_blockers_by_check_id or {},
+            aggregate_renderers_by_adapter_type=aggregate_renderers_by_adapter_type or {},
+            _bound_runner=bound_runner,
+        )
     if tolerance_states is not None:
         return _AggregateExecutionContext(
             contracts_by_name=contracts_by_name,
@@ -481,62 +470,6 @@ def _runtime_context(
         renderers_by_adapter_type=renderers_by_adapter_type or {},
         scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id or {},
     )
-
-
-@dataclass(frozen=True, slots=True)
-class _AdapterOpenResult:
-    opened_adapters: tuple[_OpenedAdapter, ...] = ()
-    diagnostics: tuple[Diagnostic, ...] = ()
-
-
-def _open_runtime_adapters(
-    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
-    *,
-    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
-    adapters_by_connection: Mapping[str, BaseAdapter],
-    connections_by_name: Mapping[str, ConnectionConfig],
-    aggregate_connection_indices: Mapping[str, int],
-) -> _AdapterOpenResult:
-    connection_names = _connection_names_to_open(
-        runtime_candidates,
-        contracts_by_name,
-        connections_by_name,
-    )
-    opened_adapters: list[_OpenedAdapter] = []
-    diagnostics: list[Diagnostic] = []
-    # Preserve setup privacy classification even when aggregate capability
-    # blockers leave only a legacy check eligible to open the connection.
-
-    for connection_name in connection_names:
-        adapter = adapters_by_connection.get(connection_name)
-        connection = connections_by_name.get(connection_name)
-        if adapter is None or connection is None:
-            continue
-        if connection.type != "duckdb":
-            continue
-        try:
-            adapter.connect()
-        except Exception as exc:
-            diagnostics.append(
-                _adapter_lifecycle_diagnostic(
-                    exc,
-                    connection=connection,
-                    fallback_code=ADAPTER_CONNECTION_FAILED,
-                    fallback_message="Adapter connection failed.",
-                    aggregate_connection_index=aggregate_connection_indices.get(connection_name),
-                )
-            )
-            diagnostics.extend(_close_opened_adapters(tuple(opened_adapters)))
-            return _AdapterOpenResult(diagnostics=_dedupe_diagnostics(tuple(diagnostics)))
-        opened_adapters.append(
-            _OpenedAdapter(
-                adapter=adapter,
-                connection=connection,
-                aggregate_connection_index=aggregate_connection_indices.get(connection_name),
-            )
-        )
-
-    return _AdapterOpenResult(opened_adapters=tuple(opened_adapters))
 
 
 def _runtime_connections_for_project(
@@ -565,7 +498,7 @@ def _runtime_connection_for_project(
         return connection
     try:
         resolved_database = (project_root / database_path).resolve()
-    except OSError:
+    except (OSError, RuntimeError, ValueError):
         return connection
     return ConnectionConfig(
         name=connection.name,
@@ -721,7 +654,8 @@ def _check_requires_adapter_setup(
         decision = scan_budget_decisions_by_check_id.get(check.id)
         return decision is not None and decision.allowed
     if not is_key_safety_check_type(check.check_type):
-        return True
+        decision = scan_budget_decisions_by_check_id.get(check.id)
+        return decision is None or decision.allowed
     if check.id in adapter_setup_required_check_ids:
         return True
     decision = scan_budget_decisions_by_check_id.get(check.id)
@@ -816,6 +750,7 @@ def _scan_budget_decisions_by_check_id(
     runtime_safety_checks: RuntimeSafetyCheckRegistry,
 ) -> _RuntimeScanBudgetDecisions:
     decisions: dict[str, ScanBudgetDecision] = {}
+    identities: dict[str, _LocalFileIdentity] = {}
     adapter_setup_required_check_ids: set[str] = set()
     for artifact in runtime_candidates:
         contract = contracts_by_name.get(artifact.contract_name)
@@ -823,13 +758,42 @@ def _scan_budget_decisions_by_check_id(
             continue
         for check in artifact.checks:
             aggregate = is_aggregate_check_type(check.check_type)
+            source = connections_by_name.get(contract.source.connection)
+            target = connections_by_name.get(contract.target.connection)
+            same_context = (
+                source is not None
+                and target is not None
+                and _same_connection_context(source, target)
+            )
+            if same_context and source is not None and source.type == "duckdb":
+                if not _contract_has_valid_relation_endpoint_shape(contract):
+                    continue
+                identity = _local_file_identity(source, project_root)
+                over_cap = (
+                    identity is not None
+                    and check.check_type != "row_count_diff"
+                    and identity.size > _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+                )
+                if identity is not None:
+                    identities[check.id] = identity
+                # This decision only selects eligible setup candidates. It is
+                # not final admission: the owned session must bind both relations
+                # before any comparison code may consume an allowed decision.
+                decisions[check.id] = classify_scan_budget(
+                    ScanBudgetContext(
+                        environment=ScanExecutionEnvironment.LOCAL_DEV,
+                        relation_backed=True,
+                        bounded=identity is not None and not over_cap,
+                        estimate_state=(
+                            ScanEstimateState.OVER_BUDGET if over_cap else ScanEstimateState.UNKNOWN
+                        ),
+                    )
+                )
+                continue
             if not aggregate and not is_key_safety_check_type(check.check_type):
                 continue
-            if aggregate:
-                source = connections_by_name.get(contract.source.connection)
-                target = connections_by_name.get(contract.target.connection)
-                if source is None or target is None or not _same_connection_context(source, target):
-                    continue
+            if aggregate and not same_context:
+                continue
             prepared_decision = _scan_budget_decision_for_relation(
                 contract,
                 connections_by_name=connections_by_name,
@@ -841,6 +805,7 @@ def _scan_budget_decisions_by_check_id(
                 adapter_setup_required_check_ids.add(check.id)
     return _RuntimeScanBudgetDecisions(
         decisions_by_check_id=decisions,
+        identities_by_check_id=identities,
         adapter_setup_required_check_ids=frozenset(adapter_setup_required_check_ids),
     )
 
@@ -952,30 +917,6 @@ def _relation_name_parts(relation_name: str | None) -> tuple[str, ...] | None:
     return parts
 
 
-def _connection_names_to_open(
-    runtime_candidates: tuple[LoadedCompiledChecksArtifact, ...],
-    contracts_by_name: Mapping[str, LoadedCompiledContractArtifact],
-    connections_by_name: Mapping[str, ConnectionConfig],
-) -> tuple[str, ...]:
-    connection_names: set[str] = set()
-    for artifact in runtime_candidates:
-        contract = contracts_by_name.get(artifact.contract_name)
-        if contract is None:
-            continue
-        if contract.source.relation is None or contract.target.relation is None:
-            continue
-        if contract.source.query is not None or contract.target.query is not None:
-            continue
-        source_connection = connections_by_name.get(contract.source.connection)
-        target_connection = connections_by_name.get(contract.target.connection)
-        if source_connection is None or target_connection is None:
-            continue
-        if not _same_connection_context(source_connection, target_connection):
-            continue
-        connection_names.add(contract.source.connection)
-    return tuple(sorted(connection_names))
-
-
 def _same_connection_context(left: ConnectionConfig, right: ConnectionConfig) -> bool:
     return left.type == right.type and left.config == right.config
 
@@ -1017,89 +958,11 @@ def _engine_failure_result() -> ServiceResult:
     )
 
 
-def _close_opened_adapters(opened_adapters: tuple[_OpenedAdapter, ...]) -> tuple[Diagnostic, ...]:
-    diagnostics: list[Diagnostic] = []
-    for opened_adapter in reversed(opened_adapters):
-        try:
-            opened_adapter.adapter.close()
-        except Exception as exc:
-            diagnostics.append(
-                _adapter_lifecycle_diagnostic(
-                    exc,
-                    connection=opened_adapter.connection,
-                    fallback_code=ADAPTER_CLOSE_FAILED,
-                    fallback_message="Adapter close failed.",
-                    aggregate_connection_index=opened_adapter.aggregate_connection_index,
-                )
-            )
-    return _dedupe_diagnostics(tuple(diagnostics))
-
-
-def _adapter_lifecycle_diagnostic(
-    exc: Exception,
-    *,
-    connection: ConnectionConfig,
-    fallback_code: str,
-    fallback_message: str,
-    aggregate_connection_index: int | None = None,
-) -> Diagnostic:
-    if aggregate_connection_index is not None:
-        # Adapter-supplied diagnostics cannot prove that arbitrary values,
-        # grouped keys or relation identifiers are safe for public output.
-        return Diagnostic(
-            code=fallback_code,
-            severity=DiagnosticSeverity.ERROR,
-            message=fallback_message,
-            resource_type="adapter",
-            hint=(
-                f"Connection #{aggregate_connection_index}: "
-                "raw aggregate adapter lifecycle diagnostics were suppressed."
-            ),
-        )
-    diagnostic = getattr(exc, "diagnostic", None)
-    if not isinstance(diagnostic, Diagnostic):
-        diagnostic = Diagnostic(
-            code=fallback_code,
-            severity=DiagnosticSeverity.ERROR,
-            message=fallback_message,
-            resource_type="adapter",
-            resource_name=connection.type,
-            hint=(
-                f"Adapter lifecycle raised {type(exc).__name__}. Raw adapter error text "
-                "was suppressed because runtime adapter diagnostics must not expose "
-                "rendered connection config."
-            ),
-        )
-    return sanitize_profile_backed_adapter_diagnostics(
-        (diagnostic,),
-        connection=connection,
-    )[0]
-
-
 def _run_service_result(run_result: RunResult) -> ServiceResult:
     return ServiceResult(
         exit_category=_exit_category_for_run_status(run_result.status),
         message=_message_for_run_status(run_result.status),
         diagnostics=_collect_run_diagnostics(run_result),
-    )
-
-
-def _run_service_result_with_close_diagnostics(
-    run_result: RunResult,
-    close_diagnostics: tuple[Diagnostic, ...],
-) -> ServiceResult:
-    base_result = _run_service_result(run_result)
-    diagnostics = _dedupe_diagnostics(base_result.diagnostics + close_diagnostics)
-    if base_result.exit_category in {ExitCategory.SUCCESS, ExitCategory.CHECK_FAILURE}:
-        return ServiceResult(
-            exit_category=ExitCategory.RUNTIME_ERROR,
-            message="Run failed during adapter lifecycle cleanup.",
-            diagnostics=diagnostics,
-        )
-    return ServiceResult(
-        exit_category=base_result.exit_category,
-        message=base_result.message,
-        diagnostics=diagnostics,
     )
 
 

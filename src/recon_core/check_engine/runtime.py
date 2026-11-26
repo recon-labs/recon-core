@@ -17,16 +17,17 @@ from recon_core.check_engine.aggregate import (
     is_supported_aggregate_plan_shape,
 )
 from recon_core.check_engine.execution import (
-    execute_row_count_check,
+    _execute_row_count_check,
     is_supported_row_count_plan_shape,
     row_count_query_endpoint_not_executable_result,
 )
 from recon_core.check_engine.execution_support import (
+    not_executable_result,
     safe_string_attribute,
     same_connection_context,
 )
 from recon_core.check_engine.key_safety import (
-    execute_key_safety_check,
+    _execute_key_safety_check,
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
     key_safety_connection_context_not_executable_result,
@@ -40,6 +41,7 @@ from recon_core.check_engine.key_safety import (
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.check_engine.result_metadata import identity_label
 from recon_core.check_engine.scan_budget import (
+    BOUNDED_LOCAL_SCAN_REQUIRED,
     ScanBudgetDecision,
     missing_scan_budget_decision,
 )
@@ -188,6 +190,7 @@ def _aggregate_execution_result(
         tolerance=admission.tolerance,
         decision=decision,
         connections_by_name=execution_context.connections_by_name,
+        bound_runner=getattr(execution_context, "_bound_runner", None),
     )
 
 
@@ -210,17 +213,32 @@ def _row_count_execution_result_if_available(
         return None
     if _contract_has_query_endpoint(contract):
         return row_count_query_endpoint_not_executable_result(check, contract)
+    decision = execution_context.scan_budget_decisions_by_check_id.get(check.id)
+    if (
+        getattr(execution_context, "_bound_runner", None) is not None
+        and decision is not None
+        and not decision.allowed
+    ):
+        return not_executable_result(
+            check,
+            contract,
+            reason=CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,
+            diagnostic_code=BOUNDED_LOCAL_SCAN_REQUIRED,
+            message="Check requires a verified local base-table execution scope.",
+            hint="Verify the local database and supported base-table relations.",
+        )
     adapter = execution_context.adapters_by_connection.get(contract.source.connection)
     if adapter is None:
         return None
 
     renderer = _renderer_for_adapter(adapter, execution_context)
-    return execute_row_count_check(
+    return _execute_row_count_check(
         check,
         contract,
         adapter,
         renderer=renderer,
         connections_by_name=execution_context.connections_by_name,
+        bound_runner=getattr(execution_context, "_bound_runner", None),
     )
 
 
@@ -273,13 +291,14 @@ def _key_safety_execution_result_if_available(
         return None
 
     renderer = _renderer_for_adapter(adapter, execution_context)
-    return execute_key_safety_check(
+    return _execute_key_safety_check(
         check,
         contract,
         adapter,
         scan_budget_decision=scan_budget_decision,
         renderer=renderer,
         connections_by_name=execution_context.connections_by_name,
+        bound_runner=getattr(execution_context, "_bound_runner", None),
     )
 
 

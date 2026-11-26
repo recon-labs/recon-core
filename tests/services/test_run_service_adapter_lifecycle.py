@@ -16,6 +16,8 @@ from recon_core.adapters.duckdb import (
     ADAPTER_QUERY_FAILED,
     DuckDbAdapterFactory,
 )
+from recon_core.adapters.duckdb import _bound_execution as binding
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 from tests.services._run_service_fixtures import (
@@ -24,9 +26,11 @@ from tests.services._run_service_fixtures import (
     RecordingWarehouseFactory,
     _assert_no_runtime_outputs,
     _compiled_check_payload,
+    _duckdb_module,
     _key_safety_check_payload,
     _key_safety_payload_for,
     _service_result_text,
+    _write_duckdb_row_count_tables,
     row_count_plan,
     write_bounded_local_duckdb_fixture,
     write_compiled_checks,
@@ -98,6 +102,9 @@ profiles:
 def test_run_service_ignores_unsupported_aggregate_plan_profile_env(
     tmp_path: Path,
 ) -> None:
+    _write_duckdb_row_count_tables(
+        _duckdb_module(), tmp_path / "warehouse.duckdb", source_rows=((1,),), target_rows=((2,),)
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -166,9 +173,8 @@ profiles:
     assert len(factory.adapters) == 1
     adapter = factory.adapters[0]
     assert adapter.connection.name == "warehouse"
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert adapter.connect_count == adapter.close_count == 0
+    assert adapter.queries == []
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -550,7 +556,7 @@ profiles:
         def connect(self, database: str, *, read_only: bool = False) -> object:
             raise RuntimeError(f"metadata open failed for {database} {read_only}")
 
-    real_import_module = duckdb_scan_guard_module.import_module
+    real_import_module = binding.import_module
 
     def import_module_with_metadata_open_failure(name: str) -> Any:
         if name == "duckdb":
@@ -558,7 +564,7 @@ profiles:
         return real_import_module(name)
 
     monkeypatch.setattr(
-        duckdb_scan_guard_module,
+        binding,
         "import_module",
         import_module_with_metadata_open_failure,
     )
@@ -571,17 +577,18 @@ profiles:
     result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
-    assert result.message == "Run adapter connection failed."
+    assert result.message == "Run failed during check-engine evaluation."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_CONNECTION_FAILED]
     assert "super-secret" not in _service_result_text(result)
     assert BOUNDED_LOCAL_SCAN_REQUIRED not in _service_result_text(result)
     adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
+    assert adapter.connect_count == adapter.close_count == 0
     assert adapter.queries == []
     _assert_no_runtime_outputs(tmp_path)
 
 
 def test_run_service_reports_adapter_setup_failure_before_connect(tmp_path: Path) -> None:
+    (tmp_path / "warehouse.duckdb").touch()
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -621,6 +628,7 @@ profiles:
 def test_run_service_requires_row_count_capability_even_if_compiled_artifact_omits_it(
     tmp_path: Path,
 ) -> None:
+    (tmp_path / "warehouse.duckdb").touch()
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -660,7 +668,10 @@ profiles:
     assert adapter.queries == []
 
 
-def test_run_service_reports_connect_failure_without_engine_execution(tmp_path: Path) -> None:
+def test_run_service_reports_connect_failure_without_engine_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "warehouse.duckdb").touch()
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -685,22 +696,31 @@ profiles:
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
 
+    def fail_open(name: str) -> Any:
+        raise RuntimeError("password=super-secret database=warehouse.duckdb")
+
+    monkeypatch.setattr(binding, "import_module", fail_open)
     result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
 
     diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
-    assert result.message == "Run adapter connection failed."
+    assert result.message == "Run failed during check-engine evaluation."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_CONNECTION_FAILED]
-    assert "RuntimeError" in diagnostic_text
+    assert "Read-only execution session" in diagnostic_text
     assert "super-secret" not in diagnostic_text
     adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
+    assert adapter.connect_count == 0
     assert adapter.close_count == 0
     assert adapter.queries == []
 
 
-def test_run_service_reports_close_failure_after_success(tmp_path: Path) -> None:
+def test_run_service_reports_close_failure_after_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_duckdb_row_count_tables(
+        _duckdb_module(), tmp_path / "warehouse.duckdb", source_rows=((1,),), target_rows=((2,),)
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -723,22 +743,39 @@ profiles:
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
 
+    real_close = binding._OwnedDuckDbSession.close
+
+    def fail_cleanup(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        diagnostics = real_close(session)
+        return diagnostics + (
+            Diagnostic(
+                code=ADAPTER_CLOSE_FAILED,
+                severity=DiagnosticSeverity.ERROR,
+                message="Read-only transaction cleanup failed.",
+            ),
+        )
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", fail_cleanup)
     result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
 
     diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
-    assert result.message == "Run failed during adapter lifecycle cleanup."
+    assert result.message == "Run failed during check-engine evaluation."
     assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_CLOSE_FAILED]
-    assert "RuntimeError" in diagnostic_text
+    assert "Read-only transaction cleanup failed." in diagnostic_text
     assert "super-secret" not in diagnostic_text
     adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert adapter.connect_count == adapter.close_count == 0
+    assert adapter.queries == []
 
 
-def test_run_service_preserves_execution_failure_when_close_also_fails(tmp_path: Path) -> None:
+def test_run_service_preserves_execution_failure_when_close_also_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_duckdb_row_count_tables(
+        _duckdb_module(), tmp_path / "warehouse.duckdb", source_rows=((1,),), target_rows=((2,),)
+    )
     write_project(tmp_path, profile="local")
     write_profiles(
         tmp_path,
@@ -764,6 +801,29 @@ profiles:
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
 
+    real_close = binding._OwnedDuckDbSession.close
+
+    def fail_cleanup(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        diagnostics = real_close(session)
+        return diagnostics + (
+            Diagnostic(
+                code=ADAPTER_CLOSE_FAILED,
+                severity=DiagnosticSeverity.ERROR,
+                message="Read-only transaction cleanup failed.",
+            ),
+        )
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", fail_cleanup)
+
+    def fail_query(
+        session: binding._OwnedDuckDbSession,
+        lease: binding._BindingLease,
+        scope: binding._BindingScope,
+        query: str,
+    ) -> Any:
+        raise RuntimeError("query leaked password=super-secret")
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", fail_query)
     result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
 
     diagnostic_text = "\n".join(
@@ -776,9 +836,8 @@ profiles:
         ADAPTER_QUERY_FAILED,
         ADAPTER_CLOSE_FAILED,
     ]
-    assert "RuntimeError" in diagnostic_text
+    assert "Read-only transaction cleanup failed." in diagnostic_text
     assert "super-secret" not in diagnostic_text
     adapter = factory.adapters[0]
-    assert adapter.connect_count == 1
-    assert adapter.close_count == 1
-    assert len(adapter.queries) == 1
+    assert adapter.connect_count == adapter.close_count == 0
+    assert adapter.queries == []

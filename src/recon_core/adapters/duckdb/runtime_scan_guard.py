@@ -4,16 +4,27 @@ from contextlib import suppress
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
+from stat import S_ISREG
+from string import ascii_lowercase, ascii_uppercase
 from typing import Any
 
+from recon_core.adapters._project_binding import (
+    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
+    _LocalFileIdentity,
+)
+from recon_core.adapters.models import Relation
 from recon_core.adapters.runtime_safety import (
     RuntimeSafetyCheckRequest,
     RuntimeScanSafetyStatus,
 )
 from recon_core.profiles import ConnectionConfig
 
-_MAX_BOUNDED_LOCAL_DUCKDB_BYTES = 64 * 1024 * 1024
 _DUCKDB_LOCAL_SIDECAR_SUFFIXES = (".wal", ".tmp")
+_ASCII_IDENTIFIER_TRANSLATION = str.maketrans(ascii_uppercase, ascii_lowercase)
+
+
+class _BindingMetadataError(ValueError):
+    """Malformed native catalog evidence; do not expose catalog contents."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,22 +102,35 @@ def _local_duckdb_database_path(
     try:
         resolved_candidate = candidate.resolve()
         resolved_project_root = project_root.resolve()
-    except OSError:
+    except (OSError, RuntimeError, ValueError):
         return None
     if not resolved_candidate.is_relative_to(resolved_project_root):
         return None
     return resolved_candidate
 
 
-def _is_bounded_local_file(path: Path) -> bool:
+def _local_file_identity(
+    connection: ConnectionConfig, project_root: Path
+) -> _LocalFileIdentity | None:
+    path = _local_duckdb_database_path(connection, project_root)
+    return _current_file_identity(path) if path is not None else None
+
+
+def _current_file_identity(path: Path) -> _LocalFileIdentity | None:
     try:
-        return (
-            path.is_file()
-            and not _duckdb_local_sidecar_exists(path)
-            and path.stat().st_size <= _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
-        )
-    except OSError:
-        return False
+        if path.resolve(strict=True) != path or _duckdb_local_sidecar_exists(path):
+            return None
+        info = path.stat()
+        if not S_ISREG(info.st_mode):
+            return None
+        return _LocalFileIdentity(path, info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
+def _is_bounded_local_file(path: Path) -> bool:
+    identity = _current_file_identity(path)
+    return identity is not None and identity.size <= _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
 
 
 def _duckdb_local_sidecar_exists(path: Path) -> bool:
@@ -155,11 +179,12 @@ def _duckdb_relations_are_local_base_tables(
         return RuntimeScanSafetyStatus(
             local_dev=True,
             bounded=all(
-                _duckdb_relation_is_local_base_table(
+                _resolve_local_base_table(
                     connection,
                     relation,
                     local_catalog_names=local_catalog_names,
                 )
+                is not None
                 for relation in (source_relation_name, target_relation_name)
             ),
         )
@@ -195,59 +220,88 @@ def _relation_name_parts(relation_name: str | None) -> tuple[str, ...] | None:
 
 def _local_duckdb_catalog_names(connection: Any, database_path: Path) -> frozenset[str]:
     rows = connection.execute("pragma database_list").fetchall()
+    if not isinstance(rows, list | tuple):
+        raise _BindingMetadataError()
     catalog_names: set[str] = set()
+    matching_paths = 0
     resolved_database_path = database_path.resolve()
     for row in rows:
-        if not isinstance(row, tuple) or len(row) < 3:
+        if not isinstance(row, tuple) or len(row) != 3:
+            raise _BindingMetadataError()
+        index, catalog_name, catalog_path = row
+        if type(index) is not int or not isinstance(catalog_name, str) or not catalog_name:
+            raise _BindingMetadataError()
+        # In-memory/system catalog entries may not have a filesystem path.
+        if catalog_path is None or catalog_path == "":
             continue
-        catalog_name = row[1]
-        catalog_path = row[2]
-        if not isinstance(catalog_name, str) or not isinstance(catalog_path, str):
-            continue
+        if not isinstance(catalog_path, str):
+            raise _BindingMetadataError()
         try:
             if Path(catalog_path).resolve() == resolved_database_path:
+                matching_paths += 1
                 catalog_names.add(_duckdb_identifier_key(catalog_name))
-        except OSError:
-            continue
+        except (OSError, RuntimeError, ValueError):
+            raise _BindingMetadataError() from None
+    if matching_paths > 1:
+        return frozenset()
     return frozenset(catalog_names)
 
 
-def _duckdb_relation_is_local_base_table(
+def _resolve_local_base_table(
     connection: Any,
     relation: _DuckDbRelationName,
     *,
     local_catalog_names: frozenset[str],
-) -> bool:
-    predicates = ["lower(table_name) = lower(?)"]
-    parameters: list[str] = [relation.identifier]
+) -> Relation | None:
+    # DuckDB identifiers are ASCII-case-insensitive, not Unicode-case-insensitive.
+    # Use the same normalization in catalog and relation lookups.
+    predicates = ["translate(table_name, ?, ?) = ?"]
+    parameters = [ascii_uppercase, ascii_lowercase, _duckdb_identifier_key(relation.identifier)]
     if relation.schema is not None:
-        predicates.append("lower(table_schema) = lower(?)")
-        parameters.append(relation.schema)
+        predicates.append("translate(table_schema, ?, ?) = ?")
+        parameters.extend(
+            (ascii_uppercase, ascii_lowercase, _duckdb_identifier_key(relation.schema))
+        )
     if relation.catalog is not None:
-        predicates.append("lower(table_catalog) = lower(?)")
-        parameters.append(relation.catalog)
+        predicates.append("translate(table_catalog, ?, ?) = ?")
+        parameters.extend(
+            (ascii_uppercase, ascii_lowercase, _duckdb_identifier_key(relation.catalog))
+        )
 
     rows = connection.execute(
         "select table_catalog, table_schema, table_name, table_type "
         "from information_schema.tables "
-        f"where {' and '.join(predicates)}",
+        f"where {' and '.join(predicates)} limit 2",
         parameters,
-    ).fetchall()
-    local_rows = tuple(
-        row
+    ).fetchmany(2)
+    if not isinstance(rows, list | tuple) or any(
+        not isinstance(row, tuple)
+        or len(row) != 4
+        or any(not isinstance(value, str) or not value for value in row)
         for row in rows
-        if (
-            isinstance(row, tuple)
-            and len(row) >= 4
-            and isinstance(row[0], str)
-            and _duckdb_identifier_key(row[0]) in local_catalog_names
+    ):
+        raise _BindingMetadataError()
+    if len(rows) > 2:
+        raise _BindingMetadataError()
+    if len(rows) != 1:
+        return None
+    catalog, schema, identifier, table_type = rows[0]
+    if (
+        _duckdb_identifier_key(identifier) != _duckdb_identifier_key(relation.identifier)
+        or (
+            relation.schema is not None
+            and _duckdb_identifier_key(schema) != _duckdb_identifier_key(relation.schema)
         )
-    )
-    if len(rows) != 1 or len(local_rows) != 1:
-        return False
-    table_type = local_rows[0][3]
-    return isinstance(table_type, str) and table_type.upper() == "BASE TABLE"
+        or (
+            relation.catalog is not None
+            and _duckdb_identifier_key(catalog) != _duckdb_identifier_key(relation.catalog)
+        )
+    ):
+        raise _BindingMetadataError()
+    if _duckdb_identifier_key(catalog) not in local_catalog_names or table_type != "BASE TABLE":
+        return None
+    return Relation(identifier=identifier, schema=schema, catalog=catalog)
 
 
 def _duckdb_identifier_key(identifier: str) -> str:
-    return identifier.casefold()
+    return identifier.translate(_ASCII_IDENTIFIER_TRANSLATION)

@@ -394,6 +394,48 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: src/recon_core/adapters/_project_binding.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - execution_result
+        - diagnostics
+    - path: src/recon_core/adapters/duckdb/_bound_execution.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - execution_result
+        - diagnostics
+        - source_target_privacy
+    - path: src/recon_core/check_engine/_bound_protocol.py
+      surfaces:
+        - adapter_runtime
+        - execution_result
+        - typed_check_plan
+    - path: src/recon_core/services/_bound_runner.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+        - diagnostics
+        - source_target_privacy
+    - path: tests/adapters/test_duckdb_bound_execution.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - execution_result
+        - diagnostics
+    - path: tests/services/test_run_service_bound_execution.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - check_engine
+        - execution_result
+        - prerequisite_blocking
+        - diagnostics
+        - source_target_privacy
   prefixes:
     - prefix: src/recon_core/adapters/
       surfaces:

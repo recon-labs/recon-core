@@ -46,7 +46,7 @@ Implemented today:
 - structured service results and diagnostics,
 - first `recon run` check-engine boundary for already compiled checks,
 - relation-backed same-context DuckDB `row_count_diff` execution through
-  `recon run`,
+  `recon run` on verified project-local base tables,
 - relation-backed same-context DuckDB grain-key safety execution for compiled
   null-key, duplicate-key, missing-key, and extra-key checks through `recon run`
   when the internal local/dev scan guard verifies a project-local DuckDB file
@@ -153,14 +153,13 @@ adapter and resolve to the same adapter connection config. If you use the
 generated profile example, set `RECON_DUCKDB_PATH` or edit
 `connections/profiles.yml` before running `recon compile --render-sql`.
 `recon run` loads already compiled check artifacts and routes them through the
-first check-engine boundary. It can execute relation-backed same-context DuckDB
-`row_count_diff` checks when matching compiled-contract artifacts and runtime
-profiles are available. Grain-key safety and explicit sum aggregate checks
-execute only when the runtime
-context passes the internal local/dev bounded scan guard. That guard requires a
-project-local DuckDB file under the size cap and relation endpoints that resolve
-to local base tables, not views or externally backed relations; otherwise their
-scan-heavy paths remain not executable. It reports missing, invalid, empty,
+first check-engine boundary. It can execute relation-backed same-context DuckDB row-count, grain-key
+safety and explicit SUM checks when matching compiled-contract artifacts and
+runtime profiles are available. All three families require an existing regular
+project-local DuckDB file without retained sidecars and verified local base
+tables, not views or externally backed relations. Each eligible check owns a
+fresh read-only transaction. The temporary 64 MiB file cap applies to grain-key
+and SUM checks only, not row count; it is not a resource bound. It reports missing, invalid, empty,
 unsupported, blocked, or not-executable compiled checks with structured runtime
 diagnostics.
 It does not execute query endpoints, other aggregate metric types, or row-level
@@ -264,13 +263,13 @@ row-level value check expansion is still future work.
 
 Current `recon run` consumes `target/compiled_checks/` plus matching
 `target/compiled_contracts/` metadata. It does not parse authored YAML or
-recompile contracts. It loads runtime profiles and opens the DuckDB adapter only
-for supported relation-backed same-context `row_count_diff` checks and for
-grain-key safety and explicit sum aggregate checks only when the internal
-local/dev scan guard classifies
-the input as bounded. The guard requires a project-local DuckDB file under the
-size cap and compiled source/target relations that resolve to local base tables;
-views and externally backed relations fail closed. Unsupported execution surfaces
+recompile contracts. It loads runtime profiles for supported relation-backed same-context DuckDB
+checks and verifies local file scope before opening a private read-only
+transaction per eligible check. Catalog proof and data queries use that same
+transaction. Views and externally backed relations fail closed before data
+queries. The temporary file cap applies only to grain-key and SUM checks.
+Use an existing database inside the project; close conflicting writable
+connections before running. Broader safe execution contexts remain planned. Unsupported execution surfaces
 remain blocked or not executable. It does not write generated run/evidence
 outputs.
 

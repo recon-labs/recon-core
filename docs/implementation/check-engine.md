@@ -239,23 +239,28 @@ adapter work. It should not parse authored YAML, recompile contracts, write
 generated files, or run selector/subset logic.
 
 For relation-backed row-count, grain-key safety and admitted aggregate
-candidates that match the supported typed plan shapes, the service may load the selected profile
-and referenced profile connections, validate adapter metadata/API/capabilities,
-open the supported adapter connection, classify scan-budget safety for key
-and aggregate checks, and pass an explicit execution context to the check engine.
-The current scan-heavy paths are allowed only when the internal local/dev scan guard
-classifies the relation-backed input as bounded: the DuckDB database file must
-be project-local and under the size cap, retained local DuckDB sidecars must be
-absent, and the compiled source and target relations must resolve through
-non-executing catalog metadata to local base tables. Retained sidecars, views,
-externally backed relations, missing metadata, or metadata inspection failures
-fail closed before adapter setup. The service must close adapters it opened. It
-must not open adapters for checks outside the supported row-count or bounded
-local/dev key-safety and aggregate execution shapes. Aggregate capability or
-private collaborator blockers are per check; they must not prevent unrelated
-eligible checks from using a shared connection. Unsupported aggregate families
-and row-level value checks remain `not_executable` or blocked until their
-owning execution phases exist.
+candidates with supported typed plans, the service loads the selected profile
+and referenced connections, checks preliminary file scope and validates
+adapter metadata/API/capabilities. It passes a private project execution
+context to the check engine. Each eligible check uses a fresh owned read-only
+DuckDB connection and transaction; the actual catalog proof, type guards
+and data queries use that same connection. Both endpoints must resolve to
+unique project-local base tables. The existing 64 MiB file footprint cap
+applies to grain-key and SUM checks only, not row count; it is not a resource
+bound. Missing/outside/nonregular files, retained sidecars and applicable
+over-cap inputs are refused before native open. Views, external relations
+and ambiguous catalog matches are refused after metadata-only open, with
+no data query. Invalid metadata or stale binding produces an error.
+
+No native session is opened for checks blocked by prerequisites, unsupported
+plans or capabilities. The active binding is checked before each native read;
+rollback and close precede a finalized result. Native failures are check-local
+when release is confirmed; uncertain close stops further eligible native work
+without changing structural or prerequisite blockers. No writable fallback,
+borrowed connection or run-wide snapshot is implied. Aggregate capability or
+private collaborator blockers remain per check. Unsupported aggregate
+families and row-level value checks remain `not_executable` or blocked until
+their owning execution phases exist.
 
 Missing compiled-check artifacts, malformed compiled-check artifacts, and empty
 compiled-check scopes are runtime diagnostics, not successful runs. They should

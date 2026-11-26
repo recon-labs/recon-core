@@ -157,23 +157,23 @@ prework for exact readiness and conformance requirements.
 
 ## Execution scope restoration checkpoint
 
-Apply [Gate 4Q execution scope restoration assignments](../planning/execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+Apply [Gate 4Q execution scope restoration assignments](../planning/execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented on draft PR #38; acceptance and exit approval remain pending. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
 Reopened binding direction: fresh owned read-only per check, per-check transaction, verified exact relation identity, no writable fallback. Uniform protected local base-table scope approved; keep legacy 64 MiB key/SUM guard only, do not add it to row count. Resource policy/defaults remain reopened. Exact private integration, diagnostic, path/identity and acceptance proof require separate detailed approval.
 
-## M8.1.1 proposed binding lifecycle amendment
+## M8.1.1 approved binding lifecycle amendment
 
 See [M8.1.1 prework](../planning/milestone-8-1-1-prework.md). Maintainer approved L1 check-local native
 failure isolation; configuration/setup precedence retained. Cleanup
 uncertainty stops further native work without proven isolation. Final
 check ERROR carries no comparison values; dependent checks use actual
 prerequisite blockers. Existing status/reason/exit taxonomy and public
-API signatures remain unchanged. Two proposed additive Core runtime
+API signatures remain unchanged. Two additive Core runtime
 diagnostics: RC_RUNTIME_BINDING_PROOF_FAILED and
 RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE. Existing connection/query/close
-codes retain safe messages. This is pending design review/implementation,
-not current runtime behavior or new public stable capability. Resource
-settings and defaults remain reopened.
+codes retain safe messages. The approved binding is implemented on draft
+PR #38, with final verification and exit approval pending; it is not a
+new public stable capability. Resource settings and defaults remain reopened.
 
 ## Mandatory M8.1.2 resource policy handoff
 

@@ -27,6 +27,9 @@ from recon_core.artifacts import (
     LoadedCompiledEndpoint,
 )
 from recon_core.check_engine import CheckReason, CheckStatus, execute_row_count_check
+from recon_core.check_engine._bound_protocol import _BoundEvaluation
+from recon_core.check_engine.execution import _execute_row_count_check
+from recon_core.check_engine.models import CheckResult
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 
@@ -578,3 +581,41 @@ def _diagnostic_text(diagnostics: tuple[Diagnostic, ...]) -> str:
             if value is not None
         )
     return " ".join(fields)
+
+
+def test_private_row_count_runner_supplies_canonical_relations_and_reader() -> None:
+    adapter = RecordingAdapter(error=AssertionError("Unbound execution must not run."))
+    reader = RecordingAdapter()
+    source = Relation(identifier="source_exact", schema="main", catalog="local")
+    target = Relation(identifier="target_exact", schema="main", catalog="local")
+    calls: list[str] = []
+
+    class Reader:
+        def execute(self, query: str) -> QueryResult:
+            return reader.execute(query)
+
+        def _execute_aggregate_query(self, query: str, *, expected_columns: tuple[str, ...]) -> Any:
+            raise AssertionError("Row count does not use aggregate transport.")
+
+    class Runner:
+        def run(
+            self,
+            check: LoadedCompiledCheck,
+            contract: LoadedCompiledContractArtifact,
+            prepared_adapter: BaseAdapter,
+            evaluate: _BoundEvaluation,
+        ) -> CheckResult:
+            assert prepared_adapter is adapter
+            calls.append(check.id)
+            return evaluate(source, target, Reader())
+
+    check = _row_count_check()
+    result = _execute_row_count_check(
+        check, _contract(), adapter, renderer=_duckdb_renderer(), bound_runner=Runner()
+    )
+    assert result.status is CheckStatus.PASS
+    assert calls == [check.id]
+    assert adapter.queries == []
+    assert len(reader.queries) == 1
+    assert '"local"."main"."source_exact"' in reader.queries[0]
+    assert '"local"."main"."target_exact"' in reader.queries[0]

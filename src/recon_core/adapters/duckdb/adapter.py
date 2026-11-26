@@ -13,6 +13,7 @@ from recon_core.adapters._aggregate_runtime import (
     _NumericDomain,
     _NumericValue,
 )
+from recon_core.adapters._project_binding import _InvalidAggregateResultError
 from recon_core.adapters.base import BaseAdapter
 from recon_core.adapters.capabilities import AdapterCapabilities, CapabilitySupport
 from recon_core.adapters.duckdb.renderer import DuckDbSqlRenderer as DuckDbSqlRenderer
@@ -105,14 +106,7 @@ class DuckDbAdapter(BaseAdapter):
             self._connection = None
 
     def execute(self, query: str) -> QueryResult:
-        def read(connection: Any) -> QueryResult:
-            cursor = connection.execute(query)
-            description = getattr(cursor, "description", None) or ()
-            columns = tuple(str(column[0]) for column in description)
-            rows = tuple(tuple(row) for row in cursor.fetchall())
-            return QueryResult(columns=columns, rows=rows, row_count=len(rows))
-
-        return self._read_query(read)
+        return self._read_query(lambda connection: _read_query_result(connection, query))
 
     def _execute_aggregate_query(
         self, query: str, *, expected_columns: tuple[str, ...]
@@ -165,8 +159,12 @@ class DuckDbAdapter(BaseAdapter):
         )
 
 
-class _InvalidAggregateResultError(ValueError):
-    """Private malformed numeric transport; never include raw query or values."""
+def _read_query_result(connection: Any, query: str) -> QueryResult:
+    cursor = connection.execute(query)
+    description = getattr(cursor, "description", None) or ()
+    columns = tuple(str(column[0]) for column in description)
+    rows = tuple(tuple(row) for row in cursor.fetchall())
+    return QueryResult(columns=columns, rows=rows, row_count=len(rows))
 
 
 def _read_type_description(

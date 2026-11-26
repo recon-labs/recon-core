@@ -258,6 +258,30 @@ concrete adapter or infrastructure coupling, service or orchestrator boundary
 leaks, duplicated helper logic, test-helper bloat, and whether a same-branch
 low-risk refactor is required before the milestone can be considered complete.
 
+## Semantic design integrity
+
+For every milestone and substantive change, assess existing and newly
+introduced or reinforced material anti-patterns during audit/preflight,
+planning and design, implementation, fixes, cumulative review and exit.
+Use actual code, relevant collaborators, documented responsibilities,
+architecture, ADRs and tests. Do not choose a locally passing shortcut
+that violates boundaries, duplicates policy, hides failures or weakens proof.
+
+Correct necessary authorized in-scope violations, including low-risk
+same-scope refactors; block on unsafe prerequisites and propose broader or
+public-surface changes for approval. Read-only reviews remain read-only.
+Record material out-of-scope findings with evidence, impact, proposed
+correction, owner, owning milestone/workstream and rationale in existing
+planning artifacts (propose ownership if approval is needed). Revisit
+assigned follow-ups at relevant audits/prework; never defer an in-scope
+blocker to claim completion. Require no unresolved actionable material
+in-scope design violations at exit.
+
+Keep this proportionate and semantic: reuse existing prework, review and
+validation, not a new tracker, report, mandatory tool, blanket thresholds
+or general detection engine. Add deterministic checks only for concrete,
+justified problems through normal design and approval.
+
 ## Review fixes and project consistency
 
 Before a fix, identify currently supported behavior from the relevant docs,
@@ -303,9 +327,11 @@ Each iteration reviews the full change against its base and relevant unchanged
 collaborators, including docs, ADRs, contracts, acceptance dimensions, gates,
 tests, regression capture, and responsibility boundaries. Record findings,
 classify capability and design impact, and resolve authorized in-scope
-defects. Non-trivial behavioral corrections require observed failing
-regression proof (RED), the smallest design-conformant correction, and
-verified passing validation (GREEN), including nearby supported behavior.
+defects. Non-trivial behavioral corrections require test-first regression coverage,
+the smallest design-conformant correction, and verified passing validation
+(GREEN), including nearby supported behavior. Prefer observed RED locally;
+when local execution is unavailable, follow the equivalent validation mode
+below for when observed RED CI is mandatory.
 Non-behavioral corrections require appropriate objective validation.
 
 After GREEN, perform the second consistency pass described above and repeat
@@ -419,8 +445,13 @@ never claim an unexecuted command ran.
 
 Prefer existing CI on the exact revision, including required pre-commit,
 lint, formatting, typing, tests and supported native-version suites. Verify
-actual jobs, commands, results and skips; preserve test-first RED/GREEN
-and cumulative review requirements. When required proof is unavailable
+actual jobs, commands, results and skips. Write tests before implementation;
+when local execution is unavailable, routine changes may use reviewed expected
+failure followed by verified GREEN CI without a separate RED CI run. Actual
+RED evidence remains mandatory for critical regressions, uncertain
+reproduction, material safety/correctness negative proof, and explicit gate
+requirements. Record observed versus expected failure and rationale; preserve
+all GREEN coverage and cumulative review requirements. When required proof is unavailable
 from existing jobs, use narrowly scoped temporary CI validation on an
 isolated branch with bounded synthetic fixtures, exact revision/version
 and commands, minimum permissions, no secrets or production data, and

@@ -13,6 +13,7 @@ from recon_core.artifacts import (
 )
 from recon_core.artifacts.compiled_contract_loader import _ToleranceReferenceState
 from recon_core.check_engine import prerequisites as _prerequisites
+from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.dispatch import CheckDispatcher
 from recon_core.check_engine.models import (
     CheckResult,
@@ -61,6 +62,11 @@ class _AggregateExecutionContext(CheckExecutionContext):
     aggregate_renderers_by_adapter_type: Mapping[str, _AggregateRuntimeRenderer] = field(
         default_factory=dict
     )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _ProjectExecutionContext(_AggregateExecutionContext):
+    _bound_runner: _BoundRunner
 
 
 class CheckEngine:

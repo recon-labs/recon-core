@@ -1,6 +1,7 @@
 # M8.1.1 - Shared Database Binding Prework
 
-Status: proposed detailed prework, not authorization to code. Core baseline
+Status: design and implementation approved; implementation on draft PR #38,
+final acceptance and gate review pending. Historical design baseline
 e89838985ff5906f2ec5e3aa393c9ba11dff60f5 (merged PR #35).
 Split Decision: Already Split / Follow Existing Split. M8.1.1 -> targeted
 M7.4 correction -> M8.1.2. Gate 4Q/S1-S8, 4L/R1-R10, 4P/T1-T10 apply.
@@ -215,10 +216,11 @@ gate proof and exit approval. Review the expanded variants and test references b
 finalize compatibility and design review before code. Ruff format/lint, mypy, pytest,
 pinned native suites, pre-commit and capture routing required. When local validation is unavailable, follow the equivalent validation
 policy in milestone-process.md; required runtime proof cannot be waived. M7.4 correction
-blocked until verified M8.1.1 exit. No implementation approval.
+blocked until verified M8.1.1 exit. The original prework required separate
+implementation approval; that approval was granted before PR #38.
 
 
-## Expanded acceptance variants (planned, not executed)
+## Expanded acceptance requirements (original plan)
 
 Codes below refer to L1 or existing family-specific validation. Each
 failure variant asserts safe messages, no source values on non-executed
@@ -289,7 +291,8 @@ not matched), record covered/migrated/deferred only under gate policy with
 actual exact nodes. Existing primary-owner M8 carryovers for publication,
 privacy and CLI remain assigned to M8.2/M8.3 where not touched. No orphaned
 requirement at this prework assignment level. Final design integrity review
-and separate implementation approval required before coding.
+and separate implementation approval were required before coding. Exit review
+remains required.
 
 ## Equivalent validation when local execution is unavailable
 
@@ -316,3 +319,76 @@ protection. Record exact evidence, equivalent checks, missing proof and
 cleanup. Missing required proof remains a blocker to readiness or gate
 satisfaction, not a reason to weaken tests. Ordinary design, implementation,
 merge and release approval requirements are unaffected.
+
+
+## Implementation checkpoint (not milestone exit)
+
+Draft PR #38 implements the approved shared binding mechanism. The initial
+integration baseline and expanded acceptance have passed full CI, including
+all four supported DuckDB pins. The final branch revision, remaining
+acceptance variants, cumulative gates and merge approval are not yet closed.
+
+Verified baselines: 84f9f6a8a99f34b3820dc0b8c966401a37472d05 (CI 45808726861),
+f4324161f7229d7b6325fd897b991be16363c599 (CI 45809322900), and
+3391f9a19503ee9a937f3252ece3f5c3a680dd00 (CI 45809868971), all ten jobs
+successful. New coverage and documentation after those revisions require
+exact-head validation; baseline evidence does not substitute for it.
+
+No resource-default or grouped SQL optimization has been implemented.
+The temporary 64 MiB key/SUM footprint restriction and uncapped row count
+remain as approved. This is not a resource bound or a filesystem sandbox.
+
+
+## Exit acceptance evidence inventory (PR #38)
+
+The implementation review retains the original J1-J12 requirements above.
+The following is a mapping to actual tests, not a replacement acceptance
+matrix. Prefixes: N = `tests/adapters/test_duckdb_bound_execution.py`;
+S = `tests/services/test_run_service_bound_execution.py`;
+A = `tests/services/test_run_service_aggregate_admission.py`;
+D = `tests/services/test_run_service_duckdb_execution.py`;
+L = `tests/services/test_run_service_adapter_lifecycle.py`.
+Current evidence must be verified on the exact PR head before exit.
+
+| Requirement | Actual regression evidence |
+| --- | --- |
+| J1 | S::test_preflight_never_opens_session; A::test_aggregate_plan_rejects_unsupported_shape_before_profile, test_unresolved_named_aggregate_policy_blocks_before_profile, test_aggregate_missing_prerequisite_blocks_before_profile, test_aggregate_service_requires_capabilities_before_connect; D::test_run_service_blocks_unsupported_placement_or_materialization_before_adapter_setup, test_run_service_preserves_key_safety_invalid_relation_before_profile_loading; L::test_run_service_reports_missing_compiled_contract_before_profile_or_adapter_work. Existing artifact-loader negative tests retained. |
+| J2 | N::test_file_scope_admission, test_local_file_identity_preserves_canonical_path, test_local_file_identity_refuses_stat_failure, test_nonregular_file_scope_is_refused; S::test_row_count_missing_file_does_not_create_database, test_outside_project_row_count_refuses_without_open; D::test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suffix, test_run_service_resolves_relative_duckdb_profile_paths_from_project_root. |
+| J3 | A::test_legacy_footprint_policy (all four check families, cap-1/cap/cap+1), test_large_native_database_does_not_cap_row_count; actual local fixtures in the native suites. |
+| J4 | N::test_qualified_relation_binding_and_owned_cleanup, test_qualified_relation_binding_preserves_distinct_unicode_tables, test_bound_query_reads_canonical_relation, test_quoted_relation_and_temp_shadow_keep_exact_binding, test_actual_attached_catalog_is_not_local_base_table, test_mismatched_table_metadata_is_invalid_evidence; S::test_row_count_refuses_view_scope; D::test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_adapter_setup. |
+| J5 | S::test_actual_session_and_aliases_writer_conflict, test_legacy_family_wrong_factory_binding_never_opens, test_project_run_never_borrows_or_closes_supplied_connection; A::test_aggregate_rejects_wrong_factory_connection_before_open, test_native_aggregate_same_context_alias_and_mixed_checks; D::test_run_service_executes_row_count_for_same_context_duckdb_aliases, test_run_service_executes_key_safety_for_same_context_duckdb_aliases, test_run_service_blocks_cross_context_duckdb_execution_without_bridge_or_fallback. |
+| J6 | N::test_lease_invalidation, test_scope_refusal_cannot_be_rebound, test_file_drift_invalidates_active_lease, test_owned_session_refuses_new_sidecar, test_lease_rejects_wrong_transport_family, test_aggregate_describe_cannot_bypass_invalidated_binding, test_malformed_catalog_evidence_is_not_scope_refusal. |
+| J7 | A::test_all_nine_checks_use_owned_transaction_and_qualified_queries, test_binding_drift_between_aggregate_guards_stops_final_read; N::test_quoted_relation_and_temp_shadow_keep_exact_binding, test_file_drift_invalidates_active_lease; S::test_actual_session_and_aliases_writer_conflict. |
+| J8 | N::test_owned_session_cleanup_failures, test_malformed_catalog_evidence_is_not_scope_refusal; S::test_native_row_count_uses_owned_read_only_session, test_primary_outcome_retained_on_cleanup_failure (data failure, scope refusal and query error crossed with rollback, close and combined cleanup failures); A::test_native_aggregate_lifecycle_and_failure_privacy; L::test_run_service_preserves_execution_failure_when_close_also_fails, test_run_service_reports_connect_failure_without_engine_execution, test_run_service_reports_close_failure_after_success. Existing invalid result envelopes retained. |
+| J9 | S::test_cleanup_failure_is_check_local_or_stops_native_execution (including independent same-context alias and malformed plan), test_native_failure_isolation_across_database_files, test_mixed_native_failure_preserves_unrelated_database; existing prerequisite regression suites. |
+| J10 | A::test_all_nine_checks_use_owned_transaction_and_qualified_queries, test_native_aggregate_service_numeric_outcomes_and_privacy, test_native_aggregate_service_null_and_empty_outcomes, test_native_grouped_service_distinguishes_absence_from_null, test_native_grouped_service_rejects_incompatible_key_types, test_native_grouped_service_high_cardinality_remains_private, test_native_aggregate_service_exact_overflow, test_native_aggregate_service_arbitrary_integer_availability; D::test_run_service_executes_actual_duckdb_key_safety_failures_without_raw_output, test_run_service_executes_actual_duckdb_key_safety_empty_side_cases; existing native numeric, key and row-count suites. |
+| J11 | S::test_row_count_refuses_view_scope, test_outside_project_row_count_refuses_without_open, test_project_run_never_borrows_or_closes_supplied_connection; N::test_actual_attached_catalog_is_not_local_base_table, test_memory_and_nonlocal_catalog_are_not_local_binding; A::test_large_native_database_does_not_cap_row_count; existing adapter/renderer/helper and package-export tests. New architecture test: tests/check_engine/test_execution_boundaries.py::test_project_binding_runner_does_not_depend_on_check_family. |
+| J12 | S::test_native_failure_isolation_across_database_files, test_primary_outcome_retained_on_cleanup_failure; A::test_native_aggregate_cli_privacy_and_artifact_immutability, test_aggregate_factory_diagnostics_do_not_publish_private_data, test_aggregate_lifecycle_preserves_distinct_connection_failures; D::test_run_service_does_not_mutate_stale_outputs_during_actual_key_safety, test_run_service_does_not_mutate_stale_outputs_during_executable_row_count. Existing redaction tests retained. |
+
+## Gate disposition at exit review
+
+Dispositions below are scoped to this implementation and conditional on
+exact-head verification and maintainer exit approval. They do not close
+cross-cutting gates globally.
+
+| Gate | Local disposition and carryover |
+| --- | --- |
+| 4Q | J2/J4/J5/J11: approved temporary local base-table scope; S1-S5 local restoration remains mandatory at M10.8, remote S5/S6 at M13.5, S7 at M18, S8 at M29. No permanent restriction. |
+| 4I | J1/J5/J6/J7/J10: same-context only, actual owned binding, no implicit movement, no writable or unbound fallback. Other placements remain gated. |
+| 4L | J2/J3/J6/J7/J8/J12: A4/A7/A8/A13 binding portions; R5 actual scope, R6 prerequisite cleanup only, R8 safe in-memory diagnostics only, R10 pinned semantic/boundary evidence only. Legacy footprint is not workload evidence or resource enforcement. Remaining A1-A13/R1-R10, measured useful defaults and native controls belong to M8.1.2; remaining B8-B10 to M8.2 unless required earlier. |
+| 4A / 4J | J1/J5/J12: preserve profile loading, capability setup, actual factory identity and redaction; no new profile format or secret transport. |
+| 4B / 4C | J1/J5/J6/J10/J11: private adapter-neutral lease and shared execution-support seam; public adapter API/version, typed operations, compile SQL and low-level prepared helpers unchanged. |
+| 1A / 5 | J1/J8/J9: actual dependency precedence and approved L1 cleanup prerequisite (B9) only. Full lifecycle, timing, deadlines, cancellation and aggregation work remains M8.2; publication M8.3. |
+| 3F2 / 6 | J8/J9/J12: fixed safe diagnostic categories, primary/cleanup preservation, no raw source/target/native error or generated output. Later privacy/publication obligations remain. |
+| 3A / 4O | J7/J10: strict existing SUM/numeric and grouped semantics retained, no expanded numeric/type capability. |
+| 4P | J4/J6/J7/J10/J12: T7 binding, T8 existing typed boundary, T9 safe existing outcomes, T10 pinned local proof for present scope. Mandatory lossless cross-type retrofit remains M9.5. |
+| 8C | J4/J7/J10/J11: native semantic and four-version compatibility for the existing local path; grouped SQL optimization is separate corrective work, resource calibration M8.1.2 and shared conformance M29 remain pending. |
+| 5E | Not applicable to new writer behavior: no writer or generated artifact contract added; immutability regression evidence retained. M8.3/M9 obligations unchanged. |
+
+Capture decisions: new stable rows `duckdb-owned-project-binding` and
+`project-binding-check-local-cleanup` cover the current Core regression
+scope. Existing future adapter-testkit, privacy, publication, CLI and
+parser/compiler carryovers retain their owning milestones and explicit
+deferred status; do not mark them satisfied by Core-only evidence. The
+branch-wide advisory must be refreshed against the exact exit head.
+No successor implementation or merge without approval.

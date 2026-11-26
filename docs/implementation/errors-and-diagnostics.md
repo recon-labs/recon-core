@@ -416,9 +416,11 @@ results. Locked codes:
 | `RC_RUNTIME_UNSUPPORTED_MATERIALIZATION_POLICY` | run | error | Required staging, movement, or materialization policy is not implemented or allowed. |
 | `RC_RUNTIME_SCAN_ESTIMATE_UNKNOWN` | run | error | Scan scope or estimate safety is unknown, so a scan-heavy check is not executable. |
 | `RC_RUNTIME_SCAN_ESTIMATE_UNSUPPORTED` | run | error | Scan estimation is unavailable, unsupported, malformed, or incompatible. |
-| `RC_RUNTIME_SCAN_BUDGET_EXCEEDED` | run | error | Scan-budget preflight says execution would exceed the allowed budget. |
+| `RC_RUNTIME_SCAN_BUDGET_EXCEEDED` | run | error | The temporary 64 MiB local database file limit is exceeded for a grain-key or SUM check; this is not an actual scan or resource estimate. |
 | `RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT` | run | error | A proposed scan preflight would itself execute or otherwise be unsafe. |
-| `RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED` | run | error | The check did not pass the internal bounded local/dev relation-backed scan guard. |
+| `RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED` | run | error | Project-run check requires a verified local base-table execution scope. |
+| `RC_RUNTIME_BINDING_PROOF_FAILED` | run | error | Required native catalog evidence failed, was malformed, or the owned check binding could not be verified. |
+| `RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE` | run | error | Native execution stopped because earlier session cleanup could not be confirmed. |
 | `RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED` | run | info | A grain-key safety check executed only after the internal bounded local/dev relation-backed scan guard allowed it. |
 | `RC_RUNTIME_NULL_GRAIN_KEYS` | run | error | A null grain-key safety check executed and found null grain-key tuples. |
 | `RC_RUNTIME_DUPLICATE_GRAIN_KEYS` | run | error | A duplicate grain-key safety check executed and found duplicate fully non-null grain-key tuples. |
@@ -434,7 +436,11 @@ execution, and close failures. `RC_ADAPTER_CONNECTION_FAILED`,
 machine context and actionable messages while suppressing raw SQL, rendered
 SQL, database engine error text, rendered profile values, credentials, DSN
 fragments, tracebacks, relation data, and source/target values. Close failures
-must not hide a primary execution failure.
+must not hide a primary execution failure. Each eligible DuckDB check owns a
+read-only transaction; native failures are check-local errors. Cleanup failure
+invalidates any comparison result. Actual dependents remain blocked; unrelated
+eligible native work can continue only after release is confirmed. Fixed safe
+session ordinals distinguish otherwise identical failures.
 
 Future runtime, state, and evidence phases may add or retain additional
 runtime-family codes for check execution errors, artifact writes, state writes,
@@ -541,16 +547,16 @@ reports/
 
 Diagnostics should make Recon safe to use without reading the source code.
 
-## M8.1.1 proposed binding lifecycle amendment
+## Owned runtime binding and cleanup
 
-See [M8.1.1 prework](../planning/milestone-8-1-1-prework.md). Maintainer approved L1 check-local native
-failure isolation; configuration/setup precedence retained. Cleanup
-uncertainty stops further native work without proven isolation. Final
-check ERROR carries no comparison values; dependent checks use actual
-prerequisite blockers. Existing status/reason/exit taxonomy and public
-API signatures remain unchanged. Two proposed additive Core runtime
-diagnostics: RC_RUNTIME_BINDING_PROOF_FAILED and
-RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE. Existing connection/query/close
-codes retain safe messages. This is pending design review/implementation,
-not current runtime behavior or new public stable capability. Resource
-settings and defaults remain reopened.
+Project-run DuckDB execution isolates native failures per check when session
+release is confirmed. Uncertain cleanup stops further eligible native work;
+a final check error carries no comparison values and actual prerequisite
+blockers remain distinct. Existing configuration/setup precedence, public
+API signatures and status/reason/exit taxonomy are preserved. The runtime
+diagnostics `RC_RUNTIME_BINDING_PROOF_FAILED` and
+`RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE` distinguish binding failure from
+execution stopped after uncertain cleanup. Existing connection/query/close
+diagnostics remain sanitized. This is a local execution boundary, not a
+stable general transaction API or a calibrated resource policy. See the
+[shared binding prework](../planning/milestone-8-1-1-prework.md).
