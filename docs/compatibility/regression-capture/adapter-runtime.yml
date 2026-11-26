@@ -862,6 +862,8 @@ captures:
       - tests/adapters/test_scratch_namespace.py::test_darwin_broadened_session_file_is_retained
       - tests/adapters/test_scratch_namespace.py::test_darwin_deny_only_file_acl_remains_usable
       - tests/adapters/test_scratch_namespace.py::test_darwin_file_acl_checks_actual_open_handle
+      - tests/adapters/test_scratch_namespace.py::test_posix_file_mount_checks_actual_open_handle
+      - tests/adapters/test_scratch_namespace.py::test_linux_same_device_file_bind_mount_retains_storage
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -881,4 +883,6 @@ captures:
       rights may qualify; path-control grants must not authorize storage.
       Inspect Darwin extended leaf ACLs on the actual operation descriptor;
       retain data when ACL grants or descriptor identity cannot be qualified.
-      Full native ticket identity and POSIX leaf mount evidence remain prerequisites.
+      Compare POSIX native mount identity of named and actual open leaves to
+      the qualified base; same-device bind mounts cannot authorize cleanup.
+      Full native ticket identity and worker qualification remain prerequisites.
