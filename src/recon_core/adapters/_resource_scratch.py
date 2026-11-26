@@ -110,7 +110,11 @@ _IDENTITY_MAX = (1 << 128) - 1
 
 
 def _read_marker(
-    path: Path, *, prefix: bytes, nonces: int, identities: int,
+    path: Path,
+    *,
+    prefix: bytes,
+    nonces: int,
+    identities: int,
     policy: "_DirectoryPolicy | None" = None,
 ) -> list[str]:
     maximum = len(prefix) + nonces * 33 + identities * 2 * (1 + _IDENTITY_DIGITS)
@@ -354,7 +358,10 @@ class _ScratchRoot:
             if directory_policy is not None:
                 directory_policy.verify_directory(path)
             nonce, dev, ino, lock_dev, lock_ino = _read_marker(
-                path / "owner", prefix=b"RC-SCRATCH-1", nonces=1, identities=2,
+                path / "owner",
+                prefix=b"RC-SCRATCH-1",
+                nonces=1,
+                identities=2,
                 policy=directory_policy,
             )
             root = cls(
@@ -377,7 +384,10 @@ class _ScratchRoot:
         if self._directory_policy is not None:
             self._directory_policy.verify_directory(path)
         root_nonce, nonce, *values = _read_marker(
-            path / "owner", prefix=b"RC-SESSION-1", nonces=2, identities=4,
+            path / "owner",
+            prefix=b"RC-SESSION-1",
+            nonces=2,
+            identities=4,
             policy=self._directory_policy,
         )
         if _marker_nonce(root_nonce) != self.ticket.nonce or path.name != nonce:
@@ -429,7 +439,9 @@ class _ScratchRoot:
             raise _ScratchError()
         _marker(self.ticket.path / "owner", _root_marker(self.ticket), self._directory_policy)
         if (
-            _identity(_inspect(self.ticket.path / "root.lock", directory=False, policy=self._directory_policy))
+            _identity(
+                _inspect(self.ticket.path / "root.lock", directory=False, policy=self._directory_policy)
+            )
             != self.ticket.lock_identity
         ):
             raise _ScratchError()
@@ -441,7 +453,9 @@ class _ScratchRoot:
         deadline = time.monotonic() + 5
         while True:
             try:
-                lock = _FileLease.acquire(self.ticket.path / "root.lock", self.ticket.lock_identity, self._directory_policy)
+                lock = _FileLease.acquire(
+                    self.ticket.path / "root.lock", self.ticket.lock_identity, self._directory_policy
+                )
                 break
             except _BusyError:
                 if time.monotonic() >= deadline:
@@ -469,9 +483,13 @@ class _ScratchRoot:
             _identity(spill) != ticket.spill_identity
             or spill.st_dev != ticket.identity.device
             or os.path.ismount(ticket.path / "spill")
-            or _identity(_inspect(ticket.path / "parent.lock", directory=False, policy=self._directory_policy))
+            or _identity(
+                _inspect(ticket.path / "parent.lock", directory=False, policy=self._directory_policy)
+            )
             != ticket.parent_identity
-            or _identity(_inspect(ticket.path / "worker.lock", directory=False, policy=self._directory_policy))
+            or _identity(
+                _inspect(ticket.path / "worker.lock", directory=False, policy=self._directory_policy)
+            )
             != ticket.worker_identity
         ):
             raise _ScratchError()
@@ -493,11 +511,17 @@ class _ScratchRoot:
                     path,
                     nonce,
                     _identity(_inspect(path, directory=True)),
-                    _identity(_inspect(path / "parent.lock", directory=False, policy=self._directory_policy)),
-                    _identity(_inspect(path / "worker.lock", directory=False, policy=self._directory_policy)),
+                    _identity(
+                        _inspect(path / "parent.lock", directory=False, policy=self._directory_policy)
+                    ),
+                    _identity(
+                        _inspect(path / "worker.lock", directory=False, policy=self._directory_policy)
+                    ),
                     _identity(_inspect(path / "spill", directory=True)),
                 )
-                parent = _FileLease.acquire(path / "parent.lock", ticket.parent_identity, self._directory_policy)
+                parent = _FileLease.acquire(
+                    path / "parent.lock", ticket.parent_identity, self._directory_policy
+                )
                 try:
                     # Publish only after the parent's lease is held.
                     _write_new(path / "owner", _session_marker(self.ticket, ticket), self._directory_policy)
@@ -516,10 +540,12 @@ class _ScratchRoot:
                 self._verify_session(ticket)
                 try:
                     abandoned = _FileLease.acquire(
-                        ticket.path / "parent.lock", ticket.parent_identity
+                        ticket.path / "parent.lock", ticket.parent_identity, self._directory_policy
                     )
                 except _BusyError:
-                    return _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity, self._directory_policy)
+                    return _FileLease.acquire(
+                        ticket.path / "worker.lock", ticket.worker_identity, self._directory_policy
+                    )
                 abandoned.release()
                 raise _ScratchError()
         except (OSError, RuntimeError, ValueError):
@@ -536,12 +562,16 @@ class _ScratchRoot:
     def _recover_locked(self, ticket: _SessionTicket) -> _Recovery:
         self._verify_session(ticket)
         try:
-            parent = _FileLease.acquire(ticket.path / "parent.lock", ticket.parent_identity, self._directory_policy)
+            parent = _FileLease.acquire(
+                ticket.path / "parent.lock", ticket.parent_identity, self._directory_policy
+            )
         except _BusyError:
             return _Recovery.LIVE
         try:
             try:
-                worker = _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity, self._directory_policy)
+                worker = _FileLease.acquire(
+                    ticket.path / "worker.lock", ticket.worker_identity, self._directory_policy
+                )
             except _BusyError:
                 return _Recovery.LIVE
             try:
