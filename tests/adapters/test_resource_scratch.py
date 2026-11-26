@@ -339,9 +339,7 @@ def test_reopen_never_adopts_plain_directory(tmp_path: Path) -> None:
 
 
 @pytest.mark.regression_capture("owned-scratch-discovery")
-def test_partial_deletion_is_retained(
-    root: _ScratchRoot, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_partial_deletion_is_retained(root: _ScratchRoot, monkeypatch: pytest.MonkeyPatch) -> None:
     parent = root.create_session()
     ticket = parent.ticket
     parent.release()
