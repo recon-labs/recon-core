@@ -1690,6 +1690,7 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
 
 
 @pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_binding_drift_between_aggregate_guards_stops_final_read(
     tmp_path: Path, grouped: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:

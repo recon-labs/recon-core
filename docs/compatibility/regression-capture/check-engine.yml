@@ -419,6 +419,7 @@ captures:
       - tests/services/test_run_service_bound_execution.py::test_row_count_missing_file_does_not_create_database
       - tests/services/test_run_service_bound_execution.py::test_outside_project_row_count_refuses_without_open
       - tests/services/test_run_service_bound_execution.py::test_row_count_refuses_view_scope
+      - tests/services/test_run_service_bound_execution.py::test_preflight_never_opens_session
     carryover_gates:
       - gate: check_engine_semantics_carryover
         status: covered

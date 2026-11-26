@@ -412,6 +412,9 @@ captures:
       - tests/services/test_run_service_aggregate_admission.py::test_all_nine_checks_use_owned_transaction_and_qualified_queries
       - tests/services/test_run_service_aggregate_admission.py::test_legacy_footprint_policy
       - tests/services/test_run_service_aggregate_admission.py::test_large_native_database_does_not_cap_row_count
+      - tests/adapters/test_duckdb_bound_execution.py::test_file_drift_invalidates_active_lease
+      - tests/adapters/test_duckdb_bound_execution.py::test_quoted_relation_and_temp_shadow_keep_exact_binding
+      - tests/services/test_run_service_aggregate_admission.py::test_binding_drift_between_aggregate_guards_stops_final_read
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred

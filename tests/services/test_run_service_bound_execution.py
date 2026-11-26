@@ -200,6 +200,7 @@ def test_outside_project_row_count_refuses_without_open(
 
 
 @pytest.mark.parametrize("blocker", ["shape", "query", "rendering", "prerequisite"])
+@pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_preflight_never_opens_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, blocker: str
 ) -> None:
