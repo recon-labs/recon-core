@@ -5,6 +5,7 @@ import re
 import shutil
 import sys
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path, PurePosixPath
@@ -309,10 +310,8 @@ def _observe_local_resources(scratch: Path) -> _LocalObservation:
             )
             if membership != _safe_read(_read_text, membership_path):
                 constraints = _LinuxConstraints()
-        try:
+        with suppress(OSError):
             affinity = len(os.sched_getaffinity(0))
-        except OSError:
-            pass
     else:
         mountinfo = None
     try:
@@ -320,7 +319,7 @@ def _observe_local_resources(scratch: Path) -> _LocalObservation:
         if resolved.is_dir():
             free = shutil.disk_usage(resolved).free
             if mountinfo is not None:
-                scratch_kind = _scratch_memory_backed(resolved, mountinfo)
+                scratch_kind = _scratch_memory_backed(PurePosixPath(resolved.as_posix()), mountinfo)
     except (OSError, RuntimeError, ValueError):
         pass
     return _LocalObservation(
