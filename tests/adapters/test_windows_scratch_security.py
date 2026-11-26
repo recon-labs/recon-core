@@ -241,3 +241,35 @@ def test_native_ancestor_permissions_distinguish_path_control(
         with pytest.raises(_WindowsScratchSecurityError):
             _verify_ancestor_directory(root)
     assert root.is_dir()
+
+
+@pytest.mark.regression_capture("windows-scratch-private-acl")
+def test_native_ancestor_trusted_installer_identity_is_exact() -> None:
+    import ctypes as ct
+    from ctypes import wintypes as wt
+
+    from recon_core.adapters._windows_scratch_security import (
+        _ancestor_trusted_principal,
+        _api,
+        _libraries,
+        _process_user,
+        _trusted_owner,
+    )
+
+    kernel, security = _libraries()
+    convert = _api(security, "ConvertStringSidToSidW", wt.BOOL, wt.LPCWSTR, ct.POINTER(ct.c_void_p))
+    free = _api(kernel, "LocalFree", ct.c_void_p, ct.c_void_p)
+    with _process_user(kernel, security) as (user, _):
+        for value, allowed in (
+            ("S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464", True),
+            ("S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478465", False),
+            ("S-1-5-80-0", False),
+        ):
+            principal = ct.c_void_p()
+            assert convert(value, ct.byref(principal))
+            try:
+                assert _ancestor_trusted_principal(security, principal, user) is allowed
+                assert not _trusted_owner(security, principal, user, directory=True)
+                assert not _trusted_owner(security, principal, user, directory=False)
+            finally:
+                free(principal)
