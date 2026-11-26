@@ -5,7 +5,6 @@ from typing import Any
 
 import pytest
 import yaml
-import yaml
 
 from recon_core.adapters.duckdb import DuckDbAdapter
 from recon_core.adapters.duckdb import _bound_execution as binding
