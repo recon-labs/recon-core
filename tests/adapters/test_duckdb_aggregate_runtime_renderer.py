@@ -4,6 +4,7 @@ import importlib
 import os
 from collections.abc import Iterator
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -11,6 +12,9 @@ import pytest
 from recon_core.adapters import ConnectionConfig, Relation
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult, _NumericDomain
 from recon_core.adapters.duckdb import AdapterLifecycleError, DuckDbAdapter, DuckDbSqlRenderer
+from recon_core.adapters.duckdb._aggregate_runtime import _DuckDbAggregateRuntimeRenderer
+from recon_core.adapters.duckdb._bound_execution import _OwnedDuckDbSession
+from recon_core.adapters.duckdb.runtime_scan_guard import _local_file_identity
 
 _SCALAR_COLUMNS = ("source_aggregate_value", "target_aggregate_value", "aggregate_diff")
 _SUMMARY_COLUMNS = (
@@ -31,14 +35,17 @@ _RELATIONS = {
 
 
 @pytest.fixture
-def adapter() -> Iterator[DuckDbAdapter]:
+def duckdb() -> Any:
     if os.environ.get("RECON_REQUIRE_DUCKDB_TESTS") == "1":
         try:
-            importlib.import_module("duckdb")
+            return importlib.import_module("duckdb")
         except ImportError:
             pytest.fail("Required DuckDB renderer tests need .[dev,duckdb].", pytrace=False)
-    else:
-        pytest.importorskip("duckdb")
+    return pytest.importorskip("duckdb")
+
+
+@pytest.fixture
+def adapter(duckdb: Any) -> Iterator[DuckDbAdapter]:
     adapter = DuckDbAdapter(connection=ConnectionConfig(name="warehouse", type="duckdb"))
     adapter.connect()
     try:
@@ -440,3 +447,182 @@ def test_bound_grouped_join_uses_guarded_null_safe_equality(keys: tuple[str, ...
         assert new.step_name == old.step_name
         assert new.operation_type == old.operation_type
         assert new.required_capabilities == old.required_capabilities
+
+
+def _bound_grouped_results(
+    tmp_path: Path, duckdb: Any, ddl: str, keys: tuple[str, ...]
+) -> tuple[_AggregateQueryResult, _AggregateQueryResult]:
+    """Compare actual native transport through separate owned snapshots."""
+    database = tmp_path / "grouped.duckdb"
+    writer = duckdb.connect(str(database))
+    try:
+        writer.execute(ddl)
+    finally:
+        writer.close()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": database.name})
+    identity = _local_file_identity(config, tmp_path)
+    assert identity is not None
+    before = database.read_bytes()
+    renderer = _DuckDbAggregateRuntimeRenderer()
+    results = []
+    for render in (renderer.render_plan, renderer.render_bound_grouped_plan):
+        session = _OwnedDuckDbSession(identity)
+        try:
+            session.open()
+            lease = session.bind(
+                check_id="grouped-test",
+                operation="grouped_aggregate_diff",
+                source="main.src",
+                target="main.dst",
+            )
+            assert lease is not None
+            scope = lease.scope
+            plan = render(
+                _operations(keys), source_relation=scope.source, target_relation=scope.target
+            )
+            for guard in plan.type_guards:
+                result = session._read_bound_aggregate(
+                    lease, scope, guard.sql, expected_columns=("type_check",)
+                )
+                assert result.row == (1,)
+                assert result.domains == (_NumericDomain.EXACT_INTEGER,)
+            proof = session._read_bound_aggregate(
+                lease, scope, plan.domain_guard.sql, expected_columns=("numeric_domain",)
+            )
+            domain = plan.domain_from_guard(proof)
+            result = session._read_bound_aggregate(
+                lease, scope, plan.final_query(domain).sql, expected_columns=plan.columns
+            )
+            assert result.columns == _SUMMARY_COLUMNS
+            results.append(result)
+        finally:
+            assert session.close() == ()
+            assert session.released
+    assert database.read_bytes() == before
+    assert len(results) == 2
+    return results[0], results[1]
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "1::BIGINT",
+        "1::DECIMAL(10,2)",
+        "true",
+        "DATE '2020-01-01'",
+        "TIMESTAMP '2020-01-01 00:00:01'",
+        "'abc'::VARCHAR",
+        "'abc'::BLOB",
+        "'12345678-1234-5678-1234-567812345678'::UUID",
+        "[1,NULL]",
+        "{'a':1,'b':NULL::INTEGER}",
+    ],
+)
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_native_key_domains(tmp_path: Path, duckdb: Any, key: str) -> None:
+    ddl = (
+        f"create table src as select {key} k,5::bigint v;"
+        f"create table dst as select {key} k,4::bigint v;"
+    )
+    strict, bound = _bound_grouped_results(tmp_path, duckdb, ddl, ("k",))
+    assert strict == bound
+    assert bound.row == (1, 0, 0, 0, 0, 1, 0, 1, 1)
+
+
+@pytest.mark.parametrize(
+    ("kind", "a", "b", "diff"),
+    [
+        ("TINYINT", "127", "126", 1),
+        ("SMALLINT", "32767", "32766", 1),
+        ("INTEGER", "2147483647", "2147483646", 1),
+        ("BIGINT", "9007199254740993", "9007199254740992", 1),
+        ("HUGEINT", str(2**126 + 1), str(2**126), 1),
+        ("UTINYINT", "255", "254", 1),
+        ("USMALLINT", "65535", "65534", 1),
+        ("UINTEGER", "4294967295", "4294967294", 1),
+        ("UBIGINT", str(2**64 - 1), str(2**64 - 2), 1),
+        (
+            "DECIMAL(38,18)",
+            "99999999999999999999.000000000000000001",
+            "99999999999999999999.000000000000000000",
+            Decimal("0.000000000000000001"),
+        ),
+        ("FLOAT", "5", "4", 1.0),
+        ("DOUBLE", "5", "4", 1.0),
+    ],
+)
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_native_numeric_domains(
+    tmp_path: Path, duckdb: Any, kind: str, a: str, b: str, diff: object
+) -> None:
+    ddl = (
+        f"create table src as select 1 k,cast('{a}' as {kind}) v;"
+        f"create table dst as select 1 k,cast('{b}' as {kind}) v;"
+    )
+    strict, bound = _bound_grouped_results(tmp_path, duckdb, ddl, ("k",))
+    assert strict == bound
+    assert bound.row == (1, 0, 0, 0, 0, 1, 0, diff, diff)
+
+
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_nullable_composite_union(tmp_path: Path, duckdb: Any) -> None:
+    ddl = (
+        "create table src as select * from (values "
+        "(NULL,1,3),(NULL,1,1),(2,NULL,1),(3,3,NULL),(4,4,NULL),(5,5,1)) q(k,j,v);"
+        "create table dst as select * from (values "
+        "(NULL,1,1),(2,NULL,4),(3,3,NULL),(4,4,1),(6,6,NULL)) q(k,j,v);"
+    )
+    strict, bound = _bound_grouped_results(tmp_path, duckdb, ddl, ("k", "j"))
+    assert strict == bound
+    assert bound.row == (6, 1, 1, 1, 1, 2, 0, -3, 3)
+
+
+@pytest.mark.parametrize("collated", [False, True])
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_preserves_collation_baseline(
+    tmp_path: Path, duckdb: Any, collated: bool
+) -> None:
+    kind = "varchar collate nocase" if collated else "varchar"
+    ddl = (
+        f"create table src(k {kind},v bigint); create table dst(k {kind},v bigint);"
+        "insert into src values ('a',5); insert into dst values ('A',4);"
+    )
+    strict, bound = _bound_grouped_results(tmp_path, duckdb, ddl, ("k",))
+    assert strict == bound
+    # Known pre-existing 1.0.0 grouped collation loss, mandatory M9.5 correction.
+    # This characterizes the baseline, not desired portable collation semantics.
+    legacy = tuple(int(part) for part in duckdb.__version__.split(".")[:2]) == (1, 0)
+    expected = (
+        (1, 0, 0, 0, 0, 1, 0, 1, 1)
+        if collated and not legacy
+        else (2, 1, 1, 0, 0, 0, 0, None, None)
+    )
+    assert bound.row == expected
+
+
+@pytest.mark.parametrize("kind", ["BIGINT", "DOUBLE"])
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_join_scale_regression(tmp_path: Path, duckdb: Any, kind: str) -> None:
+    ddl = (
+        f"create table src as select i k,cast(5 as {kind}) v from range(10000) q(i);"
+        f"create table dst as select i k,cast(4 as {kind}) v from range(1,10001) q(i);"
+    )
+    strict, bound = _bound_grouped_results(tmp_path, duckdb, ddl, ("k",))
+    assert strict == bound
+    assert bound.row == (10001, 1, 1, 0, 0, 9999, 0, 1, 1)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_renderer_requires_qualified_grouped_operations(grouped: bool) -> None:
+    renderer = _DuckDbAggregateRuntimeRenderer()
+    relations = (
+        _RELATIONS
+        if grouped
+        else {
+            side: Relation(identifier=relation.identifier, schema="main", catalog="warehouse")
+            for side, relation in _RELATIONS.items()
+        }
+    )
+    with pytest.raises(ValueError, match="Bound grouped rendering requires"):
+        renderer.render_bound_grouped_plan(_operations(("k",) if grouped else ()), **relations)

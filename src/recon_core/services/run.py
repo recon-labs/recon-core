@@ -406,7 +406,9 @@ def _prepare_runtime_execution_dependencies(
                 continue
             adapter = adapters_by_connection[contract.source.connection]
             renderer = aggregate_renderers.get(connections_by_name[contract.source.connection].type)
-            blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer, bound=True)
+            blocker = _aggregate_collaborator_blocker(
+                check, contract, adapter, renderer, bound=True
+            )
             if blocker is not None:
                 aggregate_blockers[check.id] = blocker
     return _RuntimeExecutionDependencies(

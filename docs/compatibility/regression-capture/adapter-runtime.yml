@@ -446,6 +446,12 @@ captures:
       - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_join_uses_guarded_null_safe_equality
       - tests/check_engine/test_aggregate_execution.py::test_grouped_runtime_selects_bound_renderer_only_in_owned_callback
       - tests/check_engine/test_aggregate_execution.py::test_missing_bound_grouped_renderer_refuses_before_runner
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_native_key_domains
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_native_numeric_domains
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_nullable_composite_union
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_preserves_collation_baseline
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_join_scale_regression
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_renderer_requires_qualified_grouped_operations
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
