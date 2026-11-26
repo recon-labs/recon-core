@@ -11,6 +11,7 @@ captures:
       - tests/parser/test_yaml_loader.py::test_load_yaml_text_reports_duplicate_yaml_keys
       - tests/parser/test_yaml_loader.py::test_load_yaml_text_reports_unhashable_mapping_keys
       - tests/config/test_project_config.py::test_load_project_config_reports_duplicate_yaml_keys
+      - tests/config/test_project_config.py::test_local_resource_policy_duplicate_key
       - tests/config/test_project_config.py::test_load_project_config_reports_unhashable_yaml_mapping_key
       - tests/profiles/test_loader.py::test_load_selected_profile_rejects_duplicate_yaml_keys_without_leak
       - tests/profiles/test_loader.py::test_load_selected_profile_rejects_unhashable_yaml_mapping_key_without_leak
