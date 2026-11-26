@@ -865,6 +865,8 @@ captures:
       - tests/adapters/test_scratch_namespace.py::test_posix_file_mount_checks_actual_open_handle
       - tests/adapters/test_scratch_namespace.py::test_linux_same_device_file_bind_mount_retains_storage
       - tests/adapters/test_scratch_namespace.py::test_windows_tickets_persist_full_native_object_identity
+      - tests/adapters/test_scratch_namespace.py::test_windows_legacy_markers_are_not_adopted_or_deleted
+      - tests/adapters/test_scratch_namespace.py::test_concurrent_namespace_creation_reopens_completed_winner
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
