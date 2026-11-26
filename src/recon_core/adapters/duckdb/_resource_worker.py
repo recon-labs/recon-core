@@ -38,6 +38,7 @@ class _WorkerStop:
     confirmed_exit: bool
     returncode: int | None
     clean_close: bool = False
+    pipes_released: bool = False
 
 
 def _wait_for_exit(process: _ChildProcess, timeout: float) -> _WorkerStop:
@@ -49,8 +50,11 @@ def _wait_for_exit(process: _ChildProcess, timeout: float) -> _WorkerStop:
 
 def _stop_process(process: _ChildProcess, *, timeout: float) -> _WorkerStop:
     """Signal only the owned process, never report a signal as confirmed exit."""
-    if process.poll() is not None:
-        return _wait_for_exit(process, timeout)
+    try:
+        if process.poll() is not None:
+            return _wait_for_exit(process, timeout)
+    except OSError:
+        pass
     for signal in (process.terminate, process.kill):
         try:
             signal()
@@ -122,6 +126,9 @@ class _WorkerProcess:
                 bufsize=0,
             )
             self._receive(_ControlKind.READY, 0)
+        except Exception:
+            self.abort()
+            raise _ControlError() from None
         except BaseException:
             self.abort()
             raise
@@ -150,21 +157,30 @@ class _WorkerProcess:
             threads=None if packet.second == -1 else packet.second,
         )
 
-    def _release_pipes(self) -> None:
+    def _release_pipes(self) -> bool:
         # Never close a pipe under an active blocking reader. A lingering
         # reader is an incomplete transport cleanup, not clean release.
         if self._reader is not None:
             self._reader.join(timeout=self._stop_timeout)
             if self._reader.is_alive():
-                return
+                return False
+        released = True
         if self._process is not None:
             for stream in (self._process.stdin, self._process.stdout):
                 if stream is not None:
-                    stream.close()
+                    try:
+                        stream.close()
+                    except OSError:
+                        released = False
+        return released
 
     def abort(self) -> _WorkerStop:
         with self._stop_lock:
             if self._stop is not None and self._stop.confirmed_exit:
+                if not self._stop.pipes_released:
+                    self._stop = _WorkerStop(
+                        True, self._stop.returncode, pipes_released=self._release_pipes()
+                    )
                 return self._stop
             process = self._process
             if process is None:
@@ -172,7 +188,9 @@ class _WorkerProcess:
             else:
                 self._stop = _stop_process(process, timeout=self._stop_timeout)
                 if self._stop.confirmed_exit:
-                    self._release_pipes()
+                    self._stop = _WorkerStop(
+                        True, self._stop.returncode, pipes_released=self._release_pipes()
+                    )
             return self._stop
 
     def close(self) -> _WorkerStop:
@@ -186,9 +204,8 @@ class _WorkerProcess:
             stopped = _wait_for_exit(process, self._stop_timeout)
             if stopped.confirmed_exit and stopped.returncode == 0:
                 with self._stop_lock:
-                    self._release_pipes()
-                    clean = self._reader is None or not self._reader.is_alive()
-                    self._stop = _WorkerStop(True, 0, clean_close=clean)
+                    released = self._release_pipes()
+                    self._stop = _WorkerStop(True, 0, clean_close=released, pipes_released=released)
                     return self._stop
         except (OSError, _ControlError):
             pass
