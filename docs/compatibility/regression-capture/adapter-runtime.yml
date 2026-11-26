@@ -579,3 +579,45 @@ captures:
       The readback-only startup control regression is preserved with a real
       post-connect SET effect case on the supported native pins. A controlled
       native resource error is not a successful comparison or a hard disk quota.
+
+  - id: duckdb-worker-lossless-result-transport
+    title: Worker numeric frames preserve exact native values and reject invalid lengths
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_worker_result_codec.py::test_integer_transport_is_lossless
+      - tests/adapters/test_duckdb_worker_result_codec.py::test_truncated_and_oversized_frame_rejected_before_payload_read
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_worker_transport
+        rationale: Codec proof must be extended to actual owned worker transport and native numeric domains.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A5 and worker transport
+    notes: >
+      Length-delimited closed numeric tags preserve native precision and reject
+      malformed frames without unbounded payload allocation. No arbitrary object
+      deserialization or comparison scope change.
+
+  - id: duckdb-bound-count-result-transport
+    title: Project count summaries reject malformed native rows with bounded reads
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_bound_execution.py::test_bound_count_reader_rejects_invalid_rows
+      - tests/adapters/test_duckdb_bound_execution.py::test_bound_count_reader_rejects_extra_columns_before_fetch
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_worker_transport
+        rationale: Native worker framing and end-to-end bounded count proof remain required.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A5 and worker transport
+    notes: >
+      Bound count reads use fetchmany(2), with operation-specific maximum
+      arity and exact integer values. Existing Core result-shape validation
+      remains authoritative and public low-level adapter reads are unchanged.
