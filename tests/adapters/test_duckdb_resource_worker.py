@@ -8,11 +8,12 @@ import subprocess
 import sys
 import textwrap
 import time
+from contextlib import suppress
 from pathlib import Path
 
 import pytest
 
-from recon_core.adapters.duckdb._resource_worker import _WorkerProcess, _stop_process
+from recon_core.adapters.duckdb._resource_worker import _stop_process, _WorkerProcess
 from recon_core.adapters.duckdb._worker_control_protocol import (
     _ControlError,
     _ControlKind,
@@ -163,10 +164,8 @@ def test_parent_death_liveness(tmp_path: Path, native_available: None) -> None:
             except psutil.NoSuchProcess:
                 break
             time.sleep(0.02)
-        try:
+        with suppress(psutil.NoSuchProcess):
             assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
-        except psutil.NoSuchProcess:
-            pass
     finally:
         if parent.poll() is None:
             parent.kill()
