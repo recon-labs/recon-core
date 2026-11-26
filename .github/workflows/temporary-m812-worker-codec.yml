@@ -1,0 +1,48 @@
+name: Temporary M8.1.2 worker result proof
+on:
+  push:
+    branches: [experiment/m812-worker-codec-validation-20261126]
+    paths: ['.github/workflows/temporary-m812-worker-codec.yml']
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e ".[dev,duckdb]"
+      - run: ruff format --diff src/recon_core/adapters/duckdb/_worker_result_codec.py src/recon_core/adapters/duckdb/_bound_execution.py tests/adapters/test_duckdb_worker_result_codec.py tests/adapters/test_duckdb_bound_execution.py
+        continue-on-error: true
+      - run: ruff check src/recon_core/adapters/duckdb/_worker_result_codec.py src/recon_core/adapters/duckdb/_bound_execution.py tests/adapters/test_duckdb_worker_result_codec.py tests/adapters/test_duckdb_bound_execution.py
+        continue-on-error: true
+      - run: mypy src
+        continue-on-error: true
+      - run: python scripts/check_regression_capture_decisions.py --base-ref b001d14de1fb613beaaad1f3e914f81dfb125cac
+      - run: pytest -q tests/adapters/test_duckdb_worker_result_codec.py tests/adapters/test_duckdb_bound_execution.py
+        env:
+          RECON_REQUIRE_DUCKDB_TESTS: '1'
+      - name: Verify regression detects unbounded count fetch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path("src/recon_core/adapters/duckdb/_bound_execution.py")
+          s=p.read_text()
+          assert "rows = cursor.fetchmany(2)" in s
+          p.write_text(s.replace("rows = cursor.fetchmany(2)", "rows = cursor.fetchall()", 1))
+          PY
+          set +e
+          pytest -q 'tests/adapters/test_duckdb_bound_execution.py::test_bound_count_reader_rejects_invalid_rows' > mutation.log 2>&1
+          result=$?
+          set -e
+          cat mutation.log
+          test "$result" -eq 1
+          grep -q 'Bound count transport must not fetch all rows' mutation.log
+          git restore src/recon_core/adapters/duckdb/_bound_execution.py
+          rm mutation.log
