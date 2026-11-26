@@ -1,0 +1,85 @@
+name: Temporary Windows servicing owner proof
+on:
+  push:
+    branches:
+      - experiment/m812-windows-servicing-owner-20261126
+permissions:
+  contents: read
+jobs:
+  platform:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2e5b4f7b8f029526003ad41e711c1d1c5dc45172
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q -ra tests/adapters/test_windows_scratch_security.py tests/adapters/test_scratch_namespace.py tests/adapters/test_resource_scratch.py tests/adapters/test_scratch_filesystem.py
+      - name: Qualify actual temporary base ancestors
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import tempfile
+          from recon_core.adapters import _windows_scratch_security as n
+          base = Path(tempfile.gettempdir()).resolve()
+          failed = 0
+          for depth, item in enumerate((base, *base.parents)):
+              try:
+                  n._verify_ancestor_directory(item)
+              except n._WindowsScratchSecurityError:
+                  print(f"ancestor depth={depth}: unqualified")
+                  failed += 1
+              else:
+                  print(f"ancestor depth={depth}: qualified")
+          assert failed == 0, "Actual temporary ancestor chain unqualified"
+          '@ | python -
+  negative:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1bf83195f9647e8e7deaf5169c6c5b1046830bcd
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e ".[dev]"
+      - name: Actual pre-fix servicing identity rejection
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q tests/adapters/test_windows_scratch_security.py -k ancestor_trusted_installer_identity > red.log 2>&1
+          status=$?
+          set -e
+          cat red.log
+          test "$status" -eq 1
+          grep -F "assert False is True" red.log
+          grep -F "1 failed" red.log
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2e5b4f7b8f029526003ad41e711c1d1c5dc45172
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e ".[dev]"
+      - run: ruff format --check .
+      - run: ruff check .
+      - run: mypy src
+      - run: python scripts/check_regression_capture.py
+      - run: python scripts/check_regression_capture_decisions.py --base-ref b001d14de1fb613beaaad1f3e914f81dfb125cac
