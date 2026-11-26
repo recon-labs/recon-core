@@ -1,13 +1,14 @@
 """Private owned read-only DuckDB transaction for project-run binding."""
 
+from dataclasses import dataclass, field
 from importlib import import_module
 from typing import Any
 
 from recon_core.adapters.duckdb.runtime_scan_guard import (
-    _LocalFileIdentity,
     _current_file_identity,
     _duckdb_relation_name,
     _local_duckdb_catalog_names,
+    _LocalFileIdentity,
     _resolve_local_base_table,
 )
 from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
@@ -37,6 +38,21 @@ def _proof_error() -> _BoundSessionError:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _BindingScope:
+    check_id: str = field(repr=False)
+    operation: str
+    source: Relation = field(repr=False)
+    target: Relation = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class _BindingLease:
+    """Identity-only proof owned by one single-use transaction."""
+
+    scope: _BindingScope = field(repr=False)
+
+
 class _OwnedDuckDbSession:
     """Single-use session; the caller must close it in a finally block."""
 
@@ -45,6 +61,8 @@ class _OwnedDuckDbSession:
         self._connection: Any = None
         self._attempted = False
         self._invalidated = False
+        self._binding_attempted = False
+        self._lease: _BindingLease | None = None
         self._transaction = False
         self._released = True
         self._cleanup: tuple[Diagnostic, ...] | None = None
@@ -101,9 +119,41 @@ class _OwnedDuckDbSession:
             self._invalidated = True
             raise _proof_error() from None
 
+    def bind(
+        self, *, check_id: str, operation: str, source: str, target: str
+    ) -> _BindingLease | None:
+        if self._binding_attempted or not self._transaction or self._cleanup is not None:
+            self._invalidated = True
+            raise _proof_error()
+        self._binding_attempted = True
+        self._verify_file()
+        source_relation = self.resolve_relation(source)
+        target_relation = self.resolve_relation(target)
+        if source_relation is None or target_relation is None:
+            self._invalidated = True
+            return None
+        self._verify_file()
+        self._lease = _BindingLease(
+            _BindingScope(check_id, operation, source_relation, target_relation)
+        )
+        return self._lease
+
+    def verify_lease(self, lease: _BindingLease, scope: _BindingScope) -> None:
+        if (
+            not self._transaction
+            or self._cleanup is not None
+            or self._lease is not lease
+            or lease.scope != scope
+        ):
+            self._invalidated = True
+            raise _proof_error()
+        self._verify_file()
+
     def close(self) -> tuple[Diagnostic, ...]:
         if self._cleanup is not None:
             return self._cleanup
+        self._lease = None
+        self._invalidated = True
         diagnostics: list[Diagnostic] = []
         if self._connection is not None:
             try:

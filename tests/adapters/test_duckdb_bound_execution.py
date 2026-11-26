@@ -226,3 +226,97 @@ def test_owned_session_cleanup_failures(
     assert all("sensitive-native-error" not in str(diagnostic) for diagnostic in diagnostics)
     assert session.close() == diagnostics
     assert closes == [True]
+
+
+@pytest.mark.parametrize(
+    "mismatch", ["check", "operation", "source", "target", "session", "ended", "sidecar", "rebind"]
+)
+def test_lease_invalidation(tmp_path: Path, duckdb: Any, mismatch: str) -> None:
+    path = tmp_path / "local.data"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 1 AS id")
+        writer.execute("CREATE TABLE dst AS SELECT 2 AS id")
+    finally:
+        writer.close()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    other = binding._OwnedDuckDbSession(identity)
+    try:
+        session.open()
+        lease = session.bind(
+            check_id="check-1", operation="row_count_diff", source="src", target="dst"
+        )
+        assert lease is not None
+        scope = lease.scope
+        assert scope.source.schema == "main"
+        assert scope.target.schema == "main"
+        assert scope.source.catalog == scope.target.catalog
+        session.verify_lease(lease, scope)
+        if mismatch == "session":
+            other.open()
+            other_lease = other.bind(
+                check_id="check-1", operation="row_count_diff", source="src", target="dst"
+            )
+            assert other_lease is not None and other_lease.scope == scope
+            with pytest.raises(binding._BoundSessionError):
+                session.verify_lease(other_lease, scope)
+        elif mismatch == "ended":
+            assert session.close() == ()
+            with pytest.raises(binding._BoundSessionError):
+                session.verify_lease(lease, scope)
+        elif mismatch == "sidecar":
+            path.with_name(f"{path.name}.wal").touch()
+            try:
+                with pytest.raises(binding._BoundSessionError):
+                    session.verify_lease(lease, scope)
+            finally:
+                path.with_name(f"{path.name}.wal").unlink()
+        elif mismatch == "rebind":
+            with pytest.raises(binding._BoundSessionError):
+                session.bind(
+                    check_id="check-2", operation="row_count_diff", source="src", target="dst"
+                )
+        else:
+            changed = binding._BindingScope(
+                check_id="check-2" if mismatch == "check" else scope.check_id,
+                operation="sum_diff" if mismatch == "operation" else scope.operation,
+                source=scope.target if mismatch == "source" else scope.source,
+                target=scope.source if mismatch == "target" else scope.target,
+            )
+            with pytest.raises(binding._BoundSessionError) as error:
+                session.verify_lease(lease, changed)
+            assert error.value.diagnostic.code == "RC_RUNTIME_BINDING_PROOF_FAILED"
+        with pytest.raises(binding._BoundSessionError):
+            session.verify_lease(lease, scope)
+    finally:
+        assert other.close() == ()
+        assert session.close() == ()
+
+
+def test_scope_refusal_cannot_be_rebound(tmp_path: Path, duckdb: Any) -> None:
+    path = tmp_path / "local.data"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 1 AS id")
+        writer.execute("CREATE VIEW dst AS SELECT * FROM src")
+    finally:
+        writer.close()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    try:
+        session.open()
+        lease = session.bind(
+            check_id="check-1", operation="row_count_diff", source="src", target="dst"
+        )
+        assert lease is None
+        with pytest.raises(binding._BoundSessionError):
+            session.bind(
+                check_id="check-1", operation="row_count_diff", source="src", target="src"
+            )
+    finally:
+        assert session.close() == ()
