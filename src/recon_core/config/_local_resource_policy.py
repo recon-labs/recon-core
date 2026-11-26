@@ -32,17 +32,17 @@ _INTEGER_FIELDS: Final = {
 }
 
 
-class _InvalidResourcePolicy(ValueError):
+class _InvalidResourcePolicyError(ValueError):
     """Safe configuration error; never retain or interpolate input values."""
 
 
 def _mapping(value: object, *, allowed: frozenset[str], location: str) -> dict[str, object]:
     if not isinstance(value, dict):
-        raise _InvalidResourcePolicy(f"Project config field `{location}` must be a mapping.")
+        raise _InvalidResourcePolicyError(f"Project config field `{location}` must be a mapping.")
     result: dict[str, object] = {}
     for key, item in value.items():
         if not isinstance(key, str) or key not in allowed:
-            raise _InvalidResourcePolicy(f"Unknown or invalid field in `{location}`.")
+            raise _InvalidResourcePolicyError(f"Unknown or invalid field in `{location}`.")
         result[key] = item
     return result
 
@@ -65,7 +65,7 @@ def _parse_local_resource_policy(execution: object) -> _LocalResourcePolicy:
             continue
         value = local[key]
         if type(value) is not int or not 0 < value <= _MAX_INTEGER // multiplier:
-            raise _InvalidResourcePolicy(
+            raise _InvalidResourcePolicyError(
                 f"Project resource field `{key}` must be a positive integer within its range."
             )
         integers[key] = value * multiplier
@@ -73,7 +73,7 @@ def _parse_local_resource_policy(execution: object) -> _LocalResourcePolicy:
     if "scratch-directory" in local:
         value = local["scratch-directory"]
         if not isinstance(value, str) or not value.strip() or "\x00" in value:
-            raise _InvalidResourcePolicy(
+            raise _InvalidResourcePolicyError(
                 "Project resource field `scratch-directory` must be a non-empty path string."
             )
         scratch = value
