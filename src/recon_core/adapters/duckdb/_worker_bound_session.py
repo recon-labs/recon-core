@@ -111,6 +111,7 @@ class _WorkerBoundSession:
             self._invalidated
             or lease is None
             or not isinstance(proof, _WorkerBindingProof)
+            or type(proof.policy_generation) is not int
             or proof != self._proof
             or lease.scope.operation not in operations
         ):
