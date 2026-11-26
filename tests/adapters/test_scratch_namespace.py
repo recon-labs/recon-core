@@ -103,3 +103,28 @@ def test_windows_session_has_protected_acl(tmp_path: Path) -> None:
         _verify_private_directory(parent.ticket.path / "spill")
     finally:
         parent.release()
+
+
+@pytest.mark.regression_capture("scratch-namespace-qualification")
+def test_changed_mount_retains_existing_storage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    from recon_core.adapters import _scratch_namespace as namespace
+
+    base = tmp_path.resolve()
+    root = _open_namespace(base, base)
+    parent = root.create_session()
+    parent.release()
+    real = namespace._observe_scratch_filesystem
+
+    def changed(path: Path) -> object:
+        facts = real(path)
+        return replace(facts, mount_identity=(0,))
+
+    monkeypatch.setattr(namespace, "_observe_scratch_filesystem", changed)
+    summary = root.recover_abandoned()
+    assert not summary.complete
+    assert summary.removed == 0
+    assert parent.ticket.path.is_dir()
