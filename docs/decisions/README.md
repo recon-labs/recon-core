@@ -59,4 +59,5 @@ adr-0022-evidence-privacy-failure-detail-and-result-sinks.md
 adr-0023-adapter-relation-metadata-interface-segregation.md
 adr-0024-staged-ecosystem-incubation.md
 adr-0025-adapter-aware-execution-advisories.md
+adr-0026-local-execution-policy-and-scan-admission.md
 ```

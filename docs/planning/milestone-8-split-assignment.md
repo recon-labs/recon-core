@@ -120,7 +120,7 @@ Recheck gate attachment index, compatibility, current files and captures at
 each prework/exit. If an omitted requirement or conflict is found, block and
 correct the split assignment, not invent a scope decision.
 
-Next: integrate split documentation, then M8.1 research/design prework.
-Resolve concrete settings, evidence and admission/advisory questions before
-implementation. No experimental repo is due during these phases; keep
+Next: follow the approved [M8.1 prework](milestone-8-1-prework.md) and
+local admission policy after integration and implementation authorization.
+Preserve all binding/conformance proof obligations at implementation exit. No experimental repo is due during these phases; keep
 checking ecosystem checkpoints. No milestone prework is declared satisfied.

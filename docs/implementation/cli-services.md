@@ -125,6 +125,11 @@ aggregate comparison semantics; the service does not interpret raw numeric
 results. Later-phase checks remain
 structured `not_executable` results.
 
+The planned [local execution policy](../decisions/adr-0026-local-execution-policy-and-scan-admission.md) extends admission
+to all supported project-run scan-bearing families and adds structured
+advisories. It does not yet change the current runtime behavior. The phase
+prework owns the exact compatibility and test requirements.
+
 Later runner and evidence phases may expand `RunService` responsibilities to:
 
 - parse and compile automatically when artifact freshness semantics are locked,

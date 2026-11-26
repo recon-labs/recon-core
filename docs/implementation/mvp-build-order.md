@@ -748,6 +748,10 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
+Review the [phase prework](../planning/milestone-8-1-prework.md) and ADR 0026. Start implementation only after prework integration and
+explicit implementation authorization; prove the bound execution contract
+and approved compatibility boundary through the phase matrix.
+
 Build:
 
 - first explicit local scan-budget configuration/opt-in and validation,
