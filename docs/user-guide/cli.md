@@ -22,13 +22,11 @@ Current implementation status:
 - `recon compile --render-sql` is implemented for DuckDB relation endpoints
   and current typed check-plan operations.
 - `recon run` is implemented as the first check-engine boundary for already
-  compiled checks. It executes relation-backed same-context DuckDB
-  `row_count_diff` checks, and executes grain-key safety and explicit sum
-  aggregate checks only when they pass
-  the internal bounded local/dev scan guard, and reports other current or
-  later-phase checks as blocked or not executable. The scan guard requires a
-  project-local DuckDB file under the size cap and compiled relation endpoints
-  that resolve to local base tables.
+  compiled checks. It executes supported relation-backed same-context DuckDB
+  row-count, grain-key safety and explicit SUM checks only on verified
+  project-local base tables. Grain-key and SUM checks retain a temporary
+  64 MiB file cap; row count does not. Other current or later-phase checks
+  remain blocked or not executable.
 
 ## `recon init`
 
@@ -211,12 +209,15 @@ Current limitations:
 ## `recon run`
 
 Loads compiled checks and routes them through the check-engine boundary. The
-current command executes supported relation-backed same-context DuckDB
-`row_count_diff` checks, executes grain-key safety and explicit sum aggregate
-checks only when they pass
-the internal bounded local/dev scan guard, and reports explicit diagnostics for
-checks that cannot execute yet. The guard rejects views and externally backed
-relations because this phase has no general scan-estimation policy.
+current command executes supported same-context DuckDB row-count, grain-key
+safety and explicit SUM checks only when both relations are bound to local
+base tables within a fresh owned read-only transaction. Use an existing regular
+database file inside the project, without retained sidecars. Views, external
+relations, in-memory and outside-project contexts are outside the temporary
+scope; no borrowed or writable fallback is used. Close conflicting writable
+connections before running. The temporary 64 MiB file cap applies only to
+grain-key and SUM checks, not row count, and is not a resource bound. Checks
+that cannot execute receive explicit diagnostics.
 
 ```bash
 recon run
@@ -238,10 +239,14 @@ Current behavior:
   placement, or unsupported materialization policy,
 - returns `blocked` check results when prerequisites are missing, failed, or
   errored,
-- loads runtime profiles and initializes adapters only for the supported
-  same-context DuckDB row-count execution shape and bounded local/dev
-  grain-key safety and explicit sum aggregate execution shapes,
-- executes the final DuckDB row-count comparison query for supported
+- loads runtime profiles and validates adapter metadata and capabilities for
+  supported same-context DuckDB checks,
+- opens a fresh owned read-only session per eligible check, verifies exact
+  local base-table binding before data queries, and cleans up before finalizing
+  the result,
+- reports native failures per check; uncertain session release stops further
+  eligible native execution without changing structural or prerequisite blockers,
+- executes the final DuckDB row-count comparison query for admitted
   relation-backed `row_count_diff` checks,
 - executes supported grain-key safety checks as bounded count queries for
   null-key, duplicate-key, missing-key, and extra-key checks only after explicit
