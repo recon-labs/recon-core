@@ -1,6 +1,6 @@
 # Milestone 8.1 Prework: Scan Policy And Execution Advisories
 
-**REOPENED - NOT IMPLEMENTATION-READY.** The earlier accepted design below is historical baseline, not coding authority. Reassess the footprint-driven policy, inherited 64 MiB default, resource enforcement and warning calculation using [mandatory resource-safety assignments](execution-resource-safety-assignments.md). Preserve binding, privacy, comparison semantics and no silent scope change. Expand A10-A13 and affected A1-A9, BDD, responsibility/source map, test plan, DoD and phase steps; reassess split and compatibility. Revise, approve and integrate before coding. Previous metadata/binding experiments do not prove useful resource defaults.
+**HISTORICAL UMBRELLA BASELINE - not implementation authority.** M8.1.1 and targeted M7.4 correction are verified on main; [M8.1.2 approved prework](milestone-8-1-2-prework.md) is the current resource design, pending separate implementation approval. The prior footprint-driven design below is retained for history, not coding authority.
 
 ## Status and approval boundary
 
@@ -295,7 +295,7 @@ M9.5 owns the pending lossless type compatibility implementation. Review shared 
 
 ## Reopened next-action dependency
 
-Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The exact split and approval remain pending.
+Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The split and detailed M8.1.2 design are approved; implementation authorization remains separate.
 
 ## Execution scope restoration checkpoint
 
@@ -307,7 +307,7 @@ See [M8.1.1 prework and exit evidence](milestone-8-1-1-prework.md) for private b
 expanded acceptance/test matrix, approved lifecycle decision L1 and exit
 proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own design and coding approvals.
 
-## Mandatory M8.1.2 resource policy handoff
+## Historical M8.1.2 resource policy handoff (superseded by approved checkpoint below)
 
 M8.1.2 is the mandatory implementation owner of the reopened resource/default
 design, not an optional later optimization. Execution order: M8.1.1
@@ -338,6 +338,25 @@ changes. Exact settings, thresholds, controls and detailed M8.1.2 prework
 remain open; separate design approval, implementation and native exit proof
 required.
 
-## Adaptive resource direction and adapter carryover
+## Historical adaptive resource direction and adapter carryover (see approved checkpoint below)
 
 Maintainer-approved adaptive, adapter-aware, minimally restrictive local execution with portable best-effort protection, strict controls only when proven and isolation where necessary. Preserve native spilling and larger-than-memory work. No universal CI-derived ratios or caps. Distinguish execution scope from client transport, use engine-specific mechanisms and never downgrade required enforcement. Apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) to all future adapters and expansions. Exact settings, defaults, worker design and pulled-forward lifecycle requirements remain pending detailed prework and separate approval. No successor implementation authorized.
+
+## Approved M8.1.2 integration checkpoint (2026-11-26)
+
+The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
+historical footprint-driven resource decisions and earlier pending-design
+statements. Design approval is not implementation or exit approval. Existing
+runtime remains unchanged until implementation. M8.1.1 and targeted M7.4
+correction are verified on main. No default database size or workload timeout;
+optional authored footprint ceiling applies to all nine local project check
+families. Native managed resource targets are not physical quotas. The
+DuckDB-specific 25% memory and 10% disk reserve candidates require actual
+combined calibration before default lock; no universal ratio. Required scope
+and controls fail closed; optional estimate uncertainty is not a blanket block.
+M8.1.2 owns B8 one-worker cancellation/confirmed exit/parent liveness, B9
+native/IPC/owned scratch cleanup and crash-safe recovery, B10 serial per-check
+worker and re-observation prerequisites. M8.2 owns remaining run-wide
+lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
+publication. Preserve all future adapter applicability, type and scope gates.
+No gate closed; separate implementation authorization required.
