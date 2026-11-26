@@ -536,3 +536,26 @@ captures:
       job limits and filesystem kind remain distinct. Never treat missing
       ancestor or job-wide usage evidence as unlimited, or a recognized
       filesystem type as physical quota proof.
+
+  - id: duckdb-native-resource-control-readback
+    title: DuckDB native assignment checks readback without claiming quota enforcement
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_spill_setting_is_applied_after_connect
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_required_control_readback_mismatch
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_controls
+        rationale: Assignment and readback are only one part of native resource conformance; actual effects, monitored scope, and isolation remain mandatory.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
+      - docs/planning/execution-resource-safety-assignments.md: R3
+    notes: >
+      Startup spill settings can report the requested value without applying
+      the control. Apply the native SET before transaction and metadata work.
+      Preserve rounded byte intervals, exact integer thread evidence and
+      sanitized failures; readback alone never proves physical quota.
