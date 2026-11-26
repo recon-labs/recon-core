@@ -831,7 +831,7 @@ captures:
       evidence. Never infer locality solely from a path or OS version.
 
   - id: scratch-namespace-qualification
-    title: Stable scratch namespaces revalidate storage and directory privacy
+    title: Stable scratch namespaces revalidate storage and object privacy
     area: adapter-runtime
     bug_class: scan_safety
     owner_surface: adapter_runtime
@@ -841,6 +841,9 @@ captures:
       - tests/adapters/test_scratch_namespace.py::test_namespace_does_not_adopt_arbitrary_directory
       - tests/adapters/test_scratch_namespace.py::test_unknown_filesystem_does_not_authorize_creation
       - tests/adapters/test_scratch_namespace.py::test_changed_mount_retains_existing_storage
+      - tests/adapters/test_scratch_namespace.py::test_windows_broadened_root_file_refuses_reopen
+      - tests/adapters/test_scratch_namespace.py::test_windows_broadened_session_file_is_retained
+      - tests/adapters/test_scratch_namespace.py::test_windows_file_acl_checks_actual_open_handle
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -853,3 +856,6 @@ captures:
       Revalidate directory privacy and actual filesystem evidence during
       creation and recovery; do not adopt arbitrary existing directories.
       Unknown storage needs independent protection before admission.
+      Native Windows marker and lock operations also inspect the opened
+      file ACL; recovery retains broadened marker, lock and spill files.
+      Full native identity, ancestor and POSIX leaf evidence remain prerequisites.
