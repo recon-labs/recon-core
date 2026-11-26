@@ -133,3 +133,17 @@ change that introduces the surface.
 - `docs/compatibility/typed-check-plan.md`
 - `docs/compatibility/capability-catalog.md`
 - `docs/compatibility/compatibility-matrix.md`
+
+## M8.1.1 proposed binding lifecycle amendment
+
+See [M8.1.1 prework](../planning/milestone-8-1-1-prework.md). Maintainer approved L1 check-local native
+failure isolation; configuration/setup precedence retained. Cleanup
+uncertainty stops further native work without proven isolation. Final
+check ERROR carries no comparison values; dependent checks use actual
+prerequisite blockers. Existing status/reason/exit taxonomy and public
+API signatures remain unchanged. Two proposed additive Core runtime
+diagnostics: RC_RUNTIME_BINDING_PROOF_FAILED and
+RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE. Existing connection/query/close
+codes retain safe messages. This is pending design review/implementation,
+not current runtime behavior or new public stable capability. Resource
+settings and defaults remain reopened.

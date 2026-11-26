@@ -157,8 +157,8 @@ order for the reopened work:
    corrected SQL; finish M8.1 before M8.2, then M8.3, M9, mandatory M9.5
    type-compatibility retrofit and M10.
 
-The binding sub-milestone number, final scope, design and implementation
-approval remain open. Do not duplicate lifecycle machinery, weaken
+The M8.1.1/M8.1.2 split and binding scope direction are approved; detailed
+prework review and implementation approval remain open. Do not duplicate lifecycle machinery, weaken
 admission, begin the renderer correction early or start coding from this
 routing checkpoint. If feasibility requires a different sequence, stop
 and obtain maintainer approval with synchronized gate and split changes.
@@ -172,6 +172,32 @@ Maintainer-approved split direction: M8.1.1 -> targeted M7.4 correction -> M8.1.
 ## M8.1.1 detailed prework checkpoint
 
 See [M8.1.1 proposed prework](milestone-8-1-1-prework.md) for private binding integration,
-acceptance/test matrix, lifecycle decision L1 and exit proof. Scope direction
-approved; implementation blocked until remaining design decisions and review
-are approved. M8.1.2 and targeted M7.4 correction retain separate owners.
+expanded acceptance/test matrix, approved lifecycle decision L1 and exit
+proof. Implementation blocked until final design review and explicit
+coding approval. M8.1.2 and targeted M7.4 correction retain separate owners.
+
+
+## M8.1 implementation-bearing split assignment matrix
+
+| Assignment | M8.1.1 shared binding | Targeted M7.4 correction | M8.1.2 resource policy |
+| --- | --- | --- | --- |
+| Status/dependency | Pending; design/L1 approved direction; coding approval pending | Pending; M8.1.1 verified exit first | Pending; corrected SQL and verified prerequisite first |
+| Scope | Fresh RO check session, transaction, qualified bound scope, lease, path/metadata proof, interim cap, L1 lifecycle | Private grouped join optimization with verified stable binding | Hardware-aware limits, workload evidence, admission, measured defaults and structured advice |
+| Non-goals | No new resource defaults, new types, grouped optimization, writers, expanded S contexts | No global equality rewrite, new type support or duplicate session | No new types, writer, selector or automatic scope mutation |
+| Risk and contracts | Runtime admission, row-count restrictions, failure isolation, privacy, compatibility | Strict type/key/numeric semantics, runtime performance and bounded transport | Config/defaults, native controls, supported evidence/limits, lifecycle enforcement |
+| Gates | 4Q/4I/4L; 4A/4B/4C/4J, 5, 3F2, 6, 8C, 1A, 4P/4O/3A | 3A/3D/4O, 4B/4C/4I/4L, 6, 8C, 4P | 4L/4I, 4A/4B/4C/4J, 5/5E when touched, 3F2/6/8C, 4P/4Q |
+| ADRs | 0026 binding amendment, 0021/0022/0014/0020/0009 | 0009/0021 and approved correction prework | 0026 reopened resource decision, 0025 and applicable lifecycle decisions |
+| Docs | Binding prework, compatibility, adapter API, diagnostic/CLI/testing/limitations upon implementation | M7.4 correction prework, runtime semantics and regression proof | revised M8.1 prework, config/CLI/adapters and resource compatibility |
+| Acceptance | J1-J12 expanded; A4/A7/A8/A13 binding, B9 prerequisite, applicable T/S/R | G families from correction prework, native performance and semantic matrix | Remaining A1-A13, R1-R10, prerequisite B8-B10 if required |
+| Responsibility | Existing RunService and engine; private adapter native lease; Core policy | Existing aggregate renderer and Core strict checks | Existing policy and adapter control seam; no alternate runner |
+| BDD | Valid, stale, unsafe scope, writer conflict, mixed/prerequisite and cleanup | Stable bound grouped exact summary, nulls/empty/composite/type mismatch, bounded scale | Useful defaults and explicit limits, unknown/over-budget block, safe advisories, verified controls |
+| Tests | Exact J tests plus native/public regressions and captures | Exact renderer, native differential and scale, all supported pins | Config/unit/engine/native resource tests, hardware envelopes and control failure cases |
+| Contract impact | Approved temporary S restriction and L1; additive safe diagnostics only; no signature/schema changes | No public compile SQL or semantics change | Settings and admission only after approval, documented compatibility and migration |
+| Exit | Actual bound native proof, J rows, carryover, full CI, privacy and approved exit | Verified performance correction and full semantic regression, approved exit | Full revised matrix, measured resource evidence, gate proof and approved exit |
+| Blocker before coding | Final prework review, exact test variant/diagnostic review, explicit code approval | M8.1.1 exit, own finalized correction prework and code approval | M7.4 correction exit, resource decisions, proof and explicit approval |
+
+Assignment-level orphan review: A1-A13 remain owned, binding portions above
+and remaining in M8.1.2; B1-B10 stay M8.2 except explicit prerequisites;
+C1-C10 M8.3. Earlier capture assignments retain IDs, applied by actual
+changed surfaces. No gate status or runtime implementation implied. See
+[M8.1.1 prework](milestone-8-1-1-prework.md) for approved L1 and J rows.

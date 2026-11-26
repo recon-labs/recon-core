@@ -304,6 +304,6 @@ Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignme
 ## M8.1.1 detailed prework checkpoint
 
 See [M8.1.1 proposed prework](milestone-8-1-1-prework.md) for private binding integration,
-acceptance/test matrix, lifecycle decision L1 and exit proof. Scope direction
-approved; implementation blocked until remaining design decisions and review
-are approved. M8.1.2 and targeted M7.4 correction retain separate owners.
+expanded acceptance/test matrix, approved lifecycle decision L1 and exit
+proof. Implementation blocked until final design review and explicit
+coding approval. M8.1.2 and targeted M7.4 correction retain separate owners.
