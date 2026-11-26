@@ -93,9 +93,7 @@ def _max_payload(domain: _NumericDomain) -> int:
     return 8
 
 
-def _decode_payload(
-    domain: _NumericDomain, tag: int, data: bytes
-) -> _NumericValue:
+def _decode_payload(domain: _NumericDomain, tag: int, data: bytes) -> _NumericValue:
     if tag == 0 and not data:
         return None
     if domain is _NumericDomain.EXACT_INTEGER and tag in (1, 2):
@@ -153,14 +151,14 @@ def _write_result(
         _write_all(stream, payload)
 
 
-def _read_result(
-    stream: BinaryIO, *, expected_columns: tuple[str, ...]
-) -> _AggregateQueryResult:
+def _read_result(stream: BinaryIO, *, expected_columns: tuple[str, ...]) -> _AggregateQueryResult:
     _validate_columns(expected_columns)
     arity = len(expected_columns)
     size = int.from_bytes(_read_exact(stream, 4), "big")
-    if not 1 + arity * _FIELD_HEADER_BYTES <= size <= (
-        1 + arity * (_FIELD_HEADER_BYTES + _MAX_INTEGER_BYTES)
+    if (
+        not 1 + arity * _FIELD_HEADER_BYTES
+        <= size
+        <= (1 + arity * (_FIELD_HEADER_BYTES + _MAX_INTEGER_BYTES))
     ):
         raise _InvalidAggregateResultError()
     if _read_exact(stream, 1)[0] != arity:
