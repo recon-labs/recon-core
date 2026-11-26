@@ -538,30 +538,55 @@ def _guard_integer(result: object, column: str) -> int:
     return result.row[0]
 
 
-def _aggregate_collaborator_blocker(
+def _aggregate_runtime_collaborators(
     check: LoadedCompiledCheck,
-    contract: LoadedCompiledContractArtifact,
     adapter: BaseAdapter,
     renderer: object,
-) -> CheckResult | None:
+    *,
+    bound: bool,
+) -> tuple[Callable[..., object], Callable[..., _AggregateQueryResult]] | None:
+    """Resolve the private collaborators once, without inferring binding proof."""
     try:
-        valid = (
-            renderer is not None
-            and safe_string_attribute(renderer, "adapter_type")
-            == safe_string_attribute(adapter, "adapter_type")
-            and callable(getattr(renderer, "render_plan", None))
-            and callable(getattr(adapter, "_execute_aggregate_query", None))
-        )
+        if renderer is None or (
+            safe_string_attribute(renderer, "adapter_type")
+            != safe_string_attribute(adapter, "adapter_type")
+        ):
+            return None
+        render = getattr(renderer, "render_plan", None)
+        if not callable(render):
+            return None
+        if bound and check.check_type == "grouped_aggregate_diff":
+            render = getattr(renderer, "render_bound_grouped_plan", None)
+        execute = getattr(adapter, "_execute_aggregate_query", None)
+        if callable(render) and callable(execute):
+            return render, execute
     except Exception:
-        valid = False
-    if valid:
         return None
+    return None
+
+
+def _missing_aggregate_collaborators(
+    check: LoadedCompiledCheck, contract: LoadedCompiledContractArtifact
+) -> CheckResult:
     return _aggregate_runtime_error(
         check,
         contract,
         ADAPTER_RENDERER_METADATA_INVALID,
         "Aggregate execution requires verified private runtime collaborators.",
     )
+
+
+def _aggregate_collaborator_blocker(
+    check: LoadedCompiledCheck,
+    contract: LoadedCompiledContractArtifact,
+    adapter: BaseAdapter,
+    renderer: object,
+    *,
+    bound: bool = False,
+) -> CheckResult | None:
+    if _aggregate_runtime_collaborators(check, adapter, renderer, bound=bound) is None:
+        return _missing_aggregate_collaborators(check, contract)
+    return None
 
 
 def _execute_aggregate_check(
@@ -590,12 +615,12 @@ def _execute_aggregate_check(
     if scan_blocker is not None:
         return scan_blocker
 
-    collaborator_blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer)
-    if collaborator_blocker is not None:
-        return collaborator_blocker
-    render = getattr(renderer, "render_plan", None)
-    execute = getattr(adapter, "_execute_aggregate_query", None)
-    assert callable(render) and callable(execute)
+    collaborators = _aggregate_runtime_collaborators(
+        check, adapter, renderer, bound=bound_runner is not None
+    )
+    if collaborators is None:
+        return _missing_aggregate_collaborators(check, contract)
+    render, execute = collaborators
     source, source_error = relation_from_name(
         contract.source.relation, side="source", contract_name=contract.contract_name
     )

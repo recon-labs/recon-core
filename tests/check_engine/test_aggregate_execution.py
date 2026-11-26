@@ -12,6 +12,7 @@ from recon_core.adapters import (
     AdapterCapabilities,
     CapabilitySupport,
     ConnectionConfig,
+    Relation,
     RenderedSql,
 )
 from recon_core.adapters._aggregate_runtime import (
@@ -849,6 +850,7 @@ def _route(
     *,
     tolerance: object = 0,
     scan_decision: ScanBudgetDecision | None = None,
+    bound_runner: object = None,
 ) -> CheckResult:
     check = _compiled_aggregate(grouped=grouped, tolerance=tolerance)
     contract = _contract(tmp_path)
@@ -872,6 +874,7 @@ def _route(
         scan_budget_decisions_by_check_id={check.id: decision},
         tolerance_states_by_contract_id={contract.contract_id: _ToleranceReferenceState.ABSENT},
         aggregate_blockers_by_check_id={},
+        _bound_runner=bound_runner,
     )
     return _run_check(check, contract, context)
 
@@ -1025,3 +1028,121 @@ def test_aggregate_runtime_missing_prepared_adapter_is_error(tmp_path: Path, gro
     assert not result.executed
     assert result.diagnostics[-1].code == "RC_ADAPTER_RENDERER_METADATA_INVALID"
     assert renderer.calls == 0
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("bound", [False, True])
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_grouped_runtime_selects_bound_renderer_only_in_owned_callback(
+    tmp_path: Path, grouped: bool, bound: bool
+) -> None:
+    plan = _routing_plan(grouped)
+    connection = ConnectionConfig(name="warehouse", type="duckdb")
+    adapter = _RoutingAdapter(connection, _routing_results(grouped, _I) if not bound else [])
+    reader = _RoutingAdapter(connection, _routing_results(grouped, _I) if bound else [])
+    source = Relation(identifier="source", schema="main", catalog="warehouse")
+    target = Relation(identifier="target", schema="main", catalog="warehouse")
+    calls: list[str] = []
+
+    class Renderer(_RoutingRenderer):
+        def render_plan(self, operations: object, **kwargs: object) -> object:
+            calls.append("strict")
+            return super().render_plan(operations, **kwargs)
+
+        def render_bound_grouped_plan(self, operations: object, **kwargs: object) -> object:
+            assert calls == ["bound"]
+            assert kwargs == {"source_relation": source, "target_relation": target}
+            calls.append("optimized")
+            return self.plan
+
+    class Runner:
+        def run(
+            self, check: object, contract: object, prepared: object, evaluate: object
+        ) -> CheckResult:
+            assert prepared is adapter
+            calls.append("bound")
+            return evaluate(source, target, reader)
+
+    result = _route(
+        tmp_path,
+        grouped,
+        adapter,
+        Renderer(plan),
+        tolerance=1,
+        bound_runner=Runner() if bound else None,
+    )
+    assert result.status is CheckStatus.PASS
+    assert calls == (["bound", "optimized" if grouped else "strict"] if bound else ["strict"])
+    active = reader if bound else adapter
+    inactive = adapter if bound else reader
+    assert active.calls == [
+        *((guard.sql, ("type_check",)) for guard in plan.type_guards),
+        (plan.domain_guard.sql, ("numeric_domain",)),
+        (plan.final_query(_I).sql, plan.columns),
+    ]
+    assert inactive.calls == []
+
+
+@pytest.mark.parametrize("invalid", ["missing", "noncallable", "raises"])
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_missing_bound_grouped_renderer_refuses_before_runner(tmp_path: Path, invalid: str) -> None:
+    adapter = _RoutingAdapter(ConnectionConfig(name="warehouse", type="duckdb"), [])
+
+    class Runner:
+        def run(self, *args: object) -> CheckResult:
+            pytest.fail("Missing bound renderer must not open a session.")
+
+    class InvalidRenderer(_RoutingRenderer):
+        @property
+        def render_bound_grouped_plan(self) -> object:
+            if invalid == "raises":
+                raise RuntimeError("private-renderer-error")
+            return None
+
+    renderer = _RoutingRenderer if invalid == "missing" else InvalidRenderer
+    result = _route(tmp_path, True, adapter, renderer(_routing_plan(True)), bound_runner=Runner())
+    assert result.status is CheckStatus.ERROR
+    assert result.diagnostics[-1].code == "RC_ADAPTER_RENDERER_METADATA_INVALID"
+    assert not result.executed
+    assert adapter.calls == []
+
+
+@pytest.mark.parametrize("bad", ["key_guard", "input_guard", "domain", "plan"])
+@pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
+def test_bound_grouped_invalid_proof_prevents_final_query(tmp_path: Path, bad: str) -> None:
+    plan = _routing_plan(True)
+    connection = ConnectionConfig(name="warehouse", type="duckdb")
+    adapter = _RoutingAdapter(connection, [])
+    results = _routing_results(True, _I)
+    guard_index = {"key_guard": 0, "input_guard": 1, "domain": 2}
+    if bad != "plan":
+        index = guard_index[bad]
+        results[index] = _AggregateQueryResult(
+            ("numeric_domain" if bad == "domain" else "type_check",), (_I,), (0,)
+        )
+    reader = _RoutingAdapter(connection, results)
+
+    class Renderer(_RoutingRenderer):
+        def render_plan(self, *args: object, **kwargs: object) -> object:
+            pytest.fail("No strict renderer fallback.")
+
+        def render_bound_grouped_plan(self, *args: object, **kwargs: object) -> object:
+            return replace(plan, type_guards=()) if bad == "plan" else plan
+
+    class Runner:
+        def run(
+            self, check: object, contract: object, prepared: object, evaluate: object
+        ) -> CheckResult:
+            return evaluate(Relation(identifier="s"), Relation(identifier="t"), reader)
+
+    result = _route(tmp_path, True, adapter, Renderer(plan), bound_runner=Runner())
+    assert result.status is CheckStatus.ERROR
+    assert not result.executed
+    assert result.diagnostics[-1].code == (
+        "RC_ADAPTER_RENDERER_METADATA_INVALID"
+        if bad == "plan"
+        else "RC_RUNTIME_AGGREGATE_RESULT_INVALID"
+    )
+    assert len(reader.calls) == (0 if bad == "plan" else guard_index[bad] + 1)
+    assert adapter.calls == []
+    assert all("result" not in query for query, _ in reader.calls)

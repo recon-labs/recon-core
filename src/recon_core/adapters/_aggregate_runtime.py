@@ -94,3 +94,13 @@ class _AggregateRuntimeRenderer(Protocol):
         source_relation: Relation,
         target_relation: Relation,
     ) -> _AggregateRuntimePlan: ...
+
+    def render_bound_grouped_plan(
+        self,
+        operations: tuple[Mapping[str, Any], ...],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> _AggregateRuntimePlan:
+        """Render for owned bound execution with all ordered guards still required."""
+        ...

@@ -760,3 +760,14 @@ execution stopped after uncertain cleanup. Existing connection/query/close
 diagnostics remain sanitized. This is a local execution boundary, not a
 stable general transaction API or a calibrated resource policy. See the
 [shared binding prework](../planning/milestone-8-1-1-prework.md).
+
+### Bound grouped runtime optimization
+
+The private project-run grouped SUM renderer omits repeated physical-type
+comparison in the final join only after the owned binding and ordered
+key-type, input-type and numeric-domain guards. The final read remains on
+the same verified lease. Unbound prepared execution retains its strict
+predicate; scalar and public compile/detail SQL are unchanged. The
+one-row summary and privacy contract are unchanged. This is not a resource
+limit or portable collation guarantee. The known DuckDB 1.0.0 grouped
+collation gap remains explicitly assigned to mandatory M9.5.

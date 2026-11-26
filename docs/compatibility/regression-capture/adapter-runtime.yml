@@ -436,3 +436,38 @@ captures:
       - docs/planning/milestone-8-1-1-prework.md: Acceptance matrix and planned test nodes
     notes: >
       Owned read-only transaction proof, exact catalog and lease, per-read verification including DESCRIBE, no fallback, and legacy footprint boundary. This is a temporary local scope restriction, not a calibrated resource limit.
+  - id: duckdb-private-grouped-join-performance
+    title: Bound grouped joins avoid redundant type predicates without weakening proof
+    area: adapter-runtime
+    bug_class: renderer_output_contract
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_join_uses_guarded_null_safe_equality
+      - tests/check_engine/test_aggregate_execution.py::test_grouped_runtime_selects_bound_renderer_only_in_owned_callback
+      - tests/check_engine/test_aggregate_execution.py::test_missing_bound_grouped_renderer_refuses_before_runner
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_native_key_domains
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_native_numeric_domains
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_nullable_composite_union
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_preserves_collation_baseline
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_join_scale_regression
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_renderer_requires_qualified_grouped_operations
+      - tests/check_engine/test_aggregate_execution.py::test_bound_grouped_invalid_proof_prevents_final_query
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_arbitrary_integer_differential
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_wide_skewed_composite_regression
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_invalid_numeric_precedence
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: bound_grouped_join
+        rationale: Shared cross-adapter conformance remains owned by M29.
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: bound_grouped_join
+    requirement_refs:
+      - docs/planning/milestone-7-4-prework.md: Targeted bound grouped runtime correction
+    notes: >
+      Only the owned bound grouped evaluation can select the optimized predicate.
+      Keep strict unbound and public rendering, ordered guards, native numeric
+      domains and the full bounded summary; missing private collaborators fail
+      closed. Native performance and semantic proof remain mandatory.

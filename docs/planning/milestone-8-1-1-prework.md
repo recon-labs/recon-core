@@ -1,7 +1,9 @@
 # M8.1.1 - Shared Database Binding Prework
 
-Status: design and implementation approved; implementation on draft PR #38,
-final acceptance and gate review pending. Historical design baseline
+Status: completed and merged in PR #38; tested head
+d513a249b926f05c8264d6790af163911c90b3a1, CI 45815181891 10/10,
+main merge 4d3ede5029a6f052d1c18c0ef62f176e0ae15868 with identical tree.
+Scoped J1-J12 exit approved; broader gates remain open. Historical design baseline
 e89838985ff5906f2ec5e3aa393c9ba11dff60f5 (merged PR #35).
 Split Decision: Already Split / Follow Existing Split. M8.1.1 -> targeted
 M7.4 correction -> M8.1.2. Gate 4Q/S1-S8, 4L/R1-R10, 4P/T1-T10 apply.
@@ -321,7 +323,7 @@ satisfaction, not a reason to weaken tests. Ordinary design, implementation,
 merge and release approval requirements are unaffected.
 
 
-## Implementation checkpoint (not milestone exit)
+## Historical implementation checkpoint (superseded by verified exit)
 
 Draft PR #38 implements the approved shared binding mechanism. The initial
 integration baseline and expanded acceptance have passed full CI, including
@@ -348,7 +350,7 @@ S = `tests/services/test_run_service_bound_execution.py`;
 A = `tests/services/test_run_service_aggregate_admission.py`;
 D = `tests/services/test_run_service_duckdb_execution.py`;
 L = `tests/services/test_run_service_adapter_lifecycle.py`.
-Current evidence must be verified on the exact PR head before exit.
+Evidence was verified on the exact final PR head before exit (see status above).
 
 | Requirement | Actual regression evidence |
 | --- | --- |
@@ -367,8 +369,8 @@ Current evidence must be verified on the exact PR head before exit.
 
 ## Gate disposition at exit review
 
-Dispositions below are scoped to this implementation and conditional on
-exact-head verification and maintainer exit approval. They do not close
+Dispositions below are scoped to this implementation; exact-head verification
+and maintainer exit approval are complete. They do not close
 cross-cutting gates globally.
 
 | Gate | Local disposition and carryover |
@@ -390,5 +392,4 @@ Capture decisions: new stable rows `duckdb-owned-project-binding` and
 scope. Existing future adapter-testkit, privacy, publication, CLI and
 parser/compiler carryovers retain their owning milestones and explicit
 deferred status; do not mark them satisfied by Core-only evidence. The
-branch-wide advisory must be refreshed against the exact exit head.
-No successor implementation or merge without approval.
+branch-wide advisory was reviewed through equivalent exact-head routing (45 paths, 88 routes, 46 rows, six gates, no pending or missing routed decisions); local command was not executed. No successor implementation or merge without approval.

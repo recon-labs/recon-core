@@ -1201,4 +1201,218 @@ Historical completion is unchanged. Mandatory pending M9.5 owns the explicit ret
 
 ## Reopened next-action dependency
 
-Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. The split and M8.1.1 implementation are approved; its verified exit and the targeted correction's own finalized prework and implementation approval remain pending.
+Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. M8.1.1 is completed and verified on main; the targeted correction's design and implementation are approved; final cumulative validation and exit approval remain required.
+
+## Targeted bound grouped runtime correction - approved prework
+
+Status: design, legacy collation disposition and implementation approved by
+maintainer on 2026-11-26; implemented on draft PR #39, final cumulative
+validation and exit approval pending. M8.1.1 scoped exit
+completed on main at 4d3ede5029a6f052d1c18c0ef62f176e0ae15868 (PR #38,
+tested head d513a249b926f05c8264d6790af163911c90b3a1, CI 45815181891 10/10;
+tested and merged trees identical). Split Decision: Already Split / Follow
+Existing Split; reopen only the affected M7.4 regression, no new numbered
+milestone. M8.1.2 remains mandatory afterward. High-risk: native SQL,
+binding, strict comparison, resource behavior, privacy.
+
+### Problem and approved decision
+
+The private grouped final join currently combines physical-type equality
+and null-safe key equality on each positional key. The extra type expression
+can prevent an efficient join on supported native engines. The normal
+project path now owns a fresh read-only transaction and exact qualified
+relations, and verifies a single-use binding lease before/after each
+read and transport metadata read. It already executes ordered key-type,
+input-type and native-domain guards before the final query. Low-level
+prepared aggregate execution can still call the same renderer without
+a bound runner. Public compile/detail rendering is a separate contract.
+
+Use an explicit private bound-grouped rendering entry point, reachable
+in normal execution only inside the successful owned-binding evaluation
+callback, with its existing canonical relations and bound reader. Keep the
+existing private render_plan behavior strict for unbound callers and scalar
+behavior unchanged. The bound renderer reuses the same private plan builder,
+guard SQL, positional grouping, full outer join, presence markers, numeric
+expressions and one-row summary; only its final grouped key predicate uses
+null-safe equality without the redundant typeof conjunct. Both exact and
+floating final variants follow the same rule. Keep the shared strict
+helper, public compile/detail renderer and key checks unchanged. Use an
+explicit private renderer contract for this operation, not a caller-supplied
+public flag, adapter-name guess, connection mode guess or SQL text rewriting.
+Missing/invalid bound collaborator uses the existing safe renderer error;
+no fallback/retry with weaker proof. Verify collaborator availability before
+opening native work where applicable without moving existing blocker
+precedence. No proof may be inferred from method availability alone:
+admission, verified lease, ordered guard results and final bound read are
+all mandatory. The built-in adapter owns the SQL; Core owns orchestration
+and outcomes. No concrete DuckDB imports in check-engine/services.
+
+Non-goals: new types or casts, public API/schema/compile SQL changes,
+duplicate transactions, optimizer directives, version-specific production
+branches, staging, implicit sampling/filtering, new resource settings,
+changed 64 MiB key/SUM-only temporary limit, changed execution scope,
+new diagnostics or artifacts. No generic performance guarantee.
+Do not optimize the unbound path on the basis of this proof.
+
+### Expanded correction matrix and test plan
+
+The existing M7.4 acceptance matrix remains authoritative for preserved
+behavior. G rows below specify correction proof; node names prefixed
+"new:" are planned, not passed. R = tests/adapters/test_duckdb_aggregate_runtime_renderer.py;
+S = tests/services/test_run_service_aggregate_admission.py;
+E = tests/check_engine/test_aggregate_execution.py;
+B = tests/adapters/test_duckdb_bound_execution.py.
+
+| ID | Required variants and behavior | Evidence owner |
+| --- | --- | --- |
+| G1 | Exact/floating single/composite bound join removes only redundant type conjunct; unbound final retains strict predicate; scalar, public detail and key SQL unchanged | R new: test_bound_grouped_join_uses_guarded_null_safe_equality; existing public separation and public renderer suites |
+| G2 | Integer widths/signedness, decimal scale, text/numeric, partial composite mismatch, empty/nonempty; malformed guard, mismatch or error prevents final execution; preserve existing precedence | R test_runtime_renderer_empty_group_key_mismatch; S test_native_grouped_service_rejects_incompatible_key_types; E test_aggregate_runtime_stops_before_final_query_on_invalid_guard; new bound matrix in S |
+| G3 | Canonical qualified relation/alias, actual owned session, guard/final/hidden DESCRIBE same lease; wrong context, shadowing, file/sidecar drift and invalidation fail closed; no legacy query on bound path | S test_all_nine_checks_use_owned_transaction_and_qualified_queries, test_binding_drift_between_aggregate_guards_stops_final_read; B binding/lease/cleanup matrix; new candidate-specific drift tests |
+| G4 | Nullable single/composite keys, repeated/quoted keys, alias collisions, duplicate input rows, empty, matched/unmatched, both-null/null-mismatch, zero; known independent summary and strict-vs-bound differential | R existing composite/repeated/all-null/empty/null-zero tests; new native differential fixtures |
+| G5 | All existing exact signed/unsigned integers, decimal scale/extrema, native float/double, BIGNUM where supported, nonfinite/overflow/invalid precedence, inclusive and named tolerance | R existing native domains; tests/adapters/test_duckdb_aggregate_numeric_domains.py; S numeric/overflow/tolerance; new bound differential numeric coverage; no new pin exclusions |
+| G6 | Synthetic narrow/wide and skewed/composite group shapes, exact/floating, modest permanent regression fixture and bounded 1k/10k/50k/800k probes as feasible; actual native SQL, known truth, one-row transport, compare strict/candidate plan and elapsed/work, all four pins; no fixed runtime SLA or runtime plan parser | R new: test_bound_grouped_join_scale_regression; isolated bounded probe, record unavailable observations and file sizes/runner context separately |
+| G7 | Admission/capability/preflight refusal, ordered guards/domain/final, malformed result/query/cleanup failure, prerequisite and unrelated-check isolation, no raw values/SQL/plan or generated output | E ordered/invalid guard and result tests; S lifecycle/privacy/immutability; B; existing transport and CLI |
+| G8 | Reusable capture linked to actual tests, existing native-domain/bounded-summary/public-separation and owned-binding captures preserved; full branch advisory and compatibility | adapter-runtime capture and index; architecture and public exports tests |
+| G9 | M8.1.2 uses exact corrected revision and affected workload for actual calibration; no resource containment/default claim from optimization | M8.1.2 prework and R1-R10; M29 shared conformance |
+| G10 | Normal bound grouped path alone selects optimized entry; missing/malformed collaborator or lease prevents it; legacy prepared context cannot select it implicitly; scalar retains existing path and no SQL/text mutation shortcut | E new: test_grouped_runtime_selects_bound_renderer_only_in_owned_callback; S actual native trace; R strict/optimized variant |
+| G11 | Native same-type temporal/boolean/string/binary/UUID and nested key forms where existing engine accepts them; explicit collated DDL versus binary case, collation/unsupported outcomes preserved by strict-vs-bound comparison plus independent truth; no implicit normalization or cross-type expansion | R/S native differential tests on four pins; investigate any disagreement, don't exclude a previously supported case |
+
+### Gate and responsibility dispositions (planning, not exit proof)
+
+- 3A/3D/4O/3F2/6: G4/G5/G7/G11 retain existing metric, tolerance, outcome and privacy rules.
+- 4B/4C/4I: G1/G2/G3/G7/G10 preserve private adapter-native SQL,
+  typed operations, same-context placement and public signatures/compile.
+- 4L/R1-R10: G6 distinguishes input/file/work/returned observations (R1),
+  records environment (R2), does not introduce or claim native controls (R3)
+  or defaults (R4), preserves actual ordered binding and admission (R5),
+  reuses cleanup/failure semantics (R6), observes join work without adding
+  scheduling (R7), no new projection (R8), measured plan improvement only
+  (R9), four-pin bounded evidence (R10). Remaining controls, useful defaults
+  and scheduling/publication stay assigned to M8.1.2/M8.2/M8.3.
+- 4P/T1-T10: G2/G4/G5/G11 retain physical type/domain and identity
+  (T1-T6), G3/G10 binding and typed mechanics (T7/T8), G7 safe outcomes
+  (T9), G1-G8/G11 native/conformance proof (T10). M9.5 owns full
+  lossless compatibility; no implicit casting or permanent scope decision.
+- 4Q: G3/G7/G10 preserve temporary protected local scope; no S expansion.
+  M10.8/M13.5/M18/M29 assignments unchanged.
+- 1A/5/5E: G3/G7 preserve owned lifetime and no writes; no new publication.
+- 8C: G1-G8/G10-G11 pinned semantics and scale; M29 retains shared proof.
+
+Responsibility map: private neutral aggregate renderer contract
+(src/recon_core/adapters/_aggregate_runtime.py) defines the explicit
+bound-grouped entry; DuckDB private renderer
+(src/recon_core/adapters/duckdb/_aggregate_runtime.py) owns common SQL and
+predicate selection; check_engine/aggregate.py selects the private entry
+only after the bound callback, validates plan/guards/domain and interprets
+results; default_renderers.py supplies built-in collaborators. No lifecycle
+or concrete engine dependencies in Core. Existing _bound_runner.py,
+_bound_protocol.py, adapters/_project_binding.py and DuckDB _bound_execution.py
+own binding/read/cleanup and should not require production changes. Do not
+duplicate final-summary SQL or new binding state. Public renderer_sql.py,
+renderer_operations.py and renderer.py remain unchanged. Test responsibility
+matches G rows; add/update capture and docs/changelog at implementation.
+If this narrow boundary cannot be maintained or existing supported semantics
+differ, stop and revise design before coding; no broad refactor without approval.
+
+BDD: (1) given an owned verified grouped check and valid guards, when
+evaluated, then native null-safe join returns the same bounded truth more
+efficiently; (2) given mismatched or stale proof, then no unproven final
+read; (3) given prepared unbound or public compile, then strict SQL/behavior
+unchanged; (4) given null/absence/numeric error or cleanup failure, then same
+safe outcome and no publication; (5) given absent bound collaborator, then
+safe error and no weaker fallback.
+
+### Steps and Definition of Done
+
+1. Preflight/research: audit the merged source and gates, compare actual
+   old/candidate SQL using fresh owned native sessions on each pin including
+   explicit collation DDL and bounded scale. Record actual outcomes and
+   limitations, cleanup experiment-only files. Resolve any baseline or
+   candidate discrepancy before locking design. Prior unbound experiments
+   are not sufficient. Bound feasibility and independent native collation isolation have been observed on all four pins. The maintainer approved the legacy collation disposition below.
+2. Design, acceptance/source map and collation disposition approved;
+   validate final prework and obtain separate implementation approval.
+   No implementation until then.
+3. Test-first: actual RED evidence for critical path-selection/semantic
+   regression and performance SQL structure; additive sibling proofs,
+   preserve existing captures. Implement the smallest design-conformant
+   shared renderer change and private selection. Verify GREEN.
+4. Prove G1-G8/G10-G11 on actual native and pinned CI, bounded scale and
+   public compile/API/diagnostic regressions; no new unsupported exclusions.
+   Full branch carryover advisory (or documented equivalent), pre-commit,
+   tests, lint/types, docs/changelog and capture review. Mandatory cumulative
+   review-fix loop and semantic anti-pattern check; no unresolved material
+   in-scope issue. Verify exact head and obtain exit/merge approval.
+5. After verified integration, record G9 handoff; mandatory M8.1.2
+   prework/calibration follows, not approved by this correction.
+
+### Feasibility and approved carryover
+
+On fresh actual owned read-only sessions, the existing strict and candidate
+final SQL produced identical outcomes across all paired native cases
+(9 semantic plus one 10,000-group case per pin, including mismatched key
+refusals). Candidate-only 800,000-group synthetic fixtures completed with
+the known union summary on every pin; the narrow compressed fixture does
+not establish resource safety or general performance. Previous physical
+plan evidence identified the redundant predicate regression on two pins.
+The wide/skewed/floating scale and complete native-domain/route proof remain
+implementation acceptance, not claimed by these probes.
+
+Independent truth exposed one existing discrepancy: on DuckDB 1.0.0,
+explicit case-insensitive text collation matches the two case variants
+before grouping, but native equality and null-safe equality after grouping
+both return unequal. The existing strict SQL and candidate both produce
+two one-sided groups, while later tested pins match. This is not introduced
+by the candidate and is not a universal statement about collations. The
+correction must not silently change that baseline, exclude a version, or
+introduce casts, case-folding or version-specific SQL. The maintainer approved mandatory M9.5 as the implementation owner for
+this existing defect (T1/T5/T6/T10), with exact delivery and exit proof in
+[type compatibility assignments](type-compatibility-assignments.md#mandatory-m95-grouped-collation-correction).
+M7.4 must retain an explicit four-pin differential regression for the
+observed baseline, not claim it is correct collation behavior or skip the
+legacy case. Any new candidate discrepancy remains an in-scope blocker.
+Do not claim portable collation support. The M9.5 case must be resolved
+before M10 exit and 0.1 release readiness, not deferred to M11 or M29.
+No production code or gate satisfaction claimed by this prework.
+
+
+### Implementation and cumulative validation checkpoint
+
+Critical test-first RED verified: CI 45828693382 at c70712e exposed five
+intended native failures (missing bound renderer, wrong selection, missing
+collaborator reaching runner, and actual final SQL retaining redundant
+predicate). Initial full GREEN at f5d8925, CI 45829398258, all ten jobs;
+1,244 required native tests on Python 3.13. A later cumulative review
+resolved the renderer and executor together inside the existing guarded
+collaborator check, eliminating a repeated unchecked lookup. Existing
+binding, public SQL, scalar and key paths remain unchanged. Additional
+malformed collaborator/guard, arbitrary integer, skewed composite and
+invalid numeric cases and capture references are present on the branch.
+The metadata checker caught four missing published test nodes during the
+review; those nodes were restored and read back at 2628e54. Final CI and
+fresh cumulative review are still required; no milestone exit claim.
+
+G6 actual implemented renderer feasibility: isolated synthetic four-pin
+run 45830527242, all four jobs successful. Strict and bound variants on
+10,000 narrow groups and 1,000 wide composite floating groups agree with
+independent expected summary. 50,000 wide/skewed and 800,000 narrow groups
+completed on the bound variant only. All final queries return one nine-field
+summary; no private data, no raw plans published. EXPLAIN on synthetic
+fixtures shows strict BLOCKWISE_NL_JOIN -> bound HASH_JOIN on 1.3.2 and
+1.4.5, both HASH_JOIN on 1.0.0; 2.0.1 operator not identified by the probe's
+label check. Narrow 10k strict/bound final-query seconds (one observation
+per variant): 1.0.0 0.00983/0.01074, 1.3.2 0.08393/0.00661,
+1.4.5 0.07662/0.00452, 2.0.1 0.00541/0.00490. Wide 50k bound
+0.03824/0.03331/0.02754/0.02967, narrow 800k bound
+0.13204/0.12936/0.10047/0.08622 respectively. Narrow compressed files
+798720 bytes; wide 50k files 2895872 bytes. These are not resource ceilings,
+calibrated thresholds or general speed guarantees. No strict large-scale
+timing claim; temporary probes bounded by subprocess and file limits.
+Temporary workflow and script removed; no permanent performance harness.
+M8.1.2 still owns calibration on the verified corrected revision.
+
+Regression capture duckdb-private-grouped-join-performance extends the
+existing adapter/runtime and engine evidence, with shared adapter-testkit
+obligations deferred to their established owner. Review the exact final
+revision against G1-G11, all routed regression decisions and all previously
+assigned gates before exit. G9 handoff requires verified integration.

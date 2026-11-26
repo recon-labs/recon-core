@@ -76,4 +76,31 @@ until applicable native capability and conformance are proven.
 
 ## Execution scope restoration checkpoint
 
-Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is approved as direction, not implemented. Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+
+## Mandatory M9.5 grouped collation correction
+
+Maintainer-approved carryover from the targeted M7.4 preflight, 2026-11-26.
+Owner: M9.5 existing key and aggregate type-compatibility implementation;
+Gate 4P/T1/T5/T6/T10 and 8C, with T7/T8/T9 and R1-R10 as applicable.
+Evidence: explicit case-insensitive text collation on same-type keys in
+DuckDB 1.0.0 respects equality and null-safe equality before grouping,
+but both comparisons of grouped CTE keys are unequal; strict and optimized
+M7.4 candidate return two one-sided groups for case variants that should
+match under the declared collation. The other three tested pins match.
+This is an existing correctness gap, not a new optimization regression.
+
+M9.5 must investigate actual collation metadata/provenance and native
+operation behavior, design an explicit shared compatibility/identity
+policy and implement a proven correction for the supported affected scope.
+Expand acceptance to binary vs declared collations, case/Unicode, nulls,
+composite keys, duplicate/collision and grouped multiplicity, matched and
+unmatched groups, same/mixed/unknown metadata and all supported pins.
+Use independent truth fixtures, actual bound execution and regression
+capture; preserve existing legitimate comparison behavior and resource
+admission. No blanket case-folding, silent coercion, arbitrary version
+exclusion or hidden portability assumption. Exact strategy requires M9.5
+prework and approval; if a scope/version contract change is necessary,
+obtain explicit approval before changing it. M9.5 cannot exit with the
+approved affected case unresolved; M10/0.1 readiness remain blocked.
+M7.4 preserves the baseline with explicit differential proof until then.

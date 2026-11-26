@@ -73,13 +73,11 @@ insensitive identifiers and distinct non-ASCII identifiers require
 engine-correct resolution, not generic Unicode lower/casefold.
 These experiments are feasibility evidence only. Actual Recon bound
 execution, path/alias proof, legacy view/outside-project regression and
-lifecycle integration are implemented on draft PR #38; final acceptance
-and exit approval remain pending. Temporary experiment files removed.
+lifecycle integration are implemented and verified on main (PR #38); scoped exit approved. Temporary experiment files removed.
 
 ## Next work
 
 Approved M8.1.1 -> targeted M7.4 correction -> M8.1.2 -> M8.2 -> M8.3 ->
-M9 -> M9.5 -> M10. M8.1.1 design and implementation were approved; final
-verification and exit approval remain pending. M10.8 and M13.5 are planning assignments only; exact
+M9 -> M9.5 -> M10. M8.1.1 scoped exit is verified; targeted M7.4 correction remains pending. M10.8 and M13.5 are planning assignments only; exact
 API/config, scope, safety, placement and compatibility decisions require
 their own research and approvals. No production code authorized here.

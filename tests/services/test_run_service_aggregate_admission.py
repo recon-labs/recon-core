@@ -903,12 +903,23 @@ def test_native_grouped_service_distinguishes_absence_from_null(
 
 
 @pytest.mark.parametrize("empty", [False, True])
+@pytest.mark.parametrize(
+    ("source_key", "target_key"),
+    [
+        ("1::INTEGER", "'1'::VARCHAR"),
+        ("1::INTEGER", "1::BIGINT"),
+        ("1::INTEGER", "1::UINTEGER"),
+        ("1::DECIMAL(10,2)", "1::DECIMAL(10,3)"),
+    ],
+)
 @pytest.mark.regression_capture("aggregate-native-service-group-presence")
-def test_native_grouped_service_rejects_incompatible_key_types(tmp_path: Path, empty: bool) -> None:
+def test_native_grouped_service_rejects_incompatible_key_types(
+    tmp_path: Path, empty: bool, source_key: str, target_key: str
+) -> None:
     _write_native_aggregate_inputs(
         tmp_path,
-        source_sql=_native_row("1::INTEGER", key="1::INTEGER", empty=empty),
-        target_sql=_native_row("1::INTEGER", key="'1'::VARCHAR", empty=empty),
+        source_sql=_native_row("1::INTEGER", key=source_key, empty=empty),
+        target_sql=_native_row("1::INTEGER", key=target_key, empty=empty),
         grouped=True,
     )
     engine = _CapturingAggregateEngine()
@@ -1685,6 +1696,10 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         assert len(queries) == {"sum_diff": 3, "grouped_aggregate_diff": 4}.get(check.check_type, 1)
         assert all(f'"{catalog}"."qa".' in query for query in queries)
         assert all(query.lower().split(maxsplit=1)[0] in {"select", "with"} for query in queries)
+        if check.check_type == "grouped_aggregate_diff":
+            assert "typeof(s.group_key_" not in queries[-1]
+            assert "s.group_key_0 is not distinct from t.group_key_0" in queries[-1]
+            assert "s.group_key_1 is not distinct from t.group_key_1" in queries[-1]
     assert database.read_bytes() == before
     _assert_no_runtime_outputs(tmp_path)
 

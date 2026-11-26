@@ -752,7 +752,7 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). The split and M8.1.1 design/implementation are approved; M8.1.1 exit, correction prework/approval and M8.1.2 design approval remain pending.
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); correction implemented on draft PR #39; final cumulative validation, exit approval and M8.1.2 design approval remain pending.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
@@ -790,8 +790,8 @@ additional dimensions and carryover obligations.
 
 ### Milestone 8.1.1: shared database binding prerequisite
 
-Approved and implemented on draft PR #38; final acceptance, cumulative
-verification and exit approval remain pending.
+Completed and merged on main (PR #38); final acceptance, cumulative
+verification and scoped exit approved.
 Own fresh read-only per-check execution context, transaction, exact
 qualified relation binding, pre-data-query scope/identity proof and safe
 cleanup for row count/key/SUM. Apply temporary local base-table-only
@@ -954,14 +954,19 @@ Build:
   arithmetic failure, and actual data violations; integrate approved
   result/evidence metadata with M8.3/M9 contracts and version policy;
 - supported type/operation/version matrix, deterministic regression
-  capture, user-facing limitations and runnable examples.
+  capture, user-facing limitations and runnable examples;
+- mandatory correction of the existing DuckDB 1.0.0 grouped collation
+  discrepancy, with shared metadata/identity semantics and independent
+  native truth across supported pins; see [explicit M9.5 collation assignment](../planning/type-compatibility-assignments.md#mandatory-m95-grouped-collation-correction).
+  M9.5 exit requires its resolution, not just research or deferral.
 
 Non-goals: new metrics, schema policy execution, cross-connection or
 cross-adapter execution, arbitrary string-to-number/timezone conversion,
 lossy normalization, new authored policy syntax without approved design,
 new public adapter APIs without explicit gate review. Mixed approximate
-numeric, temporal, collation/nested and richer explicit conversion
-semantics require explicit decisions and owners; M11/M12/M13/M21/M22/M30
+numeric, temporal, broader collation/nested and richer explicit conversion
+semantics require explicit decisions and owners; the assigned grouped
+collation correction above is mandatory in M9.5; M11/M12/M13/M21/M22/M30
 extend the shared model, not substitute for this required baseline.
 
 Required gates: Gate 4P primary; 1A, 3A/3C/3D/3F2, 4B/4C/4I/4L/4O,
@@ -3205,10 +3210,9 @@ Build the smallest complete loop first, then widen capability.
 
 ## M8.1.1 detailed prework checkpoint
 
-See [M8.1.1 proposed prework](../planning/milestone-8-1-1-prework.md) for private binding integration,
+See [M8.1.1 prework and exit evidence](../planning/milestone-8-1-1-prework.md) for private binding integration,
 expanded acceptance/test matrix, approved lifecycle decision L1 and exit
-proof. Implementation blocked until final design review and explicit
-coding approval. M8.1.2 and targeted M7.4 correction retain separate owners.
+proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own approvals; M7.4 implementation approved and in final cumulative validation; exit pending.
 
 ## Mandatory M8.1.2 resource policy handoff
 

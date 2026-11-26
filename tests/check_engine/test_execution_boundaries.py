@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from recon_core.check_engine import aggregate as aggregate_module
 from recon_core.check_engine import engine as engine_module
 from recon_core.check_engine import execution_support as execution_support_module
 from recon_core.check_engine import key_safety as key_safety_module
@@ -33,6 +34,7 @@ def test_execution_support_does_not_import_duckdb_adapter_module() -> None:
 
 def test_check_engine_and_run_service_do_not_import_duckdb_runtime_modules() -> None:
     module_paths = (
+        Path(aggregate_module.__file__),
         Path(engine_module.__file__),
         Path(execution_support_module.__file__),
         Path(key_safety_module.__file__),

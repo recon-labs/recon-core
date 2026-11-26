@@ -37,6 +37,10 @@ This project follows semantic versioning once public package releases begin.
 
 ### Changed
 
+- Optimize private project-run grouped SUM joins after verified binding and
+  ordered type guards. Preserve strict unbound SQL, public compiled SQL,
+  result semantics and existing admission; no new resource defaults.
+
 - Project-run DuckDB row-count, key-safety and SUM checks now bind exact local
   base tables in a fresh owned read-only transaction per check. Views,
   outside-project databases and other unverified scopes are temporarily
