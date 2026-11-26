@@ -104,7 +104,35 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
         for suffix in ("first", "dependent", "unrelated")
     ]
     checks[1]["prerequisites"] = [checks[0]["id"]]
+    checks.append(
+        _compiled_check_payload(
+            check_id="check.ecommerce_recon.customer_revenue.malformed",
+            name="malformed",
+            operations=[{"type": "row_count", "side": "source"}],
+        )
+    )
     write_compiled_checks(tmp_path, checks=checks)
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    connections = profile["profiles"]["local"]["outputs"]["dev"]["connections"]
+    connections["alias"] = dict(connections["warehouse"])
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    alias = _compiled_check_payload(
+        check_id="check.ecommerce_recon.other_revenue.row_count_diff",
+        operations=row_count_plan(),
+    )
+    alias["plan"] = {
+        "id": "plan.ecommerce_recon.other_revenue.row_count_diff",
+        "operations": row_count_plan(),
+        "required_capabilities": ["row_count"],
+    }
+    write_compiled_checks(tmp_path, contract_name="other_revenue", checks=[alias])
+    write_compiled_contract(
+        tmp_path,
+        contract_name="other_revenue",
+        source_connection="alias",
+        target_connection="alias",
+    )
     original_open = binding._OwnedDuckDbSession.open
     original_close = binding._OwnedDuckDbSession.close
     opened: list[binding._OwnedDuckDbSession] = []
@@ -134,7 +162,10 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     result = RunService(start_path=tmp_path, engine=engine).execute()
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
-    first, dependent, unrelated = engine.result.contract_results[0].check_results
+    contracts = {contract.contract_name: contract for contract in engine.result.contract_results}
+    first, dependent, unrelated, malformed = contracts["customer_revenue"].check_results
+    aliased = contracts["other_revenue"].check_results[0]
+    assert malformed.status is CheckStatus.NOT_EXECUTABLE and not malformed.executed
     assert first.status is CheckStatus.ERROR
     assert not first.executed
     assert first.source_value is None and first.target_value is None
@@ -145,10 +176,13 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
         assert "RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE" in {
             diagnostic.code for diagnostic in unrelated.diagnostics
         }
+        assert aliased.status is CheckStatus.ERROR and not aliased.executed
+        assert "RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE" in {d.code for d in aliased.diagnostics}
         assert len(opened) == 1
     else:
         assert unrelated.status is CheckStatus.PASS
-        assert len(opened) == 2
+        assert aliased.status is CheckStatus.PASS and aliased.executed
+        assert len(opened) == 3
 
 
 @pytest.mark.parametrize("read_only", [False, True])

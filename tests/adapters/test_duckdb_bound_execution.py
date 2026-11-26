@@ -117,6 +117,7 @@ def test_file_identity_detects_size_and_replacement(tmp_path: Path) -> None:
     assert guard._current_file_identity(path) != identity
 
 
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_qualified_relation_binding_and_owned_cleanup(tmp_path: Path, duckdb: Any) -> None:
     path = tmp_path / "local.data"
     writer = duckdb.connect(str(path))
@@ -143,6 +144,18 @@ def test_qualified_relation_binding_and_owned_cleanup(tmp_path: Path, duckdb: An
         assert other == Relation(identifier="MiXeD", schema="other", catalog=main.catalog)
         assert session.resolve_relation(f"{main.catalog}.main.mixed") == main
         assert session.resolve_relation("wrong.main.mixed") is None
+        assert session.resolve_relation("absent.mixed") is None
+        lease = session.bind(
+            check_id="check-1",
+            operation="row_count_diff",
+            source="MAIN.mixed",
+            target=f"{main.catalog}.other.mixed",
+        )
+        assert lease is not None
+        assert lease.scope.source == main and lease.scope.target == other
+        for relation, value in ((lease.scope.source, 1), (lease.scope.target, 2)):
+            query = f"select id from {render_relation(relation)}"
+            assert session._read_bound_query(lease, lease.scope, query).rows == ((value,),)
         with pytest.raises(Exception, match="(?i)(configuration|read.only)"):
             duckdb.connect(str(path))
     finally:
