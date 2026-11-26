@@ -212,6 +212,7 @@ def test_windows_broadened_session_file_is_retained(tmp_path: Path, name: str) -
     assert (ticket.path / "owner").is_file()
 
 
+@pytest.mark.regression_capture("scratch-namespace-qualification")
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows opened file ACL proof")
 def test_windows_file_acl_checks_actual_open_handle(tmp_path: Path) -> None:
     from recon_core.adapters._windows_scratch_security import (
