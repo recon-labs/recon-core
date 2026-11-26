@@ -43,9 +43,7 @@ _COUNT_BINDING_OPERATIONS = frozenset(
 )
 
 
-def _read_bound_count_result(
-    connection: Any, query: str, *, max_columns: int
-) -> QueryResult:
+def _read_bound_count_result(connection: Any, query: str, *, max_columns: int) -> QueryResult:
     """Read at most two rows of a bounded integer-only native summary.
 
     Leave exact expected column names and comparison arithmetic to the existing
@@ -58,9 +56,7 @@ def _read_bound_count_result(
     if not isinstance(description, list | tuple) or not 1 <= len(description) <= max_columns:
         return invalid
     if any(
-        not isinstance(column, list | tuple)
-        or not column
-        or not isinstance(column[0], str)
+        not isinstance(column, list | tuple) or not column or not isinstance(column[0], str)
         for column in description
     ):
         return invalid
