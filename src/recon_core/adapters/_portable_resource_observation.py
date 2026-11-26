@@ -92,7 +92,7 @@ def _windows_drive_kind(kind: int | None) -> bool | None:
 def _read_portable_facts(
     provider: Any,
     platform: str,
-    scratch: PurePath,
+    scratch: PurePath | None,
     *,
     windows_scope: _WindowsScope | None = None,
     windows_drive: int | None = None,
@@ -118,7 +118,7 @@ def _read_portable_facts(
             )
         )
         scratch_kind = (
-            _classify_mounted_filesystem(scratch, mounts) if mounts is not None else None
+            _classify_mounted_filesystem(scratch, mounts) if mounts is not None and scratch is not None else None
         )
     else:
         scratch_kind = None
@@ -126,7 +126,9 @@ def _read_portable_facts(
         host_available_bytes=_bounded_integer(memory),
         affinity_count=affinity_count,
         process_rss_bytes=_bounded_integer(getattr(info, "rss", None)),
-        process_virtual_bytes=_bounded_integer(getattr(info, "vms", None)),
+        process_virtual_bytes=(
+            _bounded_integer(getattr(info, "vms", None)) if platform != "win32" else None
+        ),
         process_private_commit_bytes=(
             _bounded_integer(getattr(info, "private", None)) if platform == "win32" else None
         ),
@@ -232,7 +234,7 @@ def _load_provider() -> Any:
 
 
 def _observe_portable_resources(
-    scratch: Path, platform: str, *, loader: Callable[[], Any] = _load_provider
+    scratch: Path | None, platform: str, *, loader: Callable[[], Any] = _load_provider
 ) -> _PortableFacts:
     provider = _attempt(loader)
     if provider is None:
@@ -242,7 +244,8 @@ def _observe_portable_resources(
         kernel = _attempt(lambda: import_module("ctypes").WinDLL("kernel32"))
         if kernel is not None:
             scope = _attempt(lambda: _windows_scope(kernel))
-            drive = _attempt(lambda: _windows_drive(kernel, scratch))
+            if scratch is not None:
+                drive = _attempt(lambda: _windows_drive(kernel, scratch))
     facts = _read_portable_facts(
         provider, platform, scratch, windows_scope=scope, windows_drive=drive
     )
