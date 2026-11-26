@@ -22,6 +22,7 @@ from tests.services._run_service_fixtures import (
 )
 
 
+@pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_native_row_count_uses_owned_read_only_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -42,6 +43,7 @@ def test_native_row_count_uses_owned_read_only_session(
     writer.close()
 
 
+@pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_row_count_refuses_view_scope(tmp_path: Path) -> None:
     database = tmp_path / "warehouse.duckdb"
     duckdb = _duckdb_module()
@@ -60,6 +62,7 @@ def test_row_count_refuses_view_scope(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_row_count_missing_file_does_not_create_database(tmp_path: Path) -> None:
     database = tmp_path / "absent.duckdb"
     write_duckdb_row_count_run_inputs(tmp_path, database)
@@ -80,6 +83,7 @@ class _CapturingEngine(CheckEngine):
 
 
 @pytest.mark.parametrize("uncertain_close", [False, True])
+@pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_cleanup_failure_is_check_local_or_stops_native_execution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain_close: bool
 ) -> None:
@@ -144,6 +148,7 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
 
 
 @pytest.mark.parametrize("read_only", [False, True])
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_actual_session_and_aliases_writer_conflict(tmp_path: Path, read_only: bool) -> None:
     database = tmp_path / "warehouse.duckdb"
     duckdb = _duckdb_module()
@@ -169,6 +174,7 @@ def test_actual_session_and_aliases_writer_conflict(tmp_path: Path, read_only: b
     assert RunService(start_path=tmp_path).execute().exit_category is ExitCategory.SUCCESS
 
 
+@pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_outside_project_row_count_refuses_without_open(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -222,9 +228,10 @@ def test_preflight_never_opens_session(
     assert engine.result is not None
     outcome = engine.result.contract_results[0].check_results[0]
     assert not outcome.executed
-    assert outcome.status is {
+    expected = {
         "shape": CheckStatus.NOT_EXECUTABLE,
         "query": CheckStatus.NOT_EXECUTABLE,
         "rendering": CheckStatus.ERROR,
         "prerequisite": CheckStatus.BLOCKED,
-    }[blocker]
+    }
+    assert outcome.status is expected[blocker]

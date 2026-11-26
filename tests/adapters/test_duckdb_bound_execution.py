@@ -232,6 +232,7 @@ def test_owned_session_cleanup_failures(
 @pytest.mark.parametrize(
     "mismatch", ["check", "operation", "source", "target", "session", "ended", "sidecar", "rebind"]
 )
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_lease_invalidation(tmp_path: Path, duckdb: Any, mismatch: str) -> None:
     path = tmp_path / "local.data"
     writer = duckdb.connect(str(path))
@@ -351,6 +352,7 @@ def test_bound_query_reads_canonical_relation(tmp_path: Path, duckdb: Any) -> No
         assert session.close() == ()
 
 
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_aggregate_describe_cannot_bypass_invalidated_binding(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -405,6 +407,7 @@ def test_aggregate_describe_cannot_bypass_invalidated_binding(
 
 
 @pytest.mark.parametrize("rows", [None, [("invalid",)], [(1, None, "path")], [(1, "local", 123)]])
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_malformed_catalog_evidence_is_not_scope_refusal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rows: Any
 ) -> None:
@@ -453,6 +456,7 @@ def test_local_file_identity_preserves_canonical_path(tmp_path: Path, mode: str)
     assert guard._current_file_identity(path) is not None
 
 
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_mismatched_table_metadata_is_invalid_evidence() -> None:
     class Cursor:
         def fetchmany(self, size: int) -> list[tuple[str, ...]]:

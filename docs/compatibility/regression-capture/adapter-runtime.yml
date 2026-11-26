@@ -198,10 +198,9 @@ captures:
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
       - docs/implementation/errors-and-diagnostics.md: Runtime diagnostics
     notes: >
-      Key-safety bounded local scan classification may probe DuckDB metadata,
-      but missing DuckDB dependencies or metadata-open failures must still
-      surface adapter setup or connection diagnostics instead of being reported
-      only as scan-budget non-execution.
+      Project-run file preflight does not open a database. Missing DuckDB
+      dependencies remain setup errors; actual owned session open failures
+      are check-local connection errors, never scan-budget refusals.
   - id: bounded-scan-docs-no-user-provided-classification
     title: Public docs do not imply user-provided bounded scan classification
     area: adapter-runtime
@@ -397,4 +396,31 @@ captures:
       - docs/compatibility/public-contract-inventory.md: Aggregate metric execution
       - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
     notes: >
-      Real adapter tracking proves ordered private queries, no aggregate public fallback, cleanup, malformed capability blockers, same-context alias use, scan-approved factory binding before connection opening and mixed row-count/key-safety/aggregate execution, including safe lifecycle diagnostics when an aggregate capability blocker leaves a shared legacy execution path. Distinct cleanup failures remain visible without revealing connection identifiers.
+      Owned-session tracking proves ordered private queries, no public fallback, cleanup, malformed capability blockers, same-context aliases, matching factory binding and mixed check execution. A blocked aggregate leaves unrelated eligible checks on their own owned session. Distinct cleanup failures remain visible without revealing connection identifiers.
+  - id: duckdb-owned-project-binding
+    title: Project-run DuckDB reads require an active owned binding
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_bound_execution.py::test_lease_invalidation
+      - tests/adapters/test_duckdb_bound_execution.py::test_aggregate_describe_cannot_bypass_invalidated_binding
+      - tests/adapters/test_duckdb_bound_execution.py::test_malformed_catalog_evidence_is_not_scope_refusal
+      - tests/adapters/test_duckdb_bound_execution.py::test_mismatched_table_metadata_is_invalid_evidence
+      - tests/services/test_run_service_bound_execution.py::test_actual_session_and_aliases_writer_conflict
+      - tests/services/test_run_service_aggregate_admission.py::test_all_nine_checks_use_owned_transaction_and_qualified_queries
+      - tests/services/test_run_service_aggregate_admission.py::test_legacy_footprint_policy
+      - tests/services/test_run_service_aggregate_admission.py::test_large_native_database_does_not_cap_row_count
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: project_binding
+        rationale: Cross-adapter test-kit ownership is unchanged.
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: project_binding
+    requirement_refs:
+      - docs/planning/milestone-8-1-1-prework.md: Acceptance matrix and planned test nodes
+    notes: >
+      Owned read-only transaction proof, exact catalog and lease, per-read verification including DESCRIBE, no fallback, and legacy footprint boundary. This is a temporary local scope restriction, not a calibrated resource limit.

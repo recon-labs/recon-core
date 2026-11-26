@@ -1537,6 +1537,7 @@ def test_aggregate_rejects_wrong_factory_connection_before_open(
 
 @pytest.mark.parametrize("offset", [-1, 0, 1])
 @pytest.mark.parametrize("family", ["row", "key", "scalar", "grouped"])
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_legacy_footprint_policy(
     tmp_path: Path, offset: int, family: str, session_trace: _NativeSessionTrace
 ) -> None:
@@ -1575,6 +1576,7 @@ def test_legacy_footprint_policy(
     assert session_trace.aggregate_columns == session_trace.row_queries == []
 
 
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_large_native_database_does_not_cap_row_count(
     tmp_path: Path, session_trace: _NativeSessionTrace
 ) -> None:
@@ -1619,6 +1621,7 @@ def test_large_native_database_does_not_cap_row_count(
     assert session_trace.aggregate_columns == []
 
 
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
 def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

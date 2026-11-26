@@ -37,6 +37,14 @@ This project follows semantic versioning once public package releases begin.
 
 ### Changed
 
+- Project-run DuckDB row-count, key-safety and SUM checks now bind exact local
+  base tables in a fresh owned read-only transaction per check. Views,
+  outside-project databases and other unverified scopes are temporarily
+  unsupported. The existing 64 MiB cap remains only for key-safety and SUM
+  checks. Native failures are check-local; cleanup failures invalidate the
+  result and uncertain close stops subsequent native work. Public prepared
+  adapter helpers and compiled SQL remain unchanged.
+
 - `recon init` now scaffolds `check_packs/` and `macros/`, writes matching
   project config entries, and emits the ADR 0020 profile/target example shape
   for the planned DuckDB local development adapter.
