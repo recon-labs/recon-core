@@ -1612,8 +1612,7 @@ def test_large_native_database_does_not_cap_row_count(
     assert row.source_value == row.target_value == 1
     assert all(check.status is CheckStatus.NOT_EXECUTABLE for check in heavy)
     assert all(
-        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics}
-        for check in heavy
+        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics} for check in heavy
     )
     assert len(session_trace.sessions) == len(session_trace.closes) == 1
     assert len(session_trace.row_queries) == 1
