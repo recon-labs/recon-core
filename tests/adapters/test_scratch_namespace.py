@@ -362,9 +362,7 @@ def test_darwin_deny_only_file_acl_remains_usable(tmp_path: Path) -> None:
     try:
         assert _open_namespace(base, base).ticket == root.ticket
     finally:
-        subprocess.run(
-            ["chmod", "-N", str(marker)], capture_output=True, timeout=15, check=True
-        )
+        subprocess.run(["chmod", "-N", str(marker)], capture_output=True, timeout=15, check=True)
 
 
 @pytest.mark.regression_capture("scratch-namespace-qualification")
