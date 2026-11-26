@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
@@ -89,6 +90,7 @@ class _ProjectBoundRunner:
         self._connections = deepcopy(dict(connections))
         self._identities = dict(identities)
         self._stopped = False
+        self._session_count = 0
 
     def run(
         self,
@@ -136,6 +138,8 @@ class _ProjectBoundRunner:
             )
         if contract.source.relation is None or contract.target.relation is None:
             return _scope_refusal(check, contract)
+        self._session_count += 1
+        session_number = self._session_count
         session = _new_owned_session(source.type, identity)
         try:
             session.open()
@@ -174,8 +178,29 @@ class _ProjectBoundRunner:
             if not session.released:
                 self._stopped = True
 
+        # Preserve distinct fixed, non-identifying per-session diagnostics across
+        # the service's diagnostic deduplication boundary.
+        def attribute(diagnostic: Diagnostic) -> Diagnostic:
+            return replace(diagnostic, hint=f"Native session #{session_number}: inspect locally.")
+
+        if result.status is CheckStatus.ERROR:
+            result = replace(
+                result,
+                diagnostics=tuple(
+                    attribute(diagnostic)
+                    if diagnostic.code
+                    in {
+                        ADAPTER_QUERY_FAILED,
+                        "RC_ADAPTER_CONNECTION_FAILED",
+                        "RC_RUNTIME_BINDING_PROOF_FAILED",
+                    }
+                    else diagnostic
+                    for diagnostic in result.diagnostics
+                ),
+            )
         if not cleanup:
             return result
+        cleanup = tuple(attribute(diagnostic) for diagnostic in cleanup)
         primary = result.diagnostics
         if result.status is CheckStatus.FAIL:
             primary += (

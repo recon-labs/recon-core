@@ -76,7 +76,7 @@ class _NativeSessionTrace:
                     Diagnostic(
                         code="RC_ADAPTER_CLOSE_FAILED",
                         severity=DiagnosticSeverity.ERROR,
-                        message=f"Read-only transaction cleanup failed (session #{index}).",
+                        message="Read-only transaction cleanup failed.",
                     ),
                 )
             return diagnostics
