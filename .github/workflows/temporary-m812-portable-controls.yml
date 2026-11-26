@@ -1,0 +1,105 @@
+name: Temporary M8.1.2 portable control readback
+on:
+  push:
+    branches: [experiment/m812-disk-worker-proof-20261126]
+    paths: ['.github/workflows/temporary-m812-portable-controls.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        duckdb: ['1.0.0', '1.3.2', '1.4.5', '2.0.1']
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Native defaults, startup, direct child stop and isolation
+        shell: bash
+        env:
+          PIN: ${{ matrix.duckdb }}
+        run: |
+          set -euo pipefail
+          python -m pip install "duckdb==$PIN"
+          cat > m812_portable_probe.py <<'PY'
+          import json, os, pathlib, shutil, subprocess, sys, tempfile, time
+          import duckdb
+          
+          def settings(con):
+              out = {}
+              for key in ("memory_limit","threads","temp_directory","max_temp_directory_size"):
+                  try:
+                      value = con.execute("SELECT current_setting(?)", [key]).fetchone()[0]
+                      out[key] = bool(value) if key == "temp_directory" else str(value)
+                  except Exception as exc:
+                      out[key] = "unavailable:" + type(exc).__name__
+              return out
+          
+          def report(**values):
+              print(json.dumps(values,sort_keys=True),flush=True)
+          
+          if len(sys.argv)>1 and sys.argv[1]=="child":
+              root=pathlib.Path(sys.argv[2])
+              conn=duckdb.connect(str(root/"fixture.db"), read_only=True,
+                  config={"temp_directory":str(root/"scratch"),"memory_limit":"128MiB",
+                          "threads":"1","max_temp_directory_size":"256MiB"})
+              report(child_settings=settings(conn))
+              assert conn.execute("SELECT count(*) FROM fixture").fetchone()[0]==100
+              (root/"active").write_text("ready")
+              conn.execute("SELECT sum(hash(i)) FROM range(1000000000) t(i)").fetchone()
+              (root/"finished").write_text("finished")
+              conn.close()
+              sys.exit(0)
+          
+          assert duckdb.__version__ == os.environ["PIN"]
+          with tempfile.TemporaryDirectory(prefix="recon-m812-") as raw:
+              root=pathlib.Path(raw)
+              (root/"scratch").mkdir()
+              conn=duckdb.connect(str(root/"fixture.db"))
+              conn.execute("CREATE TABLE fixture AS SELECT i FROM range(100) t(i)")
+              conn.close()
+              fresh=duckdb.connect(str(root/"fixture.db"), read_only=True,
+                  config={"temp_directory":str(root/"scratch")})
+              report(version=duckdb.__version__, platform=sys.platform,
+                  native_default=settings(fresh), scratch_free=shutil.disk_usage(root/"scratch").free,
+                  cpu_count=os.cpu_count())
+              fresh.close()
+              observer=duckdb.connect(str(root/"fixture.db"),read_only=True,
+                  config={"memory_limit":"96MiB","threads":"1"})
+              before=settings(observer)
+              proc=None
+              try:
+                  proc=subprocess.Popen([sys.executable,__file__,"child",raw],
+                                        stdin=subprocess.DEVNULL)
+                  until=time.monotonic()+15
+                  while not (root/"active").exists() and proc.poll() is None and time.monotonic()<until:
+                      time.sleep(.05)
+                  assert (root/"active").exists(), "child startup/readback failed or timed out"
+                  time.sleep(.2)
+                  assert proc.poll() is None and not (root/"finished").exists(), "active query not observed"
+                  proc.terminate()
+                  try:
+                      proc.wait(timeout=5)
+                  except subprocess.TimeoutExpired:
+                      proc.kill()
+                      proc.wait(timeout=5)
+                  assert proc.returncode is not None and not (root/"finished").exists()
+                  after=settings(observer)
+                  assert before==after
+                  assert observer.execute("SELECT count(*) FROM fixture").fetchone()[0]==100
+                  report(active_query_stopped=True, exit_code=proc.returncode, observer_unchanged=True)
+              finally:
+                  if proc is not None and proc.poll() is None:
+                      proc.kill()
+                      proc.wait(timeout=5)
+                  observer.close()
+              report(scratch_before_cleanup=sum(p.stat().st_size for p in (root/"scratch").rglob("*") if p.is_file()))
+          assert not root.exists()
+          report(root_cleanup=True)
+          
+          PY
+          python -u m812_portable_probe.py
