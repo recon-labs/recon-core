@@ -260,7 +260,9 @@ time.sleep(120)
         assert root.recover(ticket) is _Recovery.LIVE
         process.kill()
         process.wait(timeout=10)
-        assert root.recover(ticket) is _Recovery.REMOVED
+        restarted = _ScratchRoot.reopen(root.ticket.path)
+        assert restarted.recover_abandoned().removed == 1
+        assert not ticket.path.exists()
         with pytest.raises(_ScratchError):
             root.claim_worker(ticket)
     finally:
@@ -334,3 +336,28 @@ def test_reopen_never_adopts_plain_directory(tmp_path: Path) -> None:
     with pytest.raises(_ScratchError):
         _ScratchRoot.reopen(path)
     assert sentinel.read_bytes() == b"keep"
+
+
+@pytest.mark.regression_capture("owned-scratch-discovery")
+def test_partial_deletion_is_retained(
+    root: _ScratchRoot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parent = root.create_session()
+    ticket = parent.ticket
+    parent.release()
+    (ticket.path / "spill" / "fixture.tmp").write_bytes(b"spill")
+    original = Path.unlink
+
+    def interrupted(path: Path, missing_ok: bool = False) -> None:
+        if path == ticket.path / "worker.lock":
+            raise OSError("PRIVATE_SENTINEL")
+        original(path, missing_ok=missing_ok)
+
+    with monkeypatch.context() as context:
+        context.setattr(Path, "unlink", interrupted)
+        summary = root.recover_abandoned()
+    assert summary.removed == 0 and summary.retained == 1
+    assert ticket.path.exists()
+    summary = _ScratchRoot.reopen(root.ticket.path).recover_abandoned()
+    assert summary.removed == 0 and summary.retained == 1
+    assert ticket.path.exists()
