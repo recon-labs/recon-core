@@ -1,0 +1,35 @@
+name: Temporary Windows scratch leaf diagnostic
+on:
+  push:
+    branches:
+      - experiment/m812-windows-file-acl-20261126
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0f97bdec229653a3ae2f217edd01aff33f771e7b
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e ".[dev]"
+      - name: Inspect synthetic descriptor without exposing SID or file contents
+        shell: pwsh
+        run: |
+          python -c "from pathlib import Path; from recon_core.adapters._windows_scratch_security import _create_private_directory; p=Path.cwd().resolve()/'synthetic-private'; _create_private_directory(p); (p/'fixture').write_bytes(b'synthetic')"
+          $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+          foreach ($item in @('synthetic-private', 'synthetic-private/fixture')) {
+            $acl = Get-Acl -LiteralPath $item
+            Write-Output "Object: $item; protected=$($acl.AreAccessRulesProtected); ownerMatchesUser=$($acl.GetOwner([System.Security.Principal.SecurityIdentifier]) -eq $sid)"
+            $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier])
+            Write-Output "ownerIsBuiltinAdministrators=$($owner.IsWellKnown([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid))"
+            foreach ($rule in $acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])) {
+              Write-Output "trusteeMatchesUser=$($rule.IdentityReference -eq $sid); rights=$([int]$rule.FileSystemRights); inherited=$($rule.IsInherited); type=$($rule.AccessControlType); inheritance=$($rule.InheritanceFlags); propagation=$($rule.PropagationFlags)"
+            }
+          }
+          python -c "from pathlib import Path; p=Path('synthetic-private/fixture').resolve(); s=p.lstat(); print('canonical',p.resolve(strict=True)==p,'links',s.st_nlink,'attributes',s.st_file_attributes)"
