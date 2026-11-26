@@ -709,3 +709,46 @@ captures:
       The proof binds scope, session and policy generation; mismatch invalidates
       the session. The existing renderer, native reader and Core evaluator
       remain authoritative. No new project execution route is activated.
+
+  - id: owned-scratch-two-lease-recovery
+    title: Owned scratch recovery requires both independent leases to be inactive
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_resource_scratch.py::test_owned_scratch_recovery
+      - tests/adapters/test_resource_scratch.py::test_scratch_live_owner_races
+      - tests/adapters/test_resource_scratch.py::test_actual_child_lease_prevents_recovery_until_exit
+      - tests/adapters/test_resource_scratch.py::test_parent_crash_before_worker_claim
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_worker_lifecycle
+        rationale: Actual namespace qualification, worker integration and cleanup latch proof remain required.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: B9 owned scratch recovery
+    notes: >
+      Root coordination protects publication, claims and removal. Both leases
+      must be inactive; late claims cannot recreate removed directories.
+      Process death alone is not proof that both owners are inactive.
+
+  - id: owned-scratch-untrusted-retained
+    title: Unverified scratch ownership never authorizes deletion
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_resource_scratch.py::test_untrusted_scratch_never_deleted
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_worker_lifecycle
+        rationale: Complete platform filesystem qualification and crash-during-deletion proof remain required.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: B9 owned scratch recovery
+    notes: >
+      Marker and file identity must agree; missing/replaced locks, unexpected
+      entries and untrusted spill directory shapes are retained. No recursive
+      sweep of arbitrary directories is allowed.
