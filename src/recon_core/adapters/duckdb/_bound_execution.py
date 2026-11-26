@@ -4,11 +4,11 @@ from importlib import import_module
 from typing import Any
 
 from recon_core.adapters.duckdb.runtime_scan_guard import (
+    _LocalFileIdentity,
     _current_file_identity,
     _duckdb_relation_name,
     _local_duckdb_catalog_names,
     _resolve_local_base_table,
-    _LocalFileIdentity,
 )
 from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
 from recon_core.adapters.models import Relation
@@ -44,6 +44,7 @@ class _OwnedDuckDbSession:
         self._identity = identity
         self._connection: Any = None
         self._attempted = False
+        self._invalidated = False
         self._transaction = False
         self._released = True
         self._cleanup: tuple[Diagnostic, ...] | None = None
@@ -53,7 +54,8 @@ class _OwnedDuckDbSession:
         return self._released
 
     def _verify_file(self) -> None:
-        if _current_file_identity(self._identity.path) != self._identity:
+        if self._invalidated or _current_file_identity(self._identity.path) != self._identity:
+            self._invalidated = True
             raise _proof_error()
 
     def open(self) -> None:
@@ -96,6 +98,7 @@ class _OwnedDuckDbSession:
                 self._connection, relation, local_catalog_names=catalogs
             )
         except Exception:
+            self._invalidated = True
             raise _proof_error() from None
 
     def close(self) -> tuple[Diagnostic, ...]:
@@ -109,7 +112,9 @@ class _OwnedDuckDbSession:
                         self._connection.execute("ROLLBACK")
                     except Exception:
                         diagnostics.append(
-                            _diagnostic(ADAPTER_CLOSE_FAILED, "Read-only transaction cleanup failed.")
+                            _diagnostic(
+                                ADAPTER_CLOSE_FAILED, "Read-only transaction cleanup failed."
+                            )
                         )
             finally:
                 self._transaction = False
@@ -117,7 +122,9 @@ class _OwnedDuckDbSession:
                     self._connection.close()
                 except Exception:
                     diagnostics.append(
-                        _diagnostic(ADAPTER_CLOSE_FAILED, "Read-only execution session cleanup failed.")
+                        _diagnostic(
+                            ADAPTER_CLOSE_FAILED, "Read-only execution session cleanup failed."
+                        )
                     )
                 else:
                     self._released = True

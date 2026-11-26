@@ -3,6 +3,7 @@
 import importlib
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -154,6 +155,74 @@ def test_owned_session_refuses_new_sidecar(tmp_path: Path, duckdb: Any) -> None:
         path.with_name(f"{path.name}.tmp").touch()
         with pytest.raises(binding._BoundSessionError, match="binding could not be verified"):
             session.resolve_relation("src")
+        path.with_name(f"{path.name}.tmp").unlink()
+        with pytest.raises(binding._BoundSessionError):
+            session.resolve_relation("src")
     finally:
         assert session.close() == ()
     assert session.released
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_queries", "released", "cleanup_count"),
+    [
+        ("begin", ["BEGIN TRANSACTION"], True, 0),
+        ("rollback", ["BEGIN TRANSACTION", "ROLLBACK"], True, 1),
+        ("close", ["BEGIN TRANSACTION", "ROLLBACK"], False, 1),
+        ("both", ["BEGIN TRANSACTION", "ROLLBACK"], False, 2),
+    ],
+)
+def test_owned_session_cleanup_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+    expected_queries: list[str],
+    released: bool,
+    cleanup_count: int,
+) -> None:
+    path = tmp_path / "local.data"
+    path.touch()
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    queries: list[str] = []
+    closes: list[bool] = []
+
+    class Connection:
+        def execute(self, query: str) -> None:
+            queries.append(query)
+            if query == "BEGIN TRANSACTION" and failure == "begin":
+                raise RuntimeError("sensitive-native-error")
+            if query == "ROLLBACK" and failure in {"rollback", "both"}:
+                raise RuntimeError("sensitive-native-error")
+
+        def close(self) -> None:
+            closes.append(True)
+            if failure in {"close", "both"}:
+                raise RuntimeError("sensitive-native-error")
+
+    def connect(database: str, *, read_only: bool) -> Connection:
+        assert database == str(path)
+        assert read_only
+        return Connection()
+
+    monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
+    session = binding._OwnedDuckDbSession(identity)
+    try:
+        if failure == "begin":
+            with pytest.raises(binding._BoundSessionError) as error:
+                session.open()
+            assert error.value.diagnostic.code == "RC_ADAPTER_CONNECTION_FAILED"
+            assert "sensitive-native-error" not in str(error.value)
+        else:
+            session.open()
+    finally:
+        diagnostics = session.close()
+    assert queries == expected_queries
+    assert closes == [True]
+    assert session.released is released
+    assert len(diagnostics) == cleanup_count
+    assert all(diagnostic.code == "RC_ADAPTER_CLOSE_FAILED" for diagnostic in diagnostics)
+    assert all("sensitive-native-error" not in str(diagnostic) for diagnostic in diagnostics)
+    assert session.close() == diagnostics
+    assert closes == [True]
