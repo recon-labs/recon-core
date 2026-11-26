@@ -80,6 +80,27 @@ def _process_user(kernel: Any, security: Any) -> Iterator[tuple[ct.c_void_p, str
     to_string = _api(
         security, "ConvertSidToStringSidW", wt.BOOL, ct.c_void_p, ct.POINTER(ct.c_void_p)
     )
+    # File operations use the thread's effective security context. A process
+    # SID is not proof when the current thread has an impersonation token;
+    # an isolated worker does not automatically inherit that context.
+    current_thread = _api(kernel, "GetCurrentThread", wt.HANDLE)
+    open_thread_token = _api(
+        security,
+        "OpenThreadToken",
+        wt.BOOL,
+        wt.HANDLE,
+        wt.DWORD,
+        wt.BOOL,
+        ct.POINTER(ct.c_void_p),
+    )
+    thread_token = ct.c_void_p()
+    ctypes_module = import_module("ctypes")
+    ctypes_module.set_last_error(0)
+    if open_thread_token(current_thread(), 0x0008, True, ct.byref(thread_token)):
+        close(thread_token)
+        raise _WindowsScratchSecurityError()
+    if ctypes_module.get_last_error() != 1008:  # ERROR_NO_TOKEN
+        raise _WindowsScratchSecurityError()
     if not open_token(current(), 0x0008, ct.byref(handle)):
         raise _WindowsScratchSecurityError()
     try:
