@@ -34,7 +34,7 @@ attribution privately.
 | BDD/workflows | Valid bounded local run, unsafe/unknown/over-limit block, larger known-scope opt-in, advisory-only risk, unsupported suggestion no execution change. | Pass/fail/mixed run, no checks, prerequisite blocked, load/setup/execution/cleanup failures, truthful timing and preserved preflight. | Successful and failed checks generate trustworthy allowed artifacts, unsafe/write-failed path does not leave misleading output, consistent exit/terminal, suppressed sensitive payload, no external sink. |
 | Required tests | Config/validation, real DuckDB scan guard and admission, service and check engine negative cases, no-scan spies, safe diagnostics, advisory invariant tests, preserve existing row-count/key/aggregate coverage. | Service/engine lifecycle and timing tests, ordering, dependency and mixed status tests, distinct connection failures, plan and scope, no generated results, preserve A tests. | Version/schema serialization, writer path and atomicity/failure/cleanup tests, privacy and CLI tests for every outcome, integration tests against real local adapter, carry forward A/B tests. |
 | Phase exit | TDD RED/GREEN and fresh cumulative review against approved matrix; prove no capability shrink or accidental production claim; record carryover, docs and validation. | Same review; prove status/timing/cleanup and preserved admission/semantics, no writes. | Same review plus final umbrella coverage/orphan check, full required branch-wide validation, compatibility/changelog review and maintainer approval. |
-| Blockers before coding | Reopened design: revise ADR, research native controls and measure default calibration; recheck split, compatibility, complete A1-A13 matrix, source/responsibility map, BDD, test plan, DoD, integration and explicit approval. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
+| Blockers before coding | Approved M8.1.2 design and dedicated prework; validate integration and obtain separate implementation authorization. Candidate tuning, combined worker/recovery and native proof remain mandatory implementation/exit obligations. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
 
 ## Required acceptance row families and carryover
 
@@ -136,6 +136,8 @@ checking ecosystem checkpoints. No milestone prework is declared satisfied.
 
 ## Reopened execution dependency and next action
 
+Historical sequence below; steps 1-4 are verified on main, step 5 design approved. Follow the current integration checkpoint below for remaining work.
+
 Status: shared binding verified and merged; [targeted M7.4 correction prework](milestone-7-4-prework.md#targeted-bound-grouped-runtime-correction---approved-prework) verified and merged (PR #39). Follow this dependency
 order for the reopened work:
 
@@ -166,7 +168,7 @@ and obtain maintainer approval with synchronized gate and split changes.
 
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
 
-Maintainer-approved split direction: M8.1.1 -> targeted M7.4 correction -> M8.1.2. M8.1.1 owns A4/A7/A8/A13 binding portions and B9 prerequisite; M8.1.2 owns remaining A1-A13/R1-R10 and any earlier required B8-B10 controls. Per-check fresh owned read-only transaction, no writable fallback, exact qualified table identity, temporary base-table scope uniformly, legacy 64 MiB key/SUM only. Detailed split matrix and binding prework are recorded below. M8.1.1 implementation was separately approved; successor approval remains pending.
+Maintainer-approved split direction: M8.1.1 -> targeted M7.4 correction -> M8.1.2. M8.1.1 owns A4/A7/A8/A13 binding portions and B9 prerequisite; M8.1.2 owns remaining A1-A13/R1-R10 and explicitly assigned B8-B10 worker prerequisites. Per-check fresh owned read-only transaction, no writable fallback, exact qualified table identity, temporary base-table scope uniformly, legacy 64 MiB key/SUM only. Detailed split matrix and binding prework are recorded below. M8.1.1 implementation was separately approved; successor approval remains pending.
 
 ## M8.1.1 detailed prework checkpoint
 
@@ -192,7 +194,7 @@ proof. M8.1.1 exit is verified; no successor implementation before its own final
 | Tests | Exact J tests plus native/public regressions and captures | Exact renderer, native differential and scale, all supported pins | Config/unit/engine/native resource tests, hardware envelopes and control failure cases |
 | Contract impact | Approved temporary S restriction and L1; additive safe diagnostics only; no signature/schema changes | No public compile SQL or semantics change | Settings and admission only after approval, documented compatibility and migration |
 | Exit | Actual bound native proof, J rows, carryover, full CI, privacy and approved exit | Verified performance correction and full semantic regression, approved exit | Full revised matrix, measured resource evidence, gate proof and approved exit |
-| Blocker before coding | Satisfied, scoped exit complete | Satisfied; scoped exit verified | M7.4 correction exit, resource decisions, proof and explicit approval |
+| Blocker before coding | Satisfied, scoped exit complete | Satisfied; scoped exit verified | Prerequisites and resource design approved; integrated prework and separate implementation authorization; native proof at exit |
 
 Assignment-level orphan review: A1-A13 remain owned, binding portions above
 and remaining in M8.1.2; B1-B7 and remaining B8-B10 stay M8.2; B8-B10 worker prerequisites are M8.1.2;
