@@ -233,6 +233,11 @@ def _load_provider() -> Any:
     return _attempt(lambda: import_module("psutil"))
 
 
+def _finite_rlimit(resource: Any, name: str) -> int | None:
+    value = _attempt(lambda: resource.getrlimit(getattr(resource, name))[0])
+    return None if value == resource.RLIM_INFINITY else _bounded_integer(value)
+
+
 def _observe_portable_resources(
     scratch: Path | None, platform: str, *, loader: Callable[[], Any] = _load_provider
 ) -> _PortableFacts:
@@ -254,11 +259,7 @@ def _observe_portable_resources(
         if resource is not None:
             facts = replace(
                 facts,
-                process_address_space_limit_bytes=_bounded_integer(
-                    _attempt(lambda: resource.getrlimit(resource.RLIMIT_AS)[0])
-                ),
-                process_data_limit_bytes=_bounded_integer(
-                    _attempt(lambda: resource.getrlimit(resource.RLIMIT_DATA)[0])
-                ),
+                process_address_space_limit_bytes=_finite_rlimit(resource, "RLIMIT_AS"),
+                process_data_limit_bytes=_finite_rlimit(resource, "RLIMIT_DATA"),
             )
     return facts
