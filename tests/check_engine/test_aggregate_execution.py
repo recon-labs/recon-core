@@ -1083,16 +1083,25 @@ def test_grouped_runtime_selects_bound_renderer_only_in_owned_callback(
     assert inactive.calls == []
 
 
+@pytest.mark.parametrize("invalid", ["missing", "noncallable", "raises"])
 @pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
-def test_missing_bound_grouped_renderer_refuses_before_runner(tmp_path: Path) -> None:
+def test_missing_bound_grouped_renderer_refuses_before_runner(tmp_path: Path, invalid: str) -> None:
     adapter = _RoutingAdapter(ConnectionConfig(name="warehouse", type="duckdb"), [])
 
     class Runner:
         def run(self, *args: object) -> CheckResult:
             pytest.fail("Missing bound renderer must not open a session.")
 
+    class InvalidRenderer(_RoutingRenderer):
+        @property
+        def render_bound_grouped_plan(self) -> object:
+            if invalid == "raises":
+                raise RuntimeError("private-renderer-error")
+            return None
+
+    renderer = _RoutingRenderer if invalid == "missing" else InvalidRenderer
     result = _route(
-        tmp_path, True, adapter, _RoutingRenderer(_routing_plan(True)), bound_runner=Runner()
+        tmp_path, True, adapter, renderer(_routing_plan(True)), bound_runner=Runner()
     )
     assert result.status is CheckStatus.ERROR
     assert result.diagnostics[-1].code == "RC_ADAPTER_RENDERER_METADATA_INVALID"

@@ -452,6 +452,10 @@ captures:
       - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_preserves_collation_baseline
       - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_join_scale_regression
       - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_renderer_requires_qualified_grouped_operations
+      - tests/check_engine/test_aggregate_execution.py::test_bound_grouped_invalid_proof_prevents_final_query
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_arbitrary_integer_differential
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_wide_skewed_composite_regression
+      - tests/adapters/test_duckdb_aggregate_runtime_renderer.py::test_bound_grouped_invalid_numeric_precedence
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
