@@ -75,7 +75,9 @@ def _identity(info: os.stat_result) -> _Identity:
     return _Identity(info.st_dev, info.st_ino)
 
 
-def _inspect(path: Path, *, directory: bool) -> os.stat_result:
+def _inspect(
+    path: Path, *, directory: bool, policy: "_DirectoryPolicy | None" = None
+) -> os.stat_result:
     info = path.lstat()
     if (
         not path.is_absolute()
@@ -89,11 +91,15 @@ def _inspect(path: Path, *, directory: bool) -> os.stat_result:
     # an explicit prerequisite of the eventual runtime root provider.
     if os.name == "posix" and (info.st_uid != os.getuid() or info.st_mode & 0o077):
         raise _ScratchError()
+    if not directory and policy is not None:
+        policy.verify_file(path)
     return info
 
 
-def _write_new(path: Path, data: bytes) -> None:
+def _write_new(path: Path, data: bytes, policy: "_DirectoryPolicy | None" = None) -> None:
     with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as stream:
+        if policy is not None:
+            policy.verify_file(path, fd=stream.fileno())
         stream.write(data)
 
 
@@ -103,14 +109,19 @@ _IDENTITY_DIGITS = 39
 _IDENTITY_MAX = (1 << 128) - 1
 
 
-def _read_marker(path: Path, *, prefix: bytes, nonces: int, identities: int) -> list[str]:
+def _read_marker(
+    path: Path, *, prefix: bytes, nonces: int, identities: int,
+    policy: "_DirectoryPolicy | None" = None,
+) -> list[str]:
     maximum = len(prefix) + nonces * 33 + identities * 2 * (1 + _IDENTITY_DIGITS)
-    info = _inspect(path, directory=False)
+    info = _inspect(path, directory=False, policy=policy)
     if not 0 < info.st_size <= maximum:
         raise _ScratchError()
     with path.open("rb") as stream:
         if _identity(os.fstat(stream.fileno())) != _identity(info):
             raise _ScratchError()
+        if policy is not None:
+            policy.verify_file(path, fd=stream.fileno())
         data = stream.read(maximum + 1)
     if len(data) != info.st_size or len(data) > maximum:
         raise _ScratchError()
@@ -145,13 +156,17 @@ def _marker_identity(device: str, inode: str) -> _Identity:
     return result
 
 
-def _marker(path: Path, expected: bytes) -> None:
-    info = _inspect(path, directory=False)
+def _marker(
+    path: Path, expected: bytes, policy: "_DirectoryPolicy | None" = None
+) -> None:
+    info = _inspect(path, directory=False, policy=policy)
     if info.st_size != len(expected):
         raise _ScratchError()
     with path.open("rb") as stream:
         if _identity(os.fstat(stream.fileno())) != _identity(info):
             raise _ScratchError()
+        if policy is not None:
+            policy.verify_file(path, fd=stream.fileno())
         if stream.read(len(expected) + 1) != expected:
             raise _ScratchError()
 
@@ -236,14 +251,18 @@ class _FileLease:
         self._stream = stream
 
     @classmethod
-    def acquire(cls, path: Path, expected: _Identity) -> "_FileLease":
-        info = _inspect(path, directory=False)
+    def acquire(
+        cls, path: Path, expected: _Identity, policy: "_DirectoryPolicy | None" = None
+    ) -> "_FileLease":
+        info = _inspect(path, directory=False, policy=policy)
         if info.st_size != 1 or _identity(info) != expected:
             raise _ScratchError()
         stream = path.open("r+b", buffering=0)
         try:
             if _identity(os.fstat(stream.fileno())) != _identity(info):
                 raise _ScratchError()
+            if policy is not None:
+                policy.verify_file(path, fd=stream.fileno())
             stream.seek(0)
             try:
                 _lock_exclusive(stream.fileno())
@@ -285,6 +304,7 @@ class _ParentLease:
 class _DirectoryPolicy(Protocol):
     def create_directory(self, path: Path) -> None: ...
     def verify_directory(self, path: Path) -> None: ...
+    def verify_file(self, path: Path, *, fd: int | None = None) -> None: ...
 
 
 class _ScratchRoot:
@@ -308,14 +328,14 @@ class _ScratchRoot:
                 path.mkdir(mode=0o700)
             else:
                 directory_policy.create_directory(path)
-            _write_new(path / "root.lock", b"\0")
+            _write_new(path / "root.lock", b"\0", directory_policy)
             ticket = _RootTicket(
                 path,
                 uuid4(),
                 _identity(_inspect(path, directory=True)),
-                _identity(_inspect(path / "root.lock", directory=False)),
+                _identity(_inspect(path / "root.lock", directory=False, policy=directory_policy)),
             )
-            _write_new(path / "owner", _root_marker(ticket))
+            _write_new(path / "owner", _root_marker(ticket), directory_policy)
             return cls(ticket, directory_policy=directory_policy)
         except (OSError, RuntimeError, ValueError):
             raise _ScratchError() from None
@@ -334,7 +354,8 @@ class _ScratchRoot:
             if directory_policy is not None:
                 directory_policy.verify_directory(path)
             nonce, dev, ino, lock_dev, lock_ino = _read_marker(
-                path / "owner", prefix=b"RC-SCRATCH-1", nonces=1, identities=2
+                path / "owner", prefix=b"RC-SCRATCH-1", nonces=1, identities=2,
+                policy=directory_policy,
             )
             root = cls(
                 _RootTicket(
@@ -356,7 +377,8 @@ class _ScratchRoot:
         if self._directory_policy is not None:
             self._directory_policy.verify_directory(path)
         root_nonce, nonce, *values = _read_marker(
-            path / "owner", prefix=b"RC-SESSION-1", nonces=2, identities=4
+            path / "owner", prefix=b"RC-SESSION-1", nonces=2, identities=4,
+            policy=self._directory_policy,
         )
         if _marker_nonce(root_nonce) != self.ticket.nonce or path.name != nonce:
             raise _ScratchError()
@@ -405,9 +427,9 @@ class _ScratchRoot:
             self._directory_policy.verify_directory(self.ticket.path)
         if _identity(_inspect(self.ticket.path, directory=True)) != self.ticket.identity:
             raise _ScratchError()
-        _marker(self.ticket.path / "owner", _root_marker(self.ticket))
+        _marker(self.ticket.path / "owner", _root_marker(self.ticket), self._directory_policy)
         if (
-            _identity(_inspect(self.ticket.path / "root.lock", directory=False))
+            _identity(_inspect(self.ticket.path / "root.lock", directory=False, policy=self._directory_policy))
             != self.ticket.lock_identity
         ):
             raise _ScratchError()
@@ -419,7 +441,7 @@ class _ScratchRoot:
         deadline = time.monotonic() + 5
         while True:
             try:
-                lock = _FileLease.acquire(self.ticket.path / "root.lock", self.ticket.lock_identity)
+                lock = _FileLease.acquire(self.ticket.path / "root.lock", self.ticket.lock_identity, self._directory_policy)
                 break
             except _BusyError:
                 if time.monotonic() >= deadline:
@@ -441,15 +463,15 @@ class _ScratchRoot:
             or ticket.identity.device != self.ticket.identity.device
         ):
             raise _ScratchError()
-        _marker(ticket.path / "owner", _session_marker(self.ticket, ticket))
+        _marker(ticket.path / "owner", _session_marker(self.ticket, ticket), self._directory_policy)
         spill = _inspect(ticket.path / "spill", directory=True)
         if (
             _identity(spill) != ticket.spill_identity
             or spill.st_dev != ticket.identity.device
             or os.path.ismount(ticket.path / "spill")
-            or _identity(_inspect(ticket.path / "parent.lock", directory=False))
+            or _identity(_inspect(ticket.path / "parent.lock", directory=False, policy=self._directory_policy))
             != ticket.parent_identity
-            or _identity(_inspect(ticket.path / "worker.lock", directory=False))
+            or _identity(_inspect(ticket.path / "worker.lock", directory=False, policy=self._directory_policy))
             != ticket.worker_identity
         ):
             raise _ScratchError()
@@ -465,20 +487,20 @@ class _ScratchRoot:
                 else:
                     self._directory_policy.create_directory(path)
                     self._directory_policy.create_directory(path / "spill")
-                _write_new(path / "parent.lock", b"\0")
-                _write_new(path / "worker.lock", b"\0")
+                _write_new(path / "parent.lock", b"\0", self._directory_policy)
+                _write_new(path / "worker.lock", b"\0", self._directory_policy)
                 ticket = _SessionTicket(
                     path,
                     nonce,
                     _identity(_inspect(path, directory=True)),
-                    _identity(_inspect(path / "parent.lock", directory=False)),
-                    _identity(_inspect(path / "worker.lock", directory=False)),
+                    _identity(_inspect(path / "parent.lock", directory=False, policy=self._directory_policy)),
+                    _identity(_inspect(path / "worker.lock", directory=False, policy=self._directory_policy)),
                     _identity(_inspect(path / "spill", directory=True)),
                 )
-                parent = _FileLease.acquire(path / "parent.lock", ticket.parent_identity)
+                parent = _FileLease.acquire(path / "parent.lock", ticket.parent_identity, self._directory_policy)
                 try:
                     # Publish only after the parent's lease is held.
-                    _write_new(path / "owner", _session_marker(self.ticket, ticket))
+                    _write_new(path / "owner", _session_marker(self.ticket, ticket), self._directory_policy)
                     self._verify_session(ticket)
                     return _ParentLease(self, ticket, parent)
                 except BaseException:
@@ -497,7 +519,7 @@ class _ScratchRoot:
                         ticket.path / "parent.lock", ticket.parent_identity
                     )
                 except _BusyError:
-                    return _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity)
+                    return _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity, self._directory_policy)
                 abandoned.release()
                 raise _ScratchError()
         except (OSError, RuntimeError, ValueError):
@@ -514,12 +536,12 @@ class _ScratchRoot:
     def _recover_locked(self, ticket: _SessionTicket) -> _Recovery:
         self._verify_session(ticket)
         try:
-            parent = _FileLease.acquire(ticket.path / "parent.lock", ticket.parent_identity)
+            parent = _FileLease.acquire(ticket.path / "parent.lock", ticket.parent_identity, self._directory_policy)
         except _BusyError:
             return _Recovery.LIVE
         try:
             try:
-                worker = _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity)
+                worker = _FileLease.acquire(ticket.path / "worker.lock", ticket.worker_identity, self._directory_policy)
             except _BusyError:
                 return _Recovery.LIVE
             try:
@@ -538,7 +560,9 @@ class _ScratchRoot:
                 path.unlink()
         (ticket.path / "spill").rmdir()
         for name in ("parent.lock", "worker.lock", "owner"):
-            (ticket.path / name).unlink()
+            path = ticket.path / name
+            _inspect(path, directory=False, policy=self._directory_policy)
+            path.unlink()
         ticket.path.rmdir()
         return _Recovery.REMOVED
 
@@ -571,3 +595,5 @@ class _ScratchRoot:
             or (os.name == "posix" and info.st_uid != os.getuid())
         ):
             raise _ScratchError()
+        if self._directory_policy is not None:
+            self._directory_policy.verify_file(path)
