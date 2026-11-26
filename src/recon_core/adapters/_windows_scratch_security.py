@@ -208,7 +208,7 @@ def _verify_private_directory(path: Path) -> None:
         if (
             not path.is_absolute() or path.resolve(strict=True) != path
             or not stat.S_ISDIR(before.st_mode)
-            or before.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            or getattr(before, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
         ):
             raise _WindowsScratchSecurityError()
         kernel, security = _libraries()
@@ -228,7 +228,7 @@ def _verify_private_directory(path: Path) -> None:
             after = path.lstat()
             if (
                 (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
-                or after.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                or getattr(after, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
             ):
                 raise _WindowsScratchSecurityError()
         finally:
