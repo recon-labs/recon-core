@@ -52,26 +52,16 @@ def test_worker_control_packet_is_closed_and_bounded() -> None:
 
 @pytest.mark.regression_capture("duckdb-worker-control-protocol")
 def test_worker_rejects_stale_sequence_before_native_work() -> None:
-    worker = subprocess.Popen(
-        [sys.executable, "-m", "recon_core.adapters.duckdb._resource_worker"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-    )
+    worker = _WorkerProcess()
     try:
-        assert worker.stdin is not None and worker.stdout is not None
-        assert _read_control(worker.stdout) == _ControlPacket(_ControlKind.READY, 0)
-        _write_control(worker.stdin, _ControlPacket(_ControlKind.PROBE, 2))
-        assert worker.wait(timeout=15) != 0
-        assert worker.stdout.read(1) == b""
+        worker.open()
+        child = worker._process
+        assert child is not None and child.stdin is not None and child.stdout is not None
+        _write_control(child.stdin, _ControlPacket(_ControlKind.PROBE, 2))
+        assert child.wait(timeout=15) != 0
+        assert child.stdout.read(1) == b""
     finally:
-        if worker.poll() is None:
-            worker.kill()
-            worker.wait(timeout=10)
-        if worker.stdin is not None:
-            worker.stdin.close()
-        if worker.stdout is not None:
-            worker.stdout.close()
+        worker.abort()
 
 
 @pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
@@ -85,6 +75,7 @@ def test_worker_termination_confirmation(native_available: None) -> None:
         assert recommendations.threads is not None and recommendations.threads > 0
         result = worker.close()
         assert result.confirmed_exit and result.clean_close and result.returncode == 0
+        assert result.pipes_released
         assert worker.close() == result
     finally:
         worker.abort()
@@ -96,6 +87,7 @@ def test_abort_reaps_actual_worker() -> None:
         worker.open()
         result = worker.abort()
         assert result.confirmed_exit and not result.clean_close
+        assert result.pipes_released
         assert result.returncode is not None
         assert worker.abort() == result
     finally:
@@ -140,7 +132,10 @@ def test_parent_death_liveness(tmp_path: Path, native_available: None) -> None:
         worker = _WorkerProcess()
         worker.open()
         worker.recommendations()
-        Path(sys.argv[1]).write_text(str(worker.pid), encoding="ascii")
+        marker = Path(sys.argv[1])
+        temporary = marker.with_suffix(".tmp")
+        temporary.write_text(str(worker.pid), encoding="ascii")
+        temporary.replace(marker)
         while True:
             time.sleep(1)
         """
@@ -168,7 +163,10 @@ def test_parent_death_liveness(tmp_path: Path, native_available: None) -> None:
             except psutil.NoSuchProcess:
                 break
             time.sleep(0.02)
-        assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+        try:
+            assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+        except psutil.NoSuchProcess:
+            pass
     finally:
         if parent.poll() is None:
             parent.kill()
