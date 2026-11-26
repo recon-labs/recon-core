@@ -93,6 +93,8 @@ captures:
     severity: P2
     current_tests:
       - tests/services/test_run_service_duckdb_execution.py::test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch
+      - tests/adapters/test_duckdb_bound_execution.py::test_binding_identifier_key_is_ascii_only
+      - tests/adapters/test_duckdb_bound_execution.py::test_qualified_relation_binding_preserves_distinct_unicode_tables
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -102,9 +104,9 @@ captures:
       - docs/compatibility/public-contract-inventory.md: Adapter execution lifecycle and current check execution
       - docs/compatibility/public-contract-inventory.md: Scan-budget and query-plan safety
     notes: >
-      DuckDB resolves identifiers case-insensitively, so bounded local scan
-      metadata checks must not reject project-local base tables only because
-      authored relation casing differs from information_schema casing.
+      DuckDB resolves ASCII identifier casing insensitively but preserves
+      distinct non-ASCII identifiers. Metadata proof must neither reject
+      native distinct Unicode tables nor conflate them with another table.
   - id: key-safety-duckdb-local-database-filename-suffix
     title: DuckDB scan guard accepts valid project-local database filenames
     area: adapter-runtime
