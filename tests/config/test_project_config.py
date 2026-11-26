@@ -343,3 +343,146 @@ unexpected-setting: true
     assert diagnostic.code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
     assert diagnostic.path == str(project_file)
     assert "unexpected-setting" in diagnostic.message
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        "",
+        "execution: {}\n",
+        "execution:\n  scan-budget: {}\n",
+        "execution:\n  scan-budget:\n    local: {}\n",
+    ],
+)
+def test_local_resource_policy_defaults(tmp_path: Path, settings: str) -> None:
+    result = load_project_config(write_project_config(tmp_path, "name: recon\n" + settings))
+    baseline = load_project_config(write_project_config(tmp_path, "name: recon\n"))
+    assert result.succeeded
+    assert result.config == baseline.config
+    assert result.config is not None
+    policy = result.config._local_resource_policy
+    assert policy.max_database_bytes is None
+    assert policy.warn_estimated_input_rows is None
+    assert policy.managed_memory_bytes is None
+    assert policy.threads is None
+    assert policy.spill_bytes is None
+    assert policy.memory_reserve_bytes is None
+    assert policy.disk_reserve_bytes is None
+    assert policy.scratch_directory is None
+
+
+def test_local_resource_policy_values(tmp_path: Path) -> None:
+    project_file = write_project_config(
+        tmp_path,
+        """name: recon
+execution:
+  scan-budget:
+    local:
+      max-database-mib: 8796093022207
+      warn-estimated-input-rows: 9223372036854775807
+      managed-memory-mib: 8192
+      threads: 8
+      spill-mib: 20480
+      memory-reserve-mib: 2048
+      disk-reserve-mib: 4096
+      scratch-directory: private-scratch
+""",
+    )
+    result = load_project_config(project_file)
+    assert result.succeeded
+    assert result.config is not None
+    policy = result.config._local_resource_policy
+    mib = 1 << 20
+    assert policy.max_database_bytes == 8796093022207 * mib
+    assert policy.warn_estimated_input_rows == (1 << 63) - 1
+    assert policy.managed_memory_bytes == 8192 * mib
+    assert policy.threads == 8
+    assert policy.spill_bytes == 20480 * mib
+    assert policy.memory_reserve_bytes == 2048 * mib
+    assert policy.disk_reserve_bytes == 4096 * mib
+    assert policy.scratch_directory == "private-scratch"
+    assert not (tmp_path / "private-scratch").exists()
+    assert "private-scratch" not in repr(result.config)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "max-database-mib",
+        "warn-estimated-input-rows",
+        "managed-memory-mib",
+        "threads",
+        "spill-mib",
+        "memory-reserve-mib",
+        "disk-reserve-mib",
+    ],
+)
+@pytest.mark.parametrize("value", ["0", "-1", "true", "1.0", "'1'", "null", "9223372036854775808"])
+def test_local_resource_policy_invalid_integer(tmp_path: Path, field: str, value: str) -> None:
+    project_file = write_project_config(
+        tmp_path, f"name: recon\nexecution:\n  scan-budget:\n    local:\n      {field}: {value}\n"
+    )
+    result = load_project_config(project_file)
+    assert not result.succeeded
+    assert result.config is None
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "max-database-mib",
+        "managed-memory-mib",
+        "spill-mib",
+        "memory-reserve-mib",
+        "disk-reserve-mib",
+    ],
+)
+def test_local_resource_policy_mib_overflow(tmp_path: Path, field: str) -> None:
+    project_file = write_project_config(
+        tmp_path,
+        f"name: recon\nexecution:\n  scan-budget:\n    local:\n      {field}: 8796093022208\n",
+    )
+    assert not load_project_config(project_file).succeeded
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        "execution: null\n",
+        "execution: []\n",
+        "execution: {PRIVATE_SENTINEL: true}\n",
+        "execution: {1: true}\n",
+        "execution: {scan-budget: null}\n",
+        "execution: {scan-budget: []}\n",
+        "execution: {scan-budget: {PRIVATE_SENTINEL: true}}\n",
+        "execution: {scan-budget: {local: null}}\n",
+        "execution: {scan-budget: {local: []}}\n",
+        "execution: {scan-budget: {local: {PRIVATE_SENTINEL: true}}}\n",
+        "execution: {scan-budget: {local: {1: true}}}\n",
+        "execution: {scan-budget: {local: {scratch-directory: null}}}\n",
+        "execution: {scan-budget: {local: {scratch-directory: 1}}}\n",
+        "execution: {scan-budget: {local: {scratch-directory: ''}}}\n",
+        "execution: {scan-budget: {local: {scratch-directory: '   '}}}\n",
+        "execution: {scan-budget: {local: {scratch-directory: [PRIVATE_SENTINEL]}}}\n",
+        "execution: {scan-budget: {local: {threads: PRIVATE_SENTINEL}}}\n",
+    ],
+)
+def test_local_resource_policy_invalid_mapping(tmp_path: Path, settings: str) -> None:
+    result = load_project_config(write_project_config(tmp_path, "name: recon\n" + settings))
+    assert not result.succeeded
+    assert result.config is None
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
+    assert "PRIVATE_SENTINEL" not in repr(result.diagnostics)
+
+
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
+def test_local_resource_policy_duplicate_key(tmp_path: Path) -> None:
+    result = load_project_config(
+        write_project_config(
+            tmp_path,
+            "name: recon\nexecution: {scan-budget: {local: {threads: 1, threads: 2}}}\n",
+        )
+    )
+    assert not result.succeeded
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_YAML"
