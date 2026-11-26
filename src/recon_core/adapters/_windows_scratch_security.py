@@ -184,9 +184,7 @@ def _trusted_owner(
     return bool(equal(owner, user) or (not directory and well_known(owner, 26)))
 
 
-def _ancestor_trusted_principal(
-    security: Any, principal: ct.c_void_p, user: ct.c_void_p
-) -> bool:
+def _ancestor_trusted_principal(security: Any, principal: ct.c_void_p, user: ct.c_void_p) -> bool:
     valid = _api(security, "IsValidSid", wt.BOOL, ct.c_void_p)
     equal = _api(security, "EqualSid", wt.BOOL, ct.c_void_p, ct.c_void_p)
     well_known = _api(security, "IsWellKnownSid", wt.BOOL, ct.c_void_p, ct.c_int)
@@ -271,11 +269,7 @@ def _verify_descriptor(
             if not get_ace(dacl, index, ct.byref(raw)) or not raw.value:
                 raise _WindowsScratchSecurityError()
             ace = _Ace.from_address(raw.value)
-            if (
-                ace.kind not in (0, 1)
-                or ace.size < ct.sizeof(_Ace) + 8
-                or ace.size > size.used
-            ):
+            if ace.kind not in (0, 1) or ace.size < ct.sizeof(_Ace) + 8 or ace.size > size.used:
                 raise _WindowsScratchSecurityError()
             trustee = ct.c_void_p(raw.value + ct.sizeof(_Ace))
             if not valid_sid(trustee) or ace.size != ct.sizeof(_Ace) + sid_length(trustee):
