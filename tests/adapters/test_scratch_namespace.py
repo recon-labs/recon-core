@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from recon_core.adapters._scratch_namespace import (
-    _NamespaceError,
     _namespace_path,
+    _NamespaceError,
     _open_namespace,
 )
 
@@ -57,7 +57,9 @@ def test_unknown_filesystem_does_not_authorize_creation(
     project = base / "project"
     project.mkdir()
     path = _namespace_path(base, project)
-    monkeypatch.setattr(namespace, "_observe_scratch_filesystem", lambda path: _FilesystemEvidence())
+    monkeypatch.setattr(
+        namespace, "_observe_scratch_filesystem", lambda path: _FilesystemEvidence()
+    )
     with pytest.raises(_NamespaceError):
         _open_namespace(base, project)
     assert not path.exists()
