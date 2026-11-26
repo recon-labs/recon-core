@@ -273,6 +273,24 @@ reports/
 Later runner phases may parse or compile automatically after artifact freshness
 semantics are locked.
 
+### Planned adaptive resource warnings (not yet released)
+
+The forthcoming local resource policy is designed to discover actual
+available resources instead of using an OS-version allowlist. An untested
+platform version alone will not be a reason to refuse a check. If optional
+resource observations are unavailable, an independently protected check may
+continue with advice explaining what is unknown, its impact, whether the
+check continues, and available remedies. If required protection cannot be
+established, only affected execution is refused, subject to normal
+prerequisite and lifecycle safety. Resource failures are errors, not
+comparison mismatches. Warnings will be visible in normal terminal output
+and in orchestration logs when those streams are captured. Engine-managed
+memory/spill settings will not promise hard physical RAM or disk ceilings.
+See the [planned platform compatibility policy](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l).
+Current behavior described above remains in effect; new configuration,
+supported remedies and examples will be documented when implementation is
+verified.
+
 ## Exit codes
 
 Expected behavior:
