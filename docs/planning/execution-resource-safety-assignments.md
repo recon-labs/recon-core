@@ -18,7 +18,7 @@ carry forward regressions when touched.
 | ID | Requirement | Primary implementation ownership |
 | --- | --- | --- |
 | R1 | Independent physical footprint, estimated input, scan/work/intermediate cardinality, returned rows/bytes, transfer, actual observations and configured controls; provenance, units, availability, uncertainty. Unknown never zero. | M8.1 local; M11-M13 native; M12.5 richer analysis; M29 |
-| R2 | Hardware/environment availability: RAM/CPU/cgroup/container constraints, disk/headroom, concurrent use; missing/misleading host information is not safety proof. | M8.1 |
+| R2 | Hardware/environment availability: RAM/CPU/cgroup/container constraints, disk/headroom, concurrent use; missing/misleading host information is not safety proof. P1-P6 platform compatibility apply. | M8.1; M11-M13; M29; all affected expansions |
 | R3 | Native memory/thread/spill controls and bound read-only execution, enforcement capability, failure, configuration precedence, isolation/restoration; distinguish engine-managed memory from actual process ceiling. | M8.1; M11-M13; M29 |
 | R4 | Useful measured defaults and explicit overrides; optional footprint cap considered separately, no arbitrary low threshold or unsupported hardware ratio. Larger safe workload versus small costly workload. | M8.1; M10; M29 |
 | R5 | Non-executing actual binding and operation-aware admission, required scope fail closed, no executing plan preflight, hidden fallback, implicit filtering/sample or escalation. | M8.1; all execution expansions |
@@ -57,7 +57,7 @@ carry forward regressions when touched.
 | 40 | Prove hosted tenant isolation, quotas, concurrency, cancellation and fair allocation separately. |
 | 42 | Budget semantic expansion and generated comparisons. |
 | 8.1.1 | Binding preflight and owned execution context; interim existing key/SUM footprint guard only. Binding portions of R3/R5/R6/R8/R10; no new resource defaults. |
-| 8.1.2 | Approved design; implementation authorization pending. Own remaining R1-R10/A1-A13, measured defaults, optional footprint ceiling, non-executing evidence and verified native controls; B8 stop/exit/parent liveness, B9 worker/native/IPC/scratch cleanup and recovery, B10 serial per-check resource scope. Candidate tuning requires native exit proof. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). |
+| 8.1.2 | Approved design; implementation in progress, exit pending. Own remaining R1-R10/A1-A13, measured defaults, optional footprint ceiling, non-executing evidence and verified native controls; B8 stop/exit/parent liveness, B9 worker/native/IPC/scratch cleanup and recovery, B10 serial per-check resource scope. Candidate tuning requires native exit proof. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). |
 | 8.2 | Own remaining B8-B10 invocation deadlines/timeouts, cancellation and retry lifecycle, run-wide cleanup, cumulative resource budgeting and bounded concurrency; reuse M8.1.2 prerequisite controls, no duplicate executor. |
 | 8.3 | Publish allowlisted resource policy, actual versus estimated use, unavailable versus zero, enforcement and timeout/cancel/cleanup outcomes; C10. |
 | 10.5 | Invalidate stale admission evidence, including policy, binding and environment changes. |
@@ -197,6 +197,77 @@ metadata and branch-wide advisory checks remain mandatory; passing metadata
 or benchmarks alone does not establish gate satisfaction. Reuse existing
 planning/capture mechanisms, not a parallel tracker.
 
+
+## Mandatory platform compatibility and graceful degradation (Gate 4L)
+
+Maintainer-approved framework rule: **permissive when independently safe,
+protective when required, explicit about uncertainty**. An untested or newly
+released OS, architecture, dependency, engine version or deployment is not
+by itself a runtime admission failure. Test coverage/certification is not
+a runtime version allowlist. Discover actual capabilities and evidence at
+the execution scope; never substitute version strings for actual proof.
+Distinguish verified protection, best-effort observation, optional unknown,
+unsupported, invalid evidence and not applicable. Keep trustworthy partial
+facts even if another probe fails. Unknown is not zero or unlimited.
+Use verified equivalent alternatives when available without expanding
+scope or changing comparison semantics. No silent fallback, new fixed
+cap, arbitrary allowlist, guessed resource capacity, or weaker required
+protection. Explicit required user/admin limits must still be enforced at
+their requested scope; fail only affected execution if proof is missing,
+preserve existing prerequisite and L1 failure semantics.
+
+The following P1-P6 are mandatory subfamilies of existing R2/R3/R5/R8/R10
+and A6/A8/A10/A12/A13, not a replacement for R1-R10 or a separate milestone.
+Apply every row at implementation, readiness, release and expansion of
+affected capabilities. Map exact test IDs, native proof, owner and recheck
+trigger in the existing acceptance/capture matrices; non-applicability
+requires a concrete execution-scope rationale, not mere API absence.
+
+| ID | Required proof and outcome |
+| --- | --- |
+| P1 | New/untested version or architecture with equivalent verified capability: normal execution, exact result, unchanged status/exit; no warning solely for a version label. |
+| P2 | Optional API missing/changed/denied/malformed, partial OS/job/container/warehouse evidence, unknown version: retain valid independent facts; continue when required protection is independently proven; explain limitation and impact. |
+| P3 | Required native control unavailable or ineffective: use an independently verified equivalent at the same required scope with explicit advice, or refuse only affected execution before unsafe data work; native resource failure is ERROR, not mismatch; no silent downgrade. |
+| P4 | Warnings/refusals explain unavailable dimension, practical consequence, continue/refuse decision, and safe actionable recovery/override (only actually supported choices). Deliver through normal terminal diagnostics including successful checks and captured stdout/stderr orchestration logs; bounded deduplication per relevant scope/cause, no raw SQL, paths, values, environment contents, native exceptions or sensitive identifiers. M8.3 structured publication and later integrations preserve meaning and privacy. |
+| P5 | Representative older and newer supported platform/engine/dependency combinations, constrained and capable environments, version/architecture-specific controls and actual effects. Record actual OS build/release, architecture, Python, engine/dependency versions, image label and outcome; a moving latest label is not a second distinct version or a certification claim. Include unknown/future/API-change fault injection, not only real images. |
+| P6 | Maintain automated compatibility coverage and triage: pinned representative baseline and rolling recent images/dependencies, periodic and release/change-triggered validation, retain existing supported regressions, capture discovered failures with exact reproducer, affected scope and next required gate. CI unavailability is an explicit coverage gap, not proof or a runtime block. |
+
+### Ownership and recheck checkpoints
+
+| Owner/checkpoint | Mandatory platform obligation |
+| --- | --- |
+| M8.1.2 | P1-P6 for local DuckDB resource discovery, native controls, worker/IPC, scratch and warning behavior; implement and verify initial persistent multi-version compatibility CI before exit. |
+| M8.2 / M8.3 | Preserve limitations and advice through invocation lifecycle, bounded diagnostic deduplication, cancellation and safe structured publication; no status/exit reclassification. |
+| M10 / M10.7 / M10.8 | Readiness review of tested versus untested environments, user setup and warning/recovery guidance, reprove local scope expansion and platform matrix. |
+| M11-M12 PostgreSQL | P1-P6 before experimental admission: actual client OS/driver/server/deployment, session/permission and native resource controls, transfer and cancellation as applicable. |
+| M12-M13 Snowflake | P1-P6 before experimental admission: client OS/connector and warehouse/role/service capabilities, observed versus controlled resource and billing scope, no client RAM claim about warehouse capacity. |
+| M13.5 / M18 | Re-evaluate client/remote/cross-context and authored-query scopes, resource controls and warnings on changed deployment or operation. |
+| M29 | Shared reusable P1-P6 capability and graceful-degradation conformance; candidate-specific native environment/version matrix before official promotion or expansion; no forced common OS mechanisms. |
+| M29 onward / any future candidate | Repeat before adapter creation/admission, promotion, version/deployment/operation expansion and relevant dependency/platform change. Distributed engines (e.g. Spark if later admitted) separately prove driver/executor/cluster scope. No new adapter or milestone is authorized. |
+| M32/M32.1 and future integrations | Preserve safe actionable warnings in captured logs/events, correct statuses and privacy, including successful runs; no assumption that every orchestrator captures every stream. |
+
+### Maintenance and CI policy
+
+The [testing plan](../implementation/testing-plan.md#platform-and-dependency-compatibility)
+owns the CI strategy; the [compatibility matrix](../compatibility/compatibility-matrix.md)
+owns evidence and support claims. The initial local matrix must test distinct
+representative currently supported OS releases per applicable OS family where
+available, Python supported versions and relevant native engine/dependency
+versions; justify a risk-based selection rather than an exhaustive Cartesian
+product. Include older/current pinned OS images and a rolling latest lane;
+verify actual distinct releases/builds, record gaps for unavailable images
+or architectures and use authorized equivalent environments where needed.
+Keep version-specific failures actionable and visible. Schedule periodic
+compatibility runs and trigger reevaluation on dependency/OS/runner changes,
+native-control changes, release/promotion and compatibility reports; maintain
+a working manual/on-demand path. A scheduled workflow is not proof of its
+own operation; inspect latest result, missed/disabled jobs and matrix
+retirements at each relevant release/phase exit. Do not declare unknown
+platforms certified or automatically refuse their safe use. Never freeze
+runtime policy to CI runner resources or require the same tests/mechanisms
+for a remote adapter where the scope differs.
+
+
 ## Approved M8.1.2 integration checkpoint (2026-11-26)
 
 The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
@@ -214,4 +285,4 @@ native/IPC/owned scratch cleanup and crash-safe recovery, B10 serial per-check
 worker and re-observation prerequisites. M8.2 owns remaining run-wide
 lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
 publication. Preserve all future adapter applicability, type and scope gates.
-No gate closed; separate implementation authorization required.
+Implementation authorized; no gate closed or exit approval granted.
