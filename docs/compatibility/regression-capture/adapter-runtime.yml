@@ -665,3 +665,47 @@ captures:
       A termination signal does not establish exit. Confirm reaping and
       pipe release separately. Parent EOF watchdog is best effort, not a
       hard guarantee for suspended or native-blocked processes.
+
+  - id: duckdb-controlled-owned-session
+    title: Required native control verification precedes the owned transaction
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_bound_execution.py::test_owned_controls_precede_transaction_and_cleanup
+      - tests/adapters/test_duckdb_bound_execution.py::test_unverified_required_setting_prevents_transaction
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_controls
+        rationale: Bound worker scratch and admission ownership, actual native effects and cleanup remain required.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A13 and worker prerequisites
+    notes: >
+      The controlled owned session applies and checks native settings before
+      transaction work. Failed required verification is sanitized and leaves
+      the session unavailable for binding; native release is still required.
+
+  - id: duckdb-worker-bound-session-scope
+    title: Child-native lease is matched to session, generation and binding identity
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_worker_bound_session.py::test_worker_count_result_uses_exact_bound_relations
+      - tests/adapters/test_duckdb_worker_bound_session.py::test_wrong_worker_binding_is_rejected_before_query
+      - tests/adapters/test_duckdb_worker_bound_session.py::test_unbound_or_refused_worker_cannot_execute
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_worker_transport
+        rationale: Child lease mapping is implemented but complete ordered request framing and parent proxy remain required.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A4 A5 A7 A13 and B8
+    notes: >
+      Child-local native lease remains distinct from transport proof fields.
+      The proof binds scope, session and policy generation; mismatch invalidates
+      the session. The existing renderer, native reader and Core evaluator
+      remain authoritative. No new project execution route is activated.
