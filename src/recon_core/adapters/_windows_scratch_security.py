@@ -343,9 +343,7 @@ def _open_security_handle(kernel: Any, path: Path) -> Iterator[Any]:
         close(handle)
 
 
-def _confirm_native_identity(
-    kernel: Any, path: Path, handle: Any, *, directory: bool
-) -> None:
+def _confirm_native_identity(kernel: Any, path: Path, handle: Any, *, directory: bool) -> None:
     identity = _native_object_identity(kernel, handle, directory=directory)
     # Independently reopen while the inspected object remains held. The native
     # volume and full file ID must agree, even if path stat observations agree.
