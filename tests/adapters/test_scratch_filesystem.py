@@ -39,9 +39,7 @@ def test_linux_mount_identity_not_longest_path_guess() -> None:
 def test_unverified_mount_is_not_local_proof(
     fdinfo: str, device: tuple[int, int], kind: str
 ) -> None:
-    evidence = _linux_mount_evidence(
-        fdinfo, f"42 1 8:1 / /scratch rw - {kind} source rw\n", device
-    )
+    evidence = _linux_mount_evidence(fdinfo, f"42 1 8:1 / /scratch rw - {kind} source rw\n", device)
     assert evidence.local_candidate is None
 
 
@@ -52,19 +50,14 @@ def test_readonly_mount_does_not_qualify() -> None:
     assert evidence.writable is False
 
 
-@pytest.mark.skipif(
-    sys.platform not in ("linux", "darwin", "win32"), reason="Native evidence lane"
-)
+@pytest.mark.skipif(sys.platform not in ("linux", "darwin", "win32"), reason="Native evidence lane")
 def test_actual_scratch_filesystem_evidence(tmp_path: Path) -> None:
     path = tmp_path.resolve()
     evidence = _observe_scratch_filesystem(path)
     assert evidence.mount_identity is not None
     assert evidence.writable is True
     assert evidence.filesystem is not None
-    if sys.platform == "win32":
-        assert evidence.local_candidate is True
-        assert evidence.ownership_supported is True
-    elif sys.platform == "darwin":
+    if sys.platform in ("win32", "darwin"):
         assert evidence.local_candidate is True
         assert evidence.ownership_supported is True
     child = path / "child"
