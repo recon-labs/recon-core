@@ -693,3 +693,53 @@ def test_actual_attached_catalog_is_not_local_base_table(tmp_path: Path, duckdb:
         ]
     finally:
         connection.close()
+
+
+@pytest.mark.regression_capture("duckdb-bound-count-result-transport")
+@pytest.mark.parametrize("rows", [[], [(1,), (2,)], [(1, 2)], [("PRIVATE_SENTINEL",)]])
+def test_bound_count_reader_rejects_invalid_rows(rows: list[tuple[object, ...]]) -> None:
+    class Cursor:
+        description = (("failure_count", "BIGINT"),)
+
+        def fetchmany(self, size: int) -> list[tuple[object, ...]]:
+            assert size == 2
+            return rows
+
+        def fetchall(self) -> None:
+            pytest.fail("Bound count transport must not fetch all rows.")
+
+    result = binding._read_bound_count_result(
+        SimpleNamespace(execute=lambda query: Cursor()), "SELECT synthetic", max_columns=1
+    )
+    assert result.rows == ()
+    assert "PRIVATE_SENTINEL" not in repr(result)
+
+
+@pytest.mark.regression_capture("duckdb-bound-count-result-transport")
+def test_bound_count_reader_rejects_extra_columns_before_fetch() -> None:
+    def unexpected_fetch(size: int) -> None:
+        pytest.fail("Unexpected column shape must not fetch data.")
+
+    cursor = SimpleNamespace(
+        description=(("a", "BIGINT"), ("b", "BIGINT")),
+        fetchmany=unexpected_fetch,
+    )
+    result = binding._read_bound_count_result(
+        SimpleNamespace(execute=lambda query: cursor), "SELECT synthetic", max_columns=1
+    )
+    assert result.rows == ()
+    assert result.columns == ()
+
+
+def test_bound_count_reader_preserves_exact_count_and_diff() -> None:
+    columns = ("source_row_count", "target_row_count", "row_count_diff")
+    cursor = SimpleNamespace(
+        description=tuple((name, "BIGINT") for name in columns),
+        fetchmany=lambda size: [(2**62, 2**62 + 1, -1)],
+    )
+    result = binding._read_bound_count_result(
+        SimpleNamespace(execute=lambda query: cursor), "SELECT synthetic", max_columns=3
+    )
+    assert result.columns == columns
+    assert result.rows == ((2**62, 2**62 + 1, -1),)
+    assert result.row_count == 1
