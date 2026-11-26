@@ -61,15 +61,17 @@ def _namespace_path(base: Path, project: Path) -> Path:
     return base / ("recon-scratch-" + digest.hexdigest())
 
 
-def _darwin_no_acl_grants(path: Path, expected: os.stat_result) -> bool:
+def _darwin_no_acl_grants(path: Path, expected: os.stat_result, *, fd: int | None = None) -> bool:
     """Require absent or non-granting Darwin ACL on an unchanged open object."""
     try:
-        return _darwin_no_acl_grants_native(path, expected)
+        return _darwin_no_acl_grants_native(path, expected, fd=fd)
     except Exception:
         return False
 
 
-def _darwin_no_acl_grants_native(path: Path, expected: os.stat_result) -> bool:
+def _darwin_no_acl_grants_native(
+    path: Path, expected: os.stat_result, *, fd: int | None = None
+) -> bool:
     libc = ct.CDLL(None, use_errno=True)
     get_acl = libc.acl_get_fd_np
     get_acl.argtypes = [ct.c_int, ct.c_int]
@@ -88,9 +90,14 @@ def _darwin_no_acl_grants_native(path: Path, expected: os.stat_result) -> bool:
     free.restype = ct.c_int
 
     def identity(info: os.stat_result) -> tuple[int, ...]:
-        return info.st_dev, info.st_ino, info.st_uid, info.st_mode
+        return info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink
 
-    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    own_fd = fd is None
+    if fd is None:
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+        if stat.S_ISDIR(expected.st_mode):
+            flags |= os.O_DIRECTORY
+        fd = os.open(path, flags)
     try:
         if identity(os.fstat(fd)) != identity(expected):
             return False
@@ -127,7 +134,8 @@ def _darwin_no_acl_grants_native(path: Path, expected: os.stat_result) -> bool:
             and identity(path.lstat()) == identity(expected)
         )
     finally:
-        os.close(fd)
+        if own_fd:
+            os.close(fd)
 
 
 def _directory_info(path: Path) -> os.stat_result:
@@ -212,13 +220,22 @@ class _NamespaceDirectoryPolicy:
             raise _NamespaceError() from None
 
     def verify_file(self, path: Path, *, fd: int | None = None) -> None:
-        """Revalidate a private leaf; POSIX file-specific proof remains pending."""
+        """Revalidate a private leaf; full POSIX mount proof remains pending."""
         try:
             self._within_namespace(path)
             if path == self.namespace:
                 raise _NamespaceError()
             if os.name == "nt":
                 _verify_private_file(path, fd=fd)
+            elif sys.platform == "darwin":
+                info = path.lstat()
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_uid != os.geteuid()
+                    or info.st_nlink != 1
+                    or not _darwin_no_acl_grants(path, info, fd=fd)
+                ):
+                    raise _NamespaceError()
         except Exception:
             raise _NamespaceError() from None
 
