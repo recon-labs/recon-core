@@ -22,6 +22,7 @@ from recon_core.check_engine.execution import (
     row_count_query_endpoint_not_executable_result,
 )
 from recon_core.check_engine.execution_support import (
+    not_executable_result,
     safe_string_attribute,
     same_connection_context,
 )
@@ -40,6 +41,7 @@ from recon_core.check_engine.key_safety import (
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.check_engine.result_metadata import identity_label
 from recon_core.check_engine.scan_budget import (
+    BOUNDED_LOCAL_SCAN_REQUIRED,
     ScanBudgetDecision,
     missing_scan_budget_decision,
 )
@@ -211,6 +213,16 @@ def _row_count_execution_result_if_available(
         return None
     if _contract_has_query_endpoint(contract):
         return row_count_query_endpoint_not_executable_result(check, contract)
+    decision = execution_context.scan_budget_decisions_by_check_id.get(check.id)
+    if decision is not None and not decision.allowed:
+        return not_executable_result(
+            check,
+            contract,
+            reason=CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,
+            diagnostic_code=BOUNDED_LOCAL_SCAN_REQUIRED,
+            message="Check requires a verified local base-table execution scope.",
+            hint="Verify the local database and supported base-table relations.",
+        )
     adapter = execution_context.adapters_by_connection.get(contract.source.connection)
     if adapter is None:
         return None

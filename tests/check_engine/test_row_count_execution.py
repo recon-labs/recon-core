@@ -594,9 +594,7 @@ def test_private_row_count_runner_supplies_canonical_relations_and_reader() -> N
         def execute(self, query: str) -> QueryResult:
             return reader.execute(query)
 
-        def _execute_aggregate_query(
-            self, query: str, *, expected_columns: tuple[str, ...]
-        ) -> Any:
+        def _execute_aggregate_query(self, query: str, *, expected_columns: tuple[str, ...]) -> Any:
             raise AssertionError("Row count does not use aggregate transport.")
 
     class Runner:

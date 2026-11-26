@@ -22,6 +22,11 @@ from recon_core.adapters.default_renderers import (
     default_runtime_renderers_by_adapter_type,
 )
 from recon_core.adapters.diagnostic_redaction import sanitize_profile_backed_adapter_diagnostics
+from recon_core.adapters.duckdb.runtime_scan_guard import (
+    _local_file_identity,
+    _LocalFileIdentity,
+    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
+)
 from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_CONNECTION_FAILED
 from recon_core.adapters.registry import (
     ADAPTER_API_VERSION_UNSUPPORTED,
@@ -68,7 +73,8 @@ from recon_core.check_engine.aggregate import (
     is_aggregate_check_type,
     is_supported_aggregate_plan_shape,
 )
-from recon_core.check_engine.engine import _AggregateExecutionContext
+from recon_core.check_engine._bound_protocol import _BoundRunner
+from recon_core.check_engine.engine import _AggregateExecutionContext, _ProjectExecutionContext
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
     is_supported_key_safety_plan_shape,
@@ -88,6 +94,7 @@ from recon_core.profiles.connection_references import (
     referenced_connection_names_from_compiled_contracts,
 )
 from recon_core.project import ProjectContext, load_project_context
+from recon_core.services._bound_runner import _ProjectBoundRunner
 from recon_core.services.results import ExitCategory, ServiceResult
 
 
@@ -135,6 +142,7 @@ class _OpenedAdapter:
 @dataclass(frozen=True, slots=True)
 class _RuntimeScanBudgetDecisions:
     decisions_by_check_id: Mapping[str, ScanBudgetDecision]
+    identities_by_check_id: Mapping[str, _LocalFileIdentity]
     adapter_setup_required_check_ids: frozenset[str] = frozenset()
 
 
@@ -352,7 +360,7 @@ def _prepare_runtime_execution_dependencies(
         connection_index = aggregate_connection_indices.get(connection_name)
         connection = connections_by_name[connection_name]
         # Keep the scan-approved config independent of mutable factory input.
-        setup_connection = deepcopy(connection) if connection_index is not None else connection
+        setup_connection = deepcopy(connection) if connection.type == "duckdb" else connection
         setup_result = prepare_runtime_adapter(
             connection=setup_connection,
             required_capabilities=required_capabilities,
@@ -379,16 +387,20 @@ def _prepare_runtime_execution_dependencies(
             )
             continue
         assert setup_result.adapter is not None
-        if connection_index is not None and not _aggregate_adapter_matches_connection(
+        if connection.type == "duckdb" and not _aggregate_adapter_matches_connection(
             setup_result.adapter, connection
         ):
             setup_diagnostics.append(
                 Diagnostic(
                     code=ADAPTER_METADATA_INVALID,
                     severity=DiagnosticSeverity.ERROR,
-                    message="Aggregate adapter binding does not match the approved connection.",
+                    message="Adapter binding does not match the approved connection.",
                     resource_type="adapter",
-                    hint=_aggregate_setup_hint(connection_index),
+                    hint=(
+                        _aggregate_setup_hint(connection_index)
+                        if connection_index is not None
+                        else "Inspect the approved connection configuration locally."
+                    ),
                 )
             )
             continue
@@ -420,23 +432,6 @@ def _prepare_runtime_execution_dependencies(
             blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer)
             if blocker is not None:
                 aggregate_blockers[check.id] = blocker
-    open_candidates = _runtime_execution_candidates(
-        adapter_candidates, excluded_check_ids=frozenset(aggregate_blockers)
-    )
-    open_result = _open_runtime_adapters(
-        open_candidates,
-        contracts_by_name=contracts_by_name,
-        adapters_by_connection=adapters_by_connection,
-        connections_by_name=connections_by_name,
-        aggregate_connection_indices=aggregate_connection_indices,
-    )
-    if open_result.diagnostics:
-        return _RuntimeExecutionDependencies(
-            diagnostics=open_result.diagnostics,
-            exit_category=ExitCategory.RUNTIME_ERROR,
-            message="Run adapter connection failed.",
-        )
-
     return _RuntimeExecutionDependencies(
         execution_context=_runtime_context(
             contracts_by_name=contracts_by_name,
@@ -447,8 +442,12 @@ def _prepare_runtime_execution_dependencies(
             tolerance_states=tolerance_states if has_aggregate_checks else None,
             aggregate_blockers_by_check_id=aggregate_blockers,
             aggregate_renderers_by_adapter_type=aggregate_renderers,
+            bound_runner=_ProjectBoundRunner(
+                context.project_root,
+                connections_by_name,
+                scan_budget_decisions.identities_by_check_id,
+            ),
         ),
-        opened_adapters=open_result.opened_adapters,
     )
 
 
@@ -462,7 +461,20 @@ def _runtime_context(
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] | None = None,
     aggregate_blockers_by_check_id: Mapping[str, CheckResult] | None = None,
     aggregate_renderers_by_adapter_type: Mapping[str, _AggregateRuntimeRenderer] | None = None,
+    bound_runner: _BoundRunner | None = None,
 ) -> CheckExecutionContext:
+    if bound_runner is not None:
+        return _ProjectExecutionContext(
+            contracts_by_name=contracts_by_name,
+            adapters_by_connection=adapters_by_connection,
+            connections_by_name=connections_by_name or {},
+            renderers_by_adapter_type=renderers_by_adapter_type or {},
+            scan_budget_decisions_by_check_id=scan_budget_decisions_by_check_id or {},
+            tolerance_states_by_contract_id=tolerance_states or {},
+            aggregate_blockers_by_check_id=aggregate_blockers_by_check_id or {},
+            aggregate_renderers_by_adapter_type=aggregate_renderers_by_adapter_type or {},
+            _bound_runner=bound_runner,
+        )
     if tolerance_states is not None:
         return _AggregateExecutionContext(
             contracts_by_name=contracts_by_name,
@@ -565,7 +577,7 @@ def _runtime_connection_for_project(
         return connection
     try:
         resolved_database = (project_root / database_path).resolve()
-    except OSError:
+    except (OSError, RuntimeError, ValueError):
         return connection
     return ConnectionConfig(
         name=connection.name,
@@ -721,7 +733,8 @@ def _check_requires_adapter_setup(
         decision = scan_budget_decisions_by_check_id.get(check.id)
         return decision is not None and decision.allowed
     if not is_key_safety_check_type(check.check_type):
-        return True
+        decision = scan_budget_decisions_by_check_id.get(check.id)
+        return decision is None or decision.allowed
     if check.id in adapter_setup_required_check_ids:
         return True
     decision = scan_budget_decisions_by_check_id.get(check.id)
@@ -816,6 +829,7 @@ def _scan_budget_decisions_by_check_id(
     runtime_safety_checks: RuntimeSafetyCheckRegistry,
 ) -> _RuntimeScanBudgetDecisions:
     decisions: dict[str, ScanBudgetDecision] = {}
+    identities: dict[str, _LocalFileIdentity] = {}
     adapter_setup_required_check_ids: set[str] = set()
     for artifact in runtime_candidates:
         contract = contracts_by_name.get(artifact.contract_name)
@@ -823,13 +837,40 @@ def _scan_budget_decisions_by_check_id(
             continue
         for check in artifact.checks:
             aggregate = is_aggregate_check_type(check.check_type)
+            source = connections_by_name.get(contract.source.connection)
+            target = connections_by_name.get(contract.target.connection)
+            same_context = (
+                source is not None and target is not None and _same_connection_context(source, target)
+            )
+            if same_context and source is not None and source.type == "duckdb":
+                if not _contract_has_valid_relation_endpoint_shape(contract):
+                    continue
+                identity = _local_file_identity(source, project_root)
+                over_cap = (
+                    identity is not None
+                    and check.check_type != "row_count_diff"
+                    and identity.size > _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+                )
+                if identity is not None:
+                    identities[check.id] = identity
+                # This decision only selects eligible setup candidates. It is
+                # not final admission: the owned session must bind both relations
+                # before any comparison code may consume an allowed decision.
+                decisions[check.id] = classify_scan_budget(
+                    ScanBudgetContext(
+                        environment=ScanExecutionEnvironment.LOCAL_DEV,
+                        relation_backed=True,
+                        bounded=identity is not None and not over_cap,
+                        estimate_state=(
+                            ScanEstimateState.OVER_BUDGET if over_cap else ScanEstimateState.UNKNOWN
+                        ),
+                    )
+                )
+                continue
             if not aggregate and not is_key_safety_check_type(check.check_type):
                 continue
-            if aggregate:
-                source = connections_by_name.get(contract.source.connection)
-                target = connections_by_name.get(contract.target.connection)
-                if source is None or target is None or not _same_connection_context(source, target):
-                    continue
+            if aggregate and not same_context:
+                continue
             prepared_decision = _scan_budget_decision_for_relation(
                 contract,
                 connections_by_name=connections_by_name,
@@ -841,6 +882,7 @@ def _scan_budget_decisions_by_check_id(
                 adapter_setup_required_check_ids.add(check.id)
     return _RuntimeScanBudgetDecisions(
         decisions_by_check_id=decisions,
+        identities_by_check_id=identities,
         adapter_setup_required_check_ids=frozenset(adapter_setup_required_check_ids),
     )
 
