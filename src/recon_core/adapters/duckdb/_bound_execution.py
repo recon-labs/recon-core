@@ -13,7 +13,7 @@ from recon_core.adapters._project_binding import (
     _LocalFileIdentity,
     _proof_error,
 )
-from recon_core.adapters.duckdb.adapter import _read_aggregate_result, _read_query_result
+from recon_core.adapters.duckdb.adapter import _read_aggregate_result
 from recon_core.adapters.duckdb.runtime_scan_guard import (
     _current_file_identity,
     _duckdb_relation_name,
@@ -41,6 +41,41 @@ _COUNT_BINDING_OPERATIONS = frozenset(
         "extra_keys",
     }
 )
+
+
+def _read_bound_count_result(
+    connection: Any, query: str, *, max_columns: int
+) -> QueryResult:
+    """Read at most two rows of a bounded integer-only native summary.
+
+    Leave exact expected column names and comparison arithmetic to the existing
+    Core validators. Invalid shapes contain no native values; the existing
+    invalid-result diagnostics remain authoritative.
+    """
+    cursor = connection.execute(query)
+    description = getattr(cursor, "description", None)
+    invalid = QueryResult(columns=(), rows=(), row_count=0)
+    if not isinstance(description, list | tuple) or not 1 <= len(description) <= max_columns:
+        return invalid
+    if any(
+        not isinstance(column, list | tuple)
+        or not column
+        or not isinstance(column[0], str)
+        for column in description
+    ):
+        return invalid
+    columns = tuple(column[0] for column in description)
+    rows = cursor.fetchmany(2)
+    if not isinstance(rows, list | tuple) or len(rows) != 1:
+        return QueryResult(columns=columns, rows=(), row_count=0)
+    row = rows[0]
+    if (
+        not isinstance(row, list | tuple)
+        or len(row) != len(columns)
+        or any(type(value) is not int for value in row)
+    ):
+        return QueryResult(columns=columns, rows=(), row_count=0)
+    return QueryResult(columns=columns, rows=(tuple(row),), row_count=1)
 
 
 class _VerifiedReadConnection:
@@ -182,7 +217,9 @@ class _OwnedDuckDbSession:
     ) -> QueryResult:
         try:
             reader = self._verified_reader(lease, scope, query)
-            result = _read_query_result(reader, query)
+            result = _read_bound_count_result(
+                reader, query, max_columns=3 if scope.operation == "row_count_diff" else 1
+            )
             self.verify_lease(lease, scope)
             return result
         except Exception:
