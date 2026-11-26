@@ -137,3 +137,25 @@ than leaving it implicit.
 ## Execution scope restoration checkpoint
 
 The current protected local base-table restriction is temporary. Safe broader local contexts, cross-context execution, query endpoints and shared adapter conformance require their own proof; see the [execution scope restoration assignments](../planning/execution-scope-assignments.md). No permanent scope restriction or unproven capability is implied.
+
+## Platform and resource-control compatibility evidence
+
+[Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) requires explicit platform evidence separate from runtime capability decisions. Untested OS/engine/dependency versions alone do not block execution; required protection must be proven at actual scope. Optional missing observations warn where independently safe. No implied broad support claim.
+
+Current M8.1.2 design/implementation in progress; not yet released. Platform
+feasibility observations across Linux, macOS and Windows and Python
+3.11/3.12/3.13 do not establish full native control, complete containment,
+all OS versions or filesystem quotas. Maintain the actual tested matrix
+before M8.1.2 exit and each later applicable release/admission/expansion:
+OS family and actual release/build, architecture, Python, adapter/engine and
+dependency versions, execution/deployment scope, verified capabilities and
+limitations, relevant test nodes, exact validation revision/result, coverage
+gaps and next recheck owner. Distinguish tested, untested, known unsupported,
+partial observations and certified capabilities. Do not advertise new
+platform support until required proof is complete.
+
+Use the [testing plan](../implementation/testing-plan.md#platform-and-dependency-compatibility)
+for persistent pinned and rolling coverage, periodic/on-demand checks and
+regression triage. Future PostgreSQL, Snowflake, distributed or other adapters
+must record their own applicable client/driver/server/cluster scope and
+native evidence; no DuckDB platform mechanisms imposed.
