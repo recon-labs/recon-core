@@ -371,6 +371,7 @@ def test_local_resource_policy_defaults(tmp_path: Path, settings: str) -> None:
     assert policy.scratch_directory is None
 
 
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
 def test_local_resource_policy_values(tmp_path: Path) -> None:
     project_file = write_project_config(
         tmp_path,
@@ -438,6 +439,7 @@ def test_local_resource_policy_invalid_integer(tmp_path: Path, field: str, value
         "disk-reserve-mib",
     ],
 )
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
 def test_local_resource_policy_mib_overflow(tmp_path: Path, field: str) -> None:
     project_file = write_project_config(
         tmp_path,
@@ -468,6 +470,7 @@ def test_local_resource_policy_mib_overflow(tmp_path: Path, field: str) -> None:
         "execution: {scan-budget: {local: {threads: PRIVATE_SENTINEL}}}\n",
     ],
 )
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
 def test_local_resource_policy_invalid_mapping(tmp_path: Path, settings: str) -> None:
     result = load_project_config(write_project_config(tmp_path, "name: recon\n" + settings))
     assert not result.succeeded
