@@ -651,3 +651,45 @@ finding is assigned to M9.5 by maintainer approval; preserve explicit
 four-pin differential evidence here without new exclusions. Implementation
 was separately approved; final acceptance, cumulative review and exit
 approval remain required.
+
+## Platform and dependency compatibility
+
+[Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) is a mandatory native and shared-conformance requirement. The tested matrix describes evidence, not a runtime version allowlist.
+
+M8.1.2 owns the first persistent local-resource compatibility workflow, before
+exit. Keep existing required semantic/pinned-engine CI. On resource/worker,
+dependency, OS/runner or compatibility changes and before release/promotion,
+run targeted representative native platform coverage (including actual
+control effects, bounded transport and cleanup), not just import checks.
+Maintain distinct older/current pinned supported releases where runner
+availability permits, plus rolling latest OS and resolvable recent compatible
+dependencies; confirm actual release/build, architecture, Python and
+dependency/engine version from each job. Select a risk-based matrix: native
+minimum/current engine and dependency versions, Python 3.11-3.13 current
+declared test lanes, representative platform and architecture intersections,
+with extra combinations for affected controls. Do not count aliases as
+different OS releases or automatically drop prior supported regressions.
+Use isolated bounded fixtures and no customer data.
+
+Add a periodic compatibility workflow (monthly is the initial cadence),
+manual dispatch and relevant PR/change validation. New releases and runner
+image/label retirement, reported compatibility failures, or a relevant
+dependency update require reevaluation rather than waiting for the next
+schedule. Check scheduled runs are enabled and actually ran; record missed
+runs, unavailable platforms and proof gaps, use equivalent environments as
+needed. Rolling failures require triage and capture, not silent suppression;
+known supported regressions block relevant release/exit. Unsupported or
+untested environments are not automatically refused at runtime; prove
+required controls independently. A new version without a suitable CI image
+must not be listed as verified solely because a synthetic test passed.
+
+Exercise unknown future versions, unavailable/denied/malformed observations,
+partially available facts, actual equivalent controls, missing required
+controls, and warnings in terminal/captured logs without changing check
+status, exit categories, privacy or scope. For each adapter distinguish
+client OS/driver, server/warehouse/cluster versions and deployment constraints;
+apply only relevant native tests, with documented rationale. M10 readiness,
+experimental adapter admission, M29 certification, and subsequent changes
+must verify the matrix and unresolved P1-P6 obligations. Record evidence
+and regression captures using existing metadata and compatibility matrix;
+no parallel tracker.
