@@ -305,7 +305,7 @@ def _observe_local_resources(scratch: Path) -> _LocalObservation:
     scratch_kind = None
     affinity = None
     free = None
-    portable = _PortableFacts()
+    resolved_scratch = None
     if sys.platform == "linux":
         meminfo = _safe_read(_read_text, PurePosixPath("/proc/meminfo"))
         mountinfo = _safe_read(_read_text, PurePosixPath("/proc/self/mountinfo"))
@@ -325,12 +325,13 @@ def _observe_local_resources(scratch: Path) -> _LocalObservation:
     try:
         resolved = scratch.resolve(strict=True)
         if resolved.is_dir():
+            resolved_scratch = resolved
             free = shutil.disk_usage(resolved).free
-            portable = _observe_portable_resources(resolved, sys.platform)
             if mountinfo is not None:
                 scratch_kind = _scratch_memory_backed(PurePosixPath(resolved.as_posix()), mountinfo)
     except (OSError, RuntimeError, ValueError):
         pass
+    portable = _observe_portable_resources(resolved_scratch, sys.platform)
     if host_available is None:
         host_available = portable.host_available_bytes
     if affinity is None:
