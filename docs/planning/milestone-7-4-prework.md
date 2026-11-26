@@ -1201,12 +1201,13 @@ Historical completion is unchanged. Mandatory pending M9.5 owns the explicit ret
 
 ## Reopened next-action dependency
 
-Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. M8.1.1 is completed and verified on main; the targeted correction's design is approved; final prework validation and separate runtime implementation approval remain required.
+Follow the [M8 split assignment](milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action): shared binding design and verified implementation precede the targeted M7.4 correction, which precedes remaining M8.1 calibration. Historical prework and experimental evidence do not authorize coding. M8.1.1 is completed and verified on main; the targeted correction's design and implementation are approved; final cumulative validation and exit approval remain required.
 
 ## Targeted bound grouped runtime correction - approved prework
 
-Status: design and legacy collation disposition approved by maintainer
-on 2026-11-26; no runtime implementation approval yet. M8.1.1 scoped exit
+Status: design, legacy collation disposition and implementation approved by
+maintainer on 2026-11-26; implemented on draft PR #39, final cumulative
+validation and exit approval pending. M8.1.1 scoped exit
 completed on main at 4d3ede5029a6f052d1c18c0ef62f176e0ae15868 (PR #38,
 tested head d513a249b926f05c8264d6790af163911c90b3a1, CI 45815181891 10/10;
 tested and merged trees identical). Split Decision: Already Split / Follow
@@ -1373,3 +1374,45 @@ legacy case. Any new candidate discrepancy remains an in-scope blocker.
 Do not claim portable collation support. The M9.5 case must be resolved
 before M10 exit and 0.1 release readiness, not deferred to M11 or M29.
 No production code or gate satisfaction claimed by this prework.
+
+
+### Implementation and cumulative validation checkpoint
+
+Critical test-first RED verified: CI 45828693382 at c70712e exposed five
+intended native failures (missing bound renderer, wrong selection, missing
+collaborator reaching runner, and actual final SQL retaining redundant
+predicate). Initial full GREEN at f5d8925, CI 45829398258, all ten jobs;
+1,244 required native tests on Python 3.13. A later cumulative review
+resolved the renderer and executor together inside the existing guarded
+collaborator check, eliminating a repeated unchecked lookup. Existing
+binding, public SQL, scalar and key paths remain unchanged. Additional
+malformed collaborator/guard, arbitrary integer, skewed composite and
+invalid numeric cases and capture references are present on the branch.
+The metadata checker caught four missing published test nodes during the
+review; those nodes were restored and read back at 2628e54. Final CI and
+fresh cumulative review are still required; no milestone exit claim.
+
+G6 actual implemented renderer feasibility: isolated synthetic four-pin
+run 45830527242, all four jobs successful. Strict and bound variants on
+10,000 narrow groups and 1,000 wide composite floating groups agree with
+independent expected summary. 50,000 wide/skewed and 800,000 narrow groups
+completed on the bound variant only. All final queries return one nine-field
+summary; no private data, no raw plans published. EXPLAIN on synthetic
+fixtures shows strict BLOCKWISE_NL_JOIN -> bound HASH_JOIN on 1.3.2 and
+1.4.5, both HASH_JOIN on 1.0.0; 2.0.1 operator not identified by the probe's
+label check. Narrow 10k strict/bound final-query seconds (one observation
+per variant): 1.0.0 0.00983/0.01074, 1.3.2 0.08393/0.00661,
+1.4.5 0.07662/0.00452, 2.0.1 0.00541/0.00490. Wide 50k bound
+0.03824/0.03331/0.02754/0.02967, narrow 800k bound
+0.13204/0.12936/0.10047/0.08622 respectively. Narrow compressed files
+798720 bytes; wide 50k files 2895872 bytes. These are not resource ceilings,
+calibrated thresholds or general speed guarantees. No strict large-scale
+timing claim; temporary probes bounded by subprocess and file limits.
+Temporary workflow and script removed; no permanent performance harness.
+M8.1.2 still owns calibration on the verified corrected revision.
+
+Regression capture duckdb-private-grouped-join-performance extends the
+existing adapter/runtime and engine evidence, with shared adapter-testkit
+obligations deferred to their established owner. Review the exact final
+revision against G1-G11, all routed regression decisions and all previously
+assigned gates before exit. G9 handoff requires verified integration.

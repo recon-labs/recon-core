@@ -648,5 +648,6 @@ private grouped path, and verify native truth and scale across the four
 pinned engines. Test-first critical regressions require actual RED proof;
 no new timing SLA or version exclusions. The existing legacy collation
 finding is assigned to M9.5 by maintainer approval; preserve explicit
-four-pin differential evidence here without new exclusions. No implementation
-approval from this planning checkpoint.
+four-pin differential evidence here without new exclusions. Implementation
+was separately approved; final acceptance, cumulative review and exit
+approval remain required.

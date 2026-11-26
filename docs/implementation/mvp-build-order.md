@@ -752,7 +752,7 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); correction design approved; final prework validation, separate coding approval and M8.1.2 design approval remain pending.
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); correction implemented on draft PR #39; final cumulative validation, exit approval and M8.1.2 design approval remain pending.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
@@ -3212,7 +3212,7 @@ Build the smallest complete loop first, then widen capability.
 
 See [M8.1.1 prework and exit evidence](../planning/milestone-8-1-1-prework.md) for private binding integration,
 expanded acceptance/test matrix, approved lifecycle decision L1 and exit
-proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own approvals; M7.4 design approved, coding approval pending.
+proof. Scoped exit complete. M8.1.2 and targeted M7.4 correction retain separate owners and require their own approvals; M7.4 implementation approved and in final cumulative validation; exit pending.
 
 ## Mandatory M8.1.2 resource policy handoff
 
