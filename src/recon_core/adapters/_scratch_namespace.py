@@ -64,6 +64,8 @@ def _namespace_path(base: Path, project: Path) -> Path:
 def _darwin_no_acl_grants(path: Path, expected: os.stat_result, *, fd: int | None = None) -> bool:
     """Require absent or non-granting Darwin ACL on an unchanged open object."""
     try:
+        if fd is None:
+            return _darwin_no_acl_grants_native(path, expected)
         return _darwin_no_acl_grants_native(path, expected, fd=fd)
     except Exception:
         return False
@@ -90,7 +92,8 @@ def _darwin_no_acl_grants_native(
     free.restype = ct.c_int
 
     def identity(info: os.stat_result) -> tuple[int, ...]:
-        return info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink
+        links = info.st_nlink if stat.S_ISREG(info.st_mode) else 0
+        return info.st_dev, info.st_ino, info.st_uid, info.st_mode, links
 
     own_fd = fd is None
     if fd is None:
