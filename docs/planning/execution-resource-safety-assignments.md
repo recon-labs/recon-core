@@ -75,7 +75,7 @@ carry forward regressions when touched.
 | 32.5 | Budget action retries/fan-out separately; no unapproved mutation. |
 | 42.5 | Budget AI-suggested execution/tool fan-out; suggestions do not authorize scans. |
 
-## Reopened design prerequisites
+## Historical reopened design prerequisites (superseded by approved checkpoint below)
 
 Research official native settings and version limits, hardware/container
 availability, memory outside engine buffer management, spill disk limits,
