@@ -412,6 +412,23 @@ def _confirm_native_identity(kernel: Any, path: Path, handle: Any, *, directory:
             raise _WindowsScratchSecurityError()
 
 
+def _windows_ticket_identity(
+    path: Path, *, directory: bool, fd: int | None = None
+) -> tuple[int, int]:
+    """Return the full native identity, including for an actual operation fd."""
+    kernel, _ = _libraries()
+
+    def identity(handle: Any) -> tuple[int, int]:
+        _confirm_native_identity(kernel, path, handle, directory=directory)
+        volume, identifier = _native_object_identity(kernel, handle, directory=directory)
+        return volume, int.from_bytes(identifier, "little")
+
+    if fd is not None:
+        return identity(import_module("msvcrt").get_osfhandle(fd))
+    with _open_security_handle(kernel, path) as handle:
+        return identity(handle)
+
+
 def _verify_private_directory(path: Path) -> None:
     """Verify actual owner, protected DACL and inheritable grant."""
     _verify_private_object(path, directory=True)
