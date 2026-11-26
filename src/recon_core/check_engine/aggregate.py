@@ -538,11 +538,19 @@ def _guard_integer(result: object, column: str) -> int:
     return result.row[0]
 
 
+def _aggregate_render_method(check: LoadedCompiledCheck, *, bound: bool) -> str:
+    if bound and check.check_type == "grouped_aggregate_diff":
+        return "render_bound_grouped_plan"
+    return "render_plan"
+
+
 def _aggregate_collaborator_blocker(
     check: LoadedCompiledCheck,
     contract: LoadedCompiledContractArtifact,
     adapter: BaseAdapter,
     renderer: object,
+    *,
+    bound: bool = False,
 ) -> CheckResult | None:
     try:
         valid = (
@@ -550,6 +558,7 @@ def _aggregate_collaborator_blocker(
             and safe_string_attribute(renderer, "adapter_type")
             == safe_string_attribute(adapter, "adapter_type")
             and callable(getattr(renderer, "render_plan", None))
+            and callable(getattr(renderer, _aggregate_render_method(check, bound=bound), None))
             and callable(getattr(adapter, "_execute_aggregate_query", None))
         )
     except Exception:
@@ -590,10 +599,13 @@ def _execute_aggregate_check(
     if scan_blocker is not None:
         return scan_blocker
 
-    collaborator_blocker = _aggregate_collaborator_blocker(check, contract, adapter, renderer)
+    bound = bound_runner is not None
+    collaborator_blocker = _aggregate_collaborator_blocker(
+        check, contract, adapter, renderer, bound=bound
+    )
     if collaborator_blocker is not None:
         return collaborator_blocker
-    render = getattr(renderer, "render_plan", None)
+    render = getattr(renderer, _aggregate_render_method(check, bound=bound), None)
     execute = getattr(adapter, "_execute_aggregate_query", None)
     assert callable(render) and callable(execute)
     source, source_error = relation_from_name(

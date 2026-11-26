@@ -1030,7 +1030,6 @@ def test_aggregate_runtime_missing_prepared_adapter_is_error(tmp_path: Path, gro
     assert renderer.calls == 0
 
 
-
 @pytest.mark.parametrize("grouped", [False, True])
 @pytest.mark.parametrize("bound", [False, True])
 @pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
@@ -1065,13 +1064,15 @@ def test_grouped_runtime_selects_bound_renderer_only_in_owned_callback(
             return evaluate(source, target, reader)
 
     result = _route(
-        tmp_path, grouped, adapter, Renderer(plan), tolerance=1,
+        tmp_path,
+        grouped,
+        adapter,
+        Renderer(plan),
+        tolerance=1,
         bound_runner=Runner() if bound else None,
     )
     assert result.status is CheckStatus.PASS
-    assert calls == (
-        ["bound", "optimized" if grouped else "strict"] if bound else ["strict"]
-    )
+    assert calls == (["bound", "optimized" if grouped else "strict"] if bound else ["strict"])
     active = reader if bound else adapter
     inactive = adapter if bound else reader
     assert active.calls == [

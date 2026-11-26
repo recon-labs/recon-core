@@ -43,6 +43,41 @@ class _DuckDbAggregateRuntimeRenderer:
         source_relation: Relation,
         target_relation: Relation,
     ) -> _AggregateRuntimePlan:
+        return self._render_plan(
+            operations,
+            source_relation=source_relation,
+            target_relation=target_relation,
+            bound_grouped=False,
+        )
+
+    def render_bound_grouped_plan(
+        self,
+        operations: tuple[Mapping[str, Any], ...],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+    ) -> _AggregateRuntimePlan:
+        """Use only with an active owned binding and ordered type/domain guards."""
+        if any(
+            relation.catalog is None or relation.schema is None
+            for relation in (source_relation, target_relation)
+        ):
+            raise ValueError("Bound grouped rendering requires qualified relations.")
+        return self._render_plan(
+            operations,
+            source_relation=source_relation,
+            target_relation=target_relation,
+            bound_grouped=True,
+        )
+
+    def _render_plan(
+        self,
+        operations: tuple[Mapping[str, Any], ...],
+        *,
+        source_relation: Relation,
+        target_relation: Relation,
+        bound_grouped: bool,
+    ) -> _AggregateRuntimePlan:
         if len(operations) != 3:
             raise ValueError("Aggregate runtime requires three operations.")
         source, target, comparison = operations
@@ -50,6 +85,8 @@ class _DuckDbAggregateRuntimeRenderer:
         if kind not in ("aggregate", "grouped_aggregate"):
             raise ValueError("Unsupported aggregate runtime operation.")
         grouped = kind == "grouped_aggregate"
+        if bound_grouped and not grouped:
+            raise ValueError("Bound grouped rendering requires grouped operations.")
         compare_kind = "compare_grouped_aggregates" if grouped else "compare_aggregates"
         if (
             target.get("type") != kind
@@ -107,8 +144,8 @@ class _DuckDbAggregateRuntimeRenderer:
         )
         ctes = _aggregate_ctes(source_relation, target_relation, column, keys)
         if grouped:
-            exact_sql = _grouped_summary(ctes, keys, floating=False)
-            floating_sql = _grouped_summary(ctes, keys, floating=True)
+            exact_sql = _grouped_summary(ctes, keys, floating=False, bound_grouped=bound_grouped)
+            floating_sql = _grouped_summary(ctes, keys, floating=True, bound_grouped=bound_grouped)
         else:
             exact_sql = floating_sql = _scalar_result(ctes)
 
@@ -201,9 +238,16 @@ def _scalar_result(ctes: str) -> str:
     )
 
 
-def _grouped_summary(ctes: str, keys: tuple[str, ...], *, floating: bool) -> str:
+def _grouped_summary(
+    ctes: str, keys: tuple[str, ...], *, floating: bool, bound_grouped: bool
+) -> str:
+    # The owned snapshot and ordered key guard prove identical physical key
+    # types. Do not repeat typeof in this join; unbound callers still need it.
     join = " and ".join(
-        strict_null_safe_equality(f"s.group_key_{i}", f"t.group_key_{i}") for i in range(len(keys))
+        f"(s.group_key_{i} is not distinct from t.group_key_{i})"
+        if bound_grouped
+        else strict_null_safe_equality(f"s.group_key_{i}", f"t.group_key_{i}")
+        for i in range(len(keys))
     )
     invalid = (
         "(sp is true and a is not null and not isfinite(a)) or "

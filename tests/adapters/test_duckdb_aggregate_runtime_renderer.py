@@ -411,7 +411,6 @@ def test_runtime_renderer_all_null_groups(adapter: DuckDbAdapter) -> None:
     assert result.row == (1, 0, 0, 1, 0, 0, 0, None, None)
 
 
-
 @pytest.mark.parametrize("keys", [("k",), ("k", "j")])
 @pytest.mark.regression_capture("duckdb-private-grouped-join-performance")
 def test_bound_grouped_join_uses_guarded_null_safe_equality(keys: tuple[str, ...]) -> None:
