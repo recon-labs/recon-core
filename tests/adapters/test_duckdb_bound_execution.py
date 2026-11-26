@@ -610,3 +610,54 @@ def test_memory_and_nonlocal_catalog_are_not_local_binding(tmp_path: Path) -> No
         )
         is None
     )
+
+
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
+def test_nonregular_file_scope_is_refused(tmp_path: Path) -> None:
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("Named pipes are unavailable on this platform.")
+    path = tmp_path / "named-pipe"
+    os.mkfifo(path)
+    config = ConnectionConfig(name="warehouse", type="duckdb", config={"database": path.name})
+    assert guard._local_file_identity(config, tmp_path) is None
+
+
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
+def test_actual_attached_catalog_is_not_local_base_table(tmp_path: Path, duckdb: Any) -> None:
+    local = tmp_path / "local.duckdb"
+    external = tmp_path / "external.duckdb"
+    writer = duckdb.connect(str(external))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 99 AS id")
+    finally:
+        writer.close()
+    # Test-only native catalog fixture, not a supported project-run attachment.
+    connection = duckdb.connect(str(local))
+    try:
+        connection.execute("CREATE TABLE src AS SELECT 17 AS id")
+        escaped = str(external).replace("'", "''")
+        connection.execute(f"ATTACH '{escaped}' AS attached")
+        assert connection.execute("SELECT id FROM attached.main.src").fetchall() == [(99,)]
+        catalogs = guard._local_duckdb_catalog_names(connection, local)
+        assert catalogs == frozenset({"local"})
+        attached = guard._duckdb_relation_name("attached.main.src")
+        ambiguous = guard._duckdb_relation_name("src")
+        explicit = guard._duckdb_relation_name("local.main.src")
+        assert attached is not None and ambiguous is not None and explicit is not None
+        assert (
+            guard._resolve_local_base_table(connection, attached, local_catalog_names=catalogs)
+            is None
+        )
+        assert (
+            guard._resolve_local_base_table(connection, ambiguous, local_catalog_names=catalogs)
+            is None
+        )
+        relation = guard._resolve_local_base_table(
+            connection, explicit, local_catalog_names=catalogs
+        )
+        assert relation is not None
+        assert connection.execute(f"SELECT id FROM {render_relation(relation)}").fetchall() == [
+            (17,)
+        ]
+    finally:
+        connection.close()

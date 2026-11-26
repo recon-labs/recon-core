@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 import yaml
 
+from recon_core.adapters import AdapterRegistry, AdapterResolutionResult, ConnectionConfig
 from recon_core.adapters.duckdb import DuckDbAdapter
 from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.check_engine import CheckEngine, CheckStatus, RunResult
@@ -15,6 +16,8 @@ from recon_core.services.results import ExitCategory
 from tests.services._run_service_fixtures import (
     _compiled_check_payload,
     _duckdb_module,
+    _key_safety_payload_for,
+    _write_duckdb_key_safety_tables,
     _write_duckdb_row_count_tables,
     row_count_plan,
     write_compiled_checks,
@@ -453,3 +456,125 @@ def test_native_failure_isolation_across_database_files(
     for token in ("private-first", "private-other", "private-native-query-error"):
         assert token not in public
     assert all(path.read_bytes() == content for path, content in before.items())
+
+
+@pytest.mark.parametrize("primary", ["data_fail", "scope_refusal"])
+@pytest.mark.parametrize("cleanup", ["rollback", "close", "both"])
+@pytest.mark.regression_capture("project-binding-check-local-cleanup")
+def test_primary_outcome_retained_on_cleanup_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, primary: str, cleanup: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,), (2,)), target_rows=((1,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    if primary == "scope_refusal":
+        write_compiled_contract(tmp_path, target_relation="qa.absent")
+    real_close = binding._OwnedDuckDbSession.close
+
+    def close_session(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        diagnostics = real_close(session)
+        messages = []
+        if cleanup in {"rollback", "both"}:
+            messages.append("Read-only transaction cleanup failed.")
+        if cleanup in {"close", "both"}:
+            messages.append("Read-only execution session cleanup failed.")
+            session._released = False
+        return diagnostics + tuple(
+            Diagnostic(code="RC_ADAPTER_CLOSE_FAILED", severity=DiagnosticSeverity.ERROR, message=m)
+            for m in messages
+        )
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", close_session)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert engine.result is not None
+    check = engine.result.contract_results[0].check_results[0]
+    assert check.status is CheckStatus.ERROR and not check.executed
+    assert check.reason_code is None and check.blocked_by == ()
+    assert check.source_value is check.target_value is check.diff_value is None
+    assert check.failure_count is None and check.artifact_refs == check.sink_refs == ()
+    assert sum(d.code == "RC_ADAPTER_CLOSE_FAILED" for d in check.diagnostics) == (
+        2 if cleanup == "both" else 1
+    )
+    if primary == "scope_refusal":
+        assert "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED" in {d.code for d in check.diagnostics}
+    else:
+        assert any("failing outcome before cleanup failed" in d.message for d in check.diagnostics)
+
+
+@pytest.mark.parametrize("family", ["row", "key"])
+@pytest.mark.parametrize("mismatch", ["database", "name", "mutated"])
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
+def test_legacy_family_wrong_factory_binding_never_opens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, family: str, mismatch: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    wrong = tmp_path / "private-wrong.duckdb"
+    _write_duckdb_key_safety_tables(
+        _duckdb_module(), database, source_rows=((1, "x"),), target_rows=((1, "x"),)
+    )
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    if family == "key":
+        write_compiled_checks(tmp_path, checks=[_key_safety_payload_for("missing_keys")])
+
+    def factory(connection: ConnectionConfig) -> AdapterResolutionResult:
+        if mismatch == "mutated":
+            connection.config["database"] = str(wrong)
+        else:
+            connection = ConnectionConfig(
+                name="private-wrong-name" if mismatch == "name" else connection.name,
+                type=connection.type,
+                config={
+                    **connection.config,
+                    "database": str(wrong if mismatch == "database" else database),
+                },
+            )
+        return AdapterResolutionResult(adapter=DuckDbAdapter(connection=connection))
+
+    def forbidden(session: binding._OwnedDuckDbSession) -> None:
+        pytest.fail("A mismatched factory binding must not open a native session.")
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", forbidden)
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert "RC_ADAPTER_METADATA_INVALID" in {d.code for d in result.diagnostics}
+    assert "private-wrong" not in repr(result.diagnostics)
+    assert not wrong.exists()
+
+
+@pytest.mark.regression_capture("duckdb-owned-project-binding")
+def test_project_run_never_borrows_or_closes_supplied_connection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    borrowed = duckdb.connect(str(database), read_only=True)
+    adapters: list[DuckDbAdapter] = []
+
+    def factory(connection: ConnectionConfig) -> AdapterResolutionResult:
+        adapter = DuckDbAdapter(connection=connection)
+        adapter._connection = borrowed
+        adapters.append(adapter)
+        return AdapterResolutionResult(adapter=adapter)
+
+    def forbidden(self: DuckDbAdapter, *args: Any, **kwargs: Any) -> Any:
+        pytest.fail("Project-run execution must not use the borrowed adapter handle.")
+
+    monkeypatch.setattr(DuckDbAdapter, "connect", forbidden)
+    monkeypatch.setattr(DuckDbAdapter, "execute", forbidden)
+    monkeypatch.setattr(DuckDbAdapter, "close", forbidden)
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    try:
+        result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+        assert result.exit_category is ExitCategory.SUCCESS
+        assert len(adapters) == 1 and adapters[0]._connection is borrowed
+        assert borrowed.execute("SELECT id FROM qa.source_customers").fetchall() == [(1,)]
+    finally:
+        borrowed.close()
