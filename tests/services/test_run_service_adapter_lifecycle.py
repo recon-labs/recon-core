@@ -814,6 +814,7 @@ profiles:
         )
 
     monkeypatch.setattr(binding._OwnedDuckDbSession, "close", fail_cleanup)
+
     def fail_query(
         session: binding._OwnedDuckDbSession,
         lease: binding._BindingLease,

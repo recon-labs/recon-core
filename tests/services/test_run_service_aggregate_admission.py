@@ -120,7 +120,6 @@ def session_trace(monkeypatch: pytest.MonkeyPatch) -> _NativeSessionTrace:
     return _NativeSessionTrace(monkeypatch)
 
 
-
 def _aggregate_check(*, grouped: bool = False, tolerance: object = None) -> dict[str, Any]:
     groups = ["customer_id", "month"] if grouped else []
     operation_type = "grouped_aggregate" if grouped else "aggregate"
@@ -1244,9 +1243,7 @@ def test_native_aggregate_same_context_alias_and_mixed_checks(
     assert len(checks) == 3
     assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
     assert len(factory.adapters) == 2
-    assert all(
-        adapter.connect_count == adapter.close_count == 0 for adapter in factory.adapters
-    )
+    assert all(adapter.connect_count == adapter.close_count == 0 for adapter in factory.adapters)
     assert all(adapter.public_query_count == 0 for adapter in factory.adapters)
     assert all(not adapter.private_columns for adapter in factory.adapters)
     assert len(session_trace.sessions) == len(session_trace.closes) == 3
