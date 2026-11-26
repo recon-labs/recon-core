@@ -1,5 +1,8 @@
 """Portable observation facts are partial and never an enforcement claim."""
 
+import subprocess
+import sys
+import textwrap
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from types import SimpleNamespace
 
@@ -7,6 +10,7 @@ import pytest
 
 from recon_core.adapters._portable_resource_observation import (
     _classify_mounted_filesystem,
+    _finite_rlimit,
     _observe_portable_resources,
     _read_portable_facts,
     _windows_drive_kind,
@@ -132,8 +136,6 @@ def test_missing_provider_is_partial(tmp_path: Path) -> None:
 
 
 def test_real_optional_portable_observation(tmp_path: Path) -> None:
-    import sys
-
     pytest.importorskip("psutil")
     facts = _observe_portable_resources(tmp_path, sys.platform)
     assert facts.host_available_bytes is not None
@@ -148,3 +150,66 @@ def test_missing_scratch_does_not_erase_host_facts() -> None:
     facts = _read_portable_facts(_provider(), "darwin", None)
     assert facts.host_available_bytes == 1024
     assert facts.scratch_memory_backed is None
+
+
+def test_macos_unlimited_process_limit_is_not_finite() -> None:
+    resource = SimpleNamespace(
+        RLIM_INFINITY=(1 << 63) - 1,
+        RLIMIT_AS=1,
+        RLIMIT_DATA=2,
+        getrlimit=lambda name: (((1 << 63) - 1, 0) if name == 1 else (1000, 2000)),
+    )
+    assert _finite_rlimit(resource, "RLIMIT_AS") is None
+    assert _finite_rlimit(resource, "RLIMIT_DATA") == 1000
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows job API")
+def test_windows_actual_immediate_job_limits() -> None:
+    pytest.importorskip("psutil")
+    code = textwrap.dedent(
+        """
+        import ctypes
+        import sys
+        from pathlib import Path
+        from recon_core.adapters._portable_resource_observation import (
+            _ExtendedJobLimits, _observe_portable_resources
+        )
+        k = ctypes.WinDLL("kernel32")
+        k.CreateJobObjectW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p]
+        k.CreateJobObjectW.restype = ctypes.c_void_p
+        job = k.CreateJobObjectW(None, None)
+        assert job
+        k.CloseHandle.argtypes = [ctypes.c_void_p]
+        k.GetCurrentProcess.restype = ctypes.c_void_p
+        k.AssignProcessToJobObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        k.SetInformationJobObject.argtypes = [
+            ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32
+        ]
+        try:
+            limits = _ExtendedJobLimits()
+            limits.basic.flags = 0x100 | 0x200
+            limits.process_limit = 512 * 1024**2
+            limits.job_limit = 768 * 1024**2
+            assert k.SetInformationJobObject(
+                job, 9, ctypes.byref(limits), ctypes.sizeof(limits)
+            )
+            if not k.AssignProcessToJobObject(job, k.GetCurrentProcess()):
+                sys.exit(77)
+            facts = _observe_portable_resources(Path.cwd(), sys.platform)
+            scope = facts.windows_scope
+            assert scope is not None and scope.in_job is True
+            assert scope.process_commit_limit_bytes == limits.process_limit
+            assert scope.job_commit_limit_bytes == limits.job_limit
+            assert facts.process_commit_headroom_bytes is not None
+            assert 0 < facts.process_commit_headroom_bytes < limits.process_limit
+            assert not facts.scope_complete
+        finally:
+            k.CloseHandle(job)
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=30, check=False
+    )
+    if result.returncode == 77:
+        pytest.skip("Runner does not allow nested job assignment")
+    assert result.returncode == 0, result.stderr
