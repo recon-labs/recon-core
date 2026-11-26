@@ -752,7 +752,7 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). Exact split and design approval remain pending.
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). The split and M8.1.1 design/implementation are approved; M8.1.1 exit, correction prework/approval and M8.1.2 design approval remain pending.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 

@@ -59,6 +59,25 @@ def test_qualified_relation_binding_preserves_distinct_unicode_tables(
     assert status.local_dev
     assert status.bounded, "Distinct identifiers must not be collapsed by Unicode folding."
 
+    identity = guard._local_file_identity(config, tmp_path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    other = "ä" if identifier == "Ä" else "Ä"
+    expected = 1 if identifier == "Ä" else 2
+    try:
+        session.open()
+        lease = session.bind(
+            check_id="check-1", operation="row_count_diff", source=identifier, target=other
+        )
+        assert lease is not None
+        assert lease.scope.source.identifier == identifier
+        assert lease.scope.target.identifier == other
+        for relation, value in ((lease.scope.source, expected), (lease.scope.target, 3 - expected)):
+            query = f"select id from {render_relation(relation)}"
+            assert session._read_bound_query(lease, lease.scope, query).rows == ((value,),)
+    finally:
+        assert session.close() == ()
+
 
 @pytest.mark.parametrize("kind", ["missing", "directory", "wal", "tmp", "symlink_escape"])
 def test_file_scope_admission(tmp_path: Path, kind: str) -> None:
