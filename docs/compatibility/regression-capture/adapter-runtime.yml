@@ -854,6 +854,9 @@ captures:
       - tests/adapters/test_scratch_namespace.py::test_windows_broadened_root_file_refuses_reopen
       - tests/adapters/test_scratch_namespace.py::test_windows_broadened_session_file_is_retained
       - tests/adapters/test_scratch_namespace.py::test_windows_file_acl_checks_actual_open_handle
+      - tests/adapters/test_scratch_namespace.py::test_windows_unsafe_ancestor_refuses_namespace_creation
+      - tests/adapters/test_scratch_namespace.py::test_windows_changed_ancestor_retains_existing_storage
+      - tests/adapters/test_scratch_namespace.py::test_windows_shared_read_and_add_directory_ancestor_remains_usable
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -868,4 +871,7 @@ captures:
       Unknown storage needs independent protection before admission.
       Native Windows marker and lock operations also inspect the opened
       file ACL; recovery retains broadened marker, lock and spill files.
-      Full native identity, ancestor and POSIX leaf evidence remain prerequisites.
+      Revalidate the complete Windows base ancestor chain before creation,
+      reopen, session operations and recovery. Shared read and add-directory
+      rights may qualify; path-control grants must not authorize storage.
+      Full native ticket identity and POSIX leaf evidence remain prerequisites.
