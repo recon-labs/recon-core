@@ -282,7 +282,10 @@ def test_mixed_native_failure_preserves_unrelated_database(
     plan["id"] = "plan.ecommerce_recon.other_revenue.row_count_diff"
     write_compiled_checks(tmp_path, contract_name="other_revenue", checks=[unrelated])
     write_compiled_contract(
-        tmp_path, contract_name="other_revenue", source_connection="other", target_connection="other"
+        tmp_path,
+        contract_name="other_revenue",
+        source_connection="other",
+        target_connection="other",
     )
     opened: list[Path] = []
     original_open = binding._OwnedDuckDbSession.open
