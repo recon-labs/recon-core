@@ -278,7 +278,7 @@ class _ParentLease:
             with self._root._guard():
                 self.release()
                 return self._root._recover_locked(self.ticket)
-        except (OSError, _ScratchError):
+        except (OSError, RuntimeError, ValueError):
             return _Recovery.RETAINED
 
 
