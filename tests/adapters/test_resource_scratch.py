@@ -1,5 +1,6 @@
 """Owned scratch coordination on synthetic private local directories."""
 
+import os
 import subprocess
 import sys
 import time
@@ -12,6 +13,7 @@ from recon_core.adapters._resource_scratch import (
     _Recovery,
     _ScratchError,
     _ScratchRoot,
+    _SessionTicket,
 )
 
 
@@ -77,11 +79,13 @@ def test_untrusted_scratch_never_deleted(root: _ScratchRoot, damage: str) -> Non
     elif damage == "replaced-lock":
         (ticket.path / "worker.lock").rename(ticket.path / "worker.old")
         (ticket.path / "worker.lock").write_bytes(b"\0")
+        os.chmod(ticket.path / "worker.lock", 0o600)
         (ticket.path / "worker.old").unlink()
     elif damage == "replaced-spill":
-        (ticket.path / "spill").rename(ticket.path / "old-spill")
+        original = root.ticket.path.parent / "old-spill"
+        (ticket.path / "spill").rename(original)
         (ticket.path / "spill").mkdir(mode=0o700)
-        sentinel = ticket.path / "old-spill" / "keep.tmp"
+        sentinel = original / "keep.tmp"
     else:
         (ticket.path / "spill" / "nested").mkdir()
     assert root.recover(ticket) is _Recovery.RETAINED
@@ -185,3 +189,71 @@ time.sleep(120)
             child.kill()
             child.wait(timeout=10)
         parent.release()
+
+
+@pytest.mark.regression_capture("owned-scratch-two-lease-recovery")
+def test_parent_crash_before_worker_claim(root: _ScratchRoot, tmp_path: Path) -> None:
+    from uuid import UUID
+
+    marker = tmp_path / "published"
+    r = root.ticket
+    script = """
+import sys
+import time
+from pathlib import Path
+from uuid import UUID
+from recon_core.adapters._resource_scratch import _Identity, _RootTicket, _ScratchRoot
+r = _RootTicket(
+    Path(sys.argv[1]), UUID(sys.argv[2]),
+    _Identity(int(sys.argv[3]), int(sys.argv[4])),
+    _Identity(int(sys.argv[5]), int(sys.argv[6])),
+)
+parent = _ScratchRoot(r).create_session()
+s = parent.ticket
+parts = [s.nonce.hex]
+for identity in (s.identity, s.parent_identity, s.worker_identity, s.spill_identity):
+    parts.extend((str(identity.device), str(identity.inode)))
+marker = Path(sys.argv[7])
+temporary = marker.with_suffix(".tmp")
+temporary.write_text(":".join(parts), encoding="ascii")
+temporary.replace(marker)
+time.sleep(120)
+"""
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            script,
+            str(r.path),
+            str(r.nonce),
+            str(r.identity.device),
+            str(r.identity.inode),
+            str(r.lock_identity.device),
+            str(r.lock_identity.inode),
+            str(marker),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        deadline = time.monotonic() + 20
+        while not marker.exists() and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert marker.exists() and process.poll() is None
+        nonce, *values = marker.read_text(encoding="ascii").split(":")
+        identities = tuple(
+            _Identity(int(values[i]), int(values[i + 1])) for i in range(0, 8, 2)
+        )
+        ticket = _SessionTicket(
+            r.path / nonce, UUID(nonce), identities[0], identities[1], identities[2], identities[3]
+        )
+        assert root.recover(ticket) is _Recovery.LIVE
+        process.kill()
+        process.wait(timeout=10)
+        assert root.recover(ticket) is _Recovery.REMOVED
+        with pytest.raises(_ScratchError):
+            root.claim_worker(ticket)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
