@@ -804,6 +804,12 @@ is mandatory before M8.1.2.
 
 ### Milestone 8.1.2: hardware-aware resource policy and admission
 
+**Current checkpoint (2026-11-27): implementation suspended.** Follow the
+[reopened whole-design prework](../planning/milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27).
+Prior worker, recovery and resource observation mechanisms in this build order
+are historical pending approved replacement. Preserve outcome gates, current
+runtime guard and existing milestone order; no successor implementation.
+
 Design approved; prerequisites M8.1.1 and targeted M7.4 correction verified.
 See [M8.1.2 approved prework](../planning/milestone-8-1-2-prework.md).
 Own remaining R1-R10/A1-A13, native controls, adaptive settings, advisories,
@@ -3250,7 +3256,7 @@ required.
 
 Apply [Gate 4L adapter-specific resource applicability and proof](../planning/execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) during M8.1.2, M8.2/M8.3, M10/M10.8, M11-M12 PostgreSQL, M12-M13 Snowflake, M13.5, M18, M29 and all later adapter admission, version, deployment and execution expansions. Explicit R1-R10 dispositions and native tests before scoped admission and promotion; preserve actual resource regression capture and M29 carryover. No universal DuckDB mechanisms or CI-derived thresholds.
 
-## Approved M8.1.2 integration checkpoint (2026-11-26)
+## Historical approved M8.1.2 integration checkpoint (2026-11-26; reopened 2026-11-27)
 
 The maintainer-approved detailed design is in [M8.1.2 approved prework](../planning/milestone-8-1-2-prework.md); it supersedes
 historical footprint-driven resource decisions and earlier pending-design
