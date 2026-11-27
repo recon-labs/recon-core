@@ -511,8 +511,10 @@ captures:
       and reset, inactive/unreferenced isolation, wrong adapter/unknown names,
       same-context alias conflict, native connection identity and factory payload
       invariance, plain parse/compile compatibility and sanitized diagnostics.
-      Current test nodes remain historical candidate proof; add actual
-      replacement test nodes and carryover proof before exit. No gate closure.
+      Pure target calculation now belongs to the private DuckDB adapter owner;
+      obsolete reserve and speculative native spill ceiling arithmetic retired.
+      Existing applicable outcomes retained and new calculation nodes listed.
+      Exact GREEN, native unit/effect and carryover proof remain required.
   - id: local-resource-observation-hierarchy
     title: Local resource observation preserves ancestor headroom and missing evidence
     area: adapter-runtime
