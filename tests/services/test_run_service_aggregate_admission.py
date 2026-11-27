@@ -1720,6 +1720,7 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     sessions: list[list[str]] = []
     guards: list[list[str]] = []
     closures: list[str] = []
+    scratch_paths: list[Path] = []
 
     class Connection:
         def __init__(self, connection: Any, *, actor: bool) -> None:
@@ -1742,6 +1743,9 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     ) -> Connection:
         if path == ":memory:":
             assert not read_only and config is not None
+            scratch = Path(config["temp_directory"])
+            assert scratch.is_dir()
+            scratch_paths.append(scratch)
             return Connection(duckdb.connect(path, config=config), actor=True)
         assert path == str(database)
         assert read_only is True and config is None
@@ -1754,9 +1758,16 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     assert engine.result is not None
     checks = engine.result.contract_results[0].check_results
     assert len(checks) == len(sessions) == len(guards) == 9
-    assert closures == ["actor", "guard"] * 9
     assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
-    for check, statements, guard in zip(checks, sessions, guards, strict=True):
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 0
+    assert len(sessions) == len(guards) == len(scratch_paths) == 18
+    assert len(set(scratch_paths)) == 18
+    assert all(not path.exists() for path in scratch_paths)
+    assert closures == ["actor", "guard"] * 18
+    assert str(database) not in cli.output and str(tmp_path) not in cli.output
+    for check, statements, guard in zip(checks * 2, sessions, guards, strict=True):
         assert guard[-1] == "CLOSE" and "BEGIN TRANSACTION" not in guard
         start = statements.index("BEGIN TRANSACTION")
         assert any("ATTACH " in statement for statement in statements[:start])
