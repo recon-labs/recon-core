@@ -18,10 +18,19 @@ or gate closure until revised prework and separate approval.
 
 ## Proposed outcome mapping (approval pending)
 
+Maintainer scope decision (2026-11-27): M8.1.2 owns adaptive resource
+management for both standalone and embedded Python usage. No deferral of
+embedded adaptation or replacement admission to M8.2. Preserve shared
+application safety and current API capabilities; prove the smallest native-first
+mechanism without automatically restoring per-check workers, custom IPC or
+OS ownership inspection. M8.2 retains full invocation lifecycle and cumulative
+resource responsibilities. Exact mechanism and remaining scope dispositions
+are not approved yet.
+
 The [native-first redesign proposal](milestone-8-1-2-prework.md#native-first-redesign-proposal-2026-11-27-approval-pending)
 records the tested ordinary invocation alternative and explicit A1-A13,
 R1-R10, B8-B10 and P1-P6 dispositions. Preserve outcomes; do not resume
-historical mechanism implementation. Embedded managed execution scope,
+historical mechanism implementation. Embedded execution is mandatory in M8.1.2;
 removal of reserve leaves/automatic recovery/worker infrastructure and
 pressure polling require maintainer approval. M8.2 full invocation lifecycle
 and cumulative/concurrency obligations and all later adapter gates remain.
