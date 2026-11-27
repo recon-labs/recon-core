@@ -1104,8 +1104,11 @@ def test_native_interrupt_after_close_is_not_accepted(tmp_path: Path) -> None:
     assert session.request_interrupt() is False
 
 
+@pytest.mark.parametrize("mode", ["complete", "interrupt"])
 @pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
-def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: Any) -> None:
+def test_actual_guarded_native_interrupt_during_spill(
+    tmp_path: Path, duckdb: Any, mode: str
+) -> None:
     """Use actual spill bytes, native interrupt and joined query, not elapsed time alone."""
 
     import subprocess
@@ -1125,17 +1128,19 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
         from recon_core.adapters.duckdb import _bound_execution as binding
         from recon_core.adapters.duckdb import runtime_scan_guard as guard
         from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
-        from recon_core.adapters.duckdb.renderer_sql import render_relation
+        from recon_core.adapters.duckdb._aggregate_runtime import _DuckDbAggregateRuntimeRenderer
 
         base = Path(sys.argv[1]).resolve()
+        mode = sys.argv[2]
         path = base / "interrupt.duckdb"
         writer = duckdb.connect(str(path), config={"threads": "2", "memory_limit": "768MiB"})
         try:
-            wide = "||".join(f"md5((i+{j * 1000000})::varchar)" for j in range(6))
+            # Narrow groups previously completed with real spill on all four pins.
+            # Wide-key OOM is a different outcome, covered by native cap tests.
             writer.execute(
-                f"CREATE TABLE src AS SELECT i::varchar||':'||{wide} k, "
-                "1::bigint v FROM range(1000000) t(i)"
+                "CREATE TABLE src AS SELECT i k, 5::bigint v FROM range(3000000) t(i)"
             )
+            writer.execute("CREATE TABLE dst AS SELECT * FROM src")
         finally:
             writer.close()
 
@@ -1144,7 +1149,7 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
         scratch = _create_check_scratch(base)
         session = binding._OwnedDuckDbSession(
             identity,
-            native_controls=_NativeControlRequest(128 << 20, 1, 2 << 30, scratch.path),
+            native_controls=_NativeControlRequest(128 << 20, 1, 1 << 30, scratch.path),
         )
         observer = duckdb.connect(str(path), read_only=True)
         setting_sql = (
@@ -1159,14 +1164,25 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
         try:
             session.open()
             lease = session.bind(
-                check_id="spill", operation="row_count_diff", source="src", target="src"
+                check_id="spill", operation="grouped_aggregate_diff", source="src", target="dst"
             )
             assert lease is not None
-            relation = render_relation(lease.scope.source)
-            query = (
-                "SELECT count(*), sum(s) FROM "
-                f"(SELECT k,sum(v) s FROM {relation} GROUP BY k)"
+            operations = tuple(
+                {"type": "grouped_aggregate", "side": side, "aggregate": "sum",
+                 "column": "v", "group_by": ["k"]}
+                for side in ("source", "target")
+            ) + ({"type": "compare_grouped_aggregates"},)
+            plan = _DuckDbAggregateRuntimeRenderer().render_bound_grouped_plan(
+                operations, source_relation=lease.scope.source, target_relation=lease.scope.target
             )
+            for type_guard in plan.type_guards:
+                assert session._read_bound_aggregate(
+                    lease, lease.scope, type_guard.sql, expected_columns=("type_check",)
+                ).row == (1,)
+            proof = session._read_bound_aggregate(
+                lease, lease.scope, plan.domain_guard.sql, expected_columns=("numeric_domain",)
+            )
+            query = plan.final_query(plan.domain_from_guard(proof)).sql
 
             class ObservedActor:
                 def __init__(self, native):
@@ -1189,11 +1205,13 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
 
             def run():
                 try:
-                    session._read_bound_query(lease, lease.scope, query)
+                    result = session._read_bound_aggregate(
+                        lease, lease.scope, query, expected_columns=plan.columns
+                    )
                 except binding._BoundSessionError as error:
                     outcomes.append(error.diagnostic.code)
                 else:
-                    outcomes.append("completed")
+                    outcomes.append(result.row)
 
             thread = threading.Thread(target=run, daemon=True)
             thread.start()
@@ -1211,16 +1229,21 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
                     break
                 time.sleep(0.005)
             assert seen and thread.is_alive(), "No active native spill observed."
-            assert session.request_interrupt() is True
+            if mode == "interrupt":
+                assert session.request_interrupt() is True
             assert not session.released
             assert scratch.path.is_dir()
             thread.join(15)
             assert not thread.is_alive(), "Native query did not stop."
-            assert native_interrupted == [True], (
-                "Native interruption was not confirmed: "
-                f"errors={native_errors!r}, outcomes={outcomes!r}"
-            )
-            assert outcomes == ["RC_ADAPTER_QUERY_FAILED"], "Cancelled query returned a result."
+            if mode == "interrupt":
+                assert native_interrupted == [True], (
+                    "Native interruption was not confirmed: "
+                    f"errors={native_errors!r}, outcomes={outcomes!r}"
+                )
+                assert outcomes == ["RC_ADAPTER_QUERY_FAILED"], "Cancelled query returned a result."
+            else:
+                assert native_errors == []
+                assert outcomes == [(3000000, 0, 0, 0, 0, 3000000, 0, 0, 0)]
             assert observer.execute(setting_sql).fetchone() == before
             assert observer.execute("SELECT 42").fetchone() == (42,)
             assert not session.released
@@ -1242,7 +1265,7 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
         """
     )
     result = subprocess.run(
-        [sys.executable, "-c", code, str(tmp_path.resolve())],
+        [sys.executable, "-c", code, str(tmp_path.resolve()), mode],
         capture_output=True,
         text=True,
         timeout=90,
