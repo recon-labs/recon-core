@@ -99,9 +99,7 @@ class _RunScopeFacts:
     ) -> "_RunScopeFacts":
         contracts = result.contract_results if result is not None else ()
         finalized = sum(len(contract.check_results) for contract in contracts)
-        executed = sum(
-            check.executed for contract in contracts for check in contract.check_results
-        )
+        executed = sum(check.executed for contract in contracts for check in contract.check_results)
         if plan is None:
             return cls(None, 0 if known_empty else None, finalized, executed, None)
 

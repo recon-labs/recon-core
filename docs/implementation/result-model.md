@@ -72,8 +72,10 @@ not exact physical consumption. Catalog row advisory evidence retains availabili
 and threshold outcome, never estimated row totals. Unreached stages remain
 unknown. The invocation retains private planned contract/check counts, finalized
 result-record counts, executed-result counts and a scope-completeness fact.
-A validated empty-check diagnostic establishes zero planned checks but does not
-establish a matching contract plan; other unvalidated scope remains unknown.
+An authoritative empty-check diagnostic (an existing compiled-check directory
+with no artifacts, or loaded artifacts with no checks) establishes zero
+planned checks but does not establish a matching contract plan. A missing
+directory, malformed artifacts or unvalidated matching scope remains unknown.
 The service verifies returned invocation, project, contract and ordered check
 identities against the immutable loaded plan before projecting success. Missing,
 extra, duplicated, reordered or foreign results fail the invocation with a safe

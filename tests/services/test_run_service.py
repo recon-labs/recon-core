@@ -562,6 +562,7 @@ def test_invocation_plan_preserves_loaded_order_and_dependencies(tmp_path: Path)
     "invalid",
     [
         "missing_checks",
+        "missing_check_directory",
         "missing_contract",
         "malformed",
         "unsupported_version",
@@ -581,8 +582,10 @@ def test_invalid_compiled_scope_never_reaches_runtime_setup(
     write_compiled_contract(tmp_path)
     checks = tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
     contract = tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml"
-    if invalid == "missing_checks":
+    if invalid in {"missing_checks", "missing_check_directory"}:
         checks.unlink()
+        if invalid == "missing_check_directory":
+            checks.parent.rmdir()
     elif invalid == "missing_contract":
         contract.unlink()
     elif invalid == "malformed":
@@ -617,7 +620,12 @@ def test_invalid_compiled_scope_never_reaches_runtime_setup(
 
     assert outcome.plan is None
     assert outcome.run_result is None
-    assert outcome.scope_facts.planned_check_count == (0 if invalid == "empty" else None)
+    assert outcome.scope_facts.planned_check_count == (
+        0 if invalid in {"empty", "missing_checks"} else None
+    )
+    assert outcome.scope_facts.planned_contract_count is None
+    assert outcome.scope_facts.finalized_check_count == 0
+    assert outcome.scope_facts.executed_check_count == 0
     assert outcome.scope_facts.complete is None
     assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
     assert outcome.service_result.diagnostics
