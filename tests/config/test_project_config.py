@@ -490,6 +490,7 @@ def test_local_resource_policy_duplicate_key(tmp_path: Path) -> None:
     assert not result.succeeded
     assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_YAML"
 
+
 @pytest.mark.parametrize(
     "settings",
     [
@@ -573,9 +574,7 @@ def test_scoped_resource_policy_rejects_invalid_modes_without_leak(
     ],
 )
 @pytest.mark.regression_capture("local-resource-config-strict-validation")
-def test_scoped_resource_policy_rejects_wrong_envelope(
-    tmp_path: Path, settings: str
-) -> None:
+def test_scoped_resource_policy_rejects_wrong_envelope(tmp_path: Path, settings: str) -> None:
     result = load_project_config(write_project_config(tmp_path, f"name: recon\n{settings}\n"))
 
     assert not result.succeeded
@@ -596,4 +595,3 @@ def test_scoped_resource_policy_rejects_duplicate_mode_key(tmp_path: Path) -> No
 
     assert not result.succeeded
     assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_YAML"
-
