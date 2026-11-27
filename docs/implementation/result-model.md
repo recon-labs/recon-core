@@ -214,6 +214,14 @@ first `RunService` boundary, empty compiled-check scope is also a command-level
 runtime failure with `RC_RUNTIME_NO_COMPILED_CHECKS`; the aggregate status still
 remains `no_checks` so the result cannot look like a successful reconciliation.
 
+A required prerequisite must produce a usable pass or warning outcome to allow
+its dependent check to proceed. A skipped prerequisite does not supply that
+proof, even though an unrelated skipped check can coexist with a passing run.
+Shared prerequisites evaluate at most once per invocation; result presentation
+preserves loaded artifact order. A dependency cycle cannot execute its cyclic
+checks, and repeated blocker references appear once in the blocker explanation.
+No selector or skip-policy execution is introduced here.
+
 Counts and per-check results should preserve the full mixture when multiple
 statuses occur. For example, a run can aggregate to `fail` while still reporting
 blocked dependent checks.
@@ -230,7 +238,7 @@ Current reason codes:
 | `prerequisite_failed` | `blocked` | A prerequisite check executed and failed. |
 | `prerequisite_error` | `blocked` | A prerequisite check errored before producing a trustworthy result. |
 | `prerequisite_missing` | `blocked` | A required prerequisite result is absent. |
-| `prerequisite_not_executable` | `blocked` | A prerequisite check could not execute and therefore cannot satisfy the dependency. |
+| `prerequisite_not_executable` | `blocked` | A prerequisite check did not execute, including a skipped prerequisite, and therefore cannot satisfy the dependency. |
 | `unsupported_check_type` | `not_executable` | The compiled check type has no internal handler in the current check engine. |
 | `unsupported_typed_operation` | `not_executable` | The compiled check references a validly shaped typed operation the current runtime does not recognize or support. |
 | `missing_engine_capability` | `not_executable` | Required engine or adapter capability is unavailable or not declared. |

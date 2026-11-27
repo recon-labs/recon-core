@@ -376,6 +376,7 @@ def _contract_for_status(status: RunStatus, name: str) -> ContractResult:
     return ContractResult.from_check_results(contract_name=name, check_results=(check,))
 
 
+@pytest.mark.regression_capture("run-aggregate-status-precedence")
 @pytest.mark.parametrize("left", _STATUS_ORDER)
 @pytest.mark.parametrize("right", _STATUS_ORDER)
 def test_pairwise_status_precedence_across_checks_and_contracts(

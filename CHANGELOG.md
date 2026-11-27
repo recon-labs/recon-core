@@ -44,6 +44,8 @@ This project follows semantic versioning once public package releases begin.
   after evaluation and native cleanup. Internal elapsed time uses a monotonic
   clock; structured early failures retain invocation metadata. Existing command
   output and exit codes are unchanged; no new result artifact is written.
+  Preserve mixed outcomes and at-most-once shared prerequisite evaluation;
+  a skipped required prerequisite cannot authorize dependent execution.
 
 - Unreleased adapter-scoped DuckDB execution policy: independent automatic,
   fixed MiB or percentage memory/spill controls, memory-aware automatic

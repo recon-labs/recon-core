@@ -32,7 +32,7 @@ def blocked_result_if_needed(
 ) -> CheckResult | None:
     """Return a dependent-check blocker when prerequisites are unsafe."""
     blockers: list[_PrerequisiteBlocker] = []
-    for prerequisite_id in check.prerequisites:
+    for prerequisite_id in dict.fromkeys(check.prerequisites):
         prerequisite_result = check_results_by_id.get(prerequisite_id)
         if prerequisite_result is None:
             prerequisite_check = checks_by_id.get(prerequisite_id)
@@ -73,12 +73,16 @@ def blocked_result_if_needed(
                     state="blocked",
                 )
             )
-        if prerequisite_result.status is CheckStatus.NOT_EXECUTABLE:
+        if prerequisite_result.status in {CheckStatus.NOT_EXECUTABLE, CheckStatus.SKIPPED}:
             blockers.append(
                 _PrerequisiteBlocker(
                     check_id=prerequisite_id,
                     reason=CheckReason.PREREQUISITE_NOT_EXECUTABLE,
-                    state="was not executable",
+                    state=(
+                        "was skipped"
+                        if prerequisite_result.status is CheckStatus.SKIPPED
+                        else "was not executable"
+                    ),
                 )
             )
 
@@ -86,7 +90,7 @@ def blocked_result_if_needed(
         return _blocked_result(
             check,
             reason=_dominant_blocker_reason(tuple(blockers)),
-            blocked_by=_unique_blocked_by(tuple(blockers)),
+            blocked_by=tuple(blocker.check_id for blocker in blockers),
             message=_blocked_message(check.name, tuple(blockers)),
         )
     return None
@@ -145,20 +149,8 @@ def _dominant_blocker_reason(blockers: tuple[_PrerequisiteBlocker, ...]) -> Chec
     return CheckReason.PREREQUISITE_ERROR
 
 
-def _unique_blocked_by(blockers: tuple[_PrerequisiteBlocker, ...]) -> tuple[str, ...]:
-    blocked_by: list[str] = []
-    seen: set[str] = set()
-    for blocker in blockers:
-        if blocker.check_id in seen:
-            continue
-        seen.add(blocker.check_id)
-        blocked_by.append(blocker.check_id)
-    return tuple(blocked_by)
-
-
 def _blocked_message(check_name: str, blockers: tuple[_PrerequisiteBlocker, ...]) -> str:
-    unique_blockers = _unique_blocked_by(blockers)
-    if len(unique_blockers) == 1:
+    if len(blockers) == 1:
         blocker = blockers[0]
         return (
             f"Check `{check_name}` did not run because prerequisite "

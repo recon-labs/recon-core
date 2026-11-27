@@ -997,6 +997,7 @@ def test_engine_blocks_check_when_prerequisite_is_not_executable(tmp_path: Path)
     assert dependent_result.blocked_by == (prerequisite.id,)
 
 
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
 def test_engine_reports_multiple_missing_prerequisites_once(tmp_path: Path) -> None:
     dependent = _check(
         check_id="check.ecommerce_recon.customer_revenue.value_match",
@@ -1305,6 +1306,7 @@ def test_engine_computes_finish_when_no_label_is_supplied(tmp_path: Path) -> Non
     assert result.status is RunStatus.NOT_EXECUTABLE
 
 
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
 @pytest.mark.parametrize(
     ("status", "reason", "expected_blocker"),
     [
@@ -1418,6 +1420,7 @@ def test_shared_prerequisite_evaluated_once_across_contracts(
                 assert blocked.source_value is blocked.target_value is blocked.diff_value is None
 
 
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
 @pytest.mark.parametrize("self_cycle", [True, False])
 def test_dependency_cycle_does_not_dispatch_cyclic_checks(
     tmp_path: Path, self_cycle: bool

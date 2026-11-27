@@ -197,8 +197,10 @@ configuration, or future selector policy said to skip it. Selector-driven skip
 behavior is not implemented by the first check-engine boundary.
 
 `blocked` means the check did not run because a prerequisite failed, errored,
-was not executable, or was unavailable. Blocked results must include
-`blocked_by` and a machine-readable reason.
+was not executable, was skipped, or was unavailable. Blocked results must include
+`blocked_by` and a machine-readable reason. A skipped prerequisite cannot
+satisfy a required dependency; shared prerequisites are evaluated once per
+invocation, and repeated blocker references are reported once.
 
 `not_executable` means the compiled check is valid input to the run boundary
 but cannot execute with the current check engine, typed operation, capability,
