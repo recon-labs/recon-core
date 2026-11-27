@@ -86,8 +86,14 @@ Execution means the existing result-model `executed` flag, not an attempted
 native call. Scope completeness is independent of comparison status; no result
 is invented for an unprepared check. Invocation-wide attempts and publication
 remain separate responsibilities.
-The private outcome is not a new serialized or stable result API.
-The public `ServiceResult` dictionary, command exit mapping and no-write
+The private outcome is not a new serialized or stable result API. Only the
+existing four-field `ServiceResult` dictionary (exit category, exit code,
+message and safe diagnostics) is returned by the public command service.
+Existing diagnostic ownership and CLI rendering remain authoritative; do not
+serialize the invocation, plan, resource facts or retained check values into
+command output or logs. Preserve pre-existing compiled SQL, run results,
+evidence, reports and state without writes. Future publication requires its
+own field allowlist and privacy proof. The command exit mapping and no-write
 boundary remain unchanged. See [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
 
 ## Contract result

@@ -902,6 +902,10 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
             any(dimension in d.message for d in warnings)
             for dimension in ("managed-memory", "threads", "spill")
         )
+    assert set(result.to_dict()) == {"exit_category", "exit_code", "message", "diagnostics"}
+    assert "resource_facts" not in repr(invocation)
+    assert "scope_facts" not in repr(result.to_dict())
+    assert "resource_facts" not in repr(result.to_dict())
     assert str(tmp_path) not in repr(facts)
     assert "synthetic" not in repr(facts)
     assert "private-warehouse" not in repr(facts)
@@ -913,6 +917,8 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
         assert all(d.code in cli.output for d in warnings)
     else:
         assert expected in cli.output
+    assert invocation.run_id not in cli.output
+    assert "resource_facts" not in cli.output and "scope_facts" not in cli.output
     assert str(database) not in repr(result) and str(database) not in cli.output
     assert str(tmp_path) not in repr(result) and str(tmp_path) not in cli.output
 

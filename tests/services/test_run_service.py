@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 import yaml
+from click.testing import CliRunner
 
 import recon_core.adapters as adapters_module
 import recon_core.adapters.default_renderers as default_renderers_module
@@ -15,6 +16,7 @@ from recon_core.adapters import (
 )
 from recon_core.artifacts import CompiledCheckLoader, CompiledContractLoader
 from recon_core.check_engine import CheckReason, CheckResult, CheckStatus, ContractResult, RunResult
+from recon_core.cli.main import main
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
@@ -415,11 +417,46 @@ def test_run_invocation_elapsed_survives_wall_clock_rollback(
     ],
 )
 def test_run_invocation_preserves_outcome_and_private_values(
-    tmp_path: Path, status: CheckStatus | None, category: ExitCategory, lifecycle: str
+    tmp_path: Path,
+    status: CheckStatus | None,
+    category: ExitCategory,
+    lifecycle: str,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     write_project(tmp_path)
-    write_compiled_checks(tmp_path)
-    write_compiled_contract(tmp_path)
+    check_id = "check.ecommerce_recon.customer_revenue.private_plan_canary"
+    write_compiled_checks(
+        tmp_path, checks=[_compiled_check_payload(check_id=check_id, name="private_plan_canary")]
+    )
+    write_compiled_contract(
+        tmp_path,
+        source_relation=None,
+        source_query="select 'private-query-canary'",
+        target_relation="qa.private_relation_canary",
+    )
+    safe_warning = Diagnostic(
+        code="RC_TEST_SAFE_WARNING",
+        severity=DiagnosticSeverity.WARNING,
+        message="Safe warning message.",
+        hint="Safe actionable hint.",
+        path="contracts/customer_revenue.yml",
+    )
+    for relative in (
+        "target/run_results.json",
+        "target/failures/existing.csv",
+        "target/compiled_sql/existing.sql",
+        "reports/existing.md",
+        "state/existing.json",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("private-existing-output", encoding="utf-8")
+    before = {
+        path.relative_to(tmp_path): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    }
     reason = {
         CheckStatus.SKIPPED: CheckReason.SKIPPED_BY_POLICY,
         CheckStatus.BLOCKED: CheckReason.PREREQUISITE_MISSING,
@@ -431,14 +468,14 @@ def test_run_invocation_preserves_outcome_and_private_values(
         source_value = 123456789 if executed else None
         target_value = 123456788 if status is CheckStatus.FAIL else source_value
         check = CheckResult(
-            check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
-            name="row_count_diff",
+            check_id=check_id,
+            name="private_plan_canary",
             check_type="row_count_diff",
             contract_name="customer_revenue",
             status=status,
             executed=executed,
             reason_code=reason,
-            message="Check did not execute." if reason is not None else None,
+            message="private-check-message-canary",
             blocked_by=("missing-check",) if status is CheckStatus.BLOCKED else (),
             source_value=source_value,
             target_value=target_value,
@@ -454,7 +491,9 @@ def test_run_invocation_preserves_outcome_and_private_values(
         )
         contracts = (
             ContractResult.from_check_results(
-                contract_name="customer_revenue", check_results=(check,)
+                contract_name="customer_revenue",
+                check_results=(check,),
+                diagnostics=(safe_warning,),
             ),
         )
 
@@ -466,9 +505,12 @@ def test_run_invocation_preserves_outcome_and_private_values(
                 started_at=kwargs["started_at"],
                 finished_at="2026-11-27T10:00:00Z",
                 contract_results=contracts,
+                diagnostics=(safe_warning,),
             )
 
-    outcome = RunService(start_path=tmp_path, engine=OutcomeEngine())._execute_invocation()
+    monkeypatch.setattr(run_service_module, "CheckEngine", OutcomeEngine)
+    service = RunService(start_path=tmp_path)
+    outcome = service._execute_invocation()
 
     assert outcome.status.value == lifecycle
     assert outcome.service_result.exit_category is category
@@ -483,9 +525,47 @@ def test_run_invocation_preserves_outcome_and_private_values(
     assert outcome.run_result.run_id == outcome.run_id
     assert outcome.run_result.finished_at == outcome.finished_at
     assert outcome.elapsed_ns >= 0
-    assert "123456789" not in repr(outcome)
-    assert "123456789" not in repr(outcome.service_result.to_dict())
-    _assert_no_runtime_outputs(tmp_path)
+    assert outcome.plan is not None
+    assert outcome.plan.contracts[0].checks[0].check_id == check_id
+    public = service.execute().to_dict()
+    assert public == outcome.service_result.to_dict()
+    assert set(public) == {"exit_category", "exit_code", "message", "diagnostics"}
+    assert public["exit_category"] == category.value
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == public["exit_code"]
+    assert public["message"] in cli.output
+    if status is not None:
+        assert public["diagnostics"].count(safe_warning.to_dict()) == 1
+        assert cli.output.count("RC_TEST_SAFE_WARNING") == 1
+        assert safe_warning.message in cli.output
+        assert safe_warning.hint in cli.output
+        assert safe_warning.path in cli.output
+    else:
+        assert "RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR" in cli.output
+        assert "RC_TEST_SAFE_WARNING" not in cli.output
+    for token in (
+        "private_plan_canary",
+        "private-query-canary",
+        "private_relation_canary",
+        "private-check-message-canary",
+        "private-existing-output",
+        "123456789",
+        "123456788",
+        str(tmp_path),
+    ):
+        assert token not in repr(outcome)
+        assert token not in repr(public)
+        assert token not in cli.output
+        assert token not in caplog.text
+    assert outcome.run_id not in repr(public)
+    assert outcome.run_id not in cli.output
+    after = {
+        path.relative_to(tmp_path): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    }
+    assert after == before
 
 
 @pytest.mark.regression_capture("run-invocation-identity-timing")
@@ -680,6 +760,7 @@ def test_unexpected_invocation_failure_is_finalized_without_private_payload(
     stage: str,
     plan_known: bool,
     diagnostic_code: str,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     write_project(tmp_path)
     write_compiled_checks(tmp_path)
@@ -700,7 +781,8 @@ def test_unexpected_invocation_failure_is_finalized_without_private_payload(
         monkeypatch.setattr(run_service_module, "_run_service_result", fail)
 
     engine = _RaisingEngine() if stage == "check_execution" else _CapturingPassEngine()
-    service = RunService(start_path=tmp_path, engine=engine)
+    monkeypatch.setattr(run_service_module, "CheckEngine", lambda: engine)
+    service = RunService(start_path=tmp_path)
     outcome = service._execute_invocation()
 
     assert outcome.run_id.startswith("run-")
@@ -719,6 +801,20 @@ def test_unexpected_invocation_failure_is_finalized_without_private_payload(
     assert "private-preparation-error" not in repr(outcome)
     assert "super-secret" not in repr(outcome.service_result.to_dict())
     assert service.execute().to_dict() == outcome.service_result.to_dict()
+    public = outcome.service_result.to_dict()
+    assert set(public) == {"exit_category", "exit_code", "message", "diagnostics"}
+    assert public["exit_code"] == 3
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 3
+    assert diagnostic_code in cli.output
+    diagnostic = outcome.service_result.diagnostics[0]
+    assert diagnostic.severity is DiagnosticSeverity.ERROR
+    assert diagnostic.message in cli.output
+    assert diagnostic.hint in cli.output
+    for token in ("private-preparation-error", "super-secret", outcome.run_id):
+        assert token not in cli.output
+        assert token not in caplog.text
     _assert_no_runtime_outputs(tmp_path)
 
 
