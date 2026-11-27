@@ -622,3 +622,70 @@ def test_project_run_never_borrows_or_closes_supplied_connection(
         assert borrowed.execute("SELECT id FROM qa.source_customers").fetchall() == [(1,)]
     finally:
         borrowed.close()
+
+@pytest.mark.parametrize("missing_scratch", [False, True])
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_project_run_applies_selected_native_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_scratch: bool
+) -> None:
+    from recon_core.adapters.duckdb._native_resource_controls import _parse_native_size
+
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    scratch = tmp_path / "scratch"
+    if not missing_scratch:
+        scratch.mkdir()
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    profile["profiles"]["local"]["outputs"]["dev"]["execution"] = {
+        "connections": {
+            "warehouse": {
+                "managed-memory": {"mib": 64},
+                "threads": 1,
+                "spill": {"mib": 32},
+                "scratch-directory": "scratch",
+            }
+        }
+    }
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    seen: list[Path] = []
+    original = binding._OwnedDuckDbSession._read_bound_query
+
+    def read(
+        session: binding._OwnedDuckDbSession,
+        lease: binding._BindingLease,
+        scope: binding._BindingScope,
+        query: str,
+    ) -> Any:
+        native = session._connection
+        memory = _parse_native_size(
+            native.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+        )
+        spill = _parse_native_size(
+            native.execute("SELECT current_setting('max_temp_directory_size')").fetchone()[0]
+        )
+        assert memory is not None and memory.contains(64 * 1024 * 1024)
+        assert spill is not None and spill.contains(32 * 1024 * 1024)
+        assert native.execute("SELECT current_setting('threads')").fetchone() == (1,)
+        owned = Path(native.execute("SELECT current_setting('temp_directory')").fetchone()[0])
+        assert owned.parent == scratch.resolve() and owned.is_dir()
+        assert session._guard is not None
+        seen.append(owned)
+        return original(session, lease, scope, query)
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", read)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    if missing_scratch:
+        assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
+        assert "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE" in {d.code for d in outcome.diagnostics}
+        assert not scratch.exists() and not seen
+    else:
+        assert result.exit_category is ExitCategory.SUCCESS
+        assert outcome.status is CheckStatus.PASS and outcome.executed
+        assert len(seen) == 1 and not seen[0].exists()
+        assert list(scratch.iterdir()) == []

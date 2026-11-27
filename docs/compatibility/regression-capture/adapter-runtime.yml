@@ -585,6 +585,7 @@ captures:
       - tests/adapters/test_duckdb_native_resource_controls.py::test_automatic_controls_still_require_private_scratch_readback
       - tests/adapters/test_duckdb_native_resource_controls.py::test_explicit_spill_failure_does_not_fall_back_to_automatic
       - tests/adapters/test_duckdb_native_resource_controls.py::test_actual_automatic_controls_keep_native_defaults
+      - tests/services/test_run_service_bound_execution.py::test_project_run_applies_selected_native_policy
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
