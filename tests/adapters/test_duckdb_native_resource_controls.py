@@ -234,8 +234,9 @@ def test_malformed_native_setting_shape_is_not_a_recommendation(rows: object) ->
     assert result.threads is None
 
 
+@pytest.mark.parametrize("spill_bytes", [0, 1 << 20], ids=["zero", "one-mib"])
 @pytest.mark.regression_capture("duckdb-native-spill-setting-effect")
-def test_native_spill_setting_effect_not_readback(tmp_path: Path, duckdb: Any) -> None:
+def test_native_spill_setting_effect_not_readback(tmp_path: Path, duckdb: Any, spill_bytes: int) -> None:
     """Known spilling synthetic workload must hit the applied managed cap."""
 
     database = tmp_path / "spill-fixture.duckdb"
@@ -259,13 +260,13 @@ def test_native_spill_setting_effect_not_readback(tmp_path: Path, duckdb: Any) -
             _NativeControlRequest, _native_startup_config, _apply_native_controls
         )
 
-        request = _NativeControlRequest(128 << 20, 1, 1 << 20, Path(sys.argv[2]))
+        request = _NativeControlRequest(128 << 20, 1, int(sys.argv[3]), Path(sys.argv[2]))
         native = duckdb.connect(
             sys.argv[1], read_only=True, config=_native_startup_config(request)
         )
         try:
             actual = _apply_native_controls(native, request)
-            assert actual.spill.contains(1 << 20)
+            assert actual.spill.contains(request.spill_bytes)
             try:
                 native.execute(
                     "SELECT count(*), sum(s) FROM "
@@ -284,7 +285,7 @@ def test_native_spill_setting_effect_not_readback(tmp_path: Path, duckdb: Any) -
         """
     )
     result = subprocess.run(
-        [sys.executable, "-c", code, str(database), str(scratch)],
+        [sys.executable, "-c", code, str(database), str(scratch), str(spill_bytes)],
         capture_output=True,
         text=True,
         timeout=60,
@@ -292,3 +293,120 @@ def test_native_spill_setting_effect_not_readback(tmp_path: Path, duckdb: Any) -
     )
     assert result.returncode == 0, "Native spill control effect was not established."
     assert not any(path.is_file() for path in scratch.rglob("*"))
+
+
+@pytest.mark.parametrize(
+    ("memory", "threads", "spill"),
+    [
+        (None, 2, _MIB),
+        (128 * _MIB, None, _MIB),
+        (128 * _MIB, 2, None),
+        (None, None, None),
+    ],
+)
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_optional_automatic_controls_leave_native_settings_untouched(
+    tmp_path: Path, memory: int | None, threads: int | None, spill: int | None
+) -> None:
+    request = _NativeControlRequest(memory, threads, spill, tmp_path)
+    config = _native_startup_config(request)
+    expected = {"temp_directory": str(tmp_path)}
+    if memory is not None:
+        expected["memory_limit"] = f"{memory} bytes"
+    if threads is not None:
+        expected["threads"] = str(threads)
+    assert config == expected
+
+    native = _FakeConnection(tmp_path)
+    result = _apply_native_controls(native, request)
+    assignments = [call for call in native.calls if call.startswith("SET ")]
+    expected_assignments = (
+        [f"SET max_temp_directory_size = '{spill} bytes'"] if spill is not None else []
+    )
+    assert assignments == expected_assignments
+    assert not result.enforcement_proven
+
+
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_unavailable_optional_recommendations_do_not_invent_limits(tmp_path: Path) -> None:
+    native = _FakeConnection(tmp_path)
+    native.values["memory_limit"] = "PRIVATE_SENTINEL"
+    native.values["threads"] = None
+    request = _NativeControlRequest(None, None, _MIB, tmp_path)
+
+    result = _apply_native_controls(native, request)
+
+    assert result.memory is None
+    assert result.threads is None
+    assert result.spill is not None
+    assert result.spill.contains(_MIB)
+    assert not result.enforcement_proven
+    assert "PRIVATE_SENTINEL" not in repr(result)
+
+
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_automatic_spill_description_is_not_a_finite_limit(tmp_path: Path) -> None:
+    native = _FakeConnection(tmp_path)
+    native.values["max_temp_directory_size"] = "90% of available disk space"
+    request = _NativeControlRequest(128 * _MIB, 2, None, tmp_path)
+
+    result = _apply_native_controls(native, request)
+
+    assert result.spill is None
+    assert not result.enforcement_proven
+    assert not any(call.startswith("SET ") for call in native.calls)
+
+
+@pytest.mark.parametrize("value", [None, "unlimited", "PRIVATE_SENTINEL", True])
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_unrecognized_automatic_spill_is_not_verified(tmp_path: Path, value: object) -> None:
+    native = _FakeConnection(tmp_path)
+    native.values["max_temp_directory_size"] = value
+    request = _NativeControlRequest(128 * _MIB, 2, None, tmp_path)
+
+    with pytest.raises(_NativeControlError, match="spill") as caught:
+        _apply_native_controls(native, request)
+
+    assert "PRIVATE_SENTINEL" not in str(caught.value)
+
+
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_automatic_controls_still_require_private_scratch_readback(tmp_path: Path) -> None:
+    native = _FakeConnection(tmp_path)
+    native.values["temp_directory"] = "PRIVATE_SENTINEL"
+    request = _NativeControlRequest(None, None, None, tmp_path)
+
+    with pytest.raises(_NativeControlError, match="scratch") as caught:
+        _apply_native_controls(native, request)
+
+    assert "PRIVATE_SENTINEL" not in str(caught.value)
+
+
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_explicit_spill_failure_does_not_fall_back_to_automatic(tmp_path: Path) -> None:
+    native = _FakeConnection(tmp_path)
+    native.fail = "SET max_temp_directory_size"
+    request = _NativeControlRequest(None, None, _MIB, tmp_path)
+
+    with pytest.raises(_NativeControlError, match="spill") as caught:
+        _apply_native_controls(native, request)
+
+    assert native.calls == [f"SET max_temp_directory_size = '{_MIB} bytes'"]
+    assert "PRIVATE_SENTINEL" not in str(caught.value)
+
+
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_actual_automatic_controls_keep_native_defaults(tmp_path: Path, duckdb: Any) -> None:
+    scratch = tmp_path / "private scratch"
+    scratch.mkdir()
+    request = _NativeControlRequest(None, None, None, scratch)
+    native = duckdb.connect(":memory:", config=_native_startup_config(request))
+    try:
+        before = _read_native_recommendations(native)
+        actual = _apply_native_controls(native, request)
+        after = _read_native_recommendations(native)
+        assert before == after
+        assert native.execute("SELECT 42").fetchone() == (42,)
+        assert not actual.enforcement_proven
+    finally:
+        native.close()
