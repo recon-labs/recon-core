@@ -36,7 +36,7 @@ from recon_core.adapters.duckdb._resource_targets import (
     _calculate_local_resource_targets,
     _LocalResourceInputs,
     _LocalResourceTargets,
-    _UnknownPercentageCapacity,
+    _UnknownPercentageCapacityError,
 )
 from recon_core.adapters.duckdb.adapter import _read_aggregate_result
 from recon_core.adapters.duckdb.renderer_sql import quote_identifier, sql_string_literal
@@ -397,7 +397,7 @@ class _OwnedDuckDbSession:
                     self._native_controls,
                     assign_memory_threads=self._resource_policy is not None,
                 )
-            except _UnknownPercentageCapacity as exc:
+            except _UnknownPercentageCapacityError as exc:
                 self._invalidated = True
                 dimension = "managed-memory" if exc.setting == "managed-memory" else "spill"
                 raise _BoundSessionError(

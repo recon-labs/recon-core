@@ -34,7 +34,7 @@ def _minimum_known(*values: int | None) -> int | None:
     return min((value for value in values if value is not None), default=None)
 
 
-class _UnknownPercentageCapacity(ValueError):
+class _UnknownPercentageCapacityError(ValueError):
     """A valid percentage has no trustworthy denominator."""
 
     def __init__(self, setting: Literal["managed-memory", "spill"]) -> None:
@@ -50,7 +50,7 @@ def _percentage_request(
     if type(percent) is not int or not 1 <= percent <= 100:
         raise ValueError(f"Invalid {setting} percentage.")
     if available is None:
-        raise _UnknownPercentageCapacity(setting)
+        raise _UnknownPercentageCapacityError(setting)
     return available * percent // 100
 
 
