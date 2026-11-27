@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-import recon_core.adapters.duckdb.runtime_scan_guard as duckdb_scan_guard_module
 from recon_core.adapters import (
     AdapterCapabilities,
     AdapterRegistry,
