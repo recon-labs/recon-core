@@ -843,6 +843,7 @@ def compiled_contract(
         ),
     )
 
+
 @pytest.mark.parametrize(
     "execution",
     [
@@ -857,9 +858,7 @@ def compiled_contract(
     ],
 )
 @pytest.mark.regression_capture("local-resource-config-strict-validation")
-def test_selected_target_rejects_invalid_operational_policy(
-    tmp_path: Path, execution: str
-) -> None:
+def test_selected_target_rejects_invalid_operational_policy(tmp_path: Path, execution: str) -> None:
     write_project(tmp_path)
     write_profiles(
         tmp_path,
@@ -960,9 +959,7 @@ profiles:
 
 
 @pytest.mark.regression_capture("local-resource-config-strict-validation")
-def test_selected_target_rejects_duckdb_policy_for_non_duckdb_connection(
-    tmp_path: Path,
-) -> None:
+def test_selected_target_rejects_duckdb_policy_for_non_duckdb_connection(tmp_path: Path) -> None:
     write_project(tmp_path)
     write_profiles(
         tmp_path,
@@ -996,4 +993,3 @@ profiles:
     assert result.profile is None
     assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROFILE_CONFIG"
     assert "PRIVATE_SENTINEL" not in repr(result.diagnostics)
-
