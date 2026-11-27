@@ -146,9 +146,15 @@ The local adaptive resource implementation is unreleased. Initial native
 compatibility proof [46017023573](https://github.com/recon-labs/recon-core/actions/runs/46017023573)
 at `1c354e1f341e5fe8ad406f7375823a3761f49a4f` passed all nine lanes;
 standard [46017023550](https://github.com/recon-labs/recon-core/actions/runs/46017023550)
-passed all ten jobs. Step 7B automatic tuning reassessment and final exact
-revision validation remain open. The matrix records actual evidence, not
-a broad support declaration. All lanes use psutil 7.2.2.
+passed all ten jobs. The subsequent memory-aware automatic tuning
+implementation at `42f0a3995a303dcfa37c4f9a678d5d5418381558` passed
+[standard CI 46020772943](https://github.com/recon-labs/recon-core/actions/runs/46020772943)
+and [native compatibility CI 46020772995](https://github.com/recon-labs/recon-core/actions/runs/46020772995).
+Measured constrained/capable calibration and remaining physical-memory
+limitations are recorded in the approved prework. Final exact-head
+validation and separate exit approval remain required. The table below
+records the initial actual environment evidence, not a broad support
+declaration. All initial lanes use psutil 7.2.2.
 
 | Lane | Actual OS / kernel or build | Architecture | Python | DuckDB | Job ID |
 | --- | --- | --- | --- | --- | --- |
@@ -179,7 +185,7 @@ or every container hierarchy/remote deployment. Current and rolling
 macOS/Windows resolve to the same OS releases, but different native
 dependency lanes; count each actual OS only once. The Linux constrained
 calibration demonstrates that managed native limits are not physical
-quotas; see the [measured evidence and open tuning proof](../planning/milestone-8-1-2-prework.md#implementation-level-calibration-evidence-and-open-decision-2026-11-27).
+quotas; see the [measured tuning evidence and remaining limitations](../planning/milestone-8-1-2-prework.md#implementation-level-calibration-evidence-and-open-decision-2026-11-27).
 No runtime version allowlist. M8.1.2 owns final validation; M10/M10.8
 readiness, M29 and each future adapter owner recheck the actual matrix,
 new version/dependency changes and coverage gaps before promotion or
