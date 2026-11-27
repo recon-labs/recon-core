@@ -572,12 +572,40 @@ def test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup(
 )
 def test_run_service_executes_actual_duckdb_key_safety_failures_without_raw_output(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
     check_type: str,
     source_rows: tuple[tuple[object, ...], ...],
     target_rows: tuple[tuple[object, ...], ...],
     expected_diagnostic: str,
     forbidden_tokens: tuple[str, ...],
 ) -> None:
+    # Synthetic native fixtures only: retain the exact failing managed setting
+    # and bounded numeric readback rather than a truncated service assertion.
+    apply = binding._apply_native_controls
+    calculate = binding._adaptive_native_request
+
+    def traced_calculation(
+        connection: Any, scratch: Path, policy: Any
+    ) -> binding._NativeControlRequest:
+        try:
+            return calculate(connection, scratch, policy)
+        except (ValueError, binding._NativeControlError) as exc:
+            pytest.fail(f"Synthetic adaptive calculation refused: {exc}")
+
+    def traced_controls(
+        connection: Any, request: binding._NativeControlRequest, **kwargs: Any
+    ) -> Any:
+        try:
+            return apply(connection, request, **kwargs)
+        except binding._NativeControlError as exc:
+            readback = tuple(
+                connection.execute(f"SELECT current_setting('{setting}')").fetchone()
+                for setting in ("memory_limit", "threads", "max_temp_directory_size")
+            )
+            pytest.fail(f"Synthetic control refusal: {exc}; {request!r}; readback={readback!r}")
+
+    monkeypatch.setattr(binding, "_adaptive_native_request", traced_calculation)
+    monkeypatch.setattr(binding, "_apply_native_controls", traced_controls)
     duckdb = _duckdb_module()
     database = tmp_path / "warehouse.duckdb"
     _write_duckdb_key_safety_tables(
