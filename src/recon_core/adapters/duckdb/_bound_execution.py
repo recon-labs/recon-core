@@ -322,6 +322,7 @@ def _catalog_estimated_rows(connection: Any, relation: Relation) -> int | None:
 
 
 def _estimated_input_rows(connection: Any, scope: _BindingScope) -> int | None:
+    relations: tuple[Relation, ...]
     if scope.operation in {"null_source_keys", "duplicate_source_keys"}:
         relations = (scope.source,)
     elif scope.operation in {"null_target_keys", "duplicate_target_keys"}:
@@ -522,7 +523,20 @@ class _OwnedDuckDbSession:
         if threshold is not None:
             estimated = _estimated_input_rows(self._connection, self._lease.scope)
             self.verify_lease(self._lease, self._lease.scope)
-            if estimated is not None and estimated > threshold:
+            if estimated is None:
+                self._advisories += (
+                    Diagnostic(
+                        code="RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN",
+                        severity=DiagnosticSeverity.WARNING,
+                        message=(
+                            "Catalog input row estimate is unavailable; the configured advisory "
+                            "threshold cannot be evaluated. Execution continues."
+                        ),
+                        resource_type="runtime_policy",
+                        hint="Review workload scope locally; no estimate-based conclusion is made.",
+                    ),
+                )
+            elif estimated > threshold:
                 self._advisories += (
                     Diagnostic(
                         code="RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY",
