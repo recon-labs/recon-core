@@ -1456,3 +1456,56 @@ def test_dependency_cycle_does_not_dispatch_cyclic_checks(tmp_path: Path, self_c
         assert not result.executed
         assert result.source_value is result.target_value is result.diff_value is None
     assert independent_result.status is CheckStatus.PASS
+
+
+@pytest.mark.parametrize("missing_leaf", [False, True])
+def test_deep_dependency_chain_keeps_every_planned_result(
+    tmp_path: Path, missing_leaf: bool
+) -> None:
+    # Above the ordinary interpreter recursion depth, not a runtime check limit.
+    count = 1500
+    checks = tuple(
+        _check(
+            check_id=f"check-{index}",
+            name=f"check-{index}",
+            prerequisites=(f"check-{index + 1}",)
+            if index + 1 < count or missing_leaf
+            else (),
+        )
+        for index in range(count)
+    )
+    independent = _check(check_id="independent", name="independent")
+    calls: list[str] = []
+
+    class RecordingDispatcher:
+        def dispatch(self, check: LoadedCompiledCheck) -> CheckResult:
+            calls.append(check.id)
+            return CheckResult(
+                check_id=check.id,
+                name=check.name,
+                check_type=check.check_type,
+                contract_name=check.contract_name,
+                status=CheckStatus.PASS,
+                executed=True,
+            )
+
+    result = CheckEngine(dispatcher=RecordingDispatcher()).run(
+        (_artifact(tmp_path, checks=checks + (independent,)),),
+        run_id="run-deep",
+        started_at="start",
+        finished_at="finish",
+    )
+    actual = result.contract_results[0].check_results
+    assert tuple(check.check_id for check in actual) == tuple(
+        check.id for check in checks + (independent,)
+    )
+    assert actual[-1].status is CheckStatus.PASS
+    if missing_leaf:
+        assert result.status is RunStatus.BLOCKED
+        assert calls == ["independent"]
+        assert all(check.status is CheckStatus.BLOCKED for check in actual[:-1])
+        assert all(check.reason_code is CheckReason.PREREQUISITE_MISSING for check in actual[:-1])
+    else:
+        assert result.status is RunStatus.PASS
+        assert calls == [check.id for check in reversed(checks)] + ["independent"]
+        assert all(check.executed for check in actual)
