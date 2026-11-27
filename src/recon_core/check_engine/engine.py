@@ -144,9 +144,7 @@ class CheckEngine:
             current, prerequisites = pending[-1]
             prerequisite_id = next(prerequisites, None)
             if prerequisite_id is None:
-                result = self._evaluate_ready_check(
-                    current, check_results_by_id, execution_context
-                )
+                result = self._evaluate_ready_check(current, check_results_by_id, execution_context)
             elif prerequisite_id in check_results_by_id:
                 continue
             elif prerequisite_id in active_check_ids:
