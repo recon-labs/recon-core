@@ -565,6 +565,7 @@ def _read_yaml(path: Path) -> object:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+@pytest.mark.regression_capture("run-timeout-cli-contract")
 @pytest.mark.parametrize("value", ["0", "-1", "1.5", "private-timeout-canary"])
 def test_run_command_rejects_invalid_timeout(value: str) -> None:
     result = CliRunner().invoke(main, ["run", "--timeout-seconds", value])
@@ -573,6 +574,7 @@ def test_run_command_rejects_invalid_timeout(value: str) -> None:
     assert "No such option" not in result.output
 
 
+@pytest.mark.regression_capture("run-timeout-cli-contract")
 def test_run_command_accepts_large_timeout() -> None:
     runner = CliRunner()
     with runner.isolated_filesystem():

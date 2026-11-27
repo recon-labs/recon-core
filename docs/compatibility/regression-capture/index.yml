@@ -383,6 +383,11 @@ path_surface_routing:
         - scan_safety
         - execution_result
         - run_results
+    - path: src/recon_core/_run_control.py
+      surfaces:
+        - execution_result
+        - run_results
+        - diagnostics
     - path: src/recon_core/services/_run_lifecycle.py
       surfaces:
         - execution_result

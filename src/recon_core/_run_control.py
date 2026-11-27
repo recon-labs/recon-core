@@ -1,0 +1,67 @@
+"""Invocation-local cooperative stop state; no native or service ownership."""
+
+from collections.abc import Callable
+from enum import StrEnum
+from threading import Event, Lock
+
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
+
+
+class _StopCause(StrEnum):
+    CANCELLED = "run_cancelled"
+    DEADLINE = "run_deadline_exceeded"
+
+    def diagnostic(self) -> Diagnostic:
+        if self is _StopCause.CANCELLED:
+            code = "RC_RUNTIME_RUN_CANCELLED"
+            message = "Run cancellation was requested."
+        else:
+            code = "RC_RUNTIME_RUN_DEADLINE_EXCEEDED"
+            message = "Run invocation deadline was exceeded."
+        return Diagnostic(
+            code=code,
+            severity=DiagnosticSeverity.ERROR,
+            message=message,
+            resource_type="run_invocation",
+            hint="Start a new invocation when ready.",
+        )
+
+
+class _RunControl:
+    """Latch the first observed stop; a final seal cannot be changed."""
+
+    def __init__(
+        self,
+        *,
+        started_ns: int,
+        timeout_seconds: int | None,
+        cancel_event: Event | None,
+        clock: Callable[[], int],
+    ) -> None:
+        self._deadline_ns = (
+            started_ns + timeout_seconds * 1_000_000_000 if timeout_seconds is not None else None
+        )
+        self._cancel_event = cancel_event
+        self._clock = clock
+        self._lock = Lock()
+        self._cause: _StopCause | None = None
+        self._sealed = False
+
+    def _observe_locked(self) -> _StopCause | None:
+        if self._sealed or self._cause is not None:
+            return self._cause
+        if self._cancel_event is not None and self._cancel_event.is_set():
+            self._cause = _StopCause.CANCELLED
+        elif self._deadline_ns is not None and self._clock() >= self._deadline_ns:
+            self._cause = _StopCause.DEADLINE
+        return self._cause
+
+    def observe(self) -> _StopCause | None:
+        with self._lock:
+            return self._observe_locked()
+
+    def seal(self) -> _StopCause | None:
+        with self._lock:
+            cause = self._observe_locked()
+            self._sealed = True
+            return cause

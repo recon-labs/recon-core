@@ -5,10 +5,12 @@ from copy import deepcopy
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Event
 from time import monotonic_ns
 from typing import Protocol
 from uuid import uuid4
 
+from recon_core._run_control import _RunControl, _StopCause
 from recon_core.adapters import (
     AdapterRegistry,
     BaseAdapter,
@@ -163,10 +165,16 @@ class RunService:
     adapter_registry: AdapterRegistry | None = None
     environ: Mapping[str, str] | None = None
 
-    def execute(self) -> ServiceResult:
-        return self._execute_invocation().service_result
+    def execute(
+        self, *, timeout_seconds: int | None = None, cancel_event: Event | None = None
+    ) -> ServiceResult:
+        return self._execute_invocation(
+            timeout_seconds=timeout_seconds, cancel_event=cancel_event
+        ).service_result
 
-    def _execute_invocation(self) -> _InvocationOutcome:
+    def _execute_invocation(
+        self, *, timeout_seconds: int | None = None, cancel_event: Event | None = None
+    ) -> _InvocationOutcome:
         invocation = _RunInvocation(
             started_ns=monotonic_ns(),
             run_id=f"run-{uuid4().hex}",
@@ -174,7 +182,24 @@ class RunService:
         )
         run_result: RunResult | None = None
         try:
-            result = self._evaluate_invocation(invocation)
+            if (
+                timeout_seconds is not None
+                and (
+                    not isinstance(timeout_seconds, int)
+                    or isinstance(timeout_seconds, bool)
+                    or timeout_seconds <= 0
+                )
+            ) or (cancel_event is not None and not isinstance(cancel_event, Event)):
+                result: ServiceResult | RunResult = _invalid_run_control_result()
+            else:
+                if timeout_seconds is not None or cancel_event is not None:
+                    invocation.control = _RunControl(
+                        started_ns=invocation.started_ns,
+                        timeout_seconds=timeout_seconds,
+                        cancel_event=cancel_event,
+                        clock=monotonic_ns,
+                    )
+                result = self._evaluate_invocation(invocation)
             if isinstance(result, RunResult):
                 run_result = result
                 invocation.stage = _RunStage.RESULT_PROJECTION
@@ -186,14 +211,20 @@ class RunService:
                 service_result = result
         except Exception:
             service_result = _unexpected_invocation_failure_result(invocation.stage)
+        stop_cause = invocation.control.seal() if invocation.control is not None else None
+        if stop_cause is not None:
+            service_result = _with_stop_result(service_result, stop_cause)
         return invocation.finish(
             finished_at=_utc_timestamp(),
             finished_ns=monotonic_ns(),
             run_result=run_result,
             service_result=service_result,
+            stop_cause=stop_cause,
         )
 
     def _evaluate_invocation(self, invocation: _RunInvocation) -> ServiceResult | RunResult:
+        if (cause := invocation.observe_stop()) is not None:
+            return _stopped_run_result(cause)
         context_result = load_project_context(self.start_path)
         if not context_result.succeeded:
             return ServiceResult(
@@ -205,6 +236,8 @@ class RunService:
         assert context_result.context is not None
         context = context_result.context
         invocation.project_name = context.config.name
+        if (cause := invocation.observe_stop()) is not None:
+            return _stopped_run_result(cause)
         invocation.stage = _RunStage.COMPILED_CHECKS
         loader = self.loader if self.loader is not None else CompiledCheckLoader()
         load_result = loader.load(context.paths.target_path)
@@ -233,6 +266,8 @@ class RunService:
                 )
             )
 
+        if (cause := invocation.observe_stop()) is not None:
+            return _stopped_run_result(cause)
         invocation.stage = _RunStage.COMPILED_CONTRACTS
         tolerance_states: dict[str, _ToleranceReferenceState] = {}
         if self.contract_loader is None:
@@ -250,6 +285,14 @@ class RunService:
             context.config.name, load_result.artifacts
         )
         invocation.stage = _RunStage.RUNTIME_SETUP
+        if invocation.observe_stop() is not None:
+            return self._run_loaded(invocation, load_result.artifacts, None)
+        if (
+            invocation.control is not None
+            and self.engine is not None
+            and type(self.engine) is not CheckEngine
+        ):
+            return _unsupported_run_control_result()
         runtime_dependencies = _prepare_runtime_execution_dependencies(
             context,
             check_artifacts=load_result.artifacts,
@@ -266,14 +309,37 @@ class RunService:
                 diagnostics=runtime_dependencies.diagnostics,
             )
 
+        return self._run_loaded(
+            invocation, load_result.artifacts, runtime_dependencies.execution_context
+        )
+
+    def _run_loaded(
+        self,
+        invocation: _RunInvocation,
+        artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+        execution_context: CheckExecutionContext | None,
+    ) -> ServiceResult | RunResult:
+        if invocation.control is not None:
+            if (
+                isinstance(execution_context, _ProjectExecutionContext)
+                and invocation.observe_stop() is None
+            ):
+                return _unsupported_run_control_result()
+            if execution_context is None:
+                execution_context = CheckExecutionContext({}, {})
+            execution_context = replace(execution_context, _run_control=invocation.control)
         invocation.stage = _RunStage.CHECK_EXECUTION
-        return (self.engine if self.engine is not None else CheckEngine()).run(
-            load_result.artifacts,
+        assert invocation.project_name is not None
+        engine = self.engine if self.engine is not None else CheckEngine()
+        if invocation.observe_stop() is not None:
+            engine = CheckEngine()
+        return engine.run(
+            artifacts,
             run_id=invocation.run_id,
             started_at=invocation.started_at,
             finished_at=None,
-            project_name=context.config.name,
-            execution_context=runtime_dependencies.execution_context,
+            project_name=invocation.project_name,
+            execution_context=execution_context,
         )
 
 
@@ -1029,6 +1095,54 @@ def _compiled_contract_load_failure_result(
         exit_category=ExitCategory.RUNTIME_ERROR,
         message="Compiled-contract artifacts could not be loaded.",
         diagnostics=load_result.diagnostics,
+    )
+
+
+def _invalid_run_control_result() -> ServiceResult:
+    message = "Run timeout must be a positive integer and cancellation must use an Event."
+    return ServiceResult(
+        exit_category=ExitCategory.CONFIGURATION_ERROR,
+        message=message,
+        diagnostics=(
+            Diagnostic(
+                code="RC_CONFIG_RUN_CONTROL_INVALID",
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                hint="Supply a positive integer timeout or omit it; use a caller-owned Event.",
+            ),
+        ),
+    )
+
+
+def _unsupported_run_control_result() -> ServiceResult:
+    message = "Required invocation control is unavailable for this execution path."
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message=message,
+        diagnostics=(
+            Diagnostic(
+                code="RC_RUNTIME_RUN_CONTROL_UNAVAILABLE",
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                hint="Use a supported invocation execution path.",
+            ),
+        ),
+    )
+
+
+def _stopped_run_result(cause: _StopCause) -> ServiceResult:
+    diagnostic = cause.diagnostic()
+    return ServiceResult(ExitCategory.RUNTIME_ERROR, diagnostic.message, (diagnostic,))
+
+
+def _with_stop_result(result: ServiceResult, cause: _StopCause) -> ServiceResult:
+    diagnostic = cause.diagnostic()
+    if result.exit_category in {ExitCategory.CONFIGURATION_ERROR, ExitCategory.VALIDATION_ERROR}:
+        return replace(result, diagnostics=_dedupe_diagnostics(result.diagnostics + (diagnostic,)))
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message=diagnostic.message,
+        diagnostics=_dedupe_diagnostics(result.diagnostics + (diagnostic,)),
     )
 
 

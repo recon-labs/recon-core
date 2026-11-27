@@ -78,6 +78,13 @@ def compile_command(render_sql: bool) -> None:
 
 
 @main.command()
-def run() -> None:
+@click.option("--timeout-seconds", type=click.IntRange(min=1), help="Optional run deadline.")
+def run(timeout_seconds: int | None) -> None:
     """Run compiled reconciliation checks."""
-    _handle_result(RunService().execute())
+    service = RunService()
+    result = (
+        service.execute()
+        if timeout_seconds is None
+        else service.execute(timeout_seconds=timeout_seconds)
+    )
+    _handle_result(result)

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Protocol
 
+from recon_core._run_control import _RunControl, _StopCause
 from recon_core.adapters import BaseAdapter, ConnectionConfig, SqlRenderer
 from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
 from recon_core.artifacts import (
@@ -17,6 +18,7 @@ from recon_core.check_engine import prerequisites as _prerequisites
 from recon_core.check_engine._bound_protocol import _BoundRunner
 from recon_core.check_engine.dispatch import CheckDispatcher
 from recon_core.check_engine.models import (
+    CheckReason,
     CheckResult,
     CheckStatus,
     ContractResult,
@@ -52,6 +54,7 @@ class CheckExecutionContext(RuntimeExecutionContext):
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] = field(
         default_factory=dict
     )
+    _run_control: _RunControl | None = field(default=None, repr=False, compare=False, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,8 +145,11 @@ class CheckEngine:
         active_check_ids = {check.id}
         while pending:
             current, prerequisites = pending[-1]
-            prerequisite_id = next(prerequisites, None)
-            if prerequisite_id is None:
+            cause = _observe_stop(execution_context)
+            prerequisite_id = next(prerequisites, None) if cause is None else None
+            if cause is not None:
+                result = _stopped_check_result(current, cause)
+            elif prerequisite_id is None:
                 result = self._evaluate_ready_check(current, check_results_by_id, execution_context)
             elif prerequisite_id in check_results_by_id:
                 continue
@@ -170,6 +176,8 @@ class CheckEngine:
         check_results_by_id: Mapping[str, CheckResult],
         execution_context: CheckExecutionContext | None,
     ) -> CheckResult:
+        if (cause := _observe_stop(execution_context)) is not None:
+            return _stopped_check_result(check, cause)
         blocked_result = blocked_result_if_needed(check, check_results_by_id)
         if blocked_result is not None:
             return blocked_result
@@ -180,6 +188,10 @@ class CheckEngine:
 
         try:
             dispatch_result = self._dispatcher.dispatch(check)
+            if (cause := _observe_stop(execution_context)) is not None:
+                if dispatch_result.executed:
+                    return dispatch_result
+                return _stopped_check_result(check, cause)
             return (
                 runtime_execution_result_if_available(
                     check,
@@ -190,6 +202,26 @@ class CheckEngine:
             )
         except Exception:
             return _internal_error_result(check)
+
+
+def _observe_stop(context: CheckExecutionContext | None) -> _StopCause | None:
+    if context is None or context._run_control is None:
+        return None
+    return context._run_control.observe()
+
+
+def _stopped_check_result(check: LoadedCompiledCheck, cause: _StopCause) -> CheckResult:
+    diagnostic = cause.diagnostic()
+    return CheckResult(
+        check_id=check.id,
+        name=check.name,
+        check_type=check.check_type,
+        contract_name=check.contract_name,
+        status=CheckStatus.NOT_EXECUTABLE,
+        reason_code=CheckReason(cause.value),
+        message=diagnostic.message,
+        diagnostics=check.diagnostics + (diagnostic,),
+    )
 
 
 def _index_checks(

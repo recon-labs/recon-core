@@ -53,6 +53,8 @@ class CheckReason(StrEnum):
     NOT_IMPLEMENTED_IN_CURRENT_PHASE = "not_implemented_in_current_phase"
     SKIPPED_BY_POLICY = "skipped_by_policy"
     SELECTED_OUT = "selected_out"
+    RUN_CANCELLED = "run_cancelled"
+    RUN_DEADLINE_EXCEEDED = "run_deadline_exceeded"
 
 
 class CheckResultDict(TypedDict):
@@ -118,6 +120,8 @@ _REASON_REQUIRED_STATUS: dict[CheckReason, CheckStatus] = {
     CheckReason.NOT_IMPLEMENTED_IN_CURRENT_PHASE: CheckStatus.NOT_EXECUTABLE,
     CheckReason.SKIPPED_BY_POLICY: CheckStatus.SKIPPED,
     CheckReason.SELECTED_OUT: CheckStatus.SKIPPED,
+    CheckReason.RUN_CANCELLED: CheckStatus.NOT_EXECUTABLE,
+    CheckReason.RUN_DEADLINE_EXCEEDED: CheckStatus.NOT_EXECUTABLE,
 }
 
 _EXECUTED_OUTCOME_STATUSES = {

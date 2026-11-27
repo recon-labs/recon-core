@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
+from recon_core._run_control import _RunControl, _StopCause
 from recon_core.adapters._project_binding import _NativeResourceFacts
 from recon_core.artifacts import LoadedCompiledChecksArtifact
 from recon_core.check_engine.models import CheckReason, RunResult
@@ -169,6 +170,7 @@ class _InvocationOutcome:
     run_result: RunResult | None = field(repr=False)
     resource_facts: tuple[_CheckResourceFacts, ...] = field(repr=False)
     scope_facts: _RunScopeFacts
+    stop_cause: _StopCause | None = None
 
 
 @dataclass(slots=True)
@@ -182,6 +184,10 @@ class _RunInvocation:
     resource_facts: dict[str, _CheckResourceFacts] = field(default_factory=dict, repr=False)
     known_empty_scope: bool = False
     scope_facts: _RunScopeFacts | None = None
+    control: _RunControl | None = field(default=None, repr=False)
+
+    def observe_stop(self) -> _StopCause | None:
+        return self.control.observe() if self.control is not None else None
 
     def inspect_scope(self, result: RunResult | None) -> _RunScopeFacts:
         self.scope_facts = _RunScopeFacts.from_result(
@@ -196,6 +202,7 @@ class _RunInvocation:
         finished_ns: int,
         service_result: ServiceResult,
         run_result: RunResult | None,
+        stop_cause: _StopCause | None = None,
     ) -> _InvocationOutcome:
         if run_result is not None:
             assert self.project_name is not None
@@ -225,4 +232,5 @@ class _RunInvocation:
             run_result=run_result,
             resource_facts=tuple(self.resource_facts.values()),
             scope_facts=self.scope_facts or self.inspect_scope(run_result),
+            stop_cause=stop_cause,
         )
