@@ -2056,3 +2056,166 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
     assert len(set(observations)) == 6
     assert not list(scratch.iterdir())
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+def test_actual_run_service_cancels_active_native_spill(tmp_path: Path) -> None:
+    """Observe real spill, request caller cancellation, and prove native stop and release."""
+    _duckdb_module()
+    import subprocess
+    import sys
+    import textwrap
+
+    code = textwrap.dedent(
+        """
+        import threading
+        import time
+        from pathlib import Path
+        import sys
+
+        import duckdb
+        from recon_core.adapters.duckdb import _bound_execution as binding
+        from recon_core.services import RunService
+        from tests.services._run_service_fixtures import (
+            write_duckdb_row_count_run_inputs, write_compiled_checks, row_count_plan,
+            _compiled_check_payload, _assert_no_runtime_outputs,
+        )
+        from tests.services.test_run_service_aggregate_admission import (
+            _aggregate_check, _set_project_duckdb_execution,
+        )
+
+        base = Path(sys.argv[1]).resolve()
+        database = base / "private-spill.duckdb"
+        writer = duckdb.connect(str(database), config={"threads": "2", "memory_limit": "768MiB"})
+        try:
+            writer.execute("CREATE SCHEMA qa")
+            writer.execute(
+                "CREATE TABLE qa.source_customers AS "
+                "SELECT i customer_id, 5::bigint revenue FROM range(3000000) t(i)"
+            )
+            writer.execute("CREATE TABLE qa.target_customers AS SELECT * FROM qa.source_customers")
+        finally:
+            writer.close()
+        write_duckdb_row_count_run_inputs(base, database)
+        grouped = _aggregate_check(grouped=True)
+        grouped["metric"]["group_by"] = ["customer_id"]
+        grouped["requirements"]["required_columns"] = ["revenue", "customer_id"]
+        for op in grouped["plan"]["operations"]:
+            if "group_by" in op:
+                op["group_by"] = ["customer_id"]
+        write_compiled_checks(base, checks=[grouped, _compiled_check_payload(
+            operations=row_count_plan()
+        )])
+        scratch = base / "scratch"
+        scratch.mkdir()
+        _set_project_duckdb_execution(base, {
+            "managed-memory": {"mib": 128}, "threads": 1,
+            "spill": {"mib": 1024}, "scratch-directory": "scratch",
+        })
+        observer = duckdb.connect(str(database), read_only=True)
+        setting_sql = (
+            "SELECT current_setting('memory_limit'), current_setting('threads'), "
+            "current_setting('temp_directory'), current_setting('max_temp_directory_size')"
+        )
+        before = observer.execute(setting_sql).fetchone()
+        event = threading.Event()
+        active = threading.Event()
+        sessions = []
+        native_interrupted = []
+        closed = []
+        outcomes = []
+        original_open = binding._OwnedDuckDbSession.open
+        original_close = binding._OwnedDuckDbSession.close
+
+        class ObservedActor:
+            def __init__(self, native):
+                self.native = native
+            def __getattr__(self, name):
+                return getattr(self.native, name)
+            def execute(self, statement, *args):
+                # The final comparison (not setup, type guard or DESCRIBE).
+                is_final = "total_group_count" in statement.lower() and not (
+                    statement.lstrip().upper().startswith("DESCRIBE")
+                )
+                if is_final:
+                    active.set()
+                try:
+                    return self.native.execute(statement, *args)
+                except duckdb.Error as error:
+                    if is_final:
+                        native_interrupted.append("interrupt" in str(error).lower())
+                    raise
+                finally:
+                    if is_final:
+                        active.clear()
+
+        def open_session(session):
+            original_open(session)
+            sessions.append(session)
+            session._connection = ObservedActor(session._connection)
+
+        def close_session(session):
+            diagnostics = original_close(session)
+            closed.append(session.released)
+            return diagnostics
+
+        binding._OwnedDuckDbSession.open = open_session
+        binding._OwnedDuckDbSession.close = close_session
+
+        def run():
+            outcomes.append(RunService(start_path=base)._execute_invocation(cancel_event=event))
+
+        worker = threading.Thread(target=run, daemon=False)
+        worker.start()
+        seen = False
+        try:
+            deadline = time.monotonic() + 45
+            while worker.is_alive() and time.monotonic() < deadline:
+                if active.is_set():
+                    for entry in scratch.rglob("*"):
+                        try:
+                            if entry.is_file() and entry.stat().st_size > 0 and (
+                                "duckdb_temp_storage" in entry.name
+                            ):
+                                seen = True
+                                break
+                        except FileNotFoundError:
+                            continue
+                if seen:
+                    break
+                time.sleep(0.005)
+            assert seen and active.is_set(), "No active native spill observed."
+            event.set()
+            worker.join(20)
+            assert not worker.is_alive()
+            assert native_interrupted == [True]
+            assert len(sessions) == 1 and closed == [True]
+            assert len(outcomes) == 1
+            outcome = outcomes[0]
+            assert outcome.service_result.exit_category.value == "runtime_error"
+            assert outcome.stop_cause.value == "run_cancelled"
+            assert outcome.scope_facts.complete is True
+            checks = outcome.run_result.contract_results[0].check_results
+            assert checks[0].status.value == "error" and not checks[0].executed
+            assert checks[0].source_value is None and checks[0].target_value is None
+            assert checks[1].reason_code.value == "run_cancelled"
+            assert not checks[1].executed
+            assert observer.execute(setting_sql).fetchone() == before
+            assert observer.execute("SELECT 42").fetchone() == (42,)
+            assert not list(scratch.iterdir())
+            assert not any(t.name == "recon-run-control" for t in threading.enumerate())
+            _assert_no_runtime_outputs(base)
+        finally:
+            event.set()
+            worker.join(20)
+            observer.close()
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(tmp_path.resolve())],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
