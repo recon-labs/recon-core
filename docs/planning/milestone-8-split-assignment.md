@@ -259,3 +259,21 @@ No gate closed; separate implementation authorization required.
 ## Platform compatibility carryover
 
 The [Gate 4L P1-P6 subfamilies](execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) refine A2/A3/A4/A6/A7/A8/A9/A10/A12/A13 and R2/R3/R5/R8/R10 without changing the existing split. M8.1.2 owns local runtime graceful degradation, actual native platform proof, safe terminal warnings and persistent multi-version CI before exit. M8.2 retains run lifecycle and deduplication across the invocation; M8.3 owns structured publication preserving resource uncertainty and advisory meaning. M10/M10.7/M10.8, experimental PostgreSQL/Snowflake, M13.5/M18, M29 and every future adapter and relevant version/deployment expansion retain their assigned native P1-P6 obligations. No gate satisfied solely by documentation.
+
+
+## Scoped operational policy checkpoint (proposed; approval pending)
+
+M8.1.2 owns adapter-scoped project defaults, selected target adapter defaults
+and named connection overrides, atomic logical-setting replacement/reset,
+selected-only validation, policy separation from connection identity and
+credentials, same-context alias conflict handling and both execution modes.
+Preserve existing profile/adapter and plain parse/compile contracts. Gate 4L
+with 4I/4J/8C requires actual positive/negative tests. M8.2 owns cumulative
+resource lifecycle; M8.3 C10 policy provenance; M10.5/10.6 freshness and
+selection; M10.7 guidance; M10.8 local scope restoration; M11-M13 native
+adapter settings; M13.5 multi-context/transfer; M18 query non-bypass; M28
+typed env/CLI overrides and hard admin-limit precedence; M29 shared native
+conformance; M32 integrations; M40 hosted quota/authorization. No universal
+DuckDB settings, premature API or new milestone. No gate closure.
+
+See [current prework](milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration).
