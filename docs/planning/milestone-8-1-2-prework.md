@@ -129,25 +129,25 @@ External orchestrators can launch the ordinary command for process isolation
 and set actual process/container limits. Native crash or OOM may terminate
 the whole invocation; no claim of containment or guaranteed completion.
 
-**Embedded boundary (explicit approval needed):** preserve current
-programmatic RunService and in-process Click behavior, with no unrequested
-global mutation or killing the host. Recommend managed native resource
-execution in a genuinely dedicated invocation (console or explicit caller
-contract); shared-library caller can invoke the CLI externally, not an
-automatically spawned per-check worker. Evaluate explicit authorized
-programmatic managed mode only if needed; authorization must cover all
-affected native instance settings and scratch ownership. Do not falsely
-infer exclusive use from connect success. A shared embedding without that
-authorization cannot safely apply a custom spill path/global controls.
-Propose preserving its existing bounded path temporarily, including existing
-guard and scope, with explicit diagnostic/documentation and an owned M8.2
-checkpoint for replacement or supported alternative; this is an explicit
-proposed scope disposition, not a permanent arbitrary limit or silent loss
-of capability. Do not remove the guard in this path until private spilling,
-noninterference and admission are proven. Maintainer must choose whether
-managed embedded execution is required in M8.1.2 instead; if required,
-compare a whole-invocation standard subprocess with exact public API
-compatibility, not custom per-check transport. No hidden mode switch.
+**Embedded scope (maintainer decided 2026-11-27):** M8.1.2 must deliver
+adaptive resource management for both standalone and programmatic embedded
+usage. Do not defer embedded adaptation or its replacement admission proof
+to M8.2. Preserve current RunService and in-process Click capabilities,
+exact outcomes, and no unrequested global mutation or termination of host.
+Compare the smallest native-first mechanisms: an explicitly authorized
+caller-managed native context, ordinary direct execution where noninterference
+and private spill are proven, and a standard whole-invocation isolation
+boundary only if genuinely necessary. Shared process alone is not unsafe;
+do not infer exclusive use from connect success, process name or enumeration.
+Do not reintroduce mandatory per-check workers, custom IPC or OS ownership
+infrastructure as a default solution. If an option requires a public API
+change, transport or subprocess, justify the concrete need, compatibility
+and outcome proof before approval. No silent mode switch, setting downgrade,
+legacy size-cap workaround or loss of existing supported capability. Both
+usage paths must satisfy native control, binding, writer exclusion, actual
+noninterference, cleanup, bounded exact results and graceful degradation
+before removing the existing guard. M8.2 retains its existing separate
+invocation lifecycle and cumulative/concurrency responsibilities.
 
 ### Proposed settings and policy semantics
 
@@ -219,14 +219,14 @@ commits and actual evidence retained. No fabricated test nodes.
 | Acceptance | Proposed retain/replace/defer and owner |
 | --- | --- |
 | A1/R4 | Retain strict config and precedence; defer only two proposed reserve leaves by approval. M8.1.2. |
-| A2/R4 | Retain managed all-nine admission/no default cap, explicit footprint ceiling, large-safe vs small-costly. Embedded temporary boundary requires separate approval and M8.2 checkpoint. |
+| A2/R4 | Retain managed all-nine admission/no default cap, explicit footprint ceiling, large-safe vs small-costly. Both standalone and embedded paths required in M8.1.2; prove replacement admission before removing existing guard. |
 | A3/R1/R5 | Retain metadata-only optional estimates and independent required binding; no executing preflight. |
 | A4/R5 | Retain exact original binding, read-only writer exclusion both orders, sidecar/view/temp/external/alias/path/lease/type guards and precedence; replace worker policy token with matched in-process effective context proof. |
 | A5/R1/R8 | Retain exact domain and bounded native result/count shape, no precision loss or LIMIT rewrite; replace IPC cases with existing native result validation. |
 | A6/R9 | Retain truthful optional advice, safe terminal/log output on success/fail, no status change; remove mandatory pressure-monitor thresholds, retain actual resource errors and known observation limitations. |
 | A7/R5 | Retain all nine families, numeric/type/privacy/precondition behavior and low-level helpers; ordinary native session conformance not worker transport. |
 | A8/R8 | Retain config/native error/diagnostic redaction, no raw path/SQL/value; remove worker-frame-specific tests with mechanism. |
-| A9/R1/R8 | Retain private evidence and no new output/state/schema/sink changes; explicit embedded/API compatibility decision. |
+| A9/R1/R8 | Retain private evidence and no new output/state/schema/sink changes; preserve embedded/API compatibility; both paths mandatory in M8.1.2. |
 | A10/R2/R3 | Replace full controller hierarchy/job/affinity/mount qualification with minimal scoped observation and missing/malformed/denied/future API tests, actual native controls/isolation and scratch privacy; retain host-vs-container limitation. |
 | A11/R1/R9 | Retain distinct workload dimensions, compressed/large/skew/null/repeated-scan evidence and advisory only. |
 | A12/R4/R10 | Retain constrained/capable measured comparisons, actual disk spilling, full disk, explicit controls and exact results; no fixed SLA/default from CI, no all-version guarantee. |
@@ -242,8 +242,7 @@ resource controls/compatibility, later profiling/sinks/integrations retain
 assignments. No new milestone; Split Decision: Already Split / Follow Existing
 Split. Scope reduction explicit: proposed removal of automatic abandoned
 recovery, mandatory per-check worker infrastructure, reserve leaves and active
-pressure polling; proposed managed-vs-embedded boundary. None approved by
-this document alone.
+pressure polling remain proposed scope changes. Maintainer explicitly rejected deferring embedded adaptive execution to M8.2; both usage paths are mandatory here. Other mechanism removals and detailed design still require approval.
 
 | Existing candidate capture IDs | Proposed disposition and replacement |
 | --- | --- |
@@ -276,8 +275,7 @@ status/exit. Explicit unsafe mandatory setup -> affected refusal, actual native
 failure -> ERROR, no unrelated context block from old scratch. Preserve primary
 diagnostic plus cleanup error. M8.3 owns durable projection.
 
-Remaining pre-implementation blockers: (1) maintainer chooses managed vs
-embedded boundary and scope changes above; (2) bounded targeted test of
+Remaining pre-implementation blockers: (1) select and prove the simplest safe embedded execution mechanism within M8.1.2, alongside standalone execution, and obtain approval of the remaining scope changes above; (2) bounded targeted test of
 minimal actual scratch privacy on older Windows and POSIX inherited ACL/
 safe parent, no-adoption/no unrelated cleanup, including failed creation;
 (3) exact simpler observation/tuning and native spill cap default comparison
