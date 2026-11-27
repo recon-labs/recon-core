@@ -767,35 +767,58 @@ def test_owned_controls_precede_transaction_and_cleanup(
     }
 
     class Connection:
+        def __init__(self, kind: str) -> None:
+            self.kind = kind
+
         def execute(self, query: str) -> Any:
             calls.append(query)
+            if query == "SELECT current_database()":
+                return SimpleNamespace(fetchmany=lambda size: [("fixture",)])
+            if query == "pragma database_list":
+                return SimpleNamespace(fetchall=lambda: [(1, "fixture", str(identity.path))])
+            if query.startswith("SELECT database_name, path, readonly"):
+                return SimpleNamespace(fetchmany=lambda size: [("fixture", str(identity.path), True)])
             if query.startswith("SELECT current_setting"):
                 return SimpleNamespace(fetchmany=lambda size: [(settings[query.split("'")[1]],)])
             return self
 
         def close(self) -> None:
-            calls.append("close")
+            calls.append(f"close {self.kind}")
 
-    def connect(database: str, *, read_only: bool, config: dict[str, str]) -> Connection:
-        assert database == str(identity.path)
-        assert read_only
+    def connect(
+        database: str, *, read_only: bool = False, config: dict[str, str] | None = None
+    ) -> Connection:
+        if database == str(identity.path):
+            assert read_only
+            assert config is None
+            calls.append("connect guard")
+            return Connection("guard")
+        assert database == ":memory:"
+        assert not read_only
         assert config == {
             "memory_limit": str(128 << 20) + " bytes",
             "threads": "1",
             "temp_directory": str(scratch.resolve()),
         }
-        calls.append("connect")
-        return Connection()
+        calls.append("connect actor")
+        return Connection("actor")
 
     monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
     session = binding._OwnedDuckDbSession(identity, native_controls=request)
     session.open()
-    assert calls[0] == "connect"
-    assert calls[1] == f"SET max_temp_directory_size = '{32 << 20} bytes'"
+    assert calls[:4] == [
+        "connect guard",
+        "SELECT current_database()",
+        "pragma database_list",
+        "connect actor",
+    ]
+    assert calls[4] == f"SET max_temp_directory_size = '{32 << 20} bytes'"
     assert calls[-1] == "BEGIN TRANSACTION"
-    assert len(calls) == 7
+    attach = next(index for index, call in enumerate(calls) if call.startswith("ATTACH "))
+    assert attach > calls.index("SELECT current_setting('temp_directory')")
+    assert any(call.startswith("SELECT database_name, path, readonly") for call in calls)
     assert session.close() == ()
-    assert calls[-2:] == ["ROLLBACK", "close"]
+    assert calls[-3:] == ["ROLLBACK", "close actor", "close guard"]
     assert session.released
 
 
@@ -817,6 +840,10 @@ def test_unverified_required_setting_prevents_transaction(
     class Connection:
         def execute(self, query: str) -> Any:
             calls.append(query)
+            if query == "SELECT current_database()":
+                return SimpleNamespace(fetchmany=lambda size: [("fixture",)])
+            if query == "pragma database_list":
+                return SimpleNamespace(fetchall=lambda: [(1, "fixture", str(identity.path))])
             if query.startswith("SELECT current_setting"):
                 return SimpleNamespace(fetchmany=lambda size: [("PRIVATE_SENTINEL",)])
             return self
@@ -836,13 +863,14 @@ def test_unverified_required_setting_prevents_transaction(
         assert caught.value.diagnostic.code == "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE"
         assert "PRIVATE_SENTINEL" not in str(caught.value)
         assert "BEGIN TRANSACTION" not in calls
+        assert not any(call.startswith("ATTACH ") for call in calls)
         with pytest.raises(binding._BoundSessionError):
             session.bind(check_id="c", operation="row_count_diff", source="s", target="t")
         assert not session.released
     finally:
         assert session.close() == ()
     assert session.released
-    assert calls[-1] == "close"
+    assert calls[-2:] == ["close", "close"]
 
 
 @pytest.mark.parametrize("filename", ["local.duckdb", "memory.duckdb", "quoted'file.duckdb"])
@@ -897,12 +925,12 @@ def test_guarded_native_actor_preserves_catalog_and_reader(
         actor_settings = settings(session._connection)
         assert actor_settings[1] == 1
         assert Path(actor_settings[2]) == scratch.path
-        with pytest.raises(Exception):
+        with pytest.raises(duckdb.Error, match="(?i)read.only"):
             session._connection.execute(
                 f"UPDATE {render_relation(lease.scope.source)} SET id = 999"
             )
         assert observer.execute('SELECT id FROM "quoted""table"').fetchone() == (17,)
-        with pytest.raises(Exception):
+        with pytest.raises(duckdb.Error, match="(?i)(configuration|read.only)"):
             duckdb.connect(str(path))
     finally:
         diagnostics = session.close()
@@ -945,7 +973,7 @@ def test_guarded_native_actor_excludes_writer_without_observer(tmp_path: Path, d
         )
         assert lease is not None
         # The guard, not an unrelated observer, must exclude an ordinary writer.
-        with pytest.raises(Exception):
+        with pytest.raises(duckdb.Error, match="(?i)(configuration|read.only)"):
             duckdb.connect(str(path))
         query = f"SELECT id FROM {render_relation(lease.scope.source)}"
         assert session._read_bound_query(lease, lease.scope, query).rows == ((42,),)
@@ -1016,7 +1044,7 @@ def test_guarded_native_actor_does_not_close_guard_when_actor_close_unconfirmed(
         assert close_calls == ["actor"]
         assert diagnostics
         assert all("PRIVATE_SENTINEL" not in str(item) for item in diagnostics)
-        with pytest.raises(Exception):
+        with pytest.raises(duckdb.Error, match="(?i)(configuration|read.only)"):
             duckdb.connect(str(path))
         assert scratch.path.is_dir()
         assert session.close() == diagnostics
