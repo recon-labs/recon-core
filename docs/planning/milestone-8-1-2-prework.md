@@ -73,6 +73,223 @@ proposals requiring proof and detailed approval.
 The prior prework below remains a historical baseline for disposition and
 traceability, not a competing implementation plan.
 
+## Native-first redesign proposal (2026-11-27; approval pending)
+
+This section is a decision proposal based on comparative evidence, not
+implementation authority. The suspension above remains controlling until
+maintainer approves the scope/architecture, remaining targeted feasibility
+and exact replacement test plan. No code or regression removal yet.
+
+### Comparative evidence and recommended architecture
+
+- Ordinary configured native read-only session in a dedicated CLI invocation:
+  45917130110, all eight lanes passed, nine check families twice per lane,
+  concurrent external reader unchanged and usable, external writer refusal
+  before data query, successful fresh invocation after writer release, all
+  native sessions released, fixture digest unchanged, normal scratch cleanup.
+  Test-only factory injection and Click entry, not a released feature.
+  Four DuckDB pins (1.0.0/1.3.2/1.4.5/2.0.1), Python 3.11/3.12/3.13,
+  Ubuntu 24.04/rolling, macOS 15/26 ARM64, Windows Server 2022/2025 AMD64.
+- 45914933298 and 45915029872: all four ordinary default connections
+  execute exact bounded results and native interrupt leaves an observer
+  usable. All four same-instance literal SET controls also affect another
+  connection to the same file. Connection config may silently be ignored
+  (1.0.0) or refuse (newer pins); separate invocation readbacks and observer
+  comparisons succeeded. Do not set global controls on an unrelated shared
+  instance, even if restoring later. No process enumeration to infer safety.
+- 45915290150, 45915436600 and corrected 45915719518: narrow three-million
+  groups in ~770 MiB file succeed at 512 MiB memory with default or configured
+  settings; configured cases actually spill. Wide working set native default
+  512 MiB all four kernel OOM; 2 GiB two OOM, two binding failures from
+  database-adjacent spill sidecar. Configured 2 GiB case all four exact,
+  disk spill and cleanup. Earlier observer race corrected; no size proxy
+  or hard physical quota inferred. 1.0.0 native memory reports host-scale
+  12.4 GiB in constrained environment. Native defaults alone insufficient.
+- Independent in-process ATTACH candidate rejected as-is: 45915705053
+  small exact success, but 45916233353 older-pin writer exclusion and
+  valid catalog/filename regressions; 45916249562 all eight constrained
+  cases fail initialization (cause not established). No alias/registry
+  workaround, version exclusion or weakening existing binding.
+- 45915266290 + 45915370906: eight effective standard-temp lanes across
+  six OS releases, unique directory, concurrent creation, normal cleanup,
+  abrupt-exit residue retained and new execution independent. Windows
+  Python 3.11 inherited Everyone grant in synthetic shared parent,
+  Python 3.13 protected directory on tested Windows builds. POSIX mode
+  0700 is not complete ACL/ancestor proof. No different-user/native
+  permission adversarial claim. Target privacy work only where needed.
+
+**Preferred:** ordinary native read-only sessions and existing typed plan,
+binding and comparison in the invocation process. A real dedicated console
+entry is an explicit execution contract, not a claim inferred from a process
+name, PID, OS resource ownership or whether someone else uses the machine.
+Do not create a child per check; no worker protocol, codec, watchdog, stable
+root, ticket, lease or restart recovery sweep. Normal OS scheduling and native
+DB locks; keep check-local close/L1, serial checks and no implicit retry.
+External orchestrators can launch the ordinary command for process isolation
+and set actual process/container limits. Native crash or OOM may terminate
+the whole invocation; no claim of containment or guaranteed completion.
+
+**Embedded boundary (explicit approval needed):** preserve current
+programmatic RunService and in-process Click behavior, with no unrequested
+global mutation or killing the host. Recommend managed native resource
+execution in a genuinely dedicated invocation (console or explicit caller
+contract); shared-library caller can invoke the CLI externally, not an
+automatically spawned per-check worker. Evaluate explicit authorized
+programmatic managed mode only if needed; authorization must cover all
+affected native instance settings and scratch ownership. Do not falsely
+infer exclusive use from connect success. A shared embedding without that
+authorization cannot safely apply a custom spill path/global controls.
+Propose preserving its existing bounded path temporarily, including existing
+guard and scope, with explicit diagnostic/documentation and an owned M8.2
+checkpoint for replacement or supported alternative; this is an explicit
+proposed scope disposition, not a permanent arbitrary limit or silent loss
+of capability. Do not remove the guard in this path until private spilling,
+noninterference and admission are proven. Maintainer must choose whether
+managed embedded execution is required in M8.1.2 instead; if required,
+compare a whole-invocation standard subprocess with exact public API
+compatibility, not custom per-check transport. No hidden mode switch.
+
+### Proposed settings and policy semantics
+
+Keep the existing proposed optional project mapping
+`execution.scan-budget.local`, config-version 1, all absent by default,
+strict positive integer MiB/counts and checked native range, no unknown/
+duplicate keys, nonstring path/null/boolean/float, no raw values in errors,
+project-relative/absolute existing scratch base, no path expansion, hidden
+fallback, or arbitrary default data/row/time cap in managed invocation.
+Proposed leaf dispositions (not yet released):
+- `max-database-mib`: retain explicit optional physical footprint ceiling
+  all nine families, below/equal allowed, over blocked before data reads.
+- `warn-estimated-input-rows`: retain optional role-summed catalog estimate
+  advisory only, no default threshold or executing preflight; unknown not zero.
+- `managed-memory-mib`, `threads`, `spill-mib`: retain explicit native
+  maximum targets, not process RSS, CPU quota or physical disk cap; validate
+  support and effects, post-connect spill SET where required, actual effective
+  value must not exceed authored supported ceiling. If safely lowered based
+  on trustworthy facts, warn; cannot silently ignore an explicit control.
+- `scratch-directory`: retain explicit existing base; default OS temp base,
+  unique private per invocation, no alternate location silently chosen. Keep
+  native spill outside DB sidecars.
+- `memory-reserve-mib`, `disk-reserve-mib`: propose defer both unreleased
+  reserve configuration leaves until concrete demonstrated need; no promise of
+  untouched physical capacity or continuous pressure monitor. Explicit memory/
+  spill targets already enable user tuning. This requires explicit approval.
+
+Resource observation is optional tuning evidence, not environment certification.
+Reuse minimal maintained host available/CPU/disk observations (existing optional
+psutil dependency candidate and stdlib disk_usage, native settings), plus
+small scoped container hint only if demonstrably necessary for older native
+engine behavior. Host data is not container data. Use minimum of trustworthy
+relevant finite evidence; partial unknown is not zero/infinity, no exhaustive
+ancestor/controller proof or process ownership enumeration. Treat known
+unusable required scratch/control as scoped refusal; optional missing metric
+warns with practical effect and safe supported choices. No platform/version
+allowlist. Compare native recommendation bounded by trustworthy available
+headroom with modest memory margin and CPU capacity against native baseline.
+Prior measured 75% headroom candidate may be evaluated; 25% reserve/10% disk
+reserve are not locked requirements, probe values are not production defaults.
+No chosen numerical default until the remaining targeted calibration validates
+exact formula, native effect, low/unknown headroom and explicit override.
+Disk default prefer verified engine mechanism on selected scratch; older
+native cap/SET limitation requires actual effect test, not readback or inferred
+quota. No active pressure polling or automatic pressure kill proposed.
+Actual native resource failure ERROR; do not retry or misclassify mismatch.
+
+Scratch: create exclusive unique directory under trusted selected base via
+standard API, restrict actual access before native reads, use maintained
+native privacy primitive only for observed gap (notably older Windows
+inherited ACL, POSIX extended ACL), never adopt old folders or scan/delete
+unknown entries. Validate actual directory relationship where necessary for
+safe cleanup; trusted cooperative environment, not hostile same-user
+sandbox. Close native session(s) then normal owned cleanup; never remove a
+folder with uncertain current ownership or live use. Known cleanup failure
+safe error and existing L1 for affected context; old unrelated residue may
+remain after abrupt exit, no claim of orphan discovery or recovery. Retain
+unrelated sentinel, reject unsafe explicit base before data; no new global
+lock/ticket/FS allowlist, no silent path switch. Operational guidance:
+use private user/application temp, external retention policy, do not clean
+unknown/live directories. Remaining targeted privacy proof below.
+
+### Outcome and regression disposition proposal
+
+All outcome gates remain mandatory. Mechanism tests can retire only after
+explicit approval and corresponding capture/index update, with historical
+commits and actual evidence retained. No fabricated test nodes.
+
+| Acceptance | Proposed retain/replace/defer and owner |
+| --- | --- |
+| A1/R4 | Retain strict config and precedence; defer only two proposed reserve leaves by approval. M8.1.2. |
+| A2/R4 | Retain managed all-nine admission/no default cap, explicit footprint ceiling, large-safe vs small-costly. Embedded temporary boundary requires separate approval and M8.2 checkpoint. |
+| A3/R1/R5 | Retain metadata-only optional estimates and independent required binding; no executing preflight. |
+| A4/R5 | Retain exact original binding, read-only writer exclusion both orders, sidecar/view/temp/external/alias/path/lease/type guards and precedence; replace worker policy token with matched in-process effective context proof. |
+| A5/R1/R8 | Retain exact domain and bounded native result/count shape, no precision loss or LIMIT rewrite; replace IPC cases with existing native result validation. |
+| A6/R9 | Retain truthful optional advice, safe terminal/log output on success/fail, no status change; remove mandatory pressure-monitor thresholds, retain actual resource errors and known observation limitations. |
+| A7/R5 | Retain all nine families, numeric/type/privacy/precondition behavior and low-level helpers; ordinary native session conformance not worker transport. |
+| A8/R8 | Retain config/native error/diagnostic redaction, no raw path/SQL/value; remove worker-frame-specific tests with mechanism. |
+| A9/R1/R8 | Retain private evidence and no new output/state/schema/sink changes; explicit embedded/API compatibility decision. |
+| A10/R2/R3 | Replace full controller hierarchy/job/affinity/mount qualification with minimal scoped observation and missing/malformed/denied/future API tests, actual native controls/isolation and scratch privacy; retain host-vs-container limitation. |
+| A11/R1/R9 | Retain distinct workload dimensions, compressed/large/skew/null/repeated-scan evidence and advisory only. |
+| A12/R4/R10 | Retain constrained/capable measured comparisons, actual disk spilling, full disk, explicit controls and exact results; no fixed SLA/default from CI, no all-version guarantee. |
+| A13/R3/R5/R6 | Retain startup cap vs actual SET effect, required native control failure, actual scope/noninterference, normal close and native interrupt/error; remove worker placement proof and pressure termination mechanism. |
+| B8/R6 | M8.1.2 native cancel feasibility and accurate stop/cleanup outcomes relied on; M8.2 owns full invocation Ctrl-C/deadline/retry/cancel policy. Remove worker EOF/watchdog/protocol/reap obligations only for absent worker mechanism; no claim of crash containment. |
+| B9/R6/R8 | M8.1.2 private scratch/normal and failure cleanup, no unrelated deletion, retained residue/fresh invocation, L1; M8.2 run-wide cleanup. Retire automatic abandoned recovery/tickets/leases only on approval. |
+| B10/R7 | M8.1.2 serial check release and refreshed useful scoped facts; M8.2 cumulative/concurrency scheduling; replace one-worker requirement with ordinary owned session, no hidden retry/fallback. |
+| P1-P6 | Retain all six compatibility and graceful-degradation outcomes, actual older/current and rolling OS/engine evidence, persistent risk-based CI, future adapter-specific proof and triage. Replace mechanism-specific lanes only, not required outcome coverage. |
+
+R1-R10 all covered by table; M8.3 C10 structured publication, M9.5 type
+compatibility, M10.8 scope restoration, M11-M13 and M29 adapter-specific
+resource controls/compatibility, later profiling/sinks/integrations retain
+assignments. No new milestone; Split Decision: Already Split / Follow Existing
+Split. Scope reduction explicit: proposed removal of automatic abandoned
+recovery, mandatory per-check worker infrastructure, reserve leaves and active
+pressure polling; proposed managed-vs-embedded boundary. None approved by
+this document alone.
+
+| Existing candidate capture IDs | Proposed disposition and replacement |
+| --- | --- |
+| local-adaptive-resource-targets | Replace formula-specific cases after exact tuning choice; retain units, unknown/zero, overrides and no workload cap. |
+| local-resource-observation-hierarchy | Replace exhaustive hierarchy requirement with trustworthy scoped facts, known constrained and partial/unavailable evidence; preserve old native default cgroup mismatch reproducer. |
+| portable-resource-observation-uncertainty | Retain portable partial/invalid/missing behavior, simplify platform-specific scope expectations. |
+| duckdb-native-resource-control-readback; duckdb-native-spill-setting-effect; duckdb-controlled-owned-session | Retain/reuse native helpers and actual effect, replace worker assumptions with ordinary direct owned session and external reader/writer tests. |
+| duckdb-bound-count-result-transport | Retain exact bounded count reader, existing numeric result semantics; no IPC prerequisite. |
+| duckdb-worker-lossless-result-transport; duckdb-worker-control-protocol; duckdb-worker-process-lifecycle; duckdb-worker-bound-session-scope | Retire worker-specific codec/framing/EOF/replay/identity cases only if worker removed; replace applicable exact numeric/shape, scope, cancel/cleanup/L1 and invocation noninterference with native tests, preserve history. |
+| owned-scratch-two-lease-recovery; owned-scratch-discovery | Retire restart reconstruction and two-lease mechanism only if approved; replace with abrupt exit retains residue, new unique invocation, normal cleanup and no old-file adoption. |
+| owned-scratch-untrusted-retained | Retain no-delete-unowned, replace recovery-specific fixtures with actual new owned-directory cleanup/replacement/refusal tests. |
+| windows-scratch-private-acl | Retain actual privacy and failure-safe creation; replace persistent native ticket/ancestor cases with minimum required supported primitive and actual old/new Python ACL fixtures. |
+| scratch-filesystem-scope-evidence; scratch-namespace-qualification | Replace persistent mount/namespace identity tests with scoped fresh-directory privacy, unknown optional FS evidence, safe cleanup and no unrelated deletion; preserve targeted actual mount/ancestor protection only if demonstrated necessary. |
+| local-resource-config-strict-validation (diagnostics-privacy) | Retain strict/redacted config tests, revise only approved leaf list. |
+| Pre-existing main capture rows and regression routes | Retain all, including M8.1.1 binding, typed numeric, result, diagnostic, privacy and package compatibility. |
+
+### Implementation responsibility, remaining proof and approval
+
+Reuse config/parser and pure policy seam, native control parser/application,
+bounded count reader, existing `_OwnedDuckDbSession` and bound runner where
+suitable. Remove experimental worker/protocol/codec/proxy and persistent
+namespace/recovery/ticket/mount-specific code only on approved disposition.
+Simplify observation and scratch helpers to minimal required functionality;
+do not add a second execution service or public adapter API. CLI entry owns
+explicit managed invocation contract; service orchestration owns admitted
+context/L1, adapter owns native settings/lease/cleanup, check engine owns
+normalized policy/outcomes, diagnostics remain sanitized. No data/SQL/raw
+native exceptions in terminal advice; warnings do not change PASS/FAIL/error
+status/exit. Explicit unsafe mandatory setup -> affected refusal, actual native
+failure -> ERROR, no unrelated context block from old scratch. Preserve primary
+diagnostic plus cleanup error. M8.3 owns durable projection.
+
+Remaining pre-implementation blockers: (1) maintainer chooses managed vs
+embedded boundary and scope changes above; (2) bounded targeted test of
+minimal actual scratch privacy on older Windows and POSIX inherited ACL/
+safe parent, no-adoption/no unrelated cleanup, including failed creation;
+(3) exact simpler observation/tuning and native spill cap default comparison
+on existing constrained/capable workloads, no expansive new OS mechanism;
+(4) final exact config/default/diagnostic matrix, regression replacement and
+DoD approval. Then test-first implementation from verified baseline/reuse
+selected candidate components, exact affected test nodes/capture/index, full
+standard CI and persistent representative native matrix, actual negative
+proof for critical safety, whole-branch advisory, no gate closure until exit.
+No broad new exploration absent concrete failed outcome. Existing runtime
+guard and PR suspension remain until approved implementation/exit.
+
 ## Historical status and approval boundary (superseded)
 
 Maintainer approved the detailed design and documentation integration on
