@@ -724,6 +724,8 @@ captures:
       - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_preserves_catalog_and_reader
       - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_excludes_writer_without_observer
       - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_does_not_close_guard_when_actor_close_unconfirmed
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_session_owns_scratch_until_confirmed_close
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_session_refuses_missing_scratch_before_connect
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
