@@ -126,12 +126,17 @@ aggregate comparison semantics; the service does not interpret raw numeric
 results. Later-phase checks remain
 structured `not_executable` results.
 
-The shared binding prerequisite of the reopened [local execution policy](../decisions/adr-0026-local-execution-policy-and-scan-admission.md)
+The [local execution policy](../decisions/adr-0026-local-execution-policy-and-scan-admission.md)
 applies verified project-local base-table scope to all supported project-run
-checks. Key-safety and SUM checks retain the temporary 64 MiB file cap, not
-row count. Native open/read/cleanup errors are check-local; uncertain cleanup
-stops later eligible native work. Resource calibration, broader admission,
-and structured advisories remain separately gated, not implemented.
+checks. No default database-footprint cap applies; an authored optional cap
+applies to all nine supported check families. Native resource settings use
+fresh observations, explicit policy precedence and safe advisories. Native
+open/read/cleanup errors are check-local; uncertain cleanup blocks later
+native work for the affected database, not unrelated databases. Owned scratch
+is removed only after confirmed native closure; abrupt termination can leave
+residue. Managed settings do not guarantee total process memory or physical
+storage limits. Invocation-wide lifecycle, cumulative budgets and publication
+remain separate gated work.
 
 Later runner and evidence phases may expand `RunService` responsibilities to:
 

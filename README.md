@@ -158,8 +158,9 @@ safety and explicit SUM checks when matching compiled-contract artifacts and
 runtime profiles are available. All three families require an existing regular
 project-local DuckDB file without retained sidecars and verified local base
 tables, not views or externally backed relations. Each eligible check owns a
-fresh read-only transaction. The temporary 64 MiB file cap applies to grain-key
-and SUM checks only, not row count; it is not a resource bound. It reports missing, invalid, empty,
+fresh read-only transaction. No default database-size cap applies; an optional
+authored footprint ceiling applies to all supported check types and is not a
+physical resource bound. Recon uses adaptive native resource settings. It reports missing, invalid, empty,
 unsupported, blocked, or not-executable compiled checks with structured runtime
 diagnostics.
 It does not execute query endpoints, other aggregate metric types, or row-level

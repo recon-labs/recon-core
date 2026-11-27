@@ -829,8 +829,8 @@ is mandatory before M8.1.2.
 
 ### Milestone 8.1.2: hardware-aware resource policy and admission
 
-**Current checkpoint (2026-11-27): native-first replacement implemented,
-final review and separate merge approval pending.** Follow the
+**Completed (2026-11-27): native-first replacement verified and merged
+(PR #42). M8.1.1 and targeted M7.4 correction verified; scoped M8.1 exit complete.** Follow the
 [approved detailed prework](../planning/milestone-8-1-2-prework.md).
 M8.1.1 and targeted M7.4 correction remain completed. Own remaining
 R1-R10/A1-A13, measured adapter-scoped settings, native effects, advisories,
@@ -838,7 +838,7 @@ B8 native interrupt request versus confirmed stop, B9 confirmed native
 close/current scratch cleanup and safe abrupt residue, B10 serial per-check
 native scope and re-observation. No mandatory worker/IPC, persistent
 recovery, arbitrary default footprint cap or physical quota guarantee.
-M8.1 umbrella cannot close until both children and correction verified.
+Both children and the targeted correction are verified; scoped M8.1 exit complete.
 
 Gate 4L configuration scope/precedence extension, also Gate 4I/4J/8C:
 M8.1.2 owns typed scoped configuration, reset/precedence, separation from
@@ -862,6 +862,11 @@ requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Milestone 8.2: execution planning and run lifecycle
 
+Design direction approved; detailed interfaces and native feasibility verified.
+Implementation requires validated design integration and separate authorization.
+See [execution lifecycle prework](../planning/milestone-8-2-prework.md) and
+[ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
+
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
 Resource-safety checkpoint: Own remaining B8-B10 invocation deadlines, timeouts, cancellation/retry lifecycle, run-wide cleanup, cumulative resource budgeting and bounded concurrency. Reuse M8.1.2 native interrupt/confirmed release, current scratch cleanup and serial per-check resource proof; no duplicate executor. Handle invocation-level abrupt termination and residual risks separately, not by restoring retired IPC/recovery. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
@@ -876,7 +881,7 @@ Build:
   metadata handoff; reserve future artifact/sink references without writes.
 
 Required prework: Gate 5, 4I, 4L integration, 3F2, 4J where adapter/profile
-diagnostics are involved, 6, ADR 0014/0021/0022/0025, and selector-readiness
+diagnostics are involved, 6, ADR 0014/0021/0022/0025/0027, and selector-readiness
 portion of the selectors gate. Lock compilation/freshness behavior, status and
 reason semantics, lifecycle ownership and scope. No selector execution, new
 comparison operations, generated run-result artifacts, evidence or sinks.
