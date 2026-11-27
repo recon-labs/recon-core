@@ -46,7 +46,13 @@ clock, independently of wall-clock adjustments. A structured early failure
 retains its invocation identity, timing, stage and command outcome without
 inventing a project name or check results. A completed check evaluation may
 produce a reconciliation mismatch; invocation failure is not itself a data
-mismatch. The private outcome is not a new serialized or stable result API.
+mismatch. The private outcome retains a plan only after compiled checks and matching
+contracts have been loaded and validated. It describes whole loaded compiled
+scope, ordered contract/check/plan identities and prerequisite references;
+empty contracts remain visible. It contains no SQL, path, relation or data
+payload. The engine evaluates the original loaded artifacts once. This is not
+an authored-source freshness or atomic multi-file snapshot guarantee.
+The private outcome is not a new serialized or stable result API.
 The public `ServiceResult` dictionary, command exit mapping and no-write
 boundary remain unchanged. See [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
 

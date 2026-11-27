@@ -487,6 +487,7 @@ def test_invocation_utc_label_preserves_subsecond_precision(
     assert run_service_module._utc_timestamp() == "2026-11-27T10:00:00.123456Z"
 
 
+@pytest.mark.regression_capture("run-loaded-compiled-scope")
 def test_invocation_plan_preserves_loaded_order_and_dependencies(tmp_path: Path) -> None:
     write_project(tmp_path)
     first = _compiled_check_payload(check_id="first", name="first")
@@ -517,7 +518,7 @@ def test_invocation_plan_preserves_loaded_order_and_dependencies(tmp_path: Path)
         "contract.ecommerce_recon.empty",
         "contract.ecommerce_recon.zeta",
     )
-    assert tuple(c.checks for c in plan.contracts)[1] == ()
+    assert plan.contracts[1].checks == ()
     checks = plan.contracts[0].checks
     assert tuple(c.check_id for c in checks) == ("first", "second")
     assert checks[0].plan_id == "plan.ecommerce_recon.customer_revenue.first"
@@ -525,7 +526,7 @@ def test_invocation_plan_preserves_loaded_order_and_dependencies(tmp_path: Path)
     assert checks[1].prerequisites == ()
     assert plan.contracts[2].checks[0].check_id == "last"
     with pytest.raises(FrozenInstanceError):
-        setattr(checks[0], "check_id", "changed")
+        checks[0].check_id = "changed"
     assert "private-query-canary" not in repr(plan)
     assert str(tmp_path) not in repr(plan)
     assert outcome.run_result is not None
@@ -551,6 +552,7 @@ def test_invocation_plan_preserves_loaded_order_and_dependencies(tmp_path: Path)
         "empty",
     ],
 )
+@pytest.mark.regression_capture("run-loaded-compiled-scope")
 def test_invalid_compiled_scope_never_reaches_runtime_setup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, invalid: str
 ) -> None:
@@ -601,6 +603,7 @@ def test_invalid_compiled_scope_never_reaches_runtime_setup(
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("run-loaded-compiled-scope")
 def test_invocation_plan_does_not_claim_authored_freshness(tmp_path: Path) -> None:
     write_project(tmp_path)
     write_compiled_checks(tmp_path)
@@ -614,9 +617,8 @@ def test_invocation_plan_does_not_claim_authored_freshness(tmp_path: Path) -> No
     authored.write_text("invalid: [private-authored-canary", encoding="utf-8")
     loaded = CompiledCheckLoader().load(tmp_path / "target")
     assert loaded.succeeded
-    assert CompiledContractLoader().load_for_compiled_checks(
-        tmp_path / "target", loaded.artifacts
-    ).succeeded
+    matched = CompiledContractLoader().load_for_compiled_checks(tmp_path / "target", loaded.artifacts)
+    assert matched.succeeded
     before = {path: path.read_bytes() for path in (tmp_path / "target").rglob("*.yml")}
 
     outcome = RunService(start_path=tmp_path, engine=_CapturingPassEngine())._execute_invocation()

@@ -37,6 +37,9 @@ This project follows semantic versioning once public package releases begin.
 
 ### Changed
 
+- Record the validated loaded compiled scope in a private immutable plan;
+  refuse artifacts belonging to a different project identity before setup.
+  Preserve explicit compile/run and do not claim authored-source freshness.
 - Record run invocation identity before project preparation and finalize timing
   after evaluation and native cleanup. Internal elapsed time uses a monotonic
   clock; structured early failures retain invocation metadata. Existing command

@@ -103,7 +103,11 @@ Current run-service responsibilities:
 
 - allocate invocation identity and start timing before locating the project root,
 - load already compiled check artifacts from the generated target path,
-- load matching compiled-contract artifacts for runtime metadata,
+- load matching compiled-contract artifacts for runtime metadata and refuse
+  compiled-check inputs belonging to a different project identity,
+- record a private immutable plan of the validated loaded contracts/checks,
+  their presentation order and prerequisite IDs, without reloading artifacts
+  or duplicating the engine's prerequisite evaluation,
 - prepare runtime profile and adapter dependencies only for executable
   relation-backed row-count, grain-key and SUM candidates,
 - invoke the check engine over compiled checks only,

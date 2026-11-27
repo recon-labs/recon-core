@@ -43,6 +43,7 @@ from recon_core.adapters.runtime_setup import (
     ADAPTER_TYPE_MISMATCH,
 )
 from recon_core.artifacts import (
+    COMPILED_CHECK_ARTIFACT_INVALID,
     NO_COMPILED_CHECKS,
     CompiledCheckLoader,
     CompiledCheckLoadResult,
@@ -95,7 +96,12 @@ from recon_core.profiles.connection_references import (
 )
 from recon_core.project import ProjectContext, load_project_context
 from recon_core.services._bound_runner import _ProjectBoundRunner
-from recon_core.services._run_lifecycle import _InvocationOutcome, _RunInvocation, _RunStage
+from recon_core.services._run_lifecycle import (
+    _CompiledRunPlan,
+    _InvocationOutcome,
+    _RunInvocation,
+    _RunStage,
+)
 from recon_core.services.results import ExitCategory, ServiceResult
 
 
@@ -197,6 +203,21 @@ class RunService:
         if not load_result.succeeded:
             return _load_failure_result(load_result)
 
+        if any(artifact.project_name != context.config.name for artifact in load_result.artifacts):
+            return _load_failure_result(
+                CompiledCheckLoadResult(
+                    diagnostics=(
+                        Diagnostic(
+                            code=COMPILED_CHECK_ARTIFACT_INVALID,
+                            severity=DiagnosticSeverity.ERROR,
+                            message="Compiled-check project identity does not match the project.",
+                            resource_type="compiled_checks",
+                            hint="Compile the intended project before running its checks.",
+                        ),
+                    ),
+                )
+            )
+
         invocation.stage = _RunStage.COMPILED_CONTRACTS
         tolerance_states: dict[str, _ToleranceReferenceState] = {}
         if self.contract_loader is None:
@@ -210,6 +231,7 @@ class RunService:
         if not contract_load_result.succeeded:
             return _compiled_contract_load_failure_result(contract_load_result)
 
+        invocation.plan = _CompiledRunPlan.from_artifacts(context.config.name, load_result.artifacts)
         invocation.stage = _RunStage.RUNTIME_SETUP
         runtime_dependencies = _prepare_runtime_execution_dependencies(
             context,

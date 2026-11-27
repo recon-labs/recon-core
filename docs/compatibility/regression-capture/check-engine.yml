@@ -481,3 +481,38 @@ captures:
       failure identity and unknown project state, compute elapsed time monotonically,
       and finalize only after native evaluation and cleanup. Never guess the finish
       timestamp before running the engine or change the existing command dictionary.
+  - id: run-loaded-compiled-scope
+    title: Run planning preserves loaded scope and refuses invalid compiled inputs
+    area: check-engine
+    bug_class: artifact_lifecycle
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_invocation_plan_preserves_loaded_order_and_dependencies
+      - tests/services/test_run_service.py::test_invalid_compiled_scope_never_reaches_runtime_setup
+      - tests/services/test_run_service.py::test_invocation_plan_does_not_claim_authored_freshness
+      - tests/services/test_run_service_bound_execution.py::test_native_run_uses_loaded_artifacts_after_files_change
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: compiled_scope
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: compiled_scope
+        rationale: Publication must use loaded scope and cannot imply authored freshness.
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: compiled_scope
+        rationale: Future adapter execution must preserve validated input and binding ownership.
+      - gate: parser_compiler_contract_carryover
+        status: deferred
+        expected_suite: compiled_scope
+        rationale: Future artifact format and semantic freshness changes must retain explicit scope.
+    requirement_refs:
+      - docs/planning/milestone-8-2-prework.md: B2
+      - docs/architecture/parse-compile-run.md: Freshness of artifacts
+    notes: >
+      Validate loaded inputs before setup; never relabel foreign project artifacts.
+      Freeze only identity, order and prerequisites, retain empty contracts in
+      mixed scopes, and evaluate the loaded artifacts without a second read or
+      implicit compile. No claim of authored-source freshness or atomic snapshot.

@@ -959,6 +959,7 @@ def test_invocation_elapsed_includes_native_cleanup_outcome(
         assert check.status is CheckStatus.PASS and check.executed
 
 
+@pytest.mark.regression_capture("run-loaded-compiled-scope")
 def test_native_run_uses_loaded_artifacts_after_files_change(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
