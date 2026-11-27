@@ -718,6 +718,9 @@ captures:
     current_tests:
       - tests/adapters/test_duckdb_bound_execution.py::test_owned_controls_precede_transaction_and_cleanup
       - tests/adapters/test_duckdb_bound_execution.py::test_unverified_required_setting_prevents_transaction
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_preserves_catalog_and_reader
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_excludes_writer_without_observer
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_does_not_close_guard_when_actor_close_unconfirmed
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
