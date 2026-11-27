@@ -16,6 +16,16 @@ control enforcement and truthful error/cleanup outcomes. M8.2, M8.3, M9.5,
 M10.8, M29 and subsequent adapter obligations retain their owners. No coding
 or gate closure until revised prework and separate approval.
 
+## Proposed outcome mapping (approval pending)
+
+The [native-first redesign proposal](milestone-8-1-2-prework.md#native-first-redesign-proposal-2026-11-27-approval-pending)
+records the tested ordinary invocation alternative and explicit A1-A13,
+R1-R10, B8-B10 and P1-P6 dispositions. Preserve outcomes; do not resume
+historical mechanism implementation. Embedded managed execution scope,
+removal of reserve leaves/automatic recovery/worker infrastructure and
+pressure polling require maintainer approval. M8.2 full invocation lifecycle
+and cumulative/concurrency obligations and all later adapter gates remain.
+
 ## Historical gate and status (mechanisms reopened)
 
 [ADR 0026](../decisions/adr-0026-local-execution-policy-and-scan-admission.md)
