@@ -34,6 +34,7 @@ from tests.services._run_service_fixtures import (
     _duckdb_module,
     _key_safety_payload_for,
     _service_result_text,
+    _without_scope_advisory,
     row_count_plan,
     write_compiled_checks,
     write_compiled_contract,
@@ -451,7 +452,12 @@ def test_aggregate_scan_safety_blocks_before_adapter_setup(
         if fixture == "oversized"
         else "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
     )
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [expected_code]
+    diagnostics = (
+        _without_scope_advisory(result.diagnostics)
+        if fixture in {"view", "missing_table"}
+        else result.diagnostics
+    )
+    assert [diagnostic.code for diagnostic in diagnostics] == [expected_code]
     assert "grain-key" not in _service_result_text(result).lower()
     count = 1 if fixture in {"view", "missing_table"} else 0
     assert len(factory.adapters) == count

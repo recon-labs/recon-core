@@ -30,6 +30,7 @@ from tests.services._run_service_fixtures import (
     _key_safety_check_payload,
     _key_safety_payload_for,
     _service_result_text,
+    _without_scope_advisory,
     _write_duckdb_key_safety_tables,
     _write_duckdb_row_count_tables,
     _write_mixed_case_duckdb_key_safety_tables,
@@ -128,7 +129,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     assert len(factory.adapters) == 1
     _assert_native_calls(factory, native_calls, 1)
     assert not (tmp_path / "target" / "run_results.json").exists()
@@ -272,7 +273,7 @@ def test_run_service_executes_row_count_with_actual_duckdb_relations_pass(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -293,7 +294,7 @@ def test_run_service_executes_row_count_with_actual_duckdb_relations_fail(
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     public_text = _service_result_text(result)
     assert "2" not in public_text
     assert "3" not in public_text
@@ -319,7 +320,8 @@ def test_run_service_sanitizes_actual_duckdb_execution_failure(
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
     public_text = _service_result_text(result)
     assert "Check requires a verified local base-table execution scope." in public_text
     assert len(native_calls["open"]) == len(native_calls["close"]) == 1
@@ -354,7 +356,8 @@ def test_run_service_executes_actual_duckdb_key_safety_all_checks_pass(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "north" not in public_text
     assert "south" not in public_text
@@ -383,7 +386,8 @@ def test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suff
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "north" not in public_text
     assert "south" not in public_text
@@ -412,7 +416,8 @@ def test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "north" not in public_text
     assert "Source_Customers" not in public_text
@@ -454,7 +459,8 @@ def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_ada
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
     public_text = _service_result_text(result)
     assert "secret-external" not in public_text
     assert "external_source" not in public_text
@@ -596,7 +602,8 @@ def test_run_service_executes_actual_duckdb_key_safety_failures_without_raw_outp
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         expected_diagnostic,
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -641,7 +648,8 @@ def test_run_service_executes_actual_duckdb_duplicate_plus_null_signals(
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_NULL_GRAIN_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
         "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
@@ -696,7 +704,8 @@ def test_run_service_executes_actual_duckdb_key_safety_empty_side_cases(
     result = RunService(start_path=tmp_path).execute()
 
     assert result.exit_category is expected_exit
-    assert [diagnostic.code for diagnostic in result.diagnostics] == list(expected_diagnostics)
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == list(expected_diagnostics)
     public_text = _service_result_text(result)
     assert "source-only" not in public_text
     assert "target-only" not in public_text
@@ -728,7 +737,8 @@ def test_run_service_executes_actual_duckdb_row_count_and_key_safety_together(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "shared" not in public_text
     assert "also-shared" not in public_text
@@ -763,7 +773,8 @@ def test_run_service_preserves_key_safety_shape_blocker_in_mixed_runtime_run(
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
     ]
     _assert_no_runtime_outputs(tmp_path)
@@ -885,7 +896,8 @@ def test_run_service_does_not_mutate_stale_outputs_during_actual_key_safety(
     result = RunService(start_path=tmp_path).execute()
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_MISSING_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -916,7 +928,8 @@ def test_run_service_sanitizes_actual_duckdb_key_safety_type_mismatch(
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run failed during check-engine evaluation."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_QUERY_FAILED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [ADAPTER_QUERY_FAILED]
     public_text = _service_result_text(result)
     assert "DuckDB query execution failed." in public_text
     assert "Recon DuckDB key_diff key type mismatch." not in public_text
@@ -963,7 +976,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(factory.adapters) == 1
     _assert_native_calls(factory, native_calls, 1)
     assert "failure_count" in native_calls["query"][0]
@@ -1016,7 +1030,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_MISSING_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -1076,7 +1091,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -1128,7 +1144,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_NULL_GRAIN_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -1248,7 +1265,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
     ]
     public_text = _service_result_text(result)
@@ -1515,7 +1533,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(factory.adapters) == 2
     _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
@@ -1662,7 +1681,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
 
@@ -1706,7 +1725,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     assert len(factory.adapters) == 1
     _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
@@ -1883,7 +1902,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(factory.adapters) == 1
     _assert_native_calls(factory, native_calls, 2)
     _assert_no_runtime_outputs(tmp_path)
@@ -1933,7 +1953,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     _assert_native_calls(factory, native_calls, 1)
     for path, content in output_contents.items():
         assert path.read_text(encoding="utf-8") == content
