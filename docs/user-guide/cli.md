@@ -275,7 +275,7 @@ semantics are locked.
 
 ### Planned adaptive resource warnings (not yet released)
 
-The forthcoming local resource policy is designed to discover actual
+The forthcoming adapter-scoped resource policy uses project adapter defaults, selected target defaults and named connection exceptions; local tuning is not a global policy for remote engines. It is designed to discover actual
 available resources instead of using an OS-version allowlist. An untested
 platform version alone will not be a reason to refuse a check. If optional
 resource observations are unavailable, an independently protected check may
