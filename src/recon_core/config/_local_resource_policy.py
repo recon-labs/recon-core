@@ -88,9 +88,7 @@ def _parse_duckdb_resource_layer(value: object) -> _LocalResourceLayer:
             changes[attribute] = (
                 None
                 if isinstance(authored, str) and authored == reset
-                else _positive_integer(
-                    authored, maximum=_MAX_INTEGER // multiplier, location=key
-                )
+                else _positive_integer(authored, maximum=_MAX_INTEGER // multiplier, location=key)
                 * multiplier
             )
     for key, prefix in modes.items():
