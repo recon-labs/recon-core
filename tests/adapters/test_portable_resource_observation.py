@@ -213,3 +213,73 @@ def test_windows_actual_immediate_job_limits() -> None:
     if result.returncode == 77:
         pytest.skip("Runner does not allow nested job assignment")
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("platform", ["linux", "darwin", "win32", "future-platform"])
+@pytest.mark.regression_capture("portable-resource-observation-uncertainty")
+def test_portable_observation_does_not_require_process_memory_inspection(platform: str) -> None:
+    calls: list[str] = []
+
+    def memory_info():
+        calls.append("memory_info")
+        raise PermissionError("PRIVATE_SENTINEL")
+
+    provider = SimpleNamespace(
+        virtual_memory=lambda: SimpleNamespace(available=4096),
+        Process=lambda: SimpleNamespace(memory_info=memory_info, cpu_affinity=lambda: [0, 2]),
+        disk_partitions=lambda **kwargs: [],
+    )
+    facts = _read_portable_facts(provider, platform, None)
+
+    assert facts.host_available_bytes == 4096
+    assert not facts.scope_complete
+    assert not calls
+    assert "PRIVATE_SENTINEL" not in repr(facts)
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin"])
+@pytest.mark.regression_capture("portable-resource-observation-uncertainty")
+def test_portable_observation_does_not_probe_os_job_or_rlimit_apis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: str
+) -> None:
+    from recon_core.adapters import _portable_resource_observation as observation
+
+    seen: list[str] = []
+
+    def unexpected_import(name: str):
+        seen.append(name)
+        raise ImportError("PRIVATE_SENTINEL")
+
+    monkeypatch.setattr(observation, "import_module", unexpected_import)
+    facts = _observe_portable_resources(tmp_path, platform, loader=_provider)
+
+    assert facts.host_available_bytes == 1024
+    assert not facts.scope_complete
+    assert not seen
+
+
+@pytest.mark.regression_capture("portable-resource-observation-uncertainty")
+def test_optional_provider_load_failure_is_not_fatal(tmp_path: Path) -> None:
+    def unavailable():
+        raise ImportError("PRIVATE_SENTINEL")
+
+    facts = _observe_portable_resources(tmp_path, "future-platform", loader=unavailable)
+
+    assert facts.host_available_bytes is None
+    assert facts.affinity_count is None
+    assert not facts.scope_complete
+    assert "PRIVATE_SENTINEL" not in repr(facts)
+
+
+@pytest.mark.regression_capture("portable-resource-observation-uncertainty")
+def test_memory_probe_failure_does_not_erase_affinity() -> None:
+    def denied():
+        raise PermissionError("PRIVATE_SENTINEL")
+
+    provider = _provider()
+    provider.virtual_memory = denied
+    facts = _read_portable_facts(provider, "linux", None)
+
+    assert facts.host_available_bytes is None
+    assert facts.affinity_count == 2
+    assert not facts.scope_complete
