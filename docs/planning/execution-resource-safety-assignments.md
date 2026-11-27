@@ -62,7 +62,9 @@ owns allowlisted policy origin/effective-vs-requested evidence; M9 carries
 privacy into evidence. M10.5 invalidates stale policy/placement evidence,
 M10.6 re-resolves selected scope, M10.7 teaches config, M10.8 rechecks local
 scope restoration. M11-M13 each define native settings/defaults/permissions
-before experimental admission; M13.5 owns independent multi-context resource
+before experimental admission; first external adapter owns proof of adapter-
+owned schema registration/validation and version compatibility without a
+Core code change for each new engine; no speculative public API now. M13.5 owns independent multi-context resource
 and client/remote transfer precedence; M18 authored query cannot bypass.
 M28 owns any new typed environment/CLI overrides and hard admin-limit
 precedence before exposure; M29 shared conformance and promotion; M32/32.1
