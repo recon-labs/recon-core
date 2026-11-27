@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from importlib import import_module
+from pathlib import Path
 from typing import Any
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
@@ -20,8 +21,10 @@ from recon_core.adapters.duckdb._native_resource_controls import (
     _NativeControlRequest,
 )
 from recon_core.adapters.duckdb.adapter import _read_aggregate_result
+from recon_core.adapters.duckdb.renderer_sql import quote_identifier, sql_string_literal
 from recon_core.adapters.duckdb.runtime_scan_guard import (
     _current_file_identity,
+    _duckdb_identifier_key,
     _duckdb_relation_name,
     _local_duckdb_catalog_names,
     _resolve_local_base_table,
@@ -90,6 +93,73 @@ class _VerifiedReadConnection:
         return self._execute(query)
 
 
+def _current_catalog(connection: Any) -> str:
+    rows = connection.execute("SELECT current_database()").fetchmany(2)
+    if (
+        not isinstance(rows, list | tuple)
+        or len(rows) != 1
+        or not isinstance(rows[0], tuple)
+        or len(rows[0]) != 1
+        or not isinstance(rows[0][0], str)
+        or not rows[0][0]
+    ):
+        raise _proof_error()
+    return rows[0][0]
+
+
+def _attach_guarded_database(connection: Any, path: Path, catalog: str) -> None:
+    """Attach the actual guarded file under its original native catalog."""
+
+    collision = _duckdb_identifier_key(catalog) == "memory"
+    if collision:
+        connection.execute("ATTACH ':memory:' AS recon_seed")
+        connection.execute("USE recon_seed")
+        connection.execute("DETACH memory")
+    connection.execute(f"ATTACH {sql_string_literal(str(path))} (READ_ONLY)")
+    connection.execute(f"USE {quote_identifier(catalog)}")
+    if collision:
+        connection.execute("DETACH recon_seed")
+
+    if (
+        _current_catalog(connection) != catalog
+        or _local_duckdb_catalog_names(connection, path)
+        != frozenset({_duckdb_identifier_key(catalog)})
+    ):
+        raise _proof_error()
+
+    # Native metadata must show the exact read-only attachment, not merely
+    # a requested ATTACH option or a catalog inferred from a filename.
+    rows = connection.execute(
+        "SELECT database_name, path, readonly FROM duckdb_databases() "
+        "WHERE NOT internal LIMIT 3"
+    ).fetchmany(3)
+    if not isinstance(rows, list | tuple) or not 1 <= len(rows) <= 2:
+        raise _proof_error()
+    matches = 0
+    for row in rows:
+        if (
+            not isinstance(row, tuple)
+            or len(row) != 3
+            or not isinstance(row[0], str)
+            or type(row[2]) is not bool
+        ):
+            raise _proof_error()
+        name, native_path, readonly = row
+        if name == catalog:
+            if not isinstance(native_path, str) or Path(native_path).resolve() != path:
+                raise _proof_error()
+            if readonly is not True:
+                raise _proof_error()
+            matches += 1
+        elif (
+            _duckdb_identifier_key(name) != "memory"
+            or native_path not in (None, "", ":memory:")
+        ):
+            raise _proof_error()
+    if matches != 1:
+        raise _proof_error()
+
+
 class _OwnedDuckDbSession:
     """Single-use session; the caller must close it in a finally block."""
 
@@ -99,6 +169,7 @@ class _OwnedDuckDbSession:
         self._identity = identity
         self._native_controls = native_controls
         self._connection: Any = None
+        self._guard: Any = None
         self._attempted = False
         self._invalidated = False
         self._binding_attempted = False
@@ -121,21 +192,33 @@ class _OwnedDuckDbSession:
             raise _proof_error()
         self._attempted = True
         self._verify_file()
+        catalog = ""
         try:
             duckdb = import_module("duckdb")
             if self._native_controls is None:
                 self._connection = duckdb.connect(str(self._identity.path), read_only=True)
+                self._released = False
             else:
+                self._guard = duckdb.connect(str(self._identity.path), read_only=True)
+                self._released = False
+                self._verify_file()
+                catalog = _current_catalog(self._guard)
+                if _local_duckdb_catalog_names(self._guard, self._identity.path) != frozenset(
+                    {_duckdb_identifier_key(catalog)}
+                ):
+                    raise _proof_error()
                 self._connection = duckdb.connect(
-                    str(self._identity.path),
-                    read_only=True,
-                    config=_native_startup_config(self._native_controls),
+                    ":memory:", config=_native_startup_config(self._native_controls)
                 )
-            self._released = False
+        except _BoundSessionError:
+            self._invalidated = True
+            raise
         except Exception:
+            self._invalidated = True
             raise _BoundSessionError(
                 ADAPTER_CONNECTION_FAILED,
-                "Read-only execution session could not be opened or initialized.",
+                "Read-only execution session could not be opened or initialized. "
+                "Close conflicting connections or use a separate invocation.",
             ) from None
         self._verify_file()
         if self._native_controls is not None:
@@ -147,6 +230,11 @@ class _OwnedDuckDbSession:
                     "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
                     "Required native resource setting could not be verified.",
                 ) from None
+            try:
+                _attach_guarded_database(self._connection, self._identity.path, catalog)
+            except Exception:
+                self._invalidated = True
+                raise _proof_error() from None
         self._verify_file()
         try:
             self._connection.execute("BEGIN TRANSACTION")
@@ -293,10 +381,18 @@ class _OwnedDuckDbSession:
                         )
                     )
                 else:
-                    self._released = True
                     self._connection = None
-                finally:
-                    self._cleanup = tuple(diagnostics)
-        else:
-            self._cleanup = ()
+        # The ordinary reader must outlive the actor. A failed actor close
+        # retains both handles and prevents the caller from removing scratch.
+        if self._connection is None and self._guard is not None:
+            try:
+                self._guard.close()
+            except Exception:
+                diagnostics.append(
+                    _diagnostic(ADAPTER_CLOSE_FAILED, "Read-only file guard cleanup failed.")
+                )
+            else:
+                self._guard = None
+        self._released = self._connection is None and self._guard is None
+        self._cleanup = tuple(diagnostics)
         return self._cleanup
