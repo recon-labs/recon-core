@@ -2059,7 +2059,8 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
 
 
 @pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
-def test_actual_run_service_cancels_active_native_spill(tmp_path: Path) -> None:
+@pytest.mark.parametrize("mode", ["embedded", "cli"])
+def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: str) -> None:
     """Observe real spill, request caller cancellation, and prove native stop and release."""
     _duckdb_module()
     import subprocess
@@ -2068,12 +2069,16 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path) -> None:
 
     code = textwrap.dedent(
         """
+        import os
+        import signal
         import threading
         import time
         from pathlib import Path
         import sys
 
         import duckdb
+        from click.testing import CliRunner
+        from recon_core.cli.main import main
         from recon_core.adapters.duckdb import _bound_execution as binding
         from recon_core.services import RunService
         from tests.services._run_service_fixtures import (
@@ -2085,6 +2090,7 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path) -> None:
         )
 
         base = Path(sys.argv[1]).resolve()
+        mode = sys.argv[2]
         database = base / "private-spill.duckdb"
         writer = duckdb.connect(str(database), config={"threads": "2", "memory_limit": "768MiB"})
         try:
@@ -2162,32 +2168,64 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path) -> None:
         binding._OwnedDuckDbSession.open = open_session
         binding._OwnedDuckDbSession.close = close_session
 
-        def run():
-            outcomes.append(RunService(start_path=base)._execute_invocation(cancel_event=event))
+        original_execute = RunService._execute_invocation
 
-        worker = threading.Thread(target=run, daemon=False)
-        worker.start()
-        seen = False
+        def capture_invocation(self, **kwargs):
+            outcome = original_execute(self, **kwargs)
+            outcomes.append(outcome)
+            return outcome
+
+        RunService._execute_invocation = capture_invocation
+        seen = threading.Event()
+        done = threading.Event()
+        failures = []
+        previous = signal.getsignal(signal.SIGINT)
+
+        def request_after_spill():
+            try:
+                deadline = time.monotonic() + 45
+                while not done.is_set() and time.monotonic() < deadline:
+                    if active.is_set():
+                        for entry in scratch.rglob("*"):
+                            try:
+                                if entry.is_file() and entry.stat().st_size > 0 and (
+                                    "duckdb_temp_storage" in entry.name
+                                ):
+                                    seen.set()
+                                    break
+                            except FileNotFoundError:
+                                continue
+                    if seen.is_set():
+                        assert active.is_set(), "Spill was no longer active."
+                        if mode == "cli":
+                            signal.raise_signal(signal.SIGINT)
+                        else:
+                            event.set()
+                        return
+                    time.sleep(0.005)
+                raise AssertionError("No active native spill observed.")
+            except BaseException as error:
+                failures.append(error)
+                if mode == "cli" and not done.is_set():
+                    signal.raise_signal(signal.SIGINT)
+                event.set()
+
+        watcher = threading.Thread(target=request_after_spill, daemon=False)
+        watcher.start()
         try:
-            deadline = time.monotonic() + 45
-            while worker.is_alive() and time.monotonic() < deadline:
-                if active.is_set():
-                    for entry in scratch.rglob("*"):
-                        try:
-                            if entry.is_file() and entry.stat().st_size > 0 and (
-                                "duckdb_temp_storage" in entry.name
-                            ):
-                                seen = True
-                                break
-                        except FileNotFoundError:
-                            continue
-                if seen:
-                    break
-                time.sleep(0.005)
-            assert seen and active.is_set(), "No active native spill observed."
-            event.set()
-            worker.join(20)
-            assert not worker.is_alive()
+            if mode == "cli":
+                os.chdir(base)
+                result = CliRunner().invoke(main, ["run"])
+                assert result.exit_code == 3, result.output
+                assert "RC_RUNTIME_RUN_CANCELLED" in result.output
+                assert signal.getsignal(signal.SIGINT) == previous
+            else:
+                RunService(start_path=base).execute(cancel_event=event)
+            done.set()
+            watcher.join(20)
+            assert not watcher.is_alive()
+            assert not failures, failures
+            assert seen.is_set()
             assert native_interrupted == [True]
             assert len(sessions) == 1 and closed == [True]
             assert len(outcomes) == 1
@@ -2203,16 +2241,19 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path) -> None:
             assert observer.execute(setting_sql).fetchone() == before
             assert observer.execute("SELECT 42").fetchone() == (42,)
             assert not list(scratch.iterdir())
-            assert not any(t.name == "recon-run-control" for t in threading.enumerate())
+            assert not any(
+                t.name in ("recon-run-control", "recon-cli-run") for t in threading.enumerate()
+            )
             _assert_no_runtime_outputs(base)
         finally:
             event.set()
-            worker.join(20)
+            done.set()
+            watcher.join(20)
             observer.close()
         """
     )
     result = subprocess.run(
-        [sys.executable, "-c", code, str(tmp_path.resolve())],
+        [sys.executable, "-c", code, str(tmp_path.resolve()), mode],
         capture_output=True,
         text=True,
         timeout=120,
