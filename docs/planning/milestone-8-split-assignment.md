@@ -1,5 +1,30 @@
 # Milestone 8 Split Assignment
 
+## Current implementation authorization (2026-11-27)
+
+The maintainer explicitly approved the consolidated native-first design,
+including its adapter-scoped project/target/connection configuration and
+precedence, and separately authorized implementation. This checkpoint
+supersedes earlier suspension/approval-pending wording below, not any
+required outcome or exit proof. Implement only the approved replacement
+on draft PR #42. No merge, release, production activation, or guard removal
+before the applicable proof and separate merge approval. Split Decision:
+Already Split / Follow Existing Split. No completed milestone reopening.
+
+Approved design revision c1d82f1e55fc0d5160709b8a0fd276e984ad0af8;
+base main b001d14de1fb613beaaad1f3e914f81dfb125cac.
+CI 45965307969: all ten standard jobs concluded success (three Python test
+jobs, three DuckDB semantic jobs, four pinned DuckDB compatibility jobs).
+This is design-baseline CI, not proof of the replacement implementation.
+Historical candidate baseline 64caf7a0709064cc60e143386c7dfaaaaaa86abe
+remains available in history. Existing A1-A13/R1-R10/B8-B10/P1-P6 outcomes,
+M8.2/M8.3/M9.5/M10.8/M11-M13/M29 and all future configuration gates retain
+their assignments. The mechanism-specific scope reductions below are
+approved as part of the replacement, with equivalent applicable outcomes
+required before retirement. No gate is closed.
+
+See the [approved M8.1.2 prework](milestone-8-1-2-prework.md) for the exact configuration, candidate/capture disposition and ordered implementation proof.
+
 ## Scope and ordering
 
 M8.1.2 whole design reopened and implementation suspended (2026-11-27). See the [current redesign checkpoint](milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27); previous approved mechanism assignments are historical pending revision. Existing split remains; reassess B8-B10 prerequisite allocation without orphaning outcomes. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
