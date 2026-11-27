@@ -26,6 +26,17 @@ proposed scope reduction, not yet approved for removal. See the
 for comparative proof, outcome dispositions and approval blockers. All prior
 mechanism-specific choices below are historical, not implementation authority.
 
+## Consolidated replacement proposal (approval pending)
+
+The [consolidated native-first replacement design](../planning/milestone-8-1-2-prework.md#consolidated-native-first-replacement-design-proposed-for-approval-2026-11-27)
+proposes the same guarded native read-only execution path for standalone
+and embedded usage in M8.1.2, no mandatory subprocess, six optional
+settings, adjustable adapter-local memory/spill heuristics and minimal
+private scratch. Native configuration-conflict limitations and remaining
+implementation proof (including Windows baseline WAL regression) are
+explicit. Prior provisional mechanism proposals below are historical
+where inconsistent. No gate closure or implementation authorization.
+
 ## Proposed replacement following comparative proof (approval pending)
 
 Maintainer scope decision (2026-11-27): M8.1.2 owns adaptive resource
