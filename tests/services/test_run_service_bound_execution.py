@@ -92,12 +92,17 @@ class _CapturingEngine(CheckEngine):
 
 
 @pytest.mark.parametrize(
-    ("uncertain_close", "reported"), [(False, True), (True, True), (True, False)]
+    ("uncertain_close", "reported", "raises"),
+    [(False, True, False), (True, True, False), (True, False, False), (True, False, True)],
 )
 @pytest.mark.regression_capture("project-binding-check-local-cleanup")
 @pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
 def test_cleanup_failure_is_check_local_or_stops_native_execution(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain_close: bool, reported: bool
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uncertain_close: bool,
+    reported: bool,
+    raises: bool,
 ) -> None:
     database = tmp_path / "warehouse.duckdb"
     duckdb = _duckdb_module()
@@ -154,6 +159,8 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
         if session is opened[0]:
             # Real release keeps the synthetic fixture safe; inject the
             # uncertainty reported to the runner, not a real leaked handle.
+            if raises:
+                raise RuntimeError("private-close-exception")
             session._released = not uncertain_close
             if not reported:
                 return diagnostics
@@ -180,6 +187,7 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     assert "RC_ADAPTER_CLOSE_FAILED" in {d.code for d in first.diagnostics}
     assert not first.executed
     assert first.source_value is None and first.target_value is None
+    assert "private-close-exception" not in repr(result.diagnostics)
     assert dependent.status is CheckStatus.BLOCKED
     assert dependent.blocked_by == (first.check_id,)
     if uncertain_close:
@@ -381,7 +389,9 @@ def test_mixed_native_failure_preserves_unrelated_database(
     assert "private-native-query-error" not in repr(result)
 
 
-@pytest.mark.parametrize("failure", ["open", "query", "uncertain_close"])
+@pytest.mark.parametrize(
+    "failure", ["open", "query", "uncertain_close", "close_exception", "query_and_close_exception"]
+)
 @pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_native_failure_isolation_across_database_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
@@ -445,13 +455,15 @@ def test_native_failure_isolation_across_database_files(
         query: str,
     ) -> Any:
         reads.append(session)
-        if session is opened[0] and failure == "query":
+        if session is opened[0] and failure in {"query", "query_and_close_exception"}:
             raise RuntimeError("private-native-query-error")
         return real_read(session, lease, scope, query)
 
     def close_session(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
         closed.append(session)
         diagnostics = real_close(session)
+        if session is opened[0] and failure in {"close_exception", "query_and_close_exception"}:
+            raise RuntimeError("private-close-exception")
         if session is opened[0] and failure == "uncertain_close":
             # Inject uncertainty after actual release so the test cannot leak a handle.
             session._released = False
@@ -480,8 +492,12 @@ def test_native_failure_isolation_across_database_files(
         "open": "RC_ADAPTER_CONNECTION_FAILED",
         "query": "RC_ADAPTER_QUERY_FAILED",
         "uncertain_close": "RC_ADAPTER_CLOSE_FAILED",
+        "close_exception": "RC_ADAPTER_CLOSE_FAILED",
+        "query_and_close_exception": "RC_ADAPTER_CLOSE_FAILED",
     }
     assert expected[failure] in {d.code for d in failed.diagnostics}
+    if failure == "query_and_close_exception":
+        assert "RC_ADAPTER_QUERY_FAILED" in {d.code for d in failed.diagnostics}
     assert blocked.status is CheckStatus.BLOCKED
     assert blocked.blocked_by == (failed.check_id,)
     assert blocked.reason_code is not None and blocked.reason_code.value == "prerequisite_error"
@@ -494,13 +510,15 @@ def test_native_failure_isolation_across_database_files(
     assert len(opened) == 2
     assert reads == (opened[1:] if failure == "open" else opened)
     public = repr(engine.result.to_dict()) + repr(result.diagnostics)
-    for token in ("private-first", "private-other", "private-native-query-error"):
+    for token in (
+        "private-first", "private-other", "private-native-query-error", "private-close-exception"
+    ):
         assert token not in public
     assert all(path.read_bytes() == content for path, content in before.items())
 
 
 @pytest.mark.parametrize("primary", ["data_fail", "scope_refusal", "query_error"])
-@pytest.mark.parametrize("cleanup", ["rollback", "close", "both"])
+@pytest.mark.parametrize("cleanup", ["rollback", "close", "both", "raise"])
 @pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_primary_outcome_retained_on_cleanup_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, primary: str, cleanup: str
@@ -521,6 +539,8 @@ def test_primary_outcome_retained_on_cleanup_failure(
 
     def close_session(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
         diagnostics = real_close(session)
+        if cleanup == "raise":
+            raise RuntimeError("private-close-exception")
         messages = []
         if cleanup in {"rollback", "both"}:
             messages.append("Read-only transaction cleanup failed.")
@@ -552,6 +572,9 @@ def test_primary_outcome_retained_on_cleanup_failure(
         assert "private-primary-query-error" not in repr(result.diagnostics)
     else:
         assert any("failing outcome before cleanup failed" in d.message for d in check.diagnostics)
+        assert "RC_RUNTIME_CHECK_FAILURE_BEFORE_CLEANUP" in {d.code for d in check.diagnostics}
+        assert "RC_ADAPTER_QUERY_FAILED" not in {d.code for d in check.diagnostics}
+    assert "private-close-exception" not in repr(result.diagnostics)
 
 
 @pytest.mark.parametrize("family", ["row", "key"])
@@ -995,3 +1018,64 @@ def test_native_run_uses_loaded_artifacts_after_files_change(
     assert checks.read_text(encoding="utf-8") == "invalid: ["
     assert contract.read_text(encoding="utf-8") == "invalid: ["
     assert not (target / "run_results.json").exists()
+
+
+@pytest.mark.parametrize("distinct_alias", [False, True])
+def test_legacy_setup_preserves_distinct_connection_failures(
+    tmp_path: Path, distinct_alias: bool
+) -> None:
+    database = tmp_path / "private-database.duckdb"
+    _write_duckdb_row_count_tables(
+        _duckdb_module(), database, source_rows=((1,),), target_rows=((2,),)
+    )
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    connections = profile["profiles"]["local"]["outputs"]["dev"]["connections"]
+    if distinct_alias:
+        connections["private-alias"] = dict(connections["warehouse"])
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    connection_name = "private-alias" if distinct_alias else "warehouse"
+    other = _compiled_check_payload(
+        check_id="check.ecommerce_recon.other_revenue.row_count_diff",
+        operations=row_count_plan(),
+    )
+    other["plan"] = {
+        "id": "plan.ecommerce_recon.other_revenue.row_count_diff",
+        "operations": row_count_plan(),
+        "required_capabilities": ["row_count"],
+    }
+    write_compiled_checks(tmp_path, contract_name="other_revenue", checks=[other])
+    write_compiled_contract(
+        tmp_path,
+        contract_name="other_revenue",
+        source_connection=connection_name,
+        target_connection=connection_name,
+    )
+    calls: list[str] = []
+
+    def factory(connection: ConnectionConfig) -> AdapterResolutionResult:
+        calls.append(connection.name)
+        diagnostic = Diagnostic(
+            code="RC_ADAPTER_RESOLUTION_FAILED",
+            severity=DiagnosticSeverity.ERROR,
+            message="Adapter resolution failed.",
+            resource_type="adapter",
+        )
+        return AdapterResolutionResult(diagnostics=(diagnostic, diagnostic))
+
+    registry = AdapterRegistry()
+    registry.register("duckdb", factory)
+    outcome = RunService(start_path=tmp_path, adapter_registry=registry)._execute_invocation()
+    expected = {"warehouse", "private-alias"} if distinct_alias else {"warehouse"}
+    assert len(calls) == len(expected) and set(calls) == expected
+    assert outcome.stage.value == "runtime_setup"
+    assert outcome.plan is not None and outcome.run_result is None
+    assert outcome.service_result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    failures = [
+        d for d in outcome.service_result.diagnostics if d.code == "RC_ADAPTER_RESOLUTION_FAILED"
+    ]
+    assert len(failures) == len(expected)
+    assert len({d.hint for d in failures}) == len(expected)
+    assert "private-alias" not in repr(outcome.service_result)
+    assert "private-database" not in repr(outcome.service_result)

@@ -630,3 +630,55 @@ def test_invocation_plan_does_not_claim_authored_freshness(tmp_path: Path) -> No
     assert outcome.service_result.exit_category is ExitCategory.SUCCESS
     assert {path: path.read_bytes() for path in before} == before
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("stage", "plan_known", "diagnostic_code"),
+    [
+        ("project_configuration", False, "RC_RUNTIME_RUN_PREPARATION_FAILED"),
+        ("compiled_checks", False, "RC_RUNTIME_RUN_PREPARATION_FAILED"),
+        ("compiled_contracts", False, "RC_RUNTIME_RUN_PREPARATION_FAILED"),
+        ("runtime_setup", True, "RC_RUNTIME_RUN_PREPARATION_FAILED"),
+        ("check_execution", True, "RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR"),
+    ],
+)
+def test_unexpected_invocation_failure_is_finalized_without_private_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    stage: str,
+    plan_known: bool,
+    diagnostic_code: str,
+) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+
+    def fail(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("private-preparation-error password=super-secret")
+
+    if stage == "project_configuration":
+        monkeypatch.setattr(run_service_module, "load_project_context", fail)
+    elif stage == "compiled_checks":
+        monkeypatch.setattr(CompiledCheckLoader, "load", fail)
+    elif stage == "compiled_contracts":
+        monkeypatch.setattr(CompiledContractLoader, "_load_for_runtime", fail)
+    elif stage == "runtime_setup":
+        monkeypatch.setattr(run_service_module, "_prepare_runtime_execution_dependencies", fail)
+    else:
+        monkeypatch.setattr(run_service_module, "_run_service_result", fail)
+
+    service = RunService(start_path=tmp_path, engine=_CapturingPassEngine())
+    outcome = service._execute_invocation()
+
+    assert outcome.run_id.startswith("run-")
+    assert outcome.stage.value == stage
+    assert outcome.status.value == "failed"
+    assert (outcome.plan is not None) is plan_known
+    assert outcome.run_result is None
+    assert outcome.elapsed_ns >= 0
+    assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert [d.code for d in outcome.service_result.diagnostics] == [diagnostic_code]
+    assert "private-preparation-error" not in repr(outcome)
+    assert "super-secret" not in repr(outcome.service_result.to_dict())
+    assert service.execute().to_dict() == outcome.service_result.to_dict()
+    _assert_no_runtime_outputs(tmp_path)
