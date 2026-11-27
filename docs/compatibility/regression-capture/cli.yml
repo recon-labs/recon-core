@@ -10,6 +10,8 @@ captures:
     current_tests:
       - tests/cli/test_main.py::test_run_command_rejects_invalid_timeout
       - tests/cli/test_main.py::test_run_command_accepts_large_timeout
+      - tests/cli/test_main.py::test_run_cli_delivered_sigint_joins_execution_and_restores_handler
+      - tests/cli/test_main.py::test_run_cli_preserves_ignored_sigint
     carryover_gates:
       - gate: cli_behavior_carryover
         status: covered

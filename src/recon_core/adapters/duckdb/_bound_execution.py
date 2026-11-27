@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import gettempdir
 from typing import Any
 
-from recon_core._run_control import _RunControl, _RunStopped
+from recon_core._run_control import _RunControl, _RunStoppedError
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters._local_resource_observation import (
     _LocalObservation,
@@ -554,7 +554,7 @@ class _OwnedDuckDbSession:
                 self._connection = duckdb.connect(
                     ":memory:", config=_native_startup_config(self._native_controls)
                 )
-        except (_BoundSessionError, _RunStopped):
+        except (_BoundSessionError, _RunStoppedError):
             self._invalidated = True
             raise
         except Exception:
@@ -601,7 +601,7 @@ class _OwnedDuckDbSession:
                 _attach_guarded_database(
                     self._setup_reader(self._connection), self._identity.path, catalog
                 )
-            except _RunStopped:
+            except _RunStoppedError:
                 self._invalidated = True
                 raise
             except Exception:
@@ -612,7 +612,7 @@ class _OwnedDuckDbSession:
             self._checkpoint()
             self._connection.execute("BEGIN TRANSACTION")
             self._transaction = True
-        except _RunStopped:
+        except _RunStoppedError:
             raise
         except Exception:
             raise _BoundSessionError(
@@ -633,12 +633,10 @@ class _OwnedDuckDbSession:
             self._verify_file()
             if not catalogs:
                 return None
-            resolved = _resolve_local_base_table(
-                reader, relation, local_catalog_names=catalogs
-            )
+            resolved = _resolve_local_base_table(reader, relation, local_catalog_names=catalogs)
             self._verify_file()
             return resolved
-        except _RunStopped:
+        except _RunStoppedError:
             self._invalidated = True
             raise
         except Exception:
@@ -740,7 +738,7 @@ class _OwnedDuckDbSession:
                     lambda: self._connection.execute(statement), self.request_interrupt
                 )
                 return _ControlledReadCursor(cursor, control, self.request_interrupt)
-            except _RunStopped:
+            except _RunStoppedError:
                 self._invalidated = True
                 raise
             except Exception:

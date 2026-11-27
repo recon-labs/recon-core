@@ -1,7 +1,9 @@
 import importlib
 import json
 import os
+import signal
 from pathlib import Path
+from threading import Event, current_thread, main_thread
 from typing import Any
 
 import pytest
@@ -64,7 +66,9 @@ def test_cli_commands_delegate_to_services(
 ) -> None:
     calls = 0
 
-    def execute(self: InitService | ParseService | CompileService | RunService) -> ServiceResult:
+    def execute(
+        self: InitService | ParseService | CompileService | RunService, **kwargs: Any
+    ) -> ServiceResult:
         nonlocal calls
         calls += 1
         return ServiceResult(exit_category=ExitCategory.RUNTIME_ERROR)
@@ -583,3 +587,55 @@ def test_run_command_accepts_large_timeout() -> None:
         actual = runner.invoke(main, ["run", "--timeout-seconds", str(10**100)])
     assert actual.exit_code == expected.exit_code == 3
     assert actual.output == expected.output
+
+
+@pytest.mark.regression_capture("run-timeout-cli-contract")
+def test_run_cli_delivered_sigint_joins_execution_and_restores_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous = signal.getsignal(signal.SIGINT)
+    finished = Event()
+    calls: list[int] = []
+
+    def execute(
+        self: RunService, *, timeout_seconds: int | None = None, cancel_event: Event | None = None
+    ) -> ServiceResult:
+        assert current_thread() is not main_thread()
+        assert timeout_seconds == 7
+        assert cancel_event is not None
+        calls.append(1)
+        signal.raise_signal(signal.SIGINT)
+        assert cancel_event.wait(5)
+        finished.set()
+        return ServiceResult(ExitCategory.RUNTIME_ERROR, "Run cancellation was requested.")
+
+    monkeypatch.setattr(RunService, "execute", execute)
+    result = CliRunner().invoke(main, ["run", "--timeout-seconds", "7"])
+    assert result.exit_code == 3
+    assert "Run cancellation was requested." in result.output
+    assert calls == [1]
+    assert finished.is_set()
+    assert signal.getsignal(signal.SIGINT) == previous
+
+
+@pytest.mark.regression_capture("run-timeout-cli-contract")
+def test_run_cli_preserves_ignored_sigint(monkeypatch: pytest.MonkeyPatch) -> None:
+    previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    calls: list[int] = []
+
+    def execute(
+        self: RunService, *, timeout_seconds: int | None = None, cancel_event: Event | None = None
+    ) -> ServiceResult:
+        calls.append(1)
+        assert signal.getsignal(signal.SIGINT) == signal.SIG_IGN
+        assert cancel_event is None
+        return ServiceResult.success("ok")
+
+    try:
+        monkeypatch.setattr(RunService, "execute", execute)
+        result = CliRunner().invoke(main, ["run"])
+        assert result.exit_code == 0
+        assert calls == [1]
+        assert signal.getsignal(signal.SIGINT) == signal.SIG_IGN
+    finally:
+        signal.signal(signal.SIGINT, previous)

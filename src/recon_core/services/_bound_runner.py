@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
-from recon_core._run_control import _RunControl, _RunStopped
+from recon_core._run_control import _RunControl, _RunStoppedError
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters._project_binding import (
     _BindingLease,
@@ -252,7 +252,7 @@ class _ProjectBoundRunner:
                 result = evaluate(
                     lease.scope.source, lease.scope.target, _SessionReader(session, lease)
                 )
-        except _RunStopped as exc:
+        except _RunStoppedError as exc:
             diagnostic = exc.cause.diagnostic()
             result = error_result(
                 check, contract, message=diagnostic.message, diagnostics=(diagnostic,)

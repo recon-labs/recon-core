@@ -12,7 +12,7 @@ from click.testing import CliRunner
 import recon_core.adapters as adapters_module
 import recon_core.adapters.default_renderers as default_renderers_module
 import recon_core.services.run as run_service_module
-from recon_core._run_control import _RunControl, _RunStopped, _StopCause
+from recon_core._run_control import _RunControl, _RunStoppedError, _StopCause
 from recon_core.adapters import (
     AdapterRegistry,
 )
@@ -1140,7 +1140,7 @@ def test_native_control_joins_borrowed_interrupt_before_return() -> None:
     def run() -> None:
         try:
             control.native_call(native, interrupt)
-        except _RunStopped as exc:
+        except _RunStoppedError as exc:
             outcomes.append(exc.cause)
         finally:
             returned.set()
@@ -1186,10 +1186,10 @@ def test_native_control_repeats_failed_interrupt_without_retrying_call() -> None
         return True
 
     try:
-        with pytest.raises(_RunStopped) as stopped:
+        with pytest.raises(_RunStoppedError) as stopped:
             control.native_call(native, interrupt)
         assert stopped.value.cause is _StopCause.CANCELLED
-        with pytest.raises(_RunStopped):
+        with pytest.raises(_RunStoppedError):
             control.native_call(native, interrupt)
         assert calls == [1]
         assert len(interrupts) >= 2

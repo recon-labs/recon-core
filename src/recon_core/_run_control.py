@@ -31,7 +31,7 @@ class _StopCause(StrEnum):
 _T = TypeVar("_T")
 
 
-class _RunStopped(RuntimeError):
+class _RunStoppedError(RuntimeError):
     def __init__(self, cause: _StopCause) -> None:
         super().__init__(cause.diagnostic().message)
         self.cause = cause
@@ -83,13 +83,13 @@ class _RunControl:
 
     def checkpoint(self) -> None:
         if (cause := self.observe()) is not None:
-            raise _RunStopped(cause)
+            raise _RunStoppedError(cause)
 
     def native_call(self, call: Callable[[], _T], interrupt: Callable[[], bool]) -> _T:
         """Borrow only the active call; wait for interrupt return before releasing it."""
         with self._lock:
             if (cause := self._observe_locked()) is not None:
-                raise _RunStopped(cause)
+                raise _RunStoppedError(cause)
             if self._active is not None or self._closing or self._sealed:
                 raise RuntimeError("Invalid invocation native call ownership.")
             if self._observer is None:
