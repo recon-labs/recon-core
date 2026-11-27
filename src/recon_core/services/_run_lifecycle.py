@@ -78,6 +78,66 @@ class _CompiledRunPlan:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _RunScopeFacts:
+    """Counts of retained result records, not proof of native execution attempts."""
+
+    planned_contract_count: int | None
+    planned_check_count: int | None
+    finalized_check_count: int
+    executed_check_count: int
+    complete: bool | None
+
+    @classmethod
+    def from_result(
+        cls,
+        plan: _CompiledRunPlan | None,
+        *,
+        known_empty: bool,
+        run_id: str,
+        result: RunResult | None,
+    ) -> "_RunScopeFacts":
+        contracts = result.contract_results if result is not None else ()
+        finalized = sum(len(contract.check_results) for contract in contracts)
+        executed = sum(
+            check.executed for contract in contracts for check in contract.check_results
+        )
+        if plan is None:
+            return cls(None, 0 if known_empty else None, finalized, executed, None)
+
+        complete = (
+            result is not None
+            and result.run_id == run_id
+            and result.project_name == plan.project_name
+            and _matches_plan(plan, result)
+        )
+        return cls(
+            len(plan.contracts),
+            sum(len(contract.checks) for contract in plan.contracts),
+            finalized,
+            executed,
+            complete,
+        )
+
+
+def _matches_plan(plan: _CompiledRunPlan, result: RunResult) -> bool:
+    if len(plan.contracts) != len(result.contract_results):
+        return False
+    for planned, actual in zip(plan.contracts, result.contract_results, strict=True):
+        if planned.contract_name != actual.contract_name:
+            return False
+        if len(planned.checks) != len(actual.check_results):
+            return False
+        for expected, check in zip(planned.checks, actual.check_results, strict=True):
+            if (
+                expected.check_id != check.check_id
+                or expected.check_type != check.check_type
+                or planned.contract_name != check.contract_name
+            ):
+                return False
+    return True
+
+
 class _NativeAdmission(StrEnum):
     NOT_REACHED = "not_reached"
     REFUSED = "refused"
@@ -110,6 +170,7 @@ class _InvocationOutcome:
     plan: _CompiledRunPlan | None = field(repr=False)
     run_result: RunResult | None = field(repr=False)
     resource_facts: tuple[_CheckResourceFacts, ...] = field(repr=False)
+    scope_facts: _RunScopeFacts
 
 
 @dataclass(slots=True)
@@ -121,6 +182,14 @@ class _RunInvocation:
     stage: _RunStage = _RunStage.PROJECT_CONFIGURATION
     plan: _CompiledRunPlan | None = field(default=None, repr=False)
     resource_facts: dict[str, _CheckResourceFacts] = field(default_factory=dict, repr=False)
+    known_empty_scope: bool = False
+    scope_facts: _RunScopeFacts | None = None
+
+    def inspect_scope(self, result: RunResult | None) -> _RunScopeFacts:
+        self.scope_facts = _RunScopeFacts.from_result(
+            self.plan, known_empty=self.known_empty_scope, run_id=self.run_id, result=result
+        )
+        return self.scope_facts
 
     def finish(
         self,
@@ -134,8 +203,6 @@ class _RunInvocation:
             assert self.project_name is not None
             run_result = replace(
                 run_result,
-                run_id=self.run_id,
-                project_name=self.project_name,
                 started_at=self.started_at,
                 finished_at=finished_at,
             )
@@ -159,4 +226,5 @@ class _RunInvocation:
             plan=self.plan,
             run_result=run_result,
             resource_facts=tuple(self.resource_facts.values()),
+            scope_facts=self.scope_facts or self.inspect_scope(run_result),
         )

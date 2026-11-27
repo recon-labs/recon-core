@@ -178,7 +178,10 @@ class RunService:
             if isinstance(result, RunResult):
                 run_result = result
                 invocation.stage = _RunStage.RESULT_PROJECTION
-                service_result = _run_service_result(result)
+                if invocation.inspect_scope(result).complete is True:
+                    service_result = _run_service_result(result)
+                else:
+                    service_result = _engine_failure_result()
             else:
                 service_result = result
         except Exception:
@@ -206,6 +209,13 @@ class RunService:
         loader = self.loader if self.loader is not None else CompiledCheckLoader()
         load_result = loader.load(context.paths.target_path)
         if not load_result.succeeded:
+            invocation.known_empty_scope = (
+                not load_result.artifacts
+                and bool(load_result.diagnostics)
+                and all(
+                    diagnostic.code == NO_COMPILED_CHECKS for diagnostic in load_result.diagnostics
+                )
+            )
             return _load_failure_result(load_result)
 
         if any(artifact.project_name != context.config.name for artifact in load_result.artifacts):

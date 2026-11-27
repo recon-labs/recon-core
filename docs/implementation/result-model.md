@@ -70,7 +70,20 @@ admission through the existing capability gates; otherwise capability admission
 is unknown, with typed final non-execution reasons retained by the result model. Native reported byte intervals are
 not exact physical consumption. Catalog row advisory evidence retains availability
 and threshold outcome, never estimated row totals. Unreached stages remain
-unknown. Invocation-wide counts and publication are separate responsibilities.
+unknown. The invocation retains private planned contract/check counts, finalized
+result-record counts, executed-result counts and a scope-completeness fact.
+A validated empty-check diagnostic establishes zero planned checks but does not
+establish a matching contract plan; other unvalidated scope remains unknown.
+The service verifies returned invocation, project, contract and ordered check
+identities against the immutable loaded plan before projecting success. Missing,
+extra, duplicated, reordered or foreign results fail the invocation with a safe
+engine diagnostic while preserving returned records privately. Finalized and
+executed counts describe retained records (including untrusted records if scope
+is incomplete), not native attempts or distinct verified planned checks.
+Execution means the existing result-model `executed` flag, not an attempted
+native call. Scope completeness is independent of comparison status; no result
+is invented for an unprepared check. Invocation-wide attempts and publication
+remain separate responsibilities.
 The private outcome is not a new serialized or stable result API.
 The public `ServiceResult` dictionary, command exit mapping and no-write
 boundary remain unchanged. See [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
