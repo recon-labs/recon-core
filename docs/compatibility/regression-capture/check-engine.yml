@@ -115,6 +115,7 @@ captures:
       - tests/check_engine/test_engine.py::test_engine_reports_multiple_missing_prerequisites_once
       - tests/check_engine/test_engine.py::test_shared_prerequisite_evaluated_once_across_contracts
       - tests/check_engine/test_engine.py::test_dependency_cycle_does_not_dispatch_cyclic_checks
+      - tests/check_engine/test_engine.py::test_deep_dependency_chain_keeps_every_planned_result
     carryover_gates:
       - gate: check_engine_semantics_carryover
         status: covered
@@ -127,7 +128,9 @@ captures:
       prerequisites fail, error, are blocked, are skipped or are not executable.
       Shared prerequisites evaluate once per invocation across contracts. Cycles
       cannot dispatch cyclic checks; repeated blockers appear once in diagnostics.
-      Pass and warning outcomes retain existing prerequisite satisfaction.
+      Deep valid or blocked chains retain every result without relying on
+      interpreter recursion depth. Pass and warning outcomes retain existing
+      prerequisite satisfaction.
   - id: aggregate-admission-typed-plan-boundary
     title: Aggregate plan admission rejects unsupported payload and placement
     area: check-engine

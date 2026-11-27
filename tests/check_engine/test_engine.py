@@ -1458,19 +1458,16 @@ def test_dependency_cycle_does_not_dispatch_cyclic_checks(tmp_path: Path, self_c
     assert independent_result.status is CheckStatus.PASS
 
 
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
 @pytest.mark.parametrize("missing_leaf", [False, True])
-def test_deep_dependency_chain_keeps_every_planned_result(
-    tmp_path: Path, missing_leaf: bool
-) -> None:
+def test_deep_dependency_chain_keeps_every_planned_result(tmp_path: Path, missing_leaf: bool) -> None:
     # Above the ordinary interpreter recursion depth, not a runtime check limit.
     count = 1500
     checks = tuple(
         _check(
             check_id=f"check-{index}",
             name=f"check-{index}",
-            prerequisites=(f"check-{index + 1}",)
-            if index + 1 < count or missing_leaf
-            else (),
+            prerequisites=(f"check-{index + 1}",) if index + 1 < count or missing_leaf else (),
         )
         for index in range(count)
     )

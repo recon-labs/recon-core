@@ -1,6 +1,6 @@
 """Check-engine orchestration for loaded compiled checks."""
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Protocol
@@ -99,7 +99,6 @@ class CheckEngine:
                     check,
                     check_results_by_id,
                     checks_by_id,
-                    active_check_ids=frozenset(),
                     execution_context=execution_context,
                 )
                 for check in artifact.checks
@@ -130,45 +129,60 @@ class CheckEngine:
         check: LoadedCompiledCheck,
         check_results_by_id: dict[str, CheckResult],
         checks_by_id: dict[str, LoadedCompiledCheck],
-        active_check_ids: frozenset[str],
         execution_context: CheckExecutionContext | None,
     ) -> CheckResult:
-        existing_result = check_results_by_id.get(check.id)
-        if existing_result is not None:
-            return existing_result
+        if check.id in check_results_by_id:
+            return check_results_by_id[check.id]
 
-        def resolve_prerequisite(
-            prerequisite_check: LoadedCompiledCheck,
-            prerequisite_active_check_ids: frozenset[str],
-        ) -> CheckResult:
-            return self._result_for_check(
-                prerequisite_check,
-                check_results_by_id,
-                checks_by_id,
-                active_check_ids=prerequisite_active_check_ids,
-                execution_context=execution_context,
-            )
+        # Depth-first evaluation uses the existing index and result cache.
+        # An explicit stack avoids an interpreter-dependent depth limit.
+        pending: list[tuple[LoadedCompiledCheck, Iterator[str]]] = [
+            (check, iter(check.prerequisites))
+        ]
+        active_check_ids = {check.id}
+        while pending:
+            current, prerequisites = pending[-1]
+            prerequisite_id = next(prerequisites, None)
+            if prerequisite_id is None:
+                result = self._evaluate_ready_check(
+                    current, check_results_by_id, execution_context
+                )
+            elif prerequisite_id in check_results_by_id:
+                continue
+            elif prerequisite_id in active_check_ids:
+                result = _internal_error_result(current)
+            else:
+                prerequisite = checks_by_id.get(prerequisite_id)
+                if prerequisite is None:
+                    # The existing blocker policy reports missing prerequisites.
+                    continue
+                active_check_ids.add(prerequisite_id)
+                pending.append((prerequisite, iter(prerequisite.prerequisites)))
+                continue
 
-        blocked_result = blocked_result_if_needed(
-            check,
-            check_results_by_id,
-            checks_by_id,
-            active_check_ids=active_check_ids | {check.id},
-            resolve_prerequisite=resolve_prerequisite,
-            cycle_result_factory=_internal_error_result,
-        )
+            check_results_by_id[current.id] = result
+            active_check_ids.remove(current.id)
+            pending.pop()
+
+        return check_results_by_id[check.id]
+
+    def _evaluate_ready_check(
+        self,
+        check: LoadedCompiledCheck,
+        check_results_by_id: Mapping[str, CheckResult],
+        execution_context: CheckExecutionContext | None,
+    ) -> CheckResult:
+        blocked_result = blocked_result_if_needed(check, check_results_by_id)
         if blocked_result is not None:
-            check_results_by_id[check.id] = blocked_result
             return blocked_result
 
         rendering_blocked_result = rendering_blocked_result_if_needed(check)
         if rendering_blocked_result is not None:
-            check_results_by_id[check.id] = rendering_blocked_result
             return rendering_blocked_result
 
         try:
             dispatch_result = self._dispatcher.dispatch(check)
-            result = (
+            return (
                 runtime_execution_result_if_available(
                     check,
                     dispatch_result,
@@ -177,10 +191,7 @@ class CheckEngine:
                 or dispatch_result
             )
         except Exception:
-            result = _internal_error_result(check)
-
-        check_results_by_id[check.id] = result
-        return result
+            return _internal_error_result(check)
 
 
 def _index_checks(

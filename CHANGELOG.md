@@ -46,6 +46,7 @@ This project follows semantic versioning once public package releases begin.
   output and exit codes are unchanged; no new result artifact is written.
   Preserve mixed outcomes and at-most-once shared prerequisite evaluation;
   a skipped required prerequisite cannot authorize dependent execution.
+  Long dependency chains no longer exhaust the interpreter call stack.
 
 - Unreleased adapter-scoped DuckDB execution policy: independent automatic,
   fixed MiB or percentage memory/spill controls, memory-aware automatic

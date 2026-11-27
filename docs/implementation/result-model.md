@@ -218,7 +218,9 @@ A required prerequisite must produce a usable pass or warning outcome to allow
 its dependent check to proceed. A skipped prerequisite does not supply that
 proof, even though an unrelated skipped check can coexist with a passing run.
 Shared prerequisites evaluate at most once per invocation; result presentation
-preserves loaded artifact order. A dependency cycle cannot execute its cyclic
+preserves loaded artifact order. Dependency traversal uses an explicit stack
+rather than the interpreter call stack; no fixed check-count or depth limit is
+introduced. A dependency cycle cannot execute its cyclic
 checks, and repeated blocker references appear once in the blocker explanation.
 No selector or skip-policy execution is introduced here.
 
