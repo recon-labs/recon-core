@@ -1985,9 +1985,7 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
         assert len(checks) == 3
         assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
         assert any("controller scope is incomplete" in d.message for d in result.diagnostics)
-        parallelism = [
-            d for d in result.diagnostics if "Automatic threads reduced" in d.message
-        ]
+        parallelism = [d for d in result.diagnostics if "Automatic threads reduced" in d.message]
         assert len(parallelism) == (1 if mode == "auto-threads" else 0)
         assert all(d.severity is DiagnosticSeverity.WARNING and d.hint for d in parallelism)
         monkeypatch.chdir(tmp_path)

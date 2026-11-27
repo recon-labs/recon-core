@@ -254,6 +254,12 @@ def _resource_advisories(
             "not a host or container limit guarantee.",
             "Inspect container resource limits locally and adjust managed settings if needed.",
         )
+    if targets.automatic_threads_reduced:
+        warn(
+            "Automatic threads reduced to suit the managed-memory target; "
+            "native memory limits do not bound total process memory.",
+            "Provide more memory headroom or tune managed-memory and threads for the workload.",
+        )
     if inputs.scratch_memory_backed is True:
         warn(
             "Spill storage is memory-backed; it shares memory headroom with query execution.",

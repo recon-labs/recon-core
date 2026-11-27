@@ -370,7 +370,9 @@ def test_automatic_parallelism_uses_known_managed_memory_without_admission_floor
     expected_memory = (
         min(headroom // 2, native_memory)
         if headroom is not None and native_memory is not None
-        else headroom // 2 if headroom is not None else native_memory
+        else headroom // 2
+        if headroom is not None
+        else native_memory
     )
     assert targets.managed_memory_bytes == expected_memory
     assert targets.threads == expected

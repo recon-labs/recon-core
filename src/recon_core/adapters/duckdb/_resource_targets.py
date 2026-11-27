@@ -7,6 +7,11 @@ from typing import Literal
 
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
 
+# DuckDB's published minimum memory-per-thread rule of thumb (decimal MB).
+# A best-effort automatic parallelism heuristic, never an admission floor.
+# https://duckdb.org/docs/current/guides/performance/environment
+_AUTO_MEMORY_PER_THREAD_BYTES = 125_000_000
+
 
 @dataclass(frozen=True, slots=True)
 class _LocalResourceInputs:
@@ -28,6 +33,7 @@ class _LocalResourceTargets:
     threads: int | None
     spill_bytes: int | None
     reduced_authored_targets: tuple[str, ...]
+    automatic_threads_reduced: bool = False
 
 
 def _minimum_known(*values: int | None) -> int | None:
@@ -98,6 +104,21 @@ def _calculate_local_resource_targets(
         policy.threads if policy.threads is not None else inputs.native_threads, cpu
     )
 
+    automatic_threads_reduced = False
+    if (
+        policy.threads is None
+        and headroom is not None
+        and memory is not None
+        and memory > 0
+        and threads is not None
+        and threads > 0
+    ):
+        # Preserve a usable single-thread attempt and never invent missing
+        # CPU capacity. Explicit thread requests retain their original semantics.
+        tuned = min(threads, max(1, memory // _AUTO_MEMORY_PER_THREAD_BYTES))
+        automatic_threads_reduced = tuned < threads
+        threads = tuned
+
     spill_request = _percentage_request(policy.spill_percent, free, setting="spill")
     if policy.spill_bytes is not None:
         spill_request = policy.spill_bytes
@@ -125,4 +146,5 @@ def _calculate_local_resource_targets(
         threads=threads,
         spill_bytes=spill,
         reduced_authored_targets=reduced,
+        automatic_threads_reduced=automatic_threads_reduced,
     )
