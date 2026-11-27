@@ -11,8 +11,8 @@ from pathlib import Path, PurePosixPath
 from typing import Final, TypeVar
 
 from recon_core.adapters._portable_resource_observation import (
-    _observe_portable_resources,
     _bounded_integer,
+    _observe_portable_resources,
 )
 
 _MAX: Final = (1 << 63) - 1
