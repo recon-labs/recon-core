@@ -415,10 +415,9 @@ probe changes were limited to the workflow and synthetic script; product
 tree unchanged. [Initial probe](https://github.com/recon-labs/recon-core/actions/runs/46031265268)
 failed before executing SQL because the checkout was shallow. Corrected
 [probe](https://github.com/recon-labs/recon-core/actions/runs/46031361731)
-at 7308834d2d4f69d657420d251779936c2e0b9cc6, 7/8 completed successful lanes
-; macOS 26 / 1.4.5 remained queued at the checkpoint.
+at 7308834d2d4f69d657420d251779936c2e0b9cc6, all 8/8 lanes completed successfully, including macOS 26 / 1.4.5 (job 140615701881).
 Actual successful lanes include all four supported pins on Linux, macOS 15
-with 1.0.0, Windows 2022 with 1.0.0 and Windows 2025 with 1.4.5.
+with 1.0.0, macOS 26 with 1.4.5, Windows 2022 with 1.0.0 and Windows 2025 with 1.4.5.
 Each completed lane demonstrated interruption of a synthetic active query,
 repeated interruption across a deliberately forced pre-launch gap, joined
 execution/control calls and an unchanged operational unrelated connection.
@@ -445,7 +444,7 @@ the M8.1.2 prerequisite. These independent probes justify the selected
 portable coordination direction, not the implementation of the actual
 RunService deadline, signal path, fetch/cleanup races or safe metadata.
 All B1-B10 production-path and platform proofs remain mandatory, including
-macOS 26 if its required lane is available, equivalent evidence or recorded
-blocker under P1-P6 otherwise. The temporary branch refs were restored
+the complete maintained native platform matrix, equivalent evidence or recorded
+blocker under P1-P6 if an image is unavailable. The temporary branch refs were restored
 to the exact baseline; experiment files are absent from mergeable trees.
 No release, global gate closure or runtime implementation approval.
