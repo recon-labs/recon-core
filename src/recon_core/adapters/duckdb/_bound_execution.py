@@ -347,6 +347,23 @@ class _OwnedDuckDbSession:
             self._invalidated = True
             raise
 
+    def request_interrupt(self) -> bool:
+        """Request native interruption, not confirmed query termination.
+
+        The owner must wait for the executing call and the interrupt caller
+        to return before closing the session. No guard or scratch is released
+        here, and the interrupted session is not reusable.
+        """
+
+        if not self._transaction or self._cleanup is not None or self._connection is None:
+            return False
+        try:
+            self._connection.interrupt()
+        except Exception:
+            return False
+        self._invalidated = True
+        return True
+
     def close(self) -> tuple[Diagnostic, ...]:
         if self._cleanup is not None:
             return self._cleanup
