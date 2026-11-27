@@ -675,8 +675,10 @@ with extra combinations for affected controls. Do not count aliases as
 different OS releases or automatically drop prior supported regressions.
 Use isolated bounded fixtures and no customer data.
 
-Add a periodic compatibility workflow (monthly is the initial cadence),
-manual dispatch and relevant PR/change validation. New releases and runner
+The native-resource-compatibility.yml workflow implements monthly cadence,
+manual dispatch, relevant PR/main changes and release tags. Its initial
+nine-lane exact proof is recorded in the compatibility matrix; preserve
+standard required CI and revalidate the final milestone revision. New releases and runner
 image/label retirement, reported compatibility failures, or a relevant
 dependency update require reevaluation rather than waiting for the next
 schedule. Check scheduled runs are enabled and actually ran; record missed

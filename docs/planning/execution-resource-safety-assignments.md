@@ -371,7 +371,7 @@ requires a concrete execution-scope rationale, not mere API absence.
 
 | Owner/checkpoint | Mandatory platform obligation |
 | --- | --- |
-| M8.1.2 | P1-P6 for local DuckDB resource discovery, native controls, worker/IPC, scratch and warning behavior; implement and verify initial persistent multi-version compatibility CI before exit. |
+| M8.1.2 | P1-P6 for local DuckDB resource discovery, verified native controls and binding, private scratch and warning behavior; implement and verify initial persistent multi-version compatibility CI before exit. |
 | M8.2 / M8.3 | Preserve limitations and advice through invocation lifecycle, bounded diagnostic deduplication, cancellation and safe structured publication; no status/exit reclassification. |
 | M10 / M10.7 / M10.8 | Readiness review of tested versus untested environments, user setup and warning/recovery guidance, reprove local scope expansion and platform matrix. |
 | M11-M12 PostgreSQL | P1-P6 before experimental admission: actual client OS/driver/server/deployment, session/permission and native resource controls, transfer and cancellation as applicable. |
