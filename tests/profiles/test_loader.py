@@ -993,3 +993,95 @@ profiles:
     assert result.profile is None
     assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROFILE_CONFIG"
     assert "PRIVATE_SENTINEL" not in repr(result.diagnostics)
+
+
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_selected_target_resolves_scoped_resource_policy_precedence(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    project = tmp_path / "recon_project.yml"
+    project.write_text(
+        project.read_text(encoding="utf-8")
+        + """
+execution:
+  adapters:
+    duckdb:
+      managed-memory: {percent: 75}
+      spill: {mib: 4096}
+      threads: 8
+      max-database-mib: 1024
+      warn-estimated-input-rows: 50000
+""",
+        encoding="utf-8",
+    )
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy: {type: duckdb, database: private.duckdb}
+          warehouse: {type: duckdb, database: private.duckdb}
+          other: {type: duckdb, database: other.duckdb}
+        execution:
+          adapters:
+            duckdb:
+              managed-memory: {mib: 2048}
+              spill: {percent: 80}
+          connections:
+            legacy:
+              managed-memory: auto
+              threads: auto
+              max-database-mib: none
+              warn-estimated-input-rows: none
+            warehouse:
+              managed-memory: {percent: 60}
+              spill: auto
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile_for_connection_names(
+        context_result.context,
+        referenced_connection_names=("legacy", "warehouse", "other"),
+        environ={},
+    )
+
+    assert result.succeeded
+    assert result.profile is not None
+    assert (
+        result.profile.connections["legacy"].config
+        == result.profile.connections["warehouse"].config
+    )
+    policies = result.profile._execution_policies
+    assert set(policies) == {"legacy", "warehouse", "other"}
+
+    legacy = policies["legacy"]
+    assert legacy.managed_memory_bytes is None
+    assert legacy.managed_memory_percent is None
+    assert legacy.spill_bytes is None
+    assert legacy.spill_percent == 80
+    assert legacy.threads is None
+    assert legacy.max_database_bytes is None
+    assert legacy.warn_estimated_input_rows is None
+
+    warehouse = policies["warehouse"]
+    assert warehouse.managed_memory_bytes is None
+    assert warehouse.managed_memory_percent == 60
+    assert warehouse.spill_bytes is None
+    assert warehouse.spill_percent is None
+    assert warehouse.threads == 8
+    assert warehouse.max_database_bytes == 1024 * (1 << 20)
+    assert warehouse.warn_estimated_input_rows == 50000
+
+    other = policies["other"]
+    assert other.managed_memory_bytes == 2048 * (1 << 20)
+    assert other.managed_memory_percent is None
+    assert other.spill_bytes is None
+    assert other.spill_percent == 80
+    assert other.threads == 8
+
