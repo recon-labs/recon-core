@@ -104,10 +104,8 @@ authorizes measured improvement of automatic memory/thread selection
 and explicit best-effort limitations with actionable advice. Keep authored
 fixed/percentage memory, explicit thread settings, precedence, spill
 scope and the native-first architecture unchanged. Compare baseline to
-DuckDB-specific automatic thread selection using its published memory
-per thread guidance (https://duckdb.org/docs/current/guides/performance/environment).
-The documented 125 decimal MB/thread rule of thumb and 1 GB/thread
-lower edge of ideal performance guidance are candidate tuning inputs,
+DuckDB-specific automatic thread selection using candidate memory budgets
+of 125 decimal MB or 1 GB per thread. These are candidate tuning inputs,
 not workload admission floors, physical guarantees or cross-adapter
 requirements. Retain at least one thread for otherwise usable native
 execution; do not raise zero capacity, introduce a hardcoded database
@@ -128,7 +126,7 @@ to 12/12; tmpfs from 6/12 PASS (three native ERROR, three kernel OOM) to
 both candidates 4 PASS/6 ERROR/2 OOM. At 2 GiB/4 CPU all three 12/12
 PASS, but 1 GB guidance restricts to one thread and is about 2-3 times
 slower than the four-thread candidate. Thus choose the less restrictive
-125 decimal MB/thread native guidance, not a workload admission floor.
+125 decimal MB/thread Recon tuning heuristic, not a workload admission floor.
 No claim that every workload benefits.
 
 Implemented at `42f0a3995a303dcfa37c4f9a678d5d5418381558` after eight
@@ -173,7 +171,7 @@ and actionable advisories verified. Both temporary harnesses removed
 Additional memory-fraction comparison [46021219113](https://github.com/recon-labs/recon-core/actions/runs/46021219113)
 at test-only commit `98397a0ce3196a45a972b065526ce3a3a805dfd8`:
 120 cases, four pins, three repetitions per configuration/workload.
-Both candidates use the same 125 MB/thread guidance; compare the current
+Both candidates use the same 125 MB/thread heuristic; compare the current
 50% automatic memory target with a 25% alternative. Actual observations
 and real project query execution were retained; only the candidate
 calculation was varied. No harness assertion failures.

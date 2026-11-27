@@ -27,7 +27,7 @@ See the [approved M8.1.2 prework](../planning/milestone-8-1-2-prework.md) for th
 
 The maintainer subsequently authorized focused measured tuning reassessment.
 The unreleased implementation retains 50% memory/90% spill starting ratios,
-uses known managed memory and DuckDB's published 125 MB/thread guidance to
+uses known managed memory and the measured 125 MB/thread heuristic to
 adjust only automatic threads, and retains explicit overrides. This is not
 an admission floor or total process memory guarantee. Native and OS-level
 resource failures remain distinct; no worker/retry/recovery mechanism.

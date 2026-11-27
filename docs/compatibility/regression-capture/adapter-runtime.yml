@@ -520,7 +520,7 @@ captures:
       calibration 46020823693: memory-aware automatic parallelism improves
       repeated large constrained workloads while preserving capable machine
       throughput; small wide and explicit high-memory settings can still
-      suffer kernel OOM. Retain the 125 decimal MB native-guidance heuristic
+      suffer kernel OOM. Retain the measured 125 decimal MB/thread heuristic
       as automatic tuning only, explicit overrides and unknown/zero behavior.
       Revalidate constrained/capable narrow/wide and tmpfs workloads on
       tuning/native/deployment change, distinguish native ERROR and OS kill.

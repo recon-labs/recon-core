@@ -312,8 +312,8 @@ If its denominator is unknown, use auto or an explicit MiB value. Auto
 managed memory uses half observed headroom, bounded by known native
 recommendations; auto spill uses 90% observed free scratch bytes or verified
 native automatic behavior. Automatic threads use available CPU/native
-recommendations and, when memory headroom is known, DuckDB's documented
-125 MB-per-thread sizing guidance against the managed target, with at least
+recommendations and, when memory headroom is known, Recon's measured DuckDB
+125 MB-per-thread heuristic against the managed target, with at least
 one thread for otherwise usable execution. This is a tuning heuristic, not
 a minimum resource requirement. Authored thread counts override the
 memory-aware heuristic, subject to known CPU capacity. Explicit managed
