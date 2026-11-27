@@ -41,7 +41,7 @@ def test_portable_facts_preserve_available_memory_and_affinity() -> None:
 def test_invalid_host_observation_is_unknown(value: object) -> None:
     facts = _read_portable_facts(_provider(memory=value), "darwin", PurePosixPath("/tmp"))
     assert facts.host_available_bytes is None
-    assert facts.process_rss_bytes == 100
+    assert facts.affinity_count == 2
 
 
 def test_zero_memory_is_not_unknown() -> None:
