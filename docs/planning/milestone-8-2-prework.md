@@ -46,3 +46,191 @@ worker/IPC, automatic recovery or arbitrary admission limits. No selectors,
 new comparison operations, run-results writer, evidence or sinks. M8.3 owns
 publication and final CLI mapping. No default deadline/retry/concurrency
 policy is selected by this initial audit.
+
+## Proposed design for maintainer approval
+
+This proposal does not authorize implementation. ADR
+[0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md)
+is proposed, not accepted. Keep the existing milestone split: lifecycle
+and native stop coordination are cohesive; publication and broader
+execution remain separate. No new executor, process worker, scheduler,
+global resource manager or persistent recovery infrastructure.
+
+### Decision and behavior
+
+1. One invocation identity allocated before preparation, using the existing
+   random run-ID convention. UTC start/finish labels and monotonic elapsed
+   duration include configuration, artifact load, runtime setup, execution,
+   native cleanup and finalization. Early failures receive an invocation
+   envelope; unknown project/plan is absent, not fabricated. Clock rollback
+   cannot create negative elapsed time.
+2. Explicit compile then run remains the default. Existing structural and
+   matching-artifact checks remain mandatory; malformed/missing/inconsistent
+   inputs fail with no native read. No automatic parse/compile, cache,
+   timestamps-as-freshness proof or claim of authored-source freshness.
+   M10.5 owns semantic freshness/fingerprints. Report compiled scope, not
+   current authored project equivalence. No new output files.
+3. Existing engine owns prerequisite resolution and at-most-once evaluation;
+   explicit immutable in-memory plan identifies loaded checks, dependency
+   graph and whole compiled scope, without SQL/profile/data values. Preserve
+   artifact order for presentation; do not introduce a second graph engine.
+   Keep planned and actual admission/placement/availability separate.
+4. Preserve existing check/contract/run status aggregation and command
+   mappings. Invocation lifecycle is separate from check status: setup or
+   cancellation failure must never aggregate to successful/no-check outcome.
+   Completed valid results remain distinguishable from interrupted and
+   unstarted work. Active interrupted checks are runtime errors without
+   comparison values; remaining planned work is not executed with an explicit
+   cancellation/deadline reason (proposed additive reasons, not a new
+   status family). No misleading skipped-by-selection or prerequisite reason.
+   Preserve primary failure and cleanup failure independently.
+5. Proposed optional positive integer invocation timeout in seconds, explicit
+   command option and equivalent embedded argument; default absent, no new
+   resource YAML keys or environment precedence. Exact option name proposed
+   `--timeout-seconds`; reject zero, negative, bool, invalid and native
+   conversion overflow. Deadline is monotonic, shared from entry to
+   completion, never reset per check. Expiry requests stop; no new check or
+   native statement starts after stop is observed. Deadline is not a hard
+   bound on process termination; required cleanup may outlast it.
+6. Embedded cancellation is cooperative and invocation-local (caller-owned
+   cancellation signal/token; exact API to be approved), no library signal
+   handler or process-wide cancellation. CLI Ctrl-C must use the same
+   lifecycle path where supported; distinguish delivery/request, active
+   native interrupt, executing-call return, confirmed stop, confirmed close
+   and cleanup. Request alone is not proof. On cancellation during setup,
+   execution or cleanup, retain truthful outcome and do not close a live
+   native call. Race with completed work resolved by one lifecycle owner;
+   a stop before finalization cannot be misreported as successful complete
+   reconciliation. Native interruption is adapter-owned; use existing
+   session, not a second executor. Prove request/launch and completion races
+   and real CLI signal behavior on supported platforms before claiming
+   responsiveness. No force-kill, external-process protection guarantee or
+   daemon orphan; if required cancellation cannot be safely proved, stop
+   implementation and revisit design rather than silently weakening scope.
+7. Serial native check scheduling (one active native check per invocation),
+   with adaptive native threads retained. Shared elapsed budget across all
+   work; track check attempts and elapsed/observed facts separately from
+   estimates and managed memory/spill targets. No arbitrary check-count,
+   total-row, file-size, cumulative CPU/memory/disk default or invented
+   physical consumption. Actual cumulative scan/transfer/cost/physical
+   limits not available in this scope; retain explicit unknown/unsupported
+   dimensions and future adapter/multi-context gate assignments. No
+   concurrent check fan-out until separately justified/proven. No automatic
+   retry, backoff, escalation or replay of a changing snapshot; external
+   callers may explicitly start a fresh invocation. Retain affected-database
+   cleanup isolation for ordinary failures, stop all new work for invocation
+   cancellation, and retain unverified scratch rather than sweep it.
+8. No stable new serialization, raw RunResult export, public result artifact
+   or sink. Keep existing ServiceResult fields, dict and exit behavior;
+   proposal is a typed, privacy-safe in-memory invocation outcome/metadata
+   handoff behind existing service boundary, no source/target values, raw
+   estimates/SQL/plan text, paths, native errors or profile payloads. Preserve
+   existing bounded internal comparison data behavior. M8.3 owns versioned
+   allowlisted publication and final terminal projection. Non-run commands
+   must remain unchanged.
+
+### Dimension-expanded acceptance and test plan (proposed)
+
+All test entries below are required cases, not claims of existing tests.
+Use the existing test suites and capture rows before adding narrowly scoped
+new nodes. Test-first; actual RED for critical false-success, cancellation
+race, missing cleanup and budget enforcement defects. Each implementation
+slice and final cumulative phase uses review-fix-revalidate.
+
+| Family | Dimensions / required cases | Expected behavior and proof owner |
+| --- | --- | --- |
+| B1 | Success/fail/warn/error/empty; config/load/setup/engine/cleanup errors; clock jumps, subsecond duration, repeated invocation | One ID, full monotonic duration and true finish, absent unknown metadata, no false completion. Service tests with controlled clocks and real delayed cleanup. Gate 5. |
+| B2 | Valid/missing/malformed/unsupported-version/mismatched artifacts, duplicate IDs, mixed empty/nonempty, authored YAML edited/malformed, concurrent artifact change | Preserve existing loader validations; no auto-compile/write or stale-current claim. Snapshot loaded plan and validate required bindings at execution. Artifact/service tests; freshness/cache proof later. Gates 5/5E. |
+| B3 | All seven check statuses and eight aggregate statuses, pairwise precedence, empty/mixed, missing/cyclic/failed/unsupported prerequisite, repeated shared prerequisite | Existing model remains authoritative, one result per planned check; no silent skip, no double execution. Engine/model tests; Gate 1A/5. |
+| B4 | Config/setup/factory/capability/native/query/rollback/close failures; same versus different connection/session diagnostics; primary FAIL/ERROR plus cleanup failure | Preserve stage, reason and independent diagnostics, no result values on invalid outcome, same-context uncertainty does not poison unrelated work. Existing adapter/service tests plus invocation-level cases. Gates 3F2/4J/5/6. |
+| B5 | All nine supported check families, supported/unsupported capability and placement, hard admission failure, optional unknown estimate, explicit resource setting, reduced targets, true mismatch | Existing guard executes no hard-blocked scan, warning cannot change comparison status or override hard refusal. Existing native/aggregate suites, actual supported versions. Gates 4I/4L/4P/8C. |
+| B6 | Whole compiled scope, multiple contracts, dependency ordering, empty plan, plan vs completed count after stop, future selected scope representation | Scope truthful; no selectors or fabricated full-project freshness; no sink/artifact references invented. Engine/service tests. Selector readiness. |
+| B7 | Embedded/CLI, all failure stages, secret/SQL/plan/path/relation/value canaries, diagnostic code/severity/hint, old service dict, preexisting outputs | No raw payload projection, no new generated files, no changes to prior artifacts or unrelated commands; preserve privacy and command contract. Gates 3F2/4J/5/6/5E. |
+| B8 | No timeout, explicit valid/invalid, before setup/query, between checks, active spilling query, interrupt failure, cancellation vs query launch/return/finalization, repeated request, Ctrl-C, non-main-thread embedded, abrupt kill | Request and confirmed stop distinct; shared deadline, no new work after observed stop, no premature success/release. Native actual tests on four pins and platform matrix; deterministic race tests and CLI subprocess/embedded proof. Abrupt process loss no returned result, no cleanup guarantee. Gate 4L/5/P1-P6. |
+| B9 | Normal release, rollback/close/scratch failure, interruption during cleanup, multiple affected aliases/unrelated DBs, abrupt residue, repeat invocation | Close only after executing/interrupt calls return; retained uncertain scratch; preserve primary failure; no adoption/sweep; ordinary affected-context block, invocation stop all. Actual native and injected cleanup tests. Gate 4L/5/6. |
+| B10 | Single/multiple checks, prerequisites, changing resource observations, deadline consumed by prior checks/setup/cleanup, independent runs, no timeout, explicit retry as new invocation | One active owned native session per invocation, no hidden retry or budget reset, measured elapsed not fabricated resource use, fresh policy per check. No arbitrary cap or physical guarantee. Actual native trace + service tests; future parallel and cross-context budgets gated. Gate 4L/5. |
+
+Regression carryover: check existing `project-binding-check-local-cleanup`,
+`key-safety-prerequisites-block-dependent-checks`,
+`aggregate-runtime-scan-preflight`,
+`aggregate-runtime-capability-isolation`,
+`aggregate-native-service-lifecycle`,
+`aggregate-service-output-privacy`, `compiled-artifact-yaml-loader-diagnostics`,
+`duckdb-owned-project-binding`, `local-adaptive-resource-targets`,
+`duckdb-worker-process-lifecycle` (historic ID now native outcomes),
+`duckdb-controlled-owned-session`, scratch/privacy rows and matching
+index routes. No applicable pending capture row identified in reviewed files;
+implementation must add/update reusable lifecycle regressions with real
+test nodes and rerun capture metadata and branch-wide advisory. No
+placeholder nodes or coverage claims.
+
+### BDD acceptance scenarios
+
+- Given configuration fails before engine setup, when run returns, then
+  the invocation has an ID, timing and failure stage, no fake check results.
+- Given compile completed yesterday and authored YAML changes today, when
+  run consumes valid compiled inputs, then it executes the compiled plan,
+  does not silently recompile or claim freshness.
+- Given two checks share a prerequisite, when evaluating the plan, then
+  it evaluates once, preserves dependency semantics and both result identities.
+- Given a run has a 60-second timeout and setup plus first check uses 55
+  seconds, when the next check starts, then only the remaining invocation
+  budget is available; expiration stops later native work. Cleanup time
+  is included even if total duration exceeds 60 seconds.
+- Given an active native query receives a cancellation request, when native
+  return and interrupt caller are still pending, then neither release nor
+  successful completion is claimed; once stopped, close and clean safely.
+- Given a native failure and later cleanup failure, when finalizing, then
+  both are distinguishable, no comparison value is published and only
+  affected database work is blocked unless the whole invocation is stopped.
+- Given a caller repeats a failed invocation, then a fresh ID and bindings
+  are used; Recon never automatically repeats a comparison.
+- Given a process is externally killed, then no completed outcome is
+  invented, no retained scratch is adopted, no unrelated state is deleted.
+
+### Source and responsibility map
+
+| Existing boundary | Owns / may change | Must not own |
+| --- | --- | --- |
+| `services/run.py`, private focused lifecycle/plan helper if justified | invocation ID/clocks, preparation, plan handoff, cancellation policy, finalization and command projection | SQL, native control math, duplicate engine/graph, artifact writer |
+| `check_engine/engine.py`, prerequisites/models | one dependency evaluation/cache, typed plan consumption, outcome aggregation and explicit not-started reason | connection lifecycle, OS signals, CLI, publication |
+| `services/_bound_runner.py`, private owned-session protocol | register active session with invocation controller, stop before native work, ensure cleanup and affected-context isolation | global scheduler, native SQL settings, unsafe cross-thread close |
+| `adapters/duckdb/_bound_execution.py` | verified native interruption and call/close ordering; existing native policy/scratch ownership | invocation budgets, retry, host termination, new adapter API requirement |
+| `services/results.py`, `cli/main.py` | existing command result/exit mapping; minimal optional invocation control and safe diagnostic wiring | raw result serialization, global library signal handler, generated files |
+| Existing loader/config modules | preserve compiled input validation and current scoped config | implicit compile or new cache/freshness mechanism |
+
+Possible private helper names are not design commitments. Extract only cohesive
+ownership, not a generic framework. Preserve BaseAdapter API, all existing
+supported operations and public serialized shapes; new timeout/cancellation
+entrypoints and reason codes are additive proposed public changes, requiring
+approval, strict validation and compatibility/changelog documentation at
+implementation. No schema/version bump for artifacts not emitted here.
+
+### Scoped gate dispositions and exit
+
+- Gate 5: proposed ADR 0027 covers identity, explicit compile, lifecycle,
+  existing statuses/exit mapping and typed metadata. Durable schema
+  versioning/publication and final CLI semantics remain C1-C10.
+- Gates 1A/4I/4P: preserve prerequisite/canonical binding, typed native
+  placement and existing strict type proof (T7-T10 applicable; no type
+  widening). T1-T6 retrofit remains M9.5, scope restoration M10.8 etc.
+- Gate 4L/8C/P1-P6: R6-R8 invocation proof, all native pins and platform
+  cases, no OS allowlist or hard physical guarantee; future adapter-specific
+  proof and M8.3 publication retained.
+- Gates 3F2/4J/6: safe messages and per-event diagnostic identity; no raw
+  values or native exception payloads. Gate 5E: no artifact writes, existing
+  owned current-check scratch only; M8.3 writer separate.
+- Selector readiness: compiled scope distinguishable from actually executed
+  work; no selector execution. Sink references absent, no external writes.
+- Before implementation: explicit approval of proposal and any unresolved
+  native control/API choices, validate public docs, ensure exact scope and
+  compatibility alignment; any actual required proof not obtainable is a
+  blocker, not a waiver. No gate globally closed.
+- Definition of Done: all B1-B10 variants and BDD mapped to real test nodes,
+  critical RED/GREEN, preserved A/R/P regressions and existing native suites,
+  actual deadline/cancel/cleanup evidence for required pins/platforms, no
+  false success or privacy drift, no new writes, review-fix on each slice
+  and final cumulative branch; Ruff format/lint, mypy, full CI, native
+  matrix, pre-commit and branch-wide regression capture advisory pass.
+  Docs, compatibility/changelog, private continuity and future gates synced.
+  Separate implementation and merge approval; no release or M8.3 work.
