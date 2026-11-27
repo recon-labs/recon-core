@@ -568,8 +568,13 @@ current OS/Python/pin builds, synthetic future/missing API cases, real
 larger-than-RAM spill, small costly workload, insufficient disk and
 active-spill native interrupt, explicit override and measured final
 tuning; (6) capture/index and branch-wide advisory, actual exact test
-nodes and gate dispositions, docs/user guide/changelog, scoped exit
-review and separate merge approval. Critical safety assertion RED then
+nodes and gate dispositions, docs/user guide/changelog; (7) mandatory
+cumulative review-fix-revalidate loop on the entire branch until a fresh
+review of the latest validated revision finds no actionable in-scope
+findings and all exit proof is complete, then separate merge approval.
+Apply the same loop and semantic anti-pattern checks within every
+implementation/change iteration; report concise evidence-based status and
+blockers as required by milestone-process.md. Critical safety assertion RED then
 GREEN via CI when local unavailable. No fabricated node or green-job-only
 proof. Existing Windows live-WAL-copy failure must be replaced with
 equivalent actual portable fixture and verified, not waived. Prove
