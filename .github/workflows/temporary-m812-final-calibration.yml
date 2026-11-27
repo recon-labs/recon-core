@@ -34,9 +34,11 @@ jobs:
           printf 'FROM python:3.11-slim\nWORKDIR /app\nCOPY . /app\nRUN pip install --no-cache-dir -e ".[dev,duckdb]" duckdb==%s\n' "$PIN" > "$ROOT/Dockerfile"
           docker build -q -f "$ROOT/Dockerfile" -t recon-m812-calibration .
           USER_ARGS=(--user "$(id -u):$(id -g)" --network none --rm)
-          docker run "${USER_ARGS[@]}" --memory 2g --cpus 2 -v "$ROOT/project:/fixture:rw" recon-m812-calibration python -u scripts/temporary_m812_final_calibration.py setup /fixture
+          docker run "${USER_ARGS[@]}" --memory 2g --cpus 2 -v "$ROOT/project:/fixture:rw" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration setup /fixture
+          status=0
           for spec in "512 large fixed scratch" "512 large auto scratch" "512 large percent scratch" "2048 large capable scratch" "512 small fixed scratch" "512 large low-disk low"; do
             read -r ram kind mode storage <<< "$spec"
             echo "CASE $spec"
-            timeout --kill-after=5s 120s docker run "${USER_ARGS[@]}" --memory "${ram}m" --memory-swap "${ram}m" --cpus 2 -v "$ROOT/project:/fixture:rw" -v "$ROOT/$storage:/scratch:rw" recon-m812-calibration python -u scripts/temporary_m812_final_calibration.py run /fixture /scratch "$kind" "$mode"
+            timeout --kill-after=5s 120s docker run "${USER_ARGS[@]}" --memory "${ram}m" --memory-swap "${ram}m" --cpus 2 -v "$ROOT/project:/fixture:rw" -v "$ROOT/$storage:/scratch:rw" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration run /fixture /scratch "$kind" "$mode" || { echo "CASE_FAILED $spec"; status=1; }
           done
+          exit "$status"
