@@ -436,6 +436,8 @@ def test_aggregate_scan_safety_blocks_before_adapter_setup(
             connection.close()
 
     write_duckdb_row_count_run_inputs(tmp_path, database)
+    if fixture == "oversized":
+        _set_project_duckdb_execution(tmp_path, {"max-database-mib": 64})
     write_compiled_checks(tmp_path, checks=[_aggregate_check(grouped=grouped)])
     factory = _TrackingAggregateFactory()
     registry = AdapterRegistry()
@@ -1546,25 +1548,32 @@ def test_aggregate_rejects_wrong_factory_connection_before_open(
     _assert_no_runtime_outputs(tmp_path)
 
 
+def _set_project_duckdb_execution(path: Path, settings: dict[str, object]) -> None:
+    project_path = path / "recon_project.yml"
+    project = yaml.safe_load(project_path.read_text(encoding="utf-8"))
+    project["execution"] = {"adapters": {"duckdb": settings}}
+    project_path.write_text(yaml.safe_dump(project, sort_keys=False), encoding="utf-8")
+
+
 @pytest.mark.parametrize("offset", [-1, 0, 1])
-@pytest.mark.parametrize("family", ["row", "key", "scalar", "grouped"])
+@pytest.mark.parametrize("family", range(9))
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
-def test_legacy_footprint_policy(
-    tmp_path: Path, offset: int, family: str, session_trace: _NativeSessionTrace
+def test_explicit_footprint_policy(
+    tmp_path: Path, offset: int, family: int, session_trace: _NativeSessionTrace
 ) -> None:
     database = tmp_path / "warehouse.duckdb"
     with database.open("wb") as stream:
         stream.truncate(64 * 1024 * 1024 + offset)
     write_duckdb_row_count_run_inputs(tmp_path, database)
-    payload = {
-        "row": _compiled_check_payload(operations=row_count_plan()),
-        "key": _key_safety_payload_for("missing_keys"),
-        "scalar": _aggregate_check(),
-        "grouped": _aggregate_check(grouped=True),
-    }[family]
-    write_compiled_checks(tmp_path, checks=[payload])
-    # The sparse file is only file-size evidence, not a valid database.
-    # Observe whether admission permits an open attempt without reading it.
+    _set_project_duckdb_execution(tmp_path, {"max-database-mib": 64})
+    payloads = [
+        _compiled_check_payload(operations=row_count_plan()),
+        *_all_key_safety_checks(),
+        _aggregate_check(),
+        _aggregate_check(grouped=True),
+    ]
+    write_compiled_checks(tmp_path, checks=[payloads[family]])
+    # A sparse file supplies only size evidence; no data read is possible.
     session_trace.failures[1] = "connect"
     engine = _CapturingAggregateEngine()
     result = RunService(
@@ -1575,7 +1584,7 @@ def test_legacy_footprint_policy(
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
     check = engine.result.contract_results[0].check_results[0]
-    if offset > 0 and family != "row":
+    if offset > 0:
         assert check.status is CheckStatus.NOT_EXECUTABLE
         assert "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics}
         assert session_trace.sessions == []
@@ -1588,8 +1597,8 @@ def test_legacy_footprint_policy(
 
 
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
-def test_large_native_database_does_not_cap_row_count(
-    tmp_path: Path, session_trace: _NativeSessionTrace
+def test_large_native_database_without_default_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, session_trace: _NativeSessionTrace
 ) -> None:
     database = _write_native_aggregate_inputs(
         tmp_path,
@@ -1600,8 +1609,7 @@ def test_large_native_database_does_not_cap_row_count(
     duckdb = _duckdb_module()
     writer = duckdb.connect(str(database))
     try:
-        # Deterministic high-entropy UBIGINT columns keep this synthetic
-        # fixture above the legacy cap without making the checked tables large.
+        # High-entropy synthetic padding makes the file exceed the old cap.
         columns = ", ".join(f"hash(i * 10 + {j}) as c{j}" for j in range(10))
         writer.execute(f"create table padding as select {columns} from range(1250000) r(i)")
     finally:
@@ -1611,25 +1619,72 @@ def test_large_native_database_does_not_cap_row_count(
         tmp_path,
         checks=[
             _compiled_check_payload(operations=row_count_plan()),
-            _key_safety_payload_for("missing_keys"),
+            *_all_key_safety_checks(),
             _aggregate_check(),
             _aggregate_check(grouped=True),
         ],
     )
+    before = database.stat()
     engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.result is not None
+    checks = engine.result.contract_results[0].check_results
+    assert len(checks) == 9
+    assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
+    assert checks[0].source_value == checks[0].target_value == 1
+    assert len(session_trace.sessions) == len(session_trace.closes) == 9
+    monkeypatch.chdir(tmp_path)
+    assert CliRunner().invoke(main, ["run"]).exit_code == 0
+    assert len(session_trace.sessions) == len(session_trace.closes) == 18
+
+    _set_project_duckdb_execution(tmp_path, {"max-database-mib": 64})
     result = RunService(start_path=tmp_path, engine=engine).execute()
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
-    row, *heavy = engine.result.contract_results[0].check_results
-    assert row.status is CheckStatus.PASS
-    assert row.source_value == row.target_value == 1
-    assert all(check.status is CheckStatus.NOT_EXECUTABLE for check in heavy)
+    checks = engine.result.contract_results[0].check_results
+    assert all(check.status is CheckStatus.NOT_EXECUTABLE and not check.executed for check in checks)
     assert all(
-        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics} for check in heavy
+        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics} for check in checks
     )
-    assert len(session_trace.sessions) == len(session_trace.closes) == 1
-    assert len(session_trace.row_queries) == 1
-    assert session_trace.aggregate_columns == []
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 3 and "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in cli.output
+    assert len(session_trace.sessions) == len(session_trace.closes) == 18
+    assert database.stat().st_size == before.st_size
+    assert database.stat().st_mtime_ns == before.st_mtime_ns
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize("threshold", [1, 2, 3])
+@pytest.mark.parametrize("same_relation", [False, True])
+def test_optional_native_input_row_estimate_is_role_summed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, threshold: int, same_relation: bool
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=False,
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    if same_relation:
+        write_compiled_contract(tmp_path, target_relation="qa.source_customers")
+    _set_project_duckdb_execution(tmp_path, {"warn-estimated-input-rows": threshold})
+    result = RunService(start_path=tmp_path).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    warnings = [
+        d for d in result.diagnostics if d.code == "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY"
+    ]
+    assert bool(warnings) is (threshold < 2)
+    assert all(d.severity is DiagnosticSeverity.WARNING for d in warnings)
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 0
+    assert ("RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY" in cli.output) is (threshold < 2)
+    assert "qa.source_customers" not in cli.output
+    assert "qa.target_customers" not in cli.output
+    _assert_no_runtime_outputs(tmp_path)
 
 
 @pytest.mark.regression_capture("duckdb-owned-project-binding")

@@ -1448,6 +1448,10 @@ profiles:
     target: dev
     outputs:
       dev:
+        execution:
+          adapters:
+            duckdb:
+              max-database-mib: 64
         connections:
           warehouse:
             type: duckdb

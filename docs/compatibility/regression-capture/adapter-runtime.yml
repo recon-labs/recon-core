@@ -414,8 +414,8 @@ captures:
       - tests/adapters/test_duckdb_bound_execution.py::test_mismatched_table_metadata_is_invalid_evidence
       - tests/services/test_run_service_bound_execution.py::test_actual_session_and_aliases_writer_conflict
       - tests/services/test_run_service_aggregate_admission.py::test_all_nine_checks_use_owned_transaction_and_qualified_queries
-      - tests/services/test_run_service_aggregate_admission.py::test_legacy_footprint_policy
-      - tests/services/test_run_service_aggregate_admission.py::test_large_native_database_does_not_cap_row_count
+      - tests/services/test_run_service_aggregate_admission.py::test_explicit_footprint_policy
+      - tests/services/test_run_service_aggregate_admission.py::test_large_native_database_without_default_cap
       - tests/adapters/test_duckdb_bound_execution.py::test_file_drift_invalidates_active_lease
       - tests/adapters/test_duckdb_bound_execution.py::test_quoted_relation_and_temp_shadow_keep_exact_binding
       - tests/services/test_run_service_aggregate_admission.py::test_binding_drift_between_aggregate_guards_stops_final_read
@@ -481,6 +481,7 @@ captures:
       - tests/check_engine/test_local_resource_targets.py::test_adaptive_targets_follow_effective_environment
       - tests/services/test_run_service_bound_execution.py::test_project_run_alias_policy_uses_resolved_scratch_and_precedence
       - tests/services/test_run_service_bound_execution.py::test_project_resource_advisories_are_safe_and_do_not_change_outcome
+      - tests/services/test_run_service_aggregate_admission.py::test_optional_native_input_row_estimate_is_role_summed
       - tests/check_engine/test_local_resource_targets.py::test_unknown_is_not_zero_or_unlimited
       - tests/check_engine/test_local_resource_targets.py::test_memory_backed_scratch_cannot_double_count_headroom
       - tests/check_engine/test_local_resource_targets.py::test_relative_targets_follow_changing_capacity
