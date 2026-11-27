@@ -5,11 +5,14 @@ from typing import Any
 
 import pytest
 import yaml
+from click.testing import CliRunner
 
 from recon_core.adapters import AdapterRegistry, AdapterResolutionResult, ConnectionConfig
+from recon_core.adapters._local_resource_observation import _LocalObservation
 from recon_core.adapters.duckdb import DuckDbAdapter
 from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.check_engine import CheckEngine, CheckStatus, RunResult
+from recon_core.cli.main import main
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
@@ -752,3 +755,75 @@ def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
         assert not opened
         assert str(scratch) not in repr(result) and str(other) not in repr(result)
     assert not list(scratch.iterdir()) and not list(other.iterdir())
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize("mode", ["auto", "reduced", "percent"])
+@pytest.mark.parametrize("different", [False, True])
+def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, different: bool
+) -> None:
+    database = tmp_path / "private-warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(
+        duckdb,
+        database,
+        source_rows=((1,),),
+        target_rows=((2,), (3,)) if different else ((2,),),
+    )
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    tuning: dict[str, object] = {}
+    if mode == "reduced":
+        tuning = {"managed-memory": {"mib": 128}, "threads": 2, "spill": {"mib": 64}}
+    elif mode == "percent":
+        tuning = {"managed-memory": {"percent": 75}}
+    profile["profiles"]["local"]["outputs"]["dev"]["execution"] = {
+        "connections": {"warehouse": tuning}
+    }
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+
+    def observe(scratch: Path) -> _LocalObservation:
+        return _LocalObservation(
+            host_available_bytes=64 * 1024 * 1024 if mode == "reduced" else None,
+            platform_cpu_count=1 if mode == "reduced" else None,
+            affinity_count=None,
+            linux_constraints=None,
+            scratch_free_bytes=32 * 1024 * 1024 if mode == "reduced" else None,
+            scratch_memory_backed=False,
+            platform="synthetic",
+        )
+
+    monkeypatch.setattr(binding, "_observe_local_resources", observe)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    if mode == "percent":
+        assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
+        assert outcome.source_value is None and outcome.target_value is None
+        assert result.exit_category is ExitCategory.RUNTIME_ERROR
+        assert any("percentage" in d.message for d in result.diagnostics)
+    else:
+        assert outcome.status is (CheckStatus.FAIL if different else CheckStatus.PASS)
+        assert result.exit_category is (
+            ExitCategory.CHECK_FAILURE if different else ExitCategory.SUCCESS
+        )
+        warnings = [d for d in result.diagnostics if d.severity is DiagnosticSeverity.WARNING]
+        assert len(warnings) == 3
+        assert all(d.hint for d in warnings)
+        assert all(
+            any(dimension in d.message for d in warnings)
+            for dimension in ("managed-memory", "threads", "spill")
+        )
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == (3 if mode == "percent" else 1 if different else 0)
+    if mode != "percent":
+        assert "Warning:" in cli.output
+        assert all(d.code in cli.output for d in warnings)
+    else:
+        assert "percentage" in cli.output
+    assert str(database) not in repr(result) and str(database) not in cli.output
+    assert str(tmp_path) not in repr(result) and str(tmp_path) not in cli.output
