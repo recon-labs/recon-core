@@ -1,4 +1,5 @@
 import ast
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -1279,3 +1280,18 @@ class _RecordingDuckDbAdapter(BaseAdapter):
 
 class _OtherAdapter(_RecordingDuckDbAdapter):
     adapter_type = "otherdb"
+
+def test_engine_computes_finish_when_no_label_is_supplied(tmp_path: Path) -> None:
+    artifact = _artifact(tmp_path, checks=(_check(),))
+    before = datetime.now(UTC)
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at=before.isoformat(),
+        finished_at=None,
+    )
+
+    assert result.finished_at is not None
+    assert before <= datetime.fromisoformat(result.finished_at) <= datetime.now(UTC)
+    assert result.status is RunStatus.NOT_EXECUTABLE

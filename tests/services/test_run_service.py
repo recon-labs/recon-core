@@ -1,5 +1,8 @@
 import ast
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 import recon_core.adapters as adapters_module
 import recon_core.adapters.default_renderers as default_renderers_module
@@ -264,3 +267,114 @@ def test_run_service_sanitizes_engine_boundary_exception(tmp_path: Path) -> None
     )
     assert "super-secret" not in diagnostic_text
     assert "traceback" not in diagnostic_text.lower()
+
+def test_run_service_clock_surrounds_preparation_and_evaluation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+    events: list[str] = []
+    labels = iter(("2026-11-27T10:00:00.123Z", "2026-11-27T10:00:02.456Z"))
+    received: dict[str, Any] = {}
+    original_load = run_service_module.load_project_context
+
+    def timestamp() -> str:
+        events.append("timestamp")
+        return next(labels)
+
+    def load(*args: Any, **kwargs: Any) -> Any:
+        events.append("project")
+        return original_load(*args, **kwargs)
+
+    class RecordingEngine(_CapturingPassEngine):
+        def run(self, *args: Any, **kwargs: Any) -> Any:
+            events.append("engine")
+            received.update(kwargs)
+            return super().run(*args, **kwargs)
+
+    monkeypatch.setattr(run_service_module, "_utc_timestamp", timestamp)
+    monkeypatch.setattr(run_service_module, "load_project_context", load)
+    result = RunService(start_path=tmp_path, engine=RecordingEngine()).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert events == ["timestamp", "project", "engine", "timestamp"]
+    assert received["started_at"] == "2026-11-27T10:00:00.123Z"
+    assert received["finished_at"] is None
+
+
+@pytest.mark.parametrize(
+    ("failure", "stage", "category"),
+    [
+        ("project", "project_configuration", ExitCategory.CONFIGURATION_ERROR),
+        ("checks", "compiled_checks", ExitCategory.RUNTIME_ERROR),
+        ("empty", "compiled_checks", ExitCategory.RUNTIME_ERROR),
+        ("contracts", "compiled_contracts", ExitCategory.RUNTIME_ERROR),
+        ("setup", "runtime_setup", ExitCategory.CONFIGURATION_ERROR),
+        ("engine", "check_execution", ExitCategory.RUNTIME_ERROR),
+    ],
+)
+def test_run_invocation_retains_identity_on_early_failure(
+    tmp_path: Path, failure: str, stage: str, category: ExitCategory
+) -> None:
+    if failure != "project":
+        write_project(tmp_path, profile="missing" if failure == "setup" else None)
+    if failure in {"empty", "contracts", "setup", "engine"}:
+        write_compiled_checks(
+            tmp_path,
+            checks=[]
+            if failure == "empty"
+            else [_compiled_check_payload(operations=row_count_plan())]
+            if failure == "setup"
+            else None,
+        )
+    if failure in {"setup", "engine"}:
+        write_compiled_contract(tmp_path)
+    service = RunService(start_path=tmp_path, engine=_RaisingEngine())
+
+    outcome = service._execute_invocation()
+    another = service._execute_invocation()
+
+    assert outcome.run_id.startswith("run-") and len(outcome.run_id) == 36
+    assert outcome.run_id != another.run_id
+    assert outcome.project_name == (None if failure == "project" else "ecommerce_recon")
+    assert outcome.stage.value == stage
+    assert outcome.status.value == "failed"
+    assert outcome.run_result is None
+    assert outcome.elapsed_ns >= 0
+    assert outcome.started_at.endswith("Z") and outcome.finished_at.endswith("Z")
+    assert outcome.service_result.exit_category is category
+    assert outcome.service_result.to_dict() == service.execute().to_dict()
+    assert "super-secret" not in repr(outcome)
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_run_invocation_elapsed_survives_wall_clock_rollback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+    labels = iter(("2026-11-27T10:00:01.123Z", "2026-11-27T09:59:59.456Z"))
+    ticks = iter((1_000_000_000, 1_250_000_000))
+    monkeypatch.setattr(run_service_module, "_utc_timestamp", lambda: next(labels))
+    monkeypatch.setattr(run_service_module, "monotonic_ns", lambda: next(ticks))
+
+    outcome = RunService(start_path=tmp_path, engine=_CapturingPassEngine())._execute_invocation()
+
+    assert outcome.status.value == "completed"
+    assert outcome.started_at == "2026-11-27T10:00:01.123Z"
+    assert outcome.finished_at == "2026-11-27T09:59:59.456Z"
+    assert outcome.elapsed_ns == 250_000_000
+    assert outcome.run_result is not None
+    assert outcome.run_result.run_id == outcome.run_id
+    assert outcome.run_result.started_at == outcome.started_at
+    assert outcome.run_result.finished_at == outcome.finished_at
+    assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+    assert set(outcome.service_result.to_dict()) == {
+        "exit_category",
+        "exit_code",
+        "message",
+        "diagnostics",
+    }
+    _assert_no_runtime_outputs(tmp_path)

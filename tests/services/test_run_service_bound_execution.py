@@ -7,6 +7,7 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
+import recon_core.services.run as run_service_module
 from recon_core.adapters import AdapterRegistry, AdapterResolutionResult, ConnectionConfig
 from recon_core.adapters._local_resource_observation import _LocalObservation
 from recon_core.adapters.duckdb import DuckDbAdapter
@@ -878,3 +879,31 @@ def test_future_platform_observation_label_does_not_refuse_verified_native_scope
     assert "future-platform-label" not in cli.output
     assert "Warning:" not in cli.output
     assert database.read_bytes() == before
+
+def test_native_run_finish_is_recorded_after_confirmed_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    events: list[str] = []
+    labels = iter(("2026-11-27T10:00:00.123Z", "2026-11-27T10:00:02.456Z"))
+    real_close = binding._OwnedDuckDbSession.close
+
+    def timestamp() -> str:
+        events.append("timestamp")
+        return next(labels)
+
+    def close(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        diagnostics = real_close(session)
+        assert session.released
+        events.append("closed")
+        return diagnostics
+
+    monkeypatch.setattr(run_service_module, "_utc_timestamp", timestamp)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", close)
+    result = RunService(start_path=tmp_path).execute()
+
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert events == ["timestamp", "closed", "timestamp"]
