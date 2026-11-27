@@ -143,14 +143,33 @@ Windows releases and existing Linux/macOS lanes.
 ### Exact proposed policy and configuration
 
 Use optional project `execution.scan-budget.local` (config-version 1).
-Retain six leaves only: `max-database-mib`, `warn-estimated-input-rows`,
-`managed-memory-mib`, `threads`, `spill-mib`, `scratch-directory`.
+Retain eight optional leaves: `max-database-mib`, `warn-estimated-input-rows`,
+`managed-memory-mib`, `managed-memory-percent`, `threads`, `spill-mib`,
+`spill-percent`, `scratch-directory`. Maintainer approved the percentage
+extension on 2026-11-27; overall replacement and implementation approval
+remain separate.
 All absent by default; empty maps equal absence. Strict positive integers
 not bool/float/string/null; bytes = MiB * 1048576 with checked signed
 64-bit range; thread native accepted domain checked; strict mappings,
 duplicate/unknown keys rejected. Directory nonempty path string, absolute
 or project-relative existing directory, resolve once, no implicit expansion,
-creation of authored parent or silent alternate base. No new env/profile/
+creation of authored parent or silent alternate base. Percentages are strict
+integers 1 through 100 inclusive (not bool, float, string or null). Each
+percentage is mutually exclusive with its corresponding MiB leaf; reject
+both present even if equivalent before adapter execution. Memory and spill
+choose independently; missing both means automatic. CPU remains automatic
+or explicit threads; no CPU percentage or process quota. Example:
+
+```yaml
+execution:
+  scan-budget:
+    local:
+      managed-memory-percent: 75
+      spill-percent: 80
+```
+
+Use `managed-memory-mib: 65536` instead of `managed-memory-percent` for a
+fixed 64 GiB request. Omit both for the adaptive default. No new env/profile/
 contract/CLI overrides, public config-version change or secret echo.
 Propose removing the two unreleased reserve leaves and continuous pressure
 monitor, and mandatory recovery; explicit memory/thread/spill targets
@@ -195,9 +214,15 @@ unknown native recommendation from the minimum if native control support
 otherwise established. H unknown -> retain native recommendation if valid
 and warn; if no valid recommendation, leave native automatic setting only
 when actual native execution/private spill protection is independently
-verified, warn inability to tune. Authored memory target replaces the
+verified, warn inability to tune. Authored fixed memory target replaces the
 50% heuristic/native recommendation, capped by known finite H when
-applicable; emit safe adjustment advisory if lowered. Do not promise
+applicable; emit safe adjustment advisory if lowered. Authored percentage
+p replaces both the default heuristic and native recommendation:
+M = floor(H*p/100), using trustworthy available headroom, not total RAM.
+If H is unavailable, refuse affected setup before data reads with sanitized
+advice to use automatic mode or fixed MiB; never silently substitute 50%,
+native defaults or total RAM. Partial trustworthy facts may be used with
+material incomplete-scope advisory. Do not promise
 effective physical limit. Known zero or target below supported positive
 native resolution must not be rounded up; report unusable resource
 condition before affected data work (no arbitrary small workload cap).
@@ -207,7 +232,8 @@ universal safety rule. DuckDB documents managed memory exclusions and
 headroom rather than total. Probe 45920824959: 20/20 exact successes for
 50%/75% and explicit one-thread alternatives; 75% faster on tested wide
 cases, 50% leaves greater margin for non-managed allocations and shared
-usage. Choose 50% initially, explicit override not restricted to 50%.
+usage. Choose 50% initially, explicit fixed or percentage override not
+restricted to 50%; higher percentages trade headroom for potential throughput.
 Final implementation-level calibration includes native recommendation
 clamp (not applied in experiment), constrained/capable and changing load,
 larger CPU machines, small costly versus large narrow, actual spill and
@@ -225,11 +251,14 @@ restriction. Do not infer CPU quota from installed cores alone.
 
 F = actual available bytes at selected scratch directory from disk_usage.
 Default spill target S = floor(9*F/10), using DuckDB's documented native
-90% disk convention, not universal quota. Explicit spill replaces heuristic
+90% disk convention, not universal quota. Explicit fixed spill replaces heuristic
 and is capped by known available F, warn if lowered; no physical reserve
-guarantee. F unknown -> use verified native automatic spill mechanism
-where supported, warn missing disk observation; explicit supported native
-spill target still applies, unknown free bytes is not unlimited. Known
+guarantee. Authored percentage q uses S = floor(F*q/100), not total disk.
+F unknown -> use verified native automatic spill mechanism where supported,
+warn missing disk observation; explicit supported fixed target still applies.
+Explicit spill-percent with unknown F refuses affected setup with actionable
+advice to use automatic/fixed MiB or an observable scratch base. No silent
+substitution; unknown free bytes is not unlimited. Known
 no usable positive spill target: use native no-spill only if exact effect
 verified and emit warning, otherwise affected resource setup error; no
 silent alternate directory, no fabricated minimum. A known memory-backed
@@ -244,6 +273,43 @@ if unavailable, verified equivalent or affected refusal, not a silently
 ignored ceiling. Automatic optional tuning missing -> native best effort
 with actionable warning when required scope/privacy/native capability is
 proven. Actual OOM/disk failure -> ERROR not FAIL, no implicit retry.
+
+### Percentage override acceptance and lifecycle (approved extension)
+
+Use checked integer arithmetic without intermediate overflow (or arbitrary
+precision followed by native range checks), conservatively floor to supported
+native units. Apply existing zero, verified no-spill, shared memory-backed
+scratch, required-control and cleanup rules identically across modes. No
+arbitrary minimum or silent fallback. Observe capacity freshly before each
+admitted check in both CLI and embedded paths. Growth or shrinkage changes
+automatic and percentage targets next check; fixed requests stay fixed except
+known-capacity adjustment. No live resize, autoscaler invocation, reservation
+or promise that capacity remains available; invisible capacity is not assumed.
+
+| Acceptance variant | Mandatory implementation proof (A1/A3/A4/A6/A10/A12/A13; R2-R4/R6/R7/R10; P1-P6) |
+| --- | --- |
+| Configuration | Omitted/empty mapping; independent auto/fixed/percent modes; 1/50/75/90/100; reject 0/101/negative/bool/float/string/null, paired conflicting fields, duplicates and unknown keys. |
+| Pure policy | Exact byte arithmetic, non-divisible capacity, native unit flooring, overflow/native domain, zero vs unknown, partial facts, native recommendation below explicit percent, independent dimensions, fixed known-capacity adjustment. |
+| Changing capacity | Same project and percentage across RAM/disk increase and decrease; recompute per check; fixed unchanged until capacity cap; automatic native recommendation clamp; CPU unchanged; no mid-check resize. |
+| Failure/advice | Unknown explicit percent denominator refuses before affected data reads; automatic and fixed behavior unchanged; bounded sanitized actionable diagnostic, partial scope warning; no silent fallback or mismatch; actual native error is ERROR. |
+| Native integration | Both modes of invocation, all nine check families, four pinned engines and representative older/current OS/Python; actual setting effects, bounded exact results, real spill/insufficient disk, memory-backed scratch, cancellation, cleanup and unrelated observer unchanged. Distinguish injected arithmetic proof from measured native effects; controlled changing capacity. |
+
+BDD: Given unchanged configuration `managed-memory-percent: 75` and observed
+headroom 16 GiB, 32 GiB, then 8 GiB across checks, request 12, 24 and 6 GiB
+respectively, subject to native representation and required protection;
+unrelated sessions unchanged. Given unknown headroom, refuse the explicitly
+percentage-configured affected check and advise alternatives. Automatic
+missing optional evidence remains best effort where safe. Fixed 12 GiB
+stays fixed at 16/32 GiB headroom and adjusts down at 8 GiB.
+
+Responsibility: existing config parser validates exclusivity/domain; pure
+scan-budget policy calculates requested/effective targets from fresh typed
+observations; adapter owns native application/effect proof; existing service
+and CLI own safe advisories. No second policy or public mode selector.
+Extend existing `local-adaptive-resource-targets` capture; record actual test
+nodes at implementation exit, not fabricated passing nodes. Future adapters
+with elastic capacity independently assess automatic, relative and absolute
+controls where native semantics support them; no universal percent or syntax.
 
 ### Private temporary storage and failure behavior
 
@@ -317,7 +383,8 @@ assignments unchanged, no universal DuckDB mechanism imposed.
 
 Implementation sequence after explicit approval: (1) inventory parked
 candidate changes and approved retirement/replacement capture rows,
-test-first strict six-field config/pure policy (unknown/zero/ranges/
+test-first strict eight-field config/pure policy (mode exclusivity, percent
+arithmetic, changing capacity, unknown/zero/ranges/
 precedence/no default cap); (2) minimal portable observations and native
 controls/private scratch (actual effect and failure tests); (3) guarded
 native bound session, bounded count, exact identity and noninterference,
@@ -339,8 +406,9 @@ guard/close/cleanup before any result becomes PASS. Persistent CI must
 retain P1-P6, actual image/release/build/arch and version, periodic/
 on-demand/release/change validation, coverage gaps and triage.
 
-Approval requested for one common guarded native path, six optional
-leaves and adjustable 50%/90% default heuristics, minimal observations,
+Approval requested for one common guarded native path, eight optional
+leaves with approved percentage extension and adjustable 50%/90% default
+heuristics, minimal observations,
 no mandatory pressure monitor or automatic crash recovery, baseline
 native conflicting-configuration refusal retained with advice.
 Remaining actual implementation and exit proofs above are mandatory.
