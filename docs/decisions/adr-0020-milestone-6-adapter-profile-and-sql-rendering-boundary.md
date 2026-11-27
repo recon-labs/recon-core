@@ -95,6 +95,24 @@ connection validation, and future debug commands. Plain parse does not need to
 load profiles. Compile loads profiles only when adapter-aware rendering or
 adapter capability validation is requested.
 
+### Planned operational policy boundary (not implemented)
+
+
+
+The current resource configuration proposal is adapter-scoped project defaults,
+selected profile target adapter defaults, and selected target named connection
+overrides, in that order after adapter defaults. Operational policy stays out
+of connection identity/factory payloads, credentials and comparison contracts.
+Resolve each logical setting atomically, with explicit reset to automatic or
+absent; no generic deep merge or global engine-specific default. Unreferenced
+policy values and inactive targets do not affect selected work; validate
+applicable policy, adapter namespace, connection names and conflicting same-
+context aliases before affected data reads. Preserve existing binding and
+profile-selection/redaction, plain parse/compile and public API. No new generic
+adapter method, shared native setting syntax, or hard quota guarantee.
+
+See [current M8.1.2 configuration proposal](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration). This additive proposal does not reopen the accepted profile/adapter routing rules or implement new profile schema support by itself.
+
 ### Adapter API boundary
 
 Recon will separate the adapter boundary into two concepts:
