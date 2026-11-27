@@ -265,6 +265,8 @@ def test_owned_session_cleanup_failures(
     "mismatch", ["check", "operation", "source", "target", "session", "ended", "sidecar", "rebind"]
 )
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
+@pytest.mark.regression_capture("duckdb-worker-control-protocol")
+@pytest.mark.regression_capture("duckdb-worker-bound-session-scope")
 def test_lease_invalidation(tmp_path: Path, duckdb: Any, mismatch: str) -> None:
     path = tmp_path / "local.data"
     writer = duckdb.connect(str(path))
@@ -330,6 +332,8 @@ def test_lease_invalidation(tmp_path: Path, duckdb: Any, mismatch: str) -> None:
         assert session.close() == ()
 
 
+@pytest.mark.regression_capture("duckdb-worker-control-protocol")
+@pytest.mark.regression_capture("duckdb-worker-bound-session-scope")
 def test_scope_refusal_cannot_be_rebound(tmp_path: Path, duckdb: Any) -> None:
     path = tmp_path / "local.data"
     writer = duckdb.connect(str(path))
@@ -354,6 +358,7 @@ def test_scope_refusal_cannot_be_rebound(tmp_path: Path, duckdb: Any) -> None:
         assert session.close() == ()
 
 
+@pytest.mark.regression_capture("duckdb-worker-bound-session-scope")
 def test_bound_query_reads_canonical_relation(tmp_path: Path, duckdb: Any) -> None:
     path = tmp_path / "local.data"
     writer = duckdb.connect(str(path))
@@ -385,6 +390,7 @@ def test_bound_query_reads_canonical_relation(tmp_path: Path, duckdb: Any) -> No
 
 
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
+@pytest.mark.regression_capture("duckdb-worker-control-protocol")
 def test_aggregate_describe_cannot_bypass_invalidated_binding(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -574,6 +580,7 @@ def test_quoted_relation_and_temp_shadow_keep_exact_binding(tmp_path: Path, duck
 
 @pytest.mark.parametrize("operation", ["row_count_diff", "sum_diff"])
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
+@pytest.mark.regression_capture("duckdb-worker-bound-session-scope")
 def test_lease_rejects_wrong_transport_family(tmp_path: Path, duckdb: Any, operation: str) -> None:
     path = tmp_path / "local.data"
     writer = duckdb.connect(str(path))

@@ -93,6 +93,7 @@ class _CapturingEngine(CheckEngine):
     ("uncertain_close", "reported"), [(False, True), (True, True), (True, False)]
 )
 @pytest.mark.regression_capture("project-binding-check-local-cleanup")
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
 def test_cleanup_failure_is_check_local_or_stops_native_execution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain_close: bool, reported: bool
 ) -> None:

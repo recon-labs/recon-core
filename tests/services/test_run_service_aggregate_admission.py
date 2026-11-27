@@ -818,6 +818,7 @@ def _assert_native_aggregate_result(
     ],
 )
 @pytest.mark.regression_capture("aggregate-native-service-numeric-semantics")
+@pytest.mark.regression_capture("duckdb-worker-lossless-result-transport")
 def test_native_aggregate_service_numeric_outcomes_and_privacy(
     tmp_path: Path,
     grouped: bool,
@@ -1690,6 +1691,7 @@ def test_optional_native_input_row_estimate_is_role_summed(
 
 
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
+@pytest.mark.regression_capture("duckdb-worker-bound-session-scope")
 def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

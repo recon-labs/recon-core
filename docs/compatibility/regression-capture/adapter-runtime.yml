@@ -634,25 +634,27 @@ captures:
       native resource error is not a successful comparison or a hard disk quota.
 
   - id: duckdb-worker-lossless-result-transport
-    title: Worker numeric frames preserve exact native values and reject invalid lengths
+    title: Owned native numeric reads preserve exact values and bounded shapes
     area: adapter-runtime
     bug_class: scan_safety
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
-      - tests/adapters/test_duckdb_worker_result_codec.py::test_integer_transport_is_lossless
-      - tests/adapters/test_duckdb_worker_result_codec.py::test_truncated_and_oversized_frame_rejected_before_payload_read
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_preserves_native_numeric_values
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_large_typed_integer_ignores_decimal_context
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_real_driver_arbitrary_integer_availability
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_rejects_invalid_envelope_without_leaking_values
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_real_driver_rejects_multiple_rows
+      - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_service_numeric_outcomes_and_privacy
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
-        expected_suite: native_resource_worker_transport
-        rationale: Codec proof must be extended to actual owned worker transport and native numeric domains.
+        expected_suite: native_bounded_result_transport
+        rationale: Future adapters must prove exact native domains and bounded result transport at their actual execution boundary.
     requirement_refs:
-      - docs/planning/milestone-8-1-2-prework.md: A5 and worker transport
+      - docs/planning/milestone-8-1-2-prework.md: A5 native bounded result outcomes
     notes: >
-      Length-delimited closed numeric tags preserve native precision and reject
-      malformed frames without unbounded payload allocation. No arbitrary object
-      deserialization or comparison scope change.
+      The unreleased worker codec and frame-length mechanism were retired with the approved native-first path. Preserve exact integers, decimals, native nonfinite classification, invalid shape rejection and bounded native reads. No worker framing requirement.
 
   - id: duckdb-bound-count-result-transport
     title: Project count summaries reject malformed native rows with bounded reads
@@ -666,8 +668,8 @@ captures:
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
-        expected_suite: native_resource_worker_transport
-        rationale: Native worker framing and end-to-end bounded count proof remain required.
+        expected_suite: native_bounded_result_transport
+        rationale: Future adapters must prove bounded count reads at their actual native boundary.
     requirement_refs:
       - docs/planning/milestone-8-1-2-prework.md: A5 and worker transport
     notes: >
@@ -676,51 +678,45 @@ captures:
       remains authoritative and public low-level adapter reads are unchanged.
 
   - id: duckdb-worker-control-protocol
-    title: Isolated worker rejects malformed and replayed control messages
+    title: Owned native lease rejects stale or mismatched execution proof
     area: adapter-runtime
     bug_class: scan_safety
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
-      - tests/adapters/test_duckdb_resource_worker.py::test_worker_control_packet_is_closed_and_bounded
-      - tests/adapters/test_duckdb_resource_worker.py::test_worker_rejects_stale_sequence_before_native_work
-      - tests/adapters/test_duckdb_resource_worker.py::test_worker_repeated_probe_invalidates_child
+      - tests/adapters/test_duckdb_bound_execution.py::test_lease_invalidation
+      - tests/adapters/test_duckdb_bound_execution.py::test_scope_refusal_cannot_be_rebound
+      - tests/adapters/test_duckdb_bound_execution.py::test_aggregate_describe_cannot_bypass_invalidated_binding
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
-        expected_suite: native_resource_worker_transport
-        rationale: Bootstrap messages are bounded; bound query request, scope and result framing remain required.
+        expected_suite: native_binding_scope
+        rationale: Future adapters must prove single-use scope and stale-proof rejection with their own native mechanism.
     requirement_refs:
-      - docs/planning/milestone-8-1-2-prework.md: A5 and B8 worker protocol
+      - docs/planning/milestone-8-1-2-prework.md: A4 A5 A7 A13 and B8 native binding
     notes: >
-      Fixed control messages reject invalid tags, truncated data and stale
-      sequences. No user database, SQL or arbitrary objects in bootstrap.
+      Retire unreleased IPC packet framing, bootstrap, replay sequence and watchdog-specific assertions. The native lease is single-use and rejects mismatched or invalidated scope before reads, including transport-generated DESCRIBE.
 
   - id: duckdb-worker-process-lifecycle
-    title: Worker stop confirmation and parent liveness are independently verified
+    title: Native interruption and confirmed release are distinct
     area: adapter-runtime
     bug_class: scan_safety
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
-      - tests/adapters/test_duckdb_resource_worker.py::test_worker_termination_confirmation
-      - tests/adapters/test_duckdb_resource_worker.py::test_stop_request_is_not_confirmed_exit
-      - tests/adapters/test_duckdb_resource_worker.py::test_parent_death_liveness
-      - tests/adapters/test_duckdb_resource_worker.py::test_parent_eof_interrupts_busy_control_handler
       - tests/adapters/test_duckdb_bound_execution.py::test_native_interrupt_request_is_not_release
       - tests/adapters/test_duckdb_bound_execution.py::test_native_interrupt_after_close_is_not_accepted
       - tests/adapters/test_duckdb_bound_execution.py::test_actual_guarded_native_interrupt_during_spill
+      - tests/services/test_run_service_bound_execution.py::test_cleanup_failure_is_check_local_or_stops_native_execution
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
-        expected_suite: native_resource_worker_lifecycle
-        rationale: Actual bound native query interruption, scratch ownership and L1 integration remain required.
+        expected_suite: native_resource_lifecycle
+        rationale: Future adapters require actual active native interruption, confirmed cleanup and affected-context isolation; broader invocation lifecycle belongs to M8.2.
     requirement_refs:
-      - docs/planning/milestone-8-1-2-prework.md: B8 and B9 worker prerequisites
+      - docs/planning/milestone-8-1-2-prework.md: B8 and B9 native stop and cleanup
     notes: >
-      A termination signal does not establish exit. Confirm reaping and
-      pipe release separately. Parent EOF watchdog is best effort, not a
-      hard guarantee for suspended or native-blocked processes.
+      The parked subprocess stop, reaping and parent EOF watchdog were retired. Native interrupt requests do not prove completion or release. Retain actual spill interruption, observer noninterference, confirmed native release and affected-context cleanup latch.
 
   - id: duckdb-controlled-owned-session
     title: Required native control verification precedes the owned transaction
@@ -740,7 +736,7 @@ captures:
       - gate: adapter_testkit_regression_carryover
         status: deferred
         expected_suite: native_resource_controls
-        rationale: Bound worker scratch and admission ownership, actual native effects and cleanup remain required.
+        rationale: Native effect, owned scratch and cleanup must be proved by each adapter.
     requirement_refs:
       - docs/planning/milestone-8-1-2-prework.md: A13 and worker prerequisites
     notes: >
@@ -749,27 +745,26 @@ captures:
       the session unavailable for binding; native release is still required.
 
   - id: duckdb-worker-bound-session-scope
-    title: Child-native lease is matched to session, generation and binding identity
+    title: Native project queries consume only the exact owned binding
     area: adapter-runtime
     bug_class: scan_safety
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
-      - tests/adapters/test_duckdb_worker_bound_session.py::test_worker_count_result_uses_exact_bound_relations
-      - tests/adapters/test_duckdb_worker_bound_session.py::test_wrong_worker_binding_is_rejected_before_query
-      - tests/adapters/test_duckdb_worker_bound_session.py::test_unbound_or_refused_worker_cannot_execute
+      - tests/adapters/test_duckdb_bound_execution.py::test_lease_invalidation
+      - tests/adapters/test_duckdb_bound_execution.py::test_scope_refusal_cannot_be_rebound
+      - tests/adapters/test_duckdb_bound_execution.py::test_lease_rejects_wrong_transport_family
+      - tests/adapters/test_duckdb_bound_execution.py::test_bound_query_reads_canonical_relation
+      - tests/services/test_run_service_aggregate_admission.py::test_all_nine_checks_use_owned_transaction_and_qualified_queries
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
-        expected_suite: native_resource_worker_transport
-        rationale: Child lease mapping is implemented but complete ordered request framing and parent proxy remain required.
+        expected_suite: native_binding_scope
+        rationale: Future adapters must preserve check, relation, session and operation binding with native execution proof.
     requirement_refs:
-      - docs/planning/milestone-8-1-2-prework.md: A4 A5 A7 A13 and B8
+      - docs/planning/milestone-8-1-2-prework.md: A4 A5 A7 A13 and B8 native binding
     notes: >
-      Child-local native lease remains distinct from transport proof fields.
-      The proof binds scope, session and policy generation; mismatch invalidates
-      the session. The existing renderer, native reader and Core evaluator
-      remain authoritative. No new project execution route is activated.
+      Retire worker-only generation, nonce and child proof fields. The native transaction owns an identity-only lease; invalid scope or wrong operation cannot execute. Actual project queries retain exact canonical relations, bounded shapes and one owned session per check.
 
   - id: owned-scratch-two-lease-recovery
     title: Owned scratch recovery requires both independent leases to be inactive
