@@ -30,12 +30,22 @@ mechanism-specific choices below are historical, not implementation authority.
 
 The [consolidated native-first replacement design](../planning/milestone-8-1-2-prework.md#consolidated-native-first-replacement-design-proposed-for-approval-2026-11-27)
 proposes the same guarded native read-only execution path for standalone
-and embedded usage in M8.1.2, no mandatory subprocess, six optional
-settings, adjustable adapter-local memory/spill heuristics and minimal
+and embedded usage in M8.1.2, no mandatory subprocess, eight optional
+settings including maintainer-approved memory/spill percentage overrides,
+adjustable adapter-local memory/spill heuristics and minimal
 private scratch. Native configuration-conflict limitations and remaining
 implementation proof (including Windows baseline WAL regression) are
 explicit. Prior provisional mechanism proposals below are historical
 where inconsistent. No gate closure or implementation authorization.
+
+Automatic, explicit percentage of freshly observed available capacity, and
+fixed MiB modes are independent for memory/spill; corresponding leaves are
+mutually exclusive. CPU remains automatic or fixed threads. Explicit relative
+requests cannot silently degrade when their denominator is unknown; automatic
+missing optional facts remain advisory when safe. Recompute at each check,
+not during it. Elastic capacity, arithmetic, missing/zero evidence, native
+control effects and both execution modes require proof. Future adapters assess
+native-appropriate relative and absolute controls, not universal DuckDB syntax.
 
 ## Proposed replacement following comparative proof (approval pending)
 
