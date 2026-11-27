@@ -516,14 +516,14 @@ captures:
       Existing applicable outcomes retained and new calculation nodes listed.
       Exact GREEN, native unit/effect and carryover proof remain required.
   - id: local-resource-observation-hierarchy
-    title: Local resource observation preserves ancestor headroom and missing evidence
+    title: Local resource observation preserves matched visible headroom and missing evidence
     area: adapter-runtime
     bug_class: scan_safety
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
-      - tests/adapters/test_local_resource_observation.py::test_effective_memory_evidence_ancestor_headroom
-      - tests/adapters/test_local_resource_observation.py::test_missing_ancestor_is_not_unlimited
+      - tests/adapters/test_local_resource_observation.py::test_effective_memory_evidence_visible_headroom
+      - tests/adapters/test_local_resource_observation.py::test_missing_visible_limit_is_not_unlimited
       - tests/adapters/test_local_resource_observation.py::test_visible_v2_scope_reads_only_matched_membership
       - tests/adapters/test_local_resource_observation.py::test_ambiguous_v2_mount_mapping_does_not_guess
       - tests/adapters/test_local_resource_observation.py::test_v1_controller_is_optional_unknown_not_guessed
@@ -539,9 +539,10 @@ captures:
       - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
       - docs/planning/execution-resource-safety-assignments.md: R2
     notes: >
-      Use visible ancestor limits and current usage rather than host total or
-      only leaf limits. Unavailable ancestors and namespace visibility never
-      prove unlimited resources or a hard process ceiling.
+      Use one unambiguously mapped visible cgroup-v2 scope, not host total.
+      Unknown or unlimited at that scope does not prove all ancestor limits.
+      Preserve independent facts; no exhaustive hierarchy or v1 inspection.
+      Real constrained/native and cross-platform proof remains required.
   - id: portable-resource-observation-uncertainty
     title: Portable host and process observations preserve independent scope
     area: adapter-runtime
@@ -550,7 +551,7 @@ captures:
     severity: P2
     current_tests:
       - tests/adapters/test_portable_resource_observation.py::test_portable_facts_preserve_available_memory_and_affinity
-      - tests/adapters/test_portable_resource_observation.py::test_windows_job_observation_is_not_host_memory_proof
+      - tests/adapters/test_portable_resource_observation.py::test_windows_host_hints_are_not_complete_process_scope
       - tests/adapters/test_portable_resource_observation.py::test_portable_observation_does_not_require_process_memory_inspection
       - tests/adapters/test_portable_resource_observation.py::test_portable_observation_does_not_probe_os_job_or_rlimit_apis
       - tests/adapters/test_portable_resource_observation.py::test_optional_provider_load_failure_is_not_fatal
@@ -564,10 +565,9 @@ captures:
       - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
       - docs/planning/execution-resource-safety-assignments.md: R2
     notes: >
-      Host availability, process memory, processor-group affinity, immediate
-      job limits and filesystem kind remain distinct. Never treat missing
-      ancestor or job-wide usage evidence as unlimited, or a recognized
-      filesystem type as physical quota proof.
+      Optional host availability, affinity and filesystem hints are partial.
+      No process memory, Windows job/processor-group or rlimit inspection.
+      Never infer unlimited resources or physical quota proof from those hints.
 
   - id: duckdb-native-resource-control-readback
     title: DuckDB native assignment checks readback without claiming quota enforcement
