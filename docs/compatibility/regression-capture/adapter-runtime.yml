@@ -493,6 +493,12 @@ captures:
       Preserve known zero versus unavailable evidence, independently bounded
       hardware headroom, adapter-specific tuning, and memory-backed scratch
       accounting. Native automatic settings do not prove effective limits.
+      Approved design extension: retain automatic and fixed targets; require
+      relative memory/spill mode validation, mutual exclusion, exact flooring,
+      unknown denominator refusal versus automatic advisory, capacity growth
+      and shrinkage per check, native effects and both invocation modes.
+      Current test nodes remain historical candidate proof; add actual
+      replacement test nodes and carryover proof before exit. No gate closure.
   - id: local-resource-observation-hierarchy
     title: Local resource observation preserves ancestor headroom and missing evidence
     area: adapter-runtime
