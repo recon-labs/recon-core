@@ -511,7 +511,10 @@ def test_native_failure_isolation_across_database_files(
     assert reads == (opened[1:] if failure == "open" else opened)
     public = repr(engine.result.to_dict()) + repr(result.diagnostics)
     for token in (
-        "private-first", "private-other", "private-native-query-error", "private-close-exception"
+        "private-first",
+        "private-other",
+        "private-native-query-error",
+        "private-close-exception",
     ):
         assert token not in public
     assert all(path.read_bytes() == content for path, content in before.items())
@@ -1020,6 +1023,7 @@ def test_native_run_uses_loaded_artifacts_after_files_change(
     assert not (target / "run_results.json").exists()
 
 
+@pytest.mark.regression_capture("run-preparation-and-diagnostic-identity")
 @pytest.mark.parametrize("distinct_alias", [False, True])
 def test_legacy_setup_preserves_distinct_connection_failures(
     tmp_path: Path, distinct_alias: bool

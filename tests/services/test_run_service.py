@@ -632,6 +632,7 @@ def test_invocation_plan_does_not_claim_authored_freshness(tmp_path: Path) -> No
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("run-preparation-and-diagnostic-identity")
 @pytest.mark.parametrize(
     ("stage", "plan_known", "diagnostic_code"),
     [

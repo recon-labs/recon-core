@@ -233,17 +233,7 @@ class _ProjectBoundRunner:
                 "Native execution failed before a trustworthy result was produced.",
             )
         finally:
-            cleanup = session.close()
-            if not session.released:
-                self._unreleased.append((identity, session))
-                if not cleanup:
-                    cleanup = (
-                        Diagnostic(
-                            code=ADAPTER_CLOSE_FAILED,
-                            severity=DiagnosticSeverity.ERROR,
-                            message="Native execution cleanup could not be confirmed.",
-                        ),
-                    )
+            cleanup = self._close_owned_session(session, identity)
 
         # Preserve distinct fixed, non-identifying per-session diagnostics across
         # the service's diagnostic deduplication boundary.
@@ -273,10 +263,12 @@ class _ProjectBoundRunner:
         primary = result.diagnostics
         if result.status is CheckStatus.FAIL:
             primary += (
-                Diagnostic(
-                    code=ADAPTER_QUERY_FAILED,
-                    severity=DiagnosticSeverity.ERROR,
-                    message="Check evaluated to a failing outcome before cleanup failed.",
+                attribute(
+                    Diagnostic(
+                        code="RC_RUNTIME_CHECK_FAILURE_BEFORE_CLEANUP",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Check evaluated to a failing outcome before cleanup failed.",
+                    )
                 ),
             )
         return CheckResult(
@@ -289,3 +281,32 @@ class _ProjectBoundRunner:
             message="Check failed during read-only execution cleanup.",
             diagnostics=primary + cleanup,
         )
+
+    def _close_owned_session(
+        self, session: _OwnedSession, identity: _LocalFileIdentity
+    ) -> tuple[Diagnostic, ...]:
+        cleanup: tuple[Diagnostic, ...] = ()
+        try:
+            cleanup = session.close()
+            released = session.released
+        except Exception:
+            # A close/release exception is not proof that native resources were released.
+            released = False
+            cleanup += (
+                Diagnostic(
+                    code=ADAPTER_CLOSE_FAILED,
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Native execution cleanup could not be confirmed.",
+                ),
+            )
+        if not released:
+            self._unreleased.append((identity, session))
+            if not cleanup:
+                cleanup = (
+                    Diagnostic(
+                        code=ADAPTER_CLOSE_FAILED,
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Native execution cleanup could not be confirmed.",
+                    ),
+                )
+        return cleanup

@@ -44,7 +44,9 @@ project preparation and records the finish label after evaluation, native
 cleanup and command-result projection. Elapsed nanoseconds use a monotonic
 clock, independently of wall-clock adjustments. A structured early failure
 retains its invocation identity, timing, stage and command outcome without
-inventing a project name or check results. A completed check evaluation may
+inventing a project name or check results. Unexpected preparation exceptions
+are sanitized at the invocation boundary and retain the actual failure stage.
+Known configuration and artifact failures keep their existing exit mapping. A completed check evaluation may
 produce a reconciliation mismatch; invocation failure is not itself a data
 mismatch. The private outcome retains a plan only after compiled checks and matching
 contracts have been loaded and validated. It describes whole loaded compiled

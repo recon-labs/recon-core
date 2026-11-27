@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic_ns
@@ -171,13 +171,17 @@ class RunService:
             run_id=f"run-{uuid4().hex}",
             started_at=_utc_timestamp(),
         )
-        result = self._evaluate_invocation(invocation)
-        if isinstance(result, RunResult):
-            run_result = result
-            service_result = _run_service_result(result)
-        else:
+        try:
+            result = self._evaluate_invocation(invocation)
+            if isinstance(result, RunResult):
+                run_result = result
+                service_result = _run_service_result(result)
+            else:
+                run_result = None
+                service_result = result
+        except Exception:
             run_result = None
-            service_result = result
+            service_result = _unexpected_invocation_failure_result(invocation.stage)
         return invocation.finish(
             finished_at=_utc_timestamp(),
             finished_ns=monotonic_ns(),
@@ -251,17 +255,14 @@ class RunService:
             )
 
         invocation.stage = _RunStage.CHECK_EXECUTION
-        try:
-            return (self.engine if self.engine is not None else CheckEngine()).run(
-                load_result.artifacts,
-                run_id=invocation.run_id,
-                started_at=invocation.started_at,
-                finished_at=None,
-                project_name=context.config.name,
-                execution_context=runtime_dependencies.execution_context,
-            )
-        except Exception:
-            return _engine_failure_result()
+        return (self.engine if self.engine is not None else CheckEngine()).run(
+            load_result.artifacts,
+            run_id=invocation.run_id,
+            started_at=invocation.started_at,
+            finished_at=None,
+            project_name=context.config.name,
+            execution_context=runtime_dependencies.execution_context,
+        )
 
 
 _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES = ("row_count", "cte_support")
@@ -381,18 +382,13 @@ def _prepare_runtime_execution_dependencies(
             contracts_by_name[artifact.contract_name].target.connection,
         )
     }
-    aggregate_connection_indices = {
-        name: index
-        for index, name in enumerate(sorted(required_capabilities_by_connection), start=1)
-        if name in aggregate_connections
-    }
-    for connection_name, required_capabilities in sorted(
-        required_capabilities_by_connection.items()
+    for connection_index, (connection_name, required_capabilities) in enumerate(
+        sorted(required_capabilities_by_connection.items()), start=1
     ):
-        connection_index = aggregate_connection_indices.get(connection_name)
+        aggregate_connection = connection_name in aggregate_connections
         connection = connections_by_name[connection_name]
         # Keep the scan-approved config independent of mutable factory input.
-        verify_binding = connection_index is not None or connection.type == "duckdb"
+        verify_binding = aggregate_connection or connection.type == "duckdb"
         setup_connection = deepcopy(connection) if verify_binding else connection
         setup_result = prepare_runtime_adapter(
             connection=setup_connection,
@@ -414,8 +410,11 @@ def _prepare_runtime_execution_dependencies(
                 continue
             setup_diagnostics.extend(
                 _safe_aggregate_setup_diagnostic(diagnostic, connection_index=connection_index)
-                if connection_index is not None
-                else diagnostic
+                if aggregate_connection
+                else replace(
+                    diagnostic,
+                    hint=_connection_setup_hint(connection_index, diagnostic.hint),
+                )
                 for diagnostic in setup_result.diagnostics
             )
             continue
@@ -427,11 +426,7 @@ def _prepare_runtime_execution_dependencies(
                     severity=DiagnosticSeverity.ERROR,
                     message="Adapter binding does not match the approved connection.",
                     resource_type="adapter",
-                    hint=(
-                        _aggregate_setup_hint(connection_index)
-                        if connection_index is not None
-                        else "Inspect the approved connection configuration locally."
-                    ),
+                    hint=_connection_setup_hint(connection_index),
                 )
             )
             continue
@@ -916,9 +911,10 @@ def _scan_budget_decision_for_relation(
     )
 
 
-def _aggregate_setup_hint(connection_index: int) -> str:
+def _connection_setup_hint(connection_index: int, detail: str | None = None) -> str:
     # A run-local ordinal preserves distinct setup failures without naming connections.
-    return f"Connection setup #{connection_index}: inspect configuration locally."
+    hint = f"Connection setup #{connection_index}: inspect configuration locally."
+    return f"{hint} {detail}" if detail else hint
 
 
 def _safe_aggregate_setup_diagnostic(
@@ -941,7 +937,7 @@ def _safe_aggregate_setup_diagnostic(
         severity=DiagnosticSeverity.ERROR,
         message=messages[code],
         resource_type="adapter",
-        hint=_aggregate_setup_hint(connection_index),
+        hint=_connection_setup_hint(connection_index),
     )
 
 
@@ -1005,6 +1001,26 @@ def _compiled_contract_load_failure_result(
         exit_category=ExitCategory.RUNTIME_ERROR,
         message="Compiled-contract artifacts could not be loaded.",
         diagnostics=load_result.diagnostics,
+    )
+
+
+def _unexpected_invocation_failure_result(stage: _RunStage) -> ServiceResult:
+    if stage is _RunStage.CHECK_EXECUTION:
+        return _engine_failure_result()
+    message = "Run preparation failed before a trustworthy result was produced."
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message=message,
+        diagnostics=(
+            Diagnostic(
+                code="RC_RUNTIME_RUN_PREPARATION_FAILED",
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                resource_type="run_invocation",
+                resource_name=stage.value,
+                hint="Inspect the failed preparation stage locally.",
+            ),
+        ),
     )
 
 

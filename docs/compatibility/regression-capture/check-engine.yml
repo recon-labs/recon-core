@@ -445,7 +445,10 @@ captures:
     requirement_refs:
       - docs/planning/milestone-8-1-1-prework.md: Acceptance matrix and planned test nodes
     notes: >
-      Cleanup failure removes comparison values, actual dependents are blocked, and unrelated eligible checks continue only after confirmed release. No writes or writable fallback.
+      Cleanup failure removes comparison values and retains primary failure evidence.
+      Unexpected cleanup exceptions are sanitized and latch the affected file;
+      actual dependents remain blocked while unrelated databases can continue.
+      No forced close, retry, writes or writable fallback.
   - id: run-invocation-identity-timing
     title: Invocation identity and timing surround preparation and native cleanup
     area: check-engine
@@ -547,3 +550,36 @@ captures:
       All ordered pairs of the eight aggregate states preserve the locked
       precedence at check and contract boundaries; empty scopes never imply
       a pass, and individual outcomes remain visible.
+  - id: run-preparation-and-diagnostic-identity
+    title: Unexpected preparation failures finalize safely and setup events remain distinct
+    area: check-engine
+    bug_class: diagnostics
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_unexpected_invocation_failure_is_finalized_without_private_payload
+      - tests/services/test_run_service_bound_execution.py::test_legacy_setup_preserves_distinct_connection_failures
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: invocation_failure
+      - gate: diagnostics_privacy_carryover
+        status: covered
+        expected_suite: invocation_failure
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: invocation_failure
+        rationale: Shared adapter suites must retain separate safe setup failure events.
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: invocation_failure
+        rationale: Publication must preserve finalized stage and diagnostic identity.
+    requirement_refs:
+      - docs/planning/milestone-8-2-prework.md: B4
+      - docs/implementation/errors-and-diagnostics.md: Owned runtime binding and cleanup
+    notes: >
+      Unexpected preparation faults finalize the invocation at the actual stage
+      with sanitized runtime failure rather than pretending authored input is
+      invalid. Expected configuration outcomes keep their categories. Repeated
+      diagnostics for the same setup are deduplicated, while distinct connection
+      setup events have safe invocation-local identity.

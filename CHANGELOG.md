@@ -47,6 +47,8 @@ This project follows semantic versioning once public package releases begin.
   Preserve mixed outcomes and at-most-once shared prerequisite evaluation;
   a skipped required prerequisite cannot authorize dependent execution.
   Long dependency chains no longer exhaust the interpreter call stack.
+  Unexpected preparation or cleanup exceptions preserve safe failure identity
+  and primary diagnostics; uncertain cleanup isolates only the affected database.
 
 - Unreleased adapter-scoped DuckDB execution policy: independent automatic,
   fixed MiB or percentage memory/spill controls, memory-aware automatic
