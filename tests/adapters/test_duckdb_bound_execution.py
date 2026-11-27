@@ -1056,3 +1056,190 @@ def test_guarded_native_actor_does_not_close_guard_when_actor_close_unconfirmed(
         for _, handle in reversed(handles):
             handle.close()
         scratch.cleanup(native_closed=True)
+
+
+@pytest.mark.parametrize("failure", ["none", "missing", "native-error"])
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+def test_native_interrupt_request_is_not_release(tmp_path: Path, failure: str) -> None:
+    path = tmp_path.resolve() / "fixture.db"
+    path.touch()
+    identity = guard._current_file_identity(path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    assert session.request_interrupt() is False
+    calls: list[str] = []
+
+    def interrupt() -> None:
+        calls.append("interrupt actor")
+        if failure == "native-error":
+            raise RuntimeError("PRIVATE_SENTINEL")
+
+    def unexpected() -> None:
+        pytest.fail("Interrupt request must not close or interrupt the file guard.")
+
+    actor = SimpleNamespace(close=unexpected)
+    if failure != "missing":
+        actor.interrupt = interrupt
+    # Inject only the owned-handle boundary; actual native behavior is tested below.
+    session._connection = actor
+    session._guard = SimpleNamespace(interrupt=unexpected, close=unexpected)
+    session._released = False
+    session._transaction = True
+    assert session.request_interrupt() is (failure == "none")
+    assert calls == ([] if failure == "missing" else ["interrupt actor"])
+    assert not session.released
+    assert session._connection is actor
+    assert session._guard is not None
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+def test_native_interrupt_after_close_is_not_accepted(tmp_path: Path) -> None:
+    path = tmp_path.resolve() / "fixture.db"
+    path.touch()
+    identity = guard._current_file_identity(path)
+    assert identity is not None
+    session = binding._OwnedDuckDbSession(identity)
+    assert session.close() == ()
+    assert session.released
+    assert session.request_interrupt() is False
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: Any) -> None:
+    """Use actual spill bytes, native interrupt and joined query, not elapsed time alone."""
+
+    import subprocess
+    import sys
+    import textwrap
+
+    code = textwrap.dedent(
+        """
+        import os
+        import sys
+        import threading
+        import time
+        from pathlib import Path
+
+        import duckdb
+        from recon_core.adapters._resource_scratch import _create_check_scratch
+        from recon_core.adapters.duckdb import _bound_execution as binding
+        from recon_core.adapters.duckdb import runtime_scan_guard as guard
+        from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
+        from recon_core.adapters.duckdb.renderer_sql import render_relation
+
+        base = Path(sys.argv[1]).resolve()
+        path = base / "interrupt.duckdb"
+        writer = duckdb.connect(str(path), config={"threads": "2", "memory_limit": "768MiB"})
+        try:
+            wide = "||".join(f"md5((i+{j * 1000000})::varchar)" for j in range(6))
+            writer.execute(
+                f"CREATE TABLE src AS SELECT i::varchar||':'||{wide} k, "
+                "1::bigint v FROM range(1000000) t(i)"
+            )
+        finally:
+            writer.close()
+
+        identity = guard._current_file_identity(path)
+        assert identity is not None
+        scratch = _create_check_scratch(base)
+        session = binding._OwnedDuckDbSession(
+            identity,
+            native_controls=_NativeControlRequest(128 << 20, 1, 2 << 30, scratch.path),
+        )
+        observer = duckdb.connect(str(path), read_only=True)
+        setting_sql = (
+            "SELECT current_setting('memory_limit'), current_setting('threads'), "
+            "current_setting('temp_directory'), current_setting('max_temp_directory_size')"
+        )
+        before = observer.execute(setting_sql).fetchone()
+        native_interrupted = []
+        outcomes = []
+        thread = None
+        try:
+            session.open()
+            lease = session.bind(
+                check_id="spill", operation="row_count_diff", source="src", target="src"
+            )
+            assert lease is not None
+            relation = render_relation(lease.scope.source)
+            query = (
+                "SELECT count(*), sum(s) FROM "
+                f"(SELECT k,sum(v) s FROM {relation} GROUP BY k)"
+            )
+
+            class ObservedActor:
+                def __init__(self, native):
+                    self.native = native
+
+                def __getattr__(self, name):
+                    return getattr(self.native, name)
+
+                def execute(self, statement, *args):
+                    try:
+                        return self.native.execute(statement, *args)
+                    except duckdb.Error as error:
+                        if statement == query:
+                            native_interrupted.append("interrupt" in str(error).lower())
+                        raise
+
+            session._connection = ObservedActor(session._connection)
+
+            def run():
+                try:
+                    session._read_bound_query(lease, lease.scope, query)
+                except binding._BoundSessionError as error:
+                    outcomes.append(error.diagnostic.code)
+                else:
+                    outcomes.append("completed")
+
+            thread = threading.Thread(target=run, daemon=True)
+            thread.start()
+            deadline = time.monotonic() + 30
+            seen = False
+            while thread.is_alive() and time.monotonic() < deadline:
+                for entry in scratch.path.rglob("*"):
+                    try:
+                        if entry.is_file() and entry.stat().st_size > 0:
+                            seen = True
+                            break
+                    except FileNotFoundError:
+                        continue
+                if seen:
+                    break
+                time.sleep(0.005)
+            assert seen and thread.is_alive(), "No active native spill observed."
+            assert session.request_interrupt() is True
+            assert not session.released
+            assert scratch.path.is_dir()
+            thread.join(15)
+            assert not thread.is_alive(), "Native query did not stop."
+            assert native_interrupted == [True], "Native interruption was not confirmed."
+            assert outcomes == ["RC_ADAPTER_QUERY_FAILED"], "Cancelled query returned a result."
+            assert observer.execute(setting_sql).fetchone() == before
+            assert observer.execute("SELECT 42").fetchone() == (42,)
+            assert not session.released
+        finally:
+            if thread is not None and thread.is_alive():
+                # Test-only recovery on RED/failure; no production worker or timeout.
+                session._connection.interrupt()
+                thread.join(15)
+                if thread.is_alive():
+                    os._exit(2)
+            diagnostics = session.close()
+            observer.close()
+            if session.released:
+                assert not any(item.is_file() for item in scratch.path.rglob("*"))
+                scratch.cleanup(native_closed=True)
+        assert diagnostics == ()
+        assert session.released
+        assert not scratch.path.exists()
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(tmp_path.resolve())],
+        capture_output=True,
+        text=True,
+        timeout=90,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
