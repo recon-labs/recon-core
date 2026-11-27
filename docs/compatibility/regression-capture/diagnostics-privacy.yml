@@ -90,6 +90,12 @@ captures:
       - tests/config/test_project_config.py::test_local_resource_policy_values
       - tests/config/test_project_config.py::test_local_resource_policy_mib_overflow
       - tests/config/test_project_config.py::test_local_resource_policy_invalid_mapping
+      - tests/config/test_project_config.py::test_scoped_resource_policy_accepts_documented_modes
+      - tests/config/test_project_config.py::test_scoped_resource_policy_rejects_invalid_modes_without_leak
+      - tests/config/test_project_config.py::test_scoped_resource_policy_rejects_wrong_envelope
+      - tests/profiles/test_loader.py::test_selected_target_rejects_invalid_operational_policy
+      - tests/profiles/test_loader.py::test_selected_target_keeps_operational_policy_out_of_connection_payload
+      - tests/profiles/test_loader.py::test_selected_target_rejects_duckdb_policy_for_non_duckdb_connection
     carryover_gates:
       - gate: diagnostics_privacy_carryover
         status: deferred
@@ -104,3 +110,5 @@ captures:
     notes: >
       Reject malformed fields, bools, invalid units and overflow; never expose
       untrusted nested keys or values. Private scratch paths are not echoed.
+      Scoped replacement tests are test-first and pending GREEN; retain
+      historical candidate nodes until their verified replacements are integrated.
