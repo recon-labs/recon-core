@@ -513,6 +513,14 @@ captures:
       Preserve known zero versus unavailable evidence, independently bounded
       hardware headroom, adapter-specific tuning, and memory-backed scratch
       accounting. Native automatic settings do not prove effective limits.
+      Focused measured reassessment CI 46020054117 and actual implementation
+      calibration 46020823693: memory-aware automatic parallelism improves
+      repeated large constrained workloads while preserving capable machine
+      throughput; small wide and explicit high-memory settings can still
+      suffer kernel OOM. Retain the 125 decimal MB native-guidance heuristic
+      as automatic tuning only, explicit overrides and unknown/zero behavior.
+      Revalidate constrained/capable narrow/wide and tmpfs workloads on
+      tuning/native/deployment change, distinguish native ERROR and OS kill.
       Measured calibration CI 46015981225, 46016305450, 46016574334:
       confirmed intermittent kernel OOM at automatic native-bounded settings
       and at a fixed one-thread costly workload; see approved prework open

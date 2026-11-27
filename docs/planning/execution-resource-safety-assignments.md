@@ -30,8 +30,10 @@ See the [approved M8.1.2 prework](milestone-8-1-2-prework.md) for the exact conf
 The [implementation-level calibration evidence](milestone-8-1-2-prework.md#implementation-level-calibration-evidence-and-open-decision-2026-11-27)
 records actual kernel OOM, not a comparison or handled native query error,
 under representative constrained automatic settings and an explicit
-one-thread costly workload. Step 7B remains open; no default change or
-waiver approved. Within existing R2/R3/R4/R6/R10, A6/A10/A12/A13 and
+one-thread costly workload. The focused Step 7B reassessment is approved and measured: native-guidance
+automatic parallelism improves constrained narrow work, not every workload;
+see exact production calibration 46020823693. No physical guarantee or
+outcome waiver. Final cumulative gate review remains required. Within existing R2/R3/R4/R6/R10, A6/A10/A12/A13 and
 P1-P6 requirements, re-evaluate constrained/capable, changing load,
 memory-backed storage and abrupt exit when tuning, native versions,
 deployment or operation scope change. M8.2 owns invocation-level

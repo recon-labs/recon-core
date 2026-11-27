@@ -116,6 +116,71 @@ Evaluate repeated actual narrow/wide, constrained/capable and tmpfs
 cases, including OS-killed cases as distinct from native errors. Adopt
 only a measured improvement with transparent remaining limits.
 
+### Focused tuning reassessment: measured implementation evidence
+
+Candidate-only experiment [46020054117](https://github.com/recon-labs/recon-core/actions/runs/46020054117)
+at `abd6fda3cce028378218b08dfe7b34ed5e7b4b91`, four pins and three
+repetitions per candidate/workload (144 cases), compares original auto
+parallelism to 125 MB and 1 GB per managed-memory thread candidates.
+At 512 MiB, large disk cases improved from 9/12 PASS (three kernel OOM)
+to 12/12; tmpfs from 6/12 PASS (three native ERROR, three kernel OOM) to
+12/12. Small costly wide-key cases: original 5 PASS/6 ERROR/1 OOM;
+both candidates 4 PASS/6 ERROR/2 OOM. At 2 GiB/4 CPU all three 12/12
+PASS, but 1 GB guidance restricts to one thread and is about 2-3 times
+slower than the four-thread candidate. Thus choose the less restrictive
+125 decimal MB/thread native guidance, not a workload admission floor.
+No claim that every workload benefits.
+
+Implemented at `42f0a3995a303dcfa37c4f9a678d5d5418381558` after eight
+intended test-first RED failures at `e52e955d3509e995fb7a7fe762eaac5e9e67fb61`
+(CI 46020552334 native 3.11 job 140578775121). For automatic threads,
+when observed headroom and the positive managed target are known, reduce
+the existing positive CPU/native thread target to at most
+max(1, floor(managed-memory-bytes / 125000000)). No invented thread count
+from absent CPU/native evidence; exhausted capacity unchanged. The
+50%/90% memory/spill ratios and explicit fixed/percentage memory/spill
+and authored threads semantics are unchanged. Existing CLI and embedded
+warnings explain reduction, total process memory uncertainty and
+supported tuning. Standard CI 46020772943 10/10 GREEN and native platform
+CI 46020772995 9/9 GREEN on exact implementation revision.
+
+Actual production calibration [46020823693](https://github.com/recon-labs/recon-core/actions/runs/46020823693),
+temporary harness `19461dc119c941d6106aabb13b3448e8da33cf4b` based on
+that revision (no calculation monkeypatch), all four pins, 64 cases:
+
+| Workload / configuration | PASS | Native ERROR | OS OOM kill |
+| --- | ---: | ---: | ---: |
+| 512 MiB, large narrow, auto disk | 12 | 0 | 0 |
+| 512 MiB, large narrow, auto tmpfs | 12 | 0 | 0 |
+| 2 GiB / four CPUs, large narrow, auto | 12 | 0 | 0 |
+| 512 MiB, small wide, auto disk | 3 | 6 | 3 |
+| 512 MiB, large, fixed 128 MiB/one thread | 4 | 0 | 0 |
+| 512 MiB, large, explicit 75% memory | 3 | 0 | 1 |
+| 512 MiB, large, explicit one thread/auto memory | 4 | 0 | 0 |
+| 512 MiB, large, actual low free disk | 0 | 4 | 0 |
+
+All 60 returned outcomes verified confirmed release, independent observer,
+unchanged database and empty current scratch; no harness assertion failures.
+Four kernel OOM kills (1.0.0 one small wide; 2.0.1 two small wide; 1.4.5
+explicit 75%) returned no result, so no cleanup claim. Large automatic
+cases selected one thread at 512 MiB and four at 2 GiB across all pins.
+Actual fixed spill sampled 70-157 MB and low disk produced controlled
+native errors across all four. Actual memory-backed capacity calculation
+and actionable advisories verified. Both temporary harnesses removed
+(a882c4c5a3445c44c049d62cc5c5aaebddc5076d and
+41ca23f815655566194765994e052e69192e2c37); immutable evidence retained.
+
+Step 7B measured improvement and best-effort limitations meet the approved
+focused reassessment: retain the modest native-specific automatic heuristic,
+not a hard quota, retry, worker, or new workload restriction. Document
+wide-key and authored high-memory risks, lower thread/memory settings and
+external memory capacity as operator options, not promises. Future
+native/default/workload/deployment changes recheck measured outcomes
+under Gate 4L and existing A/R/P assignments; M8.2 invocation termination
+responsibilities and M29 candidate conformance remain open. Final
+cumulative review and exact final validation still mandatory; no merge
+or release approval implied.
+
 **Historical open Step 7B calibration decision (superseded by focused
 reassessment approval):** do not close the gate or claim
 universal safe automatic tuning. The observed tradeoff needs explicit
