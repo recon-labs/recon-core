@@ -1441,7 +1441,9 @@ def test_guarded_session_refuses_missing_scratch_before_connect(
         ("malformed", None),
     ],
 )
-def test_optional_catalog_estimate_validates_native_shape(rows: object, expected: int | None) -> None:
+def test_optional_catalog_estimate_validates_native_shape(
+    rows: object, expected: int | None
+) -> None:
     relation = Relation(identifier="private-table", schema="private-schema", catalog="private-db")
 
     def execute(query: str, parameters: list[str]) -> Any:

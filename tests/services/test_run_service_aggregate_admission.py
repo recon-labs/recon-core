@@ -1821,3 +1821,36 @@ def test_binding_drift_between_aggregate_guards_stops_final_read(
         sidecar.unlink(missing_ok=True)
     writer = _duckdb_module().connect(str(database))
     writer.close()
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+def test_unavailable_catalog_estimate_is_advisory_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=False,
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    _set_project_duckdb_execution(tmp_path, {"warn-estimated-input-rows": 1})
+    monkeypatch.setattr(binding, "_catalog_estimated_rows", lambda connection, relation: None)
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.result is not None
+    check = engine.result.contract_results[0].check_results[0]
+    assert check.status is CheckStatus.PASS and check.executed
+    assert check.source_value == check.target_value == 1
+    codes = {d.code for d in result.diagnostics}
+    assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY" not in codes
+    unknown = [d for d in result.diagnostics if d.code == "RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN"]
+    assert len(unknown) == 1
+    assert unknown[0].severity is DiagnosticSeverity.WARNING and unknown[0].hint
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 0
+    assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN" in cli.output
+    assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY" not in cli.output
+    assert "qa.source_customers" not in cli.output and str(tmp_path) not in cli.output
