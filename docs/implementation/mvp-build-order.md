@@ -810,13 +810,33 @@ Prior worker, recovery and resource observation mechanisms in this build order
 are historical pending approved replacement. Preserve outcome gates, current
 runtime guard and existing milestone order; no successor implementation.
 
-Design approved; prerequisites M8.1.1 and targeted M7.4 correction verified.
-See [M8.1.2 approved prework](../planning/milestone-8-1-2-prework.md).
+Replacement design approval pending; prerequisites M8.1.1 and targeted M7.4 correction verified.
+See [M8.1.2 current prework](../planning/milestone-8-1-2-prework.md).
 Own remaining R1-R10/A1-A13, native controls, adaptive settings, advisories,
 B8 one-worker stop/confirmed exit/parent liveness, B9 owned worker/scratch
 cleanup and recovery, B10 per-check serial worker/re-observation. No blanket
 footprint default or unproven hard ceilings; implementation approval pending. M8.1 umbrella cannot close until
 both children and correction verified.
+
+Gate 4L configuration scope/precedence extension, also Gate 4I/4J/8C:
+M8.1.2 owns typed scoped configuration, reset/precedence, separation from
+connection identity, selected-only validation, alias conflicts, both execution
+modes and regression proof for prior configuration/profile/runtime behavior.
+M8.2 owns run-wide cumulative limits/concurrency and lifecycle; M8.3 C10
+owns allowlisted policy origin/effective-vs-requested evidence; M9 carries
+privacy into evidence. M10.5 invalidates stale policy/placement evidence,
+M10.6 re-resolves selected scope, M10.7 teaches config, M10.8 rechecks local
+scope restoration. M11-M13 each define native settings/defaults/permissions
+before experimental admission; M13.5 owns independent multi-context resource
+and client/remote transfer precedence; M18 authored query cannot bypass.
+M28 owns any new typed environment/CLI overrides and hard admin-limit
+precedence before exposure; M29 shared conformance and promotion; M32/32.1
+integration propagation/redaction; M40 hosted tenant quotas and authorization.
+Every future adapter/deployment/capability expansion rechecks these outcomes,
+including driver/executor/cluster scope where applicable. No requirement to
+implement DuckDB fields or ratios on another engine. No new milestone/repo;
+completed milestones remain closed unless actual prerequisite regression
+requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Milestone 8.2: execution planning and run lifecycle
 
