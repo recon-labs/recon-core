@@ -1285,3 +1285,139 @@ def test_actual_guarded_native_interrupt_during_spill(
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["none", "guard-open", "actor-open", "query-error", "actor-close", "guard-close", "scratch"],
+)
+@pytest.mark.regression_capture("duckdb-controlled-owned-session")
+def test_guarded_session_owns_scratch_until_confirmed_close(
+    tmp_path: Path, duckdb: Any, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    from recon_core.adapters._resource_scratch import _CheckScratch, _ScratchError
+
+    base = tmp_path.resolve()
+    path = base / "fixture.duckdb"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 42 AS id")
+    finally:
+        writer.close()
+    identity = guard._current_file_identity(path)
+    assert identity is not None
+    handles: list[tuple[str, Any]] = []
+    closed: list[str] = []
+    cleanup_calls: list[str] = []
+    original_cleanup = _CheckScratch.cleanup
+
+    class Connection:
+        def __init__(self, kind: str, native: Any) -> None:
+            self.kind = kind
+            self.native = native
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self.native, name)
+
+        def close(self) -> None:
+            cleanup_calls.append(self.kind)
+            if failure == f"{self.kind}-close":
+                raise RuntimeError("PRIVATE_SENTINEL")
+            self.native.close()
+            closed.append(self.kind)
+
+    def connect(database: str, *args: Any, **kwargs: Any) -> Connection:
+        kind = "actor" if database == ":memory:" else "guard"
+        assert len(tuple(base.glob("recon-scratch-*"))) == 1
+        if failure == f"{kind}-open":
+            raise RuntimeError("PRIVATE_SENTINEL")
+        native = duckdb.connect(database, *args, **kwargs)
+        handles.append((kind, native))
+        return Connection(kind, native)
+
+    def cleanup(scratch: _CheckScratch, *, native_closed: bool) -> None:
+        assert native_closed is True
+        assert closed == [kind for kind, _ in reversed(handles)]
+        cleanup_calls.append("scratch")
+        if failure == "scratch":
+            raise _ScratchError()
+        original_cleanup(scratch, native_closed=native_closed)
+
+    monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
+    monkeypatch.setattr(_CheckScratch, "cleanup", cleanup)
+    session = binding._OwnedDuckDbSession(identity, scratch_base=base)
+    try:
+        if failure in {"guard-open", "actor-open"}:
+            with pytest.raises(binding._BoundSessionError) as caught:
+                session.open()
+            assert caught.value.diagnostic.code == "RC_ADAPTER_CONNECTION_FAILED"
+            assert "PRIVATE_SENTINEL" not in str(caught.value)
+        else:
+            session.open()
+            lease = session.bind(
+                check_id="check-1", operation="row_count_diff", source="src", target="src"
+            )
+            assert lease is not None
+            relation = render_relation(lease.scope.source)
+            if failure == "query-error":
+                with pytest.raises(binding._BoundSessionError) as caught:
+                    session._read_bound_query(
+                        lease, lease.scope, f"SELECT nonexistent FROM {relation}"
+                    )
+                assert caught.value.diagnostic.code == "RC_ADAPTER_QUERY_FAILED"
+            else:
+                query = f"SELECT id FROM {relation}"
+                assert session._read_bound_query(lease, lease.scope, query).rows == ((42,),)
+        owned = session._scratch
+        assert owned is not None and owned.path.is_dir()
+        assert not session.released
+        diagnostics = session.close()
+        if failure in {"actor-close", "guard-close", "scratch"}:
+            assert not session.released
+            assert owned.path.is_dir()
+            assert len(diagnostics) == 1
+            assert diagnostics[0].code == "RC_ADAPTER_CLOSE_FAILED"
+            assert "PRIVATE_SENTINEL" not in str(diagnostics)
+            expected = {
+                "actor-close": ["actor"],
+                "guard-close": ["actor", "guard"],
+                "scratch": ["actor", "guard", "scratch"],
+            }
+            assert cleanup_calls == expected[failure]
+        else:
+            assert diagnostics == ()
+            assert session.released
+            assert not owned.path.exists()
+            assert cleanup_calls == [kind for kind, _ in reversed(handles)] + ["scratch"]
+        assert session.close() == diagnostics
+    finally:
+        # Recover only synthetic handles/storage whose failure was injected.
+        for kind, native in reversed(handles):
+            if kind not in closed:
+                native.close()
+        scratch = session._scratch
+        if scratch is not None and scratch.path.exists():
+            original_cleanup(scratch, native_closed=True)
+
+
+@pytest.mark.regression_capture("duckdb-controlled-owned-session")
+def test_guarded_session_refuses_missing_scratch_before_connect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path.resolve() / "fixture.db"
+    path.touch()
+    identity = guard._current_file_identity(path)
+    assert identity is not None
+
+    def forbidden(name: str) -> None:
+        pytest.fail("Native connection cannot open before private scratch is established.")
+
+    monkeypatch.setattr(binding, "import_module", forbidden)
+    session = binding._OwnedDuckDbSession(identity, scratch_base=tmp_path.resolve() / "missing")
+    try:
+        with pytest.raises(binding._BoundSessionError) as caught:
+            session.open()
+        assert caught.value.diagnostic.code == "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE"
+        assert session.released
+    finally:
+        assert session.close() == ()
