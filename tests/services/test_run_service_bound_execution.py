@@ -521,7 +521,7 @@ def test_native_failure_isolation_across_database_files(
 
 
 @pytest.mark.parametrize("primary", ["data_fail", "scope_refusal", "query_error"])
-@pytest.mark.parametrize("cleanup", ["rollback", "close", "both", "raise"])
+@pytest.mark.parametrize("cleanup", ["rollback", "close", "both", "raise", "release_raise"])
 @pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_primary_outcome_retained_on_cleanup_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, primary: str, cleanup: str
@@ -539,13 +539,23 @@ def test_primary_outcome_retained_on_cleanup_failure(
 
         monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", fail_read)
     real_close = binding._OwnedDuckDbSession.close
+    release_faults: list[binding._OwnedDuckDbSession] = []
+    original_released = binding._OwnedDuckDbSession.released.fget
+    assert original_released is not None
+
+    def released(session: binding._OwnedDuckDbSession) -> bool:
+        if session in release_faults:
+            raise RuntimeError("private-release-proof-exception")
+        return bool(original_released(session))
 
     def close_session(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
         diagnostics = real_close(session)
         if cleanup == "raise":
             raise RuntimeError("private-close-exception")
         messages = []
-        if cleanup in {"rollback", "both"}:
+        if cleanup == "release_raise":
+            release_faults.append(session)
+        if cleanup in {"rollback", "both", "release_raise"}:
             messages.append("Read-only transaction cleanup failed.")
         if cleanup in {"close", "both"}:
             messages.append("Read-only execution session cleanup failed.")
@@ -556,6 +566,7 @@ def test_primary_outcome_retained_on_cleanup_failure(
         )
 
     monkeypatch.setattr(binding._OwnedDuckDbSession, "close", close_session)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "released", property(released))
     engine = _CapturingEngine()
     result = RunService(start_path=tmp_path, engine=engine).execute()
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
@@ -566,7 +577,7 @@ def test_primary_outcome_retained_on_cleanup_failure(
     assert check.source_value is check.target_value is check.diff_value is None
     assert check.failure_count is None and check.artifact_refs == check.sink_refs == ()
     assert sum(d.code == "RC_ADAPTER_CLOSE_FAILED" for d in check.diagnostics) == (
-        2 if cleanup == "both" else 1
+        2 if cleanup in {"both", "release_raise"} else 1
     )
     if primary == "scope_refusal":
         assert "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED" in {d.code for d in check.diagnostics}
@@ -578,6 +589,7 @@ def test_primary_outcome_retained_on_cleanup_failure(
         assert "RC_RUNTIME_CHECK_FAILURE_BEFORE_CLEANUP" in {d.code for d in check.diagnostics}
         assert "RC_ADAPTER_QUERY_FAILED" not in {d.code for d in check.diagnostics}
     assert "private-close-exception" not in repr(result.diagnostics)
+    assert "private-release-proof-exception" not in repr(result.diagnostics)
 
 
 @pytest.mark.parametrize("family", ["row", "key"])

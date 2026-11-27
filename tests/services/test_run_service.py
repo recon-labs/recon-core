@@ -636,11 +636,12 @@ def test_invocation_plan_does_not_claim_authored_freshness(tmp_path: Path) -> No
 @pytest.mark.parametrize(
     ("stage", "plan_known", "diagnostic_code"),
     [
-        ("project_configuration", False, "RC_RUNTIME_RUN_PREPARATION_FAILED"),
-        ("compiled_checks", False, "RC_RUNTIME_RUN_PREPARATION_FAILED"),
-        ("compiled_contracts", False, "RC_RUNTIME_RUN_PREPARATION_FAILED"),
-        ("runtime_setup", True, "RC_RUNTIME_RUN_PREPARATION_FAILED"),
+        ("project_configuration", False, "RC_RUNTIME_RUN_INTERNAL_ERROR"),
+        ("compiled_checks", False, "RC_RUNTIME_RUN_INTERNAL_ERROR"),
+        ("compiled_contracts", False, "RC_RUNTIME_RUN_INTERNAL_ERROR"),
+        ("runtime_setup", True, "RC_RUNTIME_RUN_INTERNAL_ERROR"),
         ("check_execution", True, "RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR"),
+        ("result_projection", True, "RC_RUNTIME_RUN_INTERNAL_ERROR"),
     ],
 )
 def test_unexpected_invocation_failure_is_finalized_without_private_payload(
@@ -668,14 +669,20 @@ def test_unexpected_invocation_failure_is_finalized_without_private_payload(
     else:
         monkeypatch.setattr(run_service_module, "_run_service_result", fail)
 
-    service = RunService(start_path=tmp_path, engine=_CapturingPassEngine())
+    engine = _RaisingEngine() if stage == "check_execution" else _CapturingPassEngine()
+    service = RunService(start_path=tmp_path, engine=engine)
     outcome = service._execute_invocation()
 
     assert outcome.run_id.startswith("run-")
     assert outcome.stage.value == stage
     assert outcome.status.value == "failed"
     assert (outcome.plan is not None) is plan_known
-    assert outcome.run_result is None
+    if stage == "result_projection":
+        assert outcome.run_result is not None
+        assert outcome.run_result.run_id == outcome.run_id
+        assert outcome.run_result.status.value == "pass"
+    else:
+        assert outcome.run_result is None
     assert outcome.elapsed_ns >= 0
     assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
     assert [d.code for d in outcome.service_result.diagnostics] == [diagnostic_code]
