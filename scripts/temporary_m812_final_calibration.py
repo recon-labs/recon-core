@@ -37,9 +37,9 @@ def setup(root):
             c.execute("create schema qa")
             if kind=="large":
                 wide="||".join(f"md5((i+{j*n})::varchar)" for j in range(8))
-                sql=f"select i customer_id,1 month,5::bigint revenue,{wide} padding from range({n}) q(i)"
+                sql=f"select i as customer_id,1 as month,5::bigint as revenue,{wide} as padding from range({n}) q(i)"
             else:
-                sql="select repeat('long-prefix-',32)||i::varchar customer_id,1 month,5::bigint revenue from range(1000000) q(i)"
+                sql="select repeat('long-prefix-',32)||i::varchar as customer_id,1 as month,5::bigint as revenue from range(1000000) q(i)"
             c.execute("create table qa.source_customers as "+sql)
             c.execute("create table qa.target_customers as select * from qa.source_customers")
             c.execute("checkpoint")
