@@ -134,7 +134,7 @@ class _ProjectBoundRunner:
                 check,
                 contract,
                 "RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE",
-                "Execution context unavailable because prior session cleanup could not be confirmed.",
+                "Execution context unavailable because prior cleanup could not be confirmed.",
             )
         if _local_file_identity(source, self._root) != identity:
             return _safe_error(
