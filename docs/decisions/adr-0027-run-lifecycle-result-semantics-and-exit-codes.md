@@ -44,7 +44,7 @@ Automatic compilation risks hidden rebuild and premature freshness
 promises. Parallel scheduling, hard process isolation and automatic
 retries add scope and can weaken snapshot and cleanup truth. Default
 timeouts or arbitrary cumulative resource limits reject legitimate work.
-The proposed scoped approach preserves explicit behavior while enabling
+The scoped approach preserves explicit behavior while enabling
 caller-controlled lifecycle management.
 
 ## Proof and consequences
@@ -53,7 +53,8 @@ See [execution lifecycle prework](../planning/milestone-8-2-prework.md)
 for decision details, scope, acceptance dimensions, test plan, gates and
 exit criteria. Native cancellation and race proof are mandatory before
 claiming active stop support. If unsupported, revisit the decision rather
-than silently degrading required behavior. No compatibility claim or implementation authority from design approval alone.
+than silently degrading required behavior. No compatibility claim or implementation authority from design approval
+alone.
 
 The detailed approved-direction refinement uses optional
 `--timeout-seconds` and embedded keyword-only `timeout_seconds` and

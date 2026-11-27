@@ -1,6 +1,18 @@
 # Milestone 8.2 - Execution Planning And Run Lifecycle
 
-## Initial preflight (not design approval)
+## Current authority
+
+The maintainer approved the design direction on 2026-11-27. The detailed
+interface contract and native feasibility section below are the current
+implementation constraints; they supersede tentative wording in the initial
+preflight and historical proposal. Implementation is not authorized by design
+approval alone. Research decisions and source-specific fit judgments are
+recorded in the private companion continuity artifact (`research_decision:
+completed` for unresolved lifecycle mechanisms; freshness policy already
+locked by existing Recon ownership). Actual production-path conformance and
+exit proof remain mandatory.
+
+## Historical initial preflight
 
 Base: 40e756209b80a267674f7376c6bd4db81c6a7214, verified scoped M8.1 exit. Follow the
 [split assignment](milestone-8-split-assignment.md) B1-B10 and
@@ -222,9 +234,9 @@ implementation. No schema/version bump for artifacts not emitted here.
   owned current-check scratch only; M8.3 writer separate.
 - Selector readiness: compiled scope distinguishable from actually executed
   work; no selector execution. Sink references absent, no external writes.
-- Before implementation: explicit approval of proposal and any unresolved
-  native control/API choices, validate public docs, ensure exact scope and
-  compatibility alignment; any actual required proof not obtainable is a
+- Before implementation: approved direction and detailed interface below,
+  validated public design integration and separate implementation approval;
+  ensure exact scope and compatibility alignment. Any actual required proof not obtainable is a
   blocker, not a waiver. No gate globally closed.
 - Definition of Done: all B1-B10 variants and BDD mapped to real test nodes,
   critical RED/GREEN, preserved A/R/P regressions and existing native suites,
@@ -237,8 +249,9 @@ implementation. No schema/version bump for artifacts not emitted here.
 
 ## Maintainer-approved direction and detailed interface contract (2026-11-27)
 
-The maintainer approved the proposed direction above. This section refines
-the interfaces and lifecycle semantics without changing the approved scope.
+The maintainer approved the proposed direction above. This section is the
+current authority for interfaces and lifecycle semantics within that scope;
+it supersedes the historical proposal where wording differs.
 No runtime implementation or public support claim from prework alone.
 Implementation authorization remains separate after validated prework
 integration.
@@ -301,7 +314,7 @@ integration.
   and subsequent fetch/verification; no new work after observed stop.
   Blocking setup calls without a safe native interrupt are cooperative
   checkpoints, not hard time limits. No timeout reset per check.
-- Proposed additive non-execution reasons are `run_cancelled` and
+- Additive non-execution reasons are `run_cancelled` and
   `run_deadline_exceeded` under existing `not_executable` status, with
   distinct safe diagnostics `RC_RUNTIME_RUN_CANCELLED` and
   `RC_RUNTIME_RUN_DEADLINE_EXCEEDED`. Unstarted planned checks get the

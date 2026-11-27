@@ -137,12 +137,15 @@ change that introduces the surface.
 ## Owned runtime binding and cleanup
 
 Project-run DuckDB execution isolates native failures per check when session
-release is confirmed. Uncertain cleanup blocks further eligible native work for the affected database, not unrelated databases;
-a final check error carries no comparison values and actual prerequisite
+release is confirmed. Uncertain cleanup blocks further eligible native work
+for the affected database, not unrelated databases; a final check error
+carries no comparison values and actual prerequisite
 blockers remain distinct. Existing configuration/setup precedence, public
 API signatures and status/reason/exit taxonomy are preserved. The runtime
 diagnostics `RC_RUNTIME_BINDING_PROOF_FAILED` and
 `RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE` distinguish binding failure from
 execution stopped after uncertain cleanup. Existing connection/query/close
-diagnostics remain sanitized. This is a local execution boundary with calibrated best-effort native resource policy, not a stable general transaction API or physical resource guarantee. See the
+diagnostics remain sanitized. This is a local execution boundary with
+calibrated best-effort native resource policy, not a stable general
+transaction API or physical resource guarantee. See the
 [shared binding prework](../planning/milestone-8-1-1-prework.md).

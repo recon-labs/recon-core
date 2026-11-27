@@ -862,8 +862,10 @@ requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Milestone 8.2: execution planning and run lifecycle
 
-Preflight started; implementation remains pending design approval. See
-[initial prework](../planning/milestone-8-2-prework.md).
+Design direction approved; detailed interfaces and native feasibility verified.
+Implementation requires validated design integration and separate authorization.
+See [execution lifecycle prework](../planning/milestone-8-2-prework.md) and
+[ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
@@ -879,7 +881,7 @@ Build:
   metadata handoff; reserve future artifact/sink references without writes.
 
 Required prework: Gate 5, 4I, 4L integration, 3F2, 4J where adapter/profile
-diagnostics are involved, 6, ADR 0014/0021/0022/0025, and selector-readiness
+diagnostics are involved, 6, ADR 0014/0021/0022/0025/0027, and selector-readiness
 portion of the selectors gate. Lock compilation/freshness behavior, status and
 reason semantics, lifecycle ownership and scope. No selector execution, new
 comparison operations, generated run-result artifacts, evidence or sinks.
