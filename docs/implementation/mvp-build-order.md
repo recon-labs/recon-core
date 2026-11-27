@@ -829,8 +829,8 @@ is mandatory before M8.1.2.
 
 ### Milestone 8.1.2: hardware-aware resource policy and admission
 
-**Current checkpoint (2026-11-27): native-first replacement implemented,
-final review and separate merge approval pending.** Follow the
+**Completed (2026-11-27): native-first replacement verified and merged
+(PR #42). M8.1.1 and targeted M7.4 correction verified; scoped M8.1 exit complete.** Follow the
 [approved detailed prework](../planning/milestone-8-1-2-prework.md).
 M8.1.1 and targeted M7.4 correction remain completed. Own remaining
 R1-R10/A1-A13, measured adapter-scoped settings, native effects, advisories,
@@ -838,7 +838,7 @@ B8 native interrupt request versus confirmed stop, B9 confirmed native
 close/current scratch cleanup and safe abrupt residue, B10 serial per-check
 native scope and re-observation. No mandatory worker/IPC, persistent
 recovery, arbitrary default footprint cap or physical quota guarantee.
-M8.1 umbrella cannot close until both children and correction verified.
+Both children and the targeted correction are verified; scoped M8.1 exit complete.
 
 Gate 4L configuration scope/precedence extension, also Gate 4I/4J/8C:
 M8.1.2 owns typed scoped configuration, reset/precedence, separation from
@@ -861,6 +861,9 @@ completed milestones remain closed unless actual prerequisite regression
 requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Milestone 8.2: execution planning and run lifecycle
+
+Preflight started; implementation remains pending design approval. See
+[initial prework](../planning/milestone-8-2-prework.md).
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 

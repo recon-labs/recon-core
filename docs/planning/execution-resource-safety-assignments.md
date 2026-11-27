@@ -1,6 +1,20 @@
 # Execution Resource Safety Assignments
 
-## Current implementation authorization (2026-11-27)
+## Verified implementation exit (2026-11-27)
+
+The maintainer approved the scoped exit and PR #42 was squash merged on
+main at 40e756209b80a267674f7376c6bd4db81c6a7214. Tested head
+6681f479ab84eb18ceb59c541092b9f565578792 and merged tree are identical.
+Standard CI 46023048546 (10/10), native platform CI 46023048579 (9/9),
+and branch-wide regression capture advisory 46023146060 passed. M8.1.1,
+the targeted M7.4 correction and M8.1.2 scoped acceptance are verified;
+M8.1 is complete within its approved scope. No release or global gate
+closure. Remaining lifecycle B1-B7/B8-B10 belongs to M8.2; C1-C10 to
+M8.3. Future type, scope, adapter and compatibility obligations remain
+unchanged. Historical pending status and retired worker/IPC/recovery
+mechanisms below are superseded by this verified checkpoint.
+
+## Historical implementation authorization (2026-11-27)
 
 The maintainer explicitly approved the consolidated native-first design,
 including its adapter-scoped project/target/connection configuration and
@@ -194,7 +208,7 @@ carry forward regressions when touched.
 | 40 | Prove hosted tenant isolation, quotas, concurrency, cancellation and fair allocation separately. |
 | 42 | Budget semantic expansion and generated comparisons. |
 | 8.1.1 | Binding preflight and owned execution context; interim existing key/SUM footprint guard only. Binding portions of R3/R5/R6/R8/R10; no new resource defaults. |
-| 8.1.2 | Approved design; implementation in progress, exit pending. Own remaining R1-R10/A1-A13, measured defaults, optional footprint ceiling, non-executing evidence and verified native controls; B8 native interruption and confirmed release, B9 private current scratch cleanup and retained uncertain residue, B10 serial per-check resource scope. Candidate tuning requires native exit proof. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). |
+| 8.1.2 | Scoped implementation verified and merged (PR #42). Own R1-R10/A1-A13 as scoped, measured defaults, optional footprint ceiling, non-executing evidence and verified native controls; B8 native interruption and confirmed release, B9 private current scratch cleanup and retained uncertain residue, B10 serial per-check resource scope. Native calibration and residual risks recorded. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). |
 | 8.2 | Own remaining B8-B10 invocation deadlines/timeouts, cancellation and retry lifecycle, run-wide cleanup, cumulative resource budgeting and bounded concurrency; reuse M8.1.2 prerequisite controls, no duplicate executor. |
 | 8.3 | Publish allowlisted resource policy, actual versus estimated use, unavailable versus zero, enforcement and timeout/cancel/cleanup outcomes; C10. |
 | 10.5 | Invalidate stale admission evidence, including policy, binding and environment changes. |

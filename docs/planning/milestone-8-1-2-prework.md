@@ -1,6 +1,20 @@
 # Milestone 8.1.2 - Adaptive Local Resource Policy And Admission
 
-## Current implementation authorization (2026-11-27)
+## Verified implementation exit (2026-11-27)
+
+The maintainer approved the scoped exit and PR #42 was squash merged on
+main at 40e756209b80a267674f7376c6bd4db81c6a7214. Tested head
+6681f479ab84eb18ceb59c541092b9f565578792 and merged tree are identical.
+Standard CI 46023048546 (10/10), native platform CI 46023048579 (9/9),
+and branch-wide regression capture advisory 46023146060 passed. M8.1.1,
+the targeted M7.4 correction and M8.1.2 scoped acceptance are verified;
+M8.1 is complete within its approved scope. No release or global gate
+closure. Remaining lifecycle B1-B7/B8-B10 belongs to M8.2; C1-C10 to
+M8.3. Future type, scope, adapter and compatibility obligations remain
+unchanged. Historical pending status and retired worker/IPC/recovery
+mechanisms below are superseded by this verified checkpoint.
+
+## Historical implementation authorization (2026-11-27)
 
 The maintainer explicitly approved the consolidated native-first design,
 including its adapter-scoped project/target/connection configuration and
