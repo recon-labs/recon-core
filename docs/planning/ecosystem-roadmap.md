@@ -361,3 +361,5 @@ Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignme
 ## Mandatory adapter-specific resource conformance
 
 Apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) at M11-M12 PostgreSQL, M12-M13 Snowflake, M13.5 remote/cross-context, M29 official test-kit/promotion and every later candidate, version or capability expansion. Resolve R1-R10 before scoped admission and reprove at promotion. No automatic adapter rollout or new scheduled milestone.
+
+Operational policy gate: apply adapter-scoped configuration, precedence, native permissions and extension ownership in Gate 4L before each experimental adapter; first external adapter must prove schema registration and validation without hardcoding subsequent adapters into Core. No new repository or milestone authorized.
