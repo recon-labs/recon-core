@@ -26,6 +26,21 @@ proposed scope reduction, not yet approved for removal. See the
 for comparative proof, outcome dispositions and approval blockers. All prior
 mechanism-specific choices below are historical, not implementation authority.
 
+## Proposed replacement following comparative proof (approval pending)
+
+Ordinary configured native read-only sessions in a dedicated invocation passed
+all nine check families on eight environment combinations; same-file external
+readers unchanged, writers refused, database unchanged and scratch cleaned.
+Independent in-process ATTACH is rejected as-is due to writer/catalog
+regressions. Prefer the ordinary invocation, not per-check subprocesses or
+custom IPC, and standard unique private scratch, not persistent recovery.
+Native tuning remains valuable: untreated defaults OOM or fail binding on
+real wider workloads; measured controls and separate scratch succeed.
+See the [native-first redesign proposal](../planning/milestone-8-1-2-prework.md#native-first-redesign-proposal-2026-11-27-approval-pending)
+for evidence, embedded API boundary, proposed reserve/recovery/worker scope
+changes, gate and regression dispositions, and remaining proof. No new
+architecture, default or implementation approved by this proposal alone.
+
 ## Historical accepted adaptive resource amendment (reopened)
 
 Core owns the normalized project-local policy, admission, reason and advice.
