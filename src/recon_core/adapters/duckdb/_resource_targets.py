@@ -34,6 +34,9 @@ class _LocalResourceTargets:
     spill_bytes: int | None
     reduced_authored_targets: tuple[str, ...]
     automatic_threads_reduced: bool = False
+    requested_memory_bytes: int | None = None
+    requested_threads: int | None = None
+    requested_spill_bytes: int | None = None
 
 
 def _minimum_known(*values: int | None) -> int | None:
@@ -147,4 +150,7 @@ def _calculate_local_resource_targets(
         spill_bytes=spill,
         reduced_authored_targets=reduced,
         automatic_threads_reduced=automatic_threads_reduced,
+        requested_memory_bytes=memory_request,
+        requested_threads=policy.threads,
+        requested_spill_bytes=spill_request,
     )

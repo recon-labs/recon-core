@@ -56,6 +56,13 @@ scope, ordered contract/check/plan identities and prerequisite references;
 empty contracts remain visible. It contains no SQL, path, relation or data
 payload. The engine evaluates the original loaded artifacts once. This is not
 an authored-source freshness or atomic multi-file snapshot guarantee.
+Policy resolution retains the winning authored scope and mode, including an
+explicit auto/none reset, without changing normalized policy equality. Native
+resource targeting retains the original authored byte/thread request before
+capacity adjustment; native sessions retain the already verified setting
+readback (not a physical enforcement guarantee). Unknown values remain absent;
+no scratch path is included in these facts. Invocation-wide aggregation and
+publication are separate responsibilities.
 The private outcome is not a new serialized or stable result API.
 The public `ServiceResult` dictionary, command exit mapping and no-write
 boundary remain unchanged. See [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).

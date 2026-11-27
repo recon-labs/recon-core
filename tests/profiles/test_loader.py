@@ -1,9 +1,9 @@
-from typing import Any
 from pathlib import Path
 
 import pytest
 
 from recon_core.artifacts import LoadedCompiledContractArtifact, LoadedCompiledEndpoint
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.parser.contracts import AuthoredContract, AuthoredEndpoint
 from recon_core.parser.models import SourceLocation
 from recon_core.profiles import (
@@ -1085,7 +1085,7 @@ profiles:
     assert other.spill_percent == 80
     assert other.threads == 8
 
-    def facts(policy: Any) -> dict[str, tuple[str, str, int | None]]:
+    def facts(policy: _LocalResourcePolicy) -> dict[str, tuple[str, str, int | None]]:
         return {
             fact.setting: (fact.scope.value, fact.mode.value, fact.requested_value)
             for fact in policy._setting_facts
@@ -1105,3 +1105,4 @@ profiles:
     assert facts(other)["managed-memory"] == ("target", "fixed", 2048 * (1 << 20))
     assert facts(other)["max-database-mib"] == ("project", "fixed", 1024 * (1 << 20))
     assert "private.duckdb" not in repr(legacy._setting_facts)
+    assert legacy == _LocalResourcePolicy(spill_percent=80)

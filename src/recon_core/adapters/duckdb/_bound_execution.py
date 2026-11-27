@@ -29,6 +29,7 @@ from recon_core.adapters.duckdb._native_resource_controls import (
     _apply_native_controls,
     _native_startup_config,
     _NativeControlError,
+    _NativeControlReadback,
     _NativeControlRequest,
     _read_native_recommendations,
 )
@@ -276,7 +277,7 @@ def _resource_advisories(
 
 def _adaptive_native_request(
     connection: Any, scratch: Path, policy: _LocalResourcePolicy
-) -> tuple[_NativeControlRequest, tuple[Diagnostic, ...]]:
+) -> tuple[_NativeControlRequest, tuple[Diagnostic, ...], _LocalResourceTargets]:
     observed = _observe_local_resources(scratch)
     native = _read_native_recommendations(connection)
     inputs = _LocalResourceInputs(
@@ -308,7 +309,7 @@ def _adaptive_native_request(
     request = _NativeControlRequest(
         targets.managed_memory_bytes, targets.threads, targets.spill_bytes, scratch
     )
-    return request, _resource_advisories(observed, inputs, targets, policy)
+    return request, _resource_advisories(observed, inputs, targets, policy), targets
 
 
 def _catalog_estimated_rows(connection: Any, relation: Relation) -> int | None:
@@ -379,6 +380,8 @@ class _OwnedDuckDbSession:
         self._released = True
         self._cleanup: tuple[Diagnostic, ...] | None = None
         self._advisories: tuple[Diagnostic, ...] = ()
+        self._resource_targets: _LocalResourceTargets | None = None
+        self._control_readback: _NativeControlReadback | None = None
 
     @property
     def advisories(self) -> tuple[Diagnostic, ...]:
@@ -448,10 +451,14 @@ class _OwnedDuckDbSession:
             try:
                 if self._resource_policy is not None:
                     assert self._scratch is not None
-                    self._native_controls, self._advisories = _adaptive_native_request(
+                    (
+                        self._native_controls,
+                        self._advisories,
+                        self._resource_targets,
+                    ) = _adaptive_native_request(
                         self._connection, self._scratch.path, self._resource_policy
                     )
-                _apply_native_controls(
+                self._control_readback = _apply_native_controls(
                     self._connection,
                     self._native_controls,
                     assign_memory_threads=self._resource_policy is not None,
