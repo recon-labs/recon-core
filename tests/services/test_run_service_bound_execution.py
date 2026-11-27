@@ -707,9 +707,7 @@ def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
     other.mkdir()
     project_path = tmp_path / "recon_project.yml"
     project = yaml.safe_load(project_path.read_text(encoding="utf-8"))
-    project["execution"] = {
-        "adapters": {"duckdb": {"managed-memory": {"mib": 128}, "threads": 2}}
-    }
+    project["execution"] = {"adapters": {"duckdb": {"managed-memory": {"mib": 128}, "threads": 2}}}
     project_path.write_text(yaml.safe_dump(project, sort_keys=False), encoding="utf-8")
     profile_path = tmp_path / "connections" / "profiles.yml"
     profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))

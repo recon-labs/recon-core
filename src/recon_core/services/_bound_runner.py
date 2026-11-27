@@ -14,6 +14,7 @@ from recon_core.adapters._project_binding import (
     _local_file_identity,
     _LocalFileIdentity,
     _new_owned_session,
+    _normalize_owned_resource_policy,
     _OwnedSession,
 )
 from recon_core.adapters.base import BaseAdapter
@@ -154,6 +155,23 @@ class _ProjectBoundRunner:
         target_policy = self._resource_policies.get(
             contract.target.connection, _LocalResourcePolicy()
         )
+        if source_policy != target_policy:
+            try:
+                source_policy = _normalize_owned_resource_policy(
+                    source.type, self._root, source_policy
+                )
+                target_policy = _normalize_owned_resource_policy(
+                    target.type, self._root, target_policy
+                )
+            except _BoundSessionError as exc:
+                return not_executable_result(
+                    check,
+                    contract,
+                    reason=CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,
+                    diagnostic_code=exc.diagnostic.code,
+                    message=exc.diagnostic.message,
+                    hint="Inspect the selected resource settings locally.",
+                )
         if source_policy != target_policy:
             return not_executable_result(
                 check,

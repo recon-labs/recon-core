@@ -99,6 +99,16 @@ def _local_file_identity(
     return inspect(connection, project_root)
 
 
+def _normalize_owned_resource_policy(
+    adapter_type: str, project_root: Path, policy: _LocalResourcePolicy
+) -> _LocalResourcePolicy:
+    if adapter_type != "duckdb":
+        raise _proof_error()
+    from recon_core.adapters.duckdb._bound_execution import _normalize_resource_policy
+
+    return _normalize_resource_policy(project_root, policy)
+
+
 def _new_owned_session(
     adapter_type: str,
     identity: _LocalFileIdentity,

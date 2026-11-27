@@ -1,6 +1,7 @@
 """Private owned read-only DuckDB transaction for project-run binding."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from importlib import import_module
 from pathlib import Path
 from tempfile import gettempdir
@@ -175,6 +176,20 @@ def _policy_scratch_base(project_root: Path, policy: _LocalResourcePolicy) -> Pa
     if not path.is_absolute():
         path = project_root / path
     return path.resolve(strict=True)
+
+
+def _normalize_resource_policy(
+    project_root: Path, policy: _LocalResourcePolicy
+) -> _LocalResourcePolicy:
+    """Compare authored modes with canonical scratch selection, not host capacity."""
+    try:
+        return replace(policy, scratch_directory=str(_policy_scratch_base(project_root, policy)))
+    except (OSError, RuntimeError, ValueError):
+        raise _BoundSessionError(
+            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+            "Private temporary storage could not be established. "
+            "Use an existing writable private scratch base.",
+        ) from None
 
 
 def _adaptive_native_request(
