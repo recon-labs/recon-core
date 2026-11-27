@@ -231,7 +231,9 @@ class RunService:
         if not contract_load_result.succeeded:
             return _compiled_contract_load_failure_result(contract_load_result)
 
-        invocation.plan = _CompiledRunPlan.from_artifacts(context.config.name, load_result.artifacts)
+        invocation.plan = _CompiledRunPlan.from_artifacts(
+            context.config.name, load_result.artifacts
+        )
         invocation.stage = _RunStage.RUNTIME_SETUP
         runtime_dependencies = _prepare_runtime_execution_dependencies(
             context,

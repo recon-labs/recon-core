@@ -617,7 +617,9 @@ def test_invocation_plan_does_not_claim_authored_freshness(tmp_path: Path) -> No
     authored.write_text("invalid: [private-authored-canary", encoding="utf-8")
     loaded = CompiledCheckLoader().load(tmp_path / "target")
     assert loaded.succeeded
-    matched = CompiledContractLoader().load_for_compiled_checks(tmp_path / "target", loaded.artifacts)
+    matched = CompiledContractLoader().load_for_compiled_checks(
+        tmp_path / "target", loaded.artifacts
+    )
     assert matched.succeeded
     before = {path: path.read_bytes() for path in (tmp_path / "target").rglob("*.yml")}
 
