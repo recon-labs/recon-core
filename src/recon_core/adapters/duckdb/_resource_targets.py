@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from fractions import Fraction
 from math import ceil
+from typing import Literal
 
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
 
@@ -33,13 +34,23 @@ def _minimum_known(*values: int | None) -> int | None:
     return min((value for value in values if value is not None), default=None)
 
 
-def _percentage_request(percent: int | None, available: int | None, *, setting: str) -> int | None:
+class _UnknownPercentageCapacity(ValueError):
+    """A valid percentage has no trustworthy denominator."""
+
+    def __init__(self, setting: Literal["managed-memory", "spill"]) -> None:
+        self.setting = setting
+        super().__init__(f"Unknown capacity for {setting} percentage; use auto or fixed MiB.")
+
+
+def _percentage_request(
+    percent: int | None, available: int | None, *, setting: Literal["managed-memory", "spill"]
+) -> int | None:
     if percent is None:
         return None
     if type(percent) is not int or not 1 <= percent <= 100:
         raise ValueError(f"Invalid {setting} percentage.")
     if available is None:
-        raise ValueError(f"Unknown capacity for {setting} percentage; use auto or fixed MiB.")
+        raise _UnknownPercentageCapacity(setting)
     return available * percent // 100
 
 

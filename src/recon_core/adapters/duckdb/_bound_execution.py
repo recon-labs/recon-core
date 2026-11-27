@@ -8,7 +8,10 @@ from tempfile import gettempdir
 from typing import Any
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
-from recon_core.adapters._local_resource_observation import _observe_local_resources
+from recon_core.adapters._local_resource_observation import (
+    _LocalObservation,
+    _observe_local_resources,
+)
 from recon_core.adapters._project_binding import (
     _BindingLease,
     _BindingScope,
@@ -32,6 +35,8 @@ from recon_core.adapters.duckdb._native_resource_controls import (
 from recon_core.adapters.duckdb._resource_targets import (
     _calculate_local_resource_targets,
     _LocalResourceInputs,
+    _LocalResourceTargets,
+    _UnknownPercentageCapacity,
 )
 from recon_core.adapters.duckdb.adapter import _read_aggregate_result
 from recon_core.adapters.duckdb.renderer_sql import quote_identifier, sql_string_literal
@@ -49,7 +54,7 @@ from recon_core.adapters.lifecycle import (
 )
 from recon_core.adapters.models import QueryResult, Relation
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
-from recon_core.diagnostics import Diagnostic
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 # The lease binds the typed check family as well as the exact relations.
 _AGGREGATE_BINDING_OPERATIONS = frozenset({"sum_diff", "grouped_aggregate_diff"})
@@ -192,28 +197,95 @@ def _normalize_resource_policy(
         ) from None
 
 
+def _resource_advisories(
+    observed: _LocalObservation,
+    inputs: _LocalResourceInputs,
+    targets: _LocalResourceTargets,
+    policy: _LocalResourcePolicy,
+) -> tuple[Diagnostic, ...]:
+    advisories: list[Diagnostic] = []
+
+    def warn(message: str, hint: str) -> None:
+        advisories.append(
+            Diagnostic(
+                code="RC_RUNTIME_RESOURCE_ADVISORY",
+                severity=DiagnosticSeverity.WARNING,
+                message=message,
+                resource_type="runtime_policy",
+                hint=hint,
+            )
+        )
+
+    for dimension, available, hint in (
+        ("managed-memory", inputs.memory_headroom_bytes, "Use auto or fixed MiB tuning."),
+        ("threads", inputs.cpu_capacity, "Use auto or an explicit thread count."),
+        ("spill", inputs.scratch_free_bytes, "Use a writable private scratch base or fixed MiB."),
+    ):
+        if available is None:
+            warn(
+                f"Available {dimension} capacity is unknown; using available native or "
+                "configured settings, not a capacity guarantee.",
+                hint,
+            )
+    if (
+        inputs.memory_headroom_bytes is not None
+        and inputs.native_memory_bytes is None
+        and policy.managed_memory_bytes is None
+        and policy.managed_memory_percent is None
+    ):
+        warn(
+            "Native managed-memory recommendation is unavailable; using observed headroom.",
+            "Inspect available memory and use fixed MiB tuning if needed.",
+        )
+    if inputs.cpu_capacity is not None and inputs.native_threads is None and policy.threads is None:
+        warn(
+            "Native threads recommendation is unavailable; using observed CPU capacity.",
+            "Inspect CPU capacity and use an explicit thread count if needed.",
+        )
+    constraints = observed.linux_constraints
+    if observed.platform == "linux" and (
+        constraints is None or constraints.memory_incomplete or constraints.cpu_incomplete
+    ):
+        warn(
+            "Local controller scope is incomplete; resource tuning uses available facts, "
+            "not a host or container limit guarantee.",
+            "Inspect container resource limits locally and adjust managed settings if needed.",
+        )
+    if inputs.scratch_memory_backed is True:
+        warn(
+            "Spill storage is memory-backed; it shares memory headroom with query execution.",
+            "Use an existing private disk-backed scratch base for independent spill capacity.",
+        )
+    for dimension in targets.reduced_authored_targets:
+        warn(
+            f"Requested {dimension} target was reduced to available observed capacity; "
+            "execution may proceed without a capacity guarantee.",
+            "Inspect available resources or adjust the selected execution settings.",
+        )
+    return tuple(advisories)
+
+
 def _adaptive_native_request(
     connection: Any, scratch: Path, policy: _LocalResourcePolicy
-) -> _NativeControlRequest:
+) -> tuple[_NativeControlRequest, tuple[Diagnostic, ...]]:
     observed = _observe_local_resources(scratch)
     native = _read_native_recommendations(connection)
-    targets = _calculate_local_resource_targets(
-        policy,
-        _LocalResourceInputs(
-            memory_headroom_bytes=observed.memory_headroom_bytes,
-            cpu_capacity=observed.cpu_capacity,
-            scratch_free_bytes=observed.scratch_free_bytes,
-            scratch_memory_backed=observed.scratch_memory_backed,
-            native_memory_bytes=native.memory_bytes,
-            native_threads=native.threads,
-        ),
+    inputs = _LocalResourceInputs(
+        memory_headroom_bytes=observed.memory_headroom_bytes,
+        cpu_capacity=observed.cpu_capacity,
+        scratch_free_bytes=observed.scratch_free_bytes,
+        scratch_memory_backed=observed.scratch_memory_backed,
+        native_memory_bytes=native.memory_bytes,
+        native_threads=native.threads,
     )
+    targets = _calculate_local_resource_targets(policy, inputs)
     # Native zero-spill effect has not yet been independently established.
     if targets.spill_bytes == 0:
         raise _NativeControlError("No usable verified native spill capacity.")
-    return _NativeControlRequest(
+    request = _NativeControlRequest(
         targets.managed_memory_bytes, targets.threads, targets.spill_bytes, scratch
     )
+    return request, _resource_advisories(observed, inputs, targets, policy)
 
 
 class _OwnedDuckDbSession:
@@ -247,6 +319,11 @@ class _OwnedDuckDbSession:
         self._transaction = False
         self._released = True
         self._cleanup: tuple[Diagnostic, ...] | None = None
+        self._advisories: tuple[Diagnostic, ...] = ()
+
+    @property
+    def advisories(self) -> tuple[Diagnostic, ...]:
+        return self._advisories
 
     @property
     def released(self) -> bool:
@@ -312,7 +389,7 @@ class _OwnedDuckDbSession:
             try:
                 if self._resource_policy is not None:
                     assert self._scratch is not None
-                    self._native_controls = _adaptive_native_request(
+                    self._native_controls, self._advisories = _adaptive_native_request(
                         self._connection, self._scratch.path, self._resource_policy
                     )
                 _apply_native_controls(
@@ -320,6 +397,14 @@ class _OwnedDuckDbSession:
                     self._native_controls,
                     assign_memory_threads=self._resource_policy is not None,
                 )
+            except _UnknownPercentageCapacity as exc:
+                self._invalidated = True
+                dimension = "managed-memory" if exc.setting == "managed-memory" else "spill"
+                raise _BoundSessionError(
+                    "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                    f"Available {dimension} capacity is unknown for the selected percentage; "
+                    "use auto or fixed MiB tuning.",
+                ) from None
             except (_NativeControlError, ValueError):
                 self._invalidated = True
                 raise _BoundSessionError(

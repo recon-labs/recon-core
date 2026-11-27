@@ -65,6 +65,9 @@ class _InvalidAggregateResultError(ValueError):
 
 class _OwnedSession(Protocol):
     @property
+    def advisories(self) -> tuple[Diagnostic, ...]: ...
+
+    @property
     def released(self) -> bool: ...
 
     def open(self) -> None: ...

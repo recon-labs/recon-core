@@ -261,6 +261,8 @@ class _ProjectBoundRunner:
                     for diagnostic in result.diagnostics
                 ),
             )
+        if session.advisories:
+            result = replace(result, diagnostics=result.diagnostics + session.advisories)
         if not cleanup:
             return result
         cleanup = tuple(attribute(diagnostic) for diagnostic in cleanup)

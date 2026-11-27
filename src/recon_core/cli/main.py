@@ -3,6 +3,7 @@
 import click
 
 from recon_core import get_version
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import (
     CompileService,
     ExitCategory,
@@ -20,6 +21,9 @@ def _handle_result(result: ServiceResult) -> None:
     if result.exit_category is ExitCategory.SUCCESS:
         if result.message:
             click.echo(result.message)
+        for diagnostic in result.diagnostics:
+            if diagnostic.severity is DiagnosticSeverity.WARNING:
+                _render_diagnostic(diagnostic)
         return
 
     _render_error(result)
@@ -30,12 +34,17 @@ def _render_error(result: ServiceResult) -> None:
     message = result.message or "Command failed."
     click.echo(f"Error: {message}", err=True)
     for diagnostic in result.diagnostics:
-        click.echo(f"Code: {diagnostic.code}", err=True)
-        click.echo(f"Message: {diagnostic.message}", err=True)
-        if diagnostic.path:
-            click.echo(f"Path: {diagnostic.path}", err=True)
-        if diagnostic.hint:
-            click.echo(f"Hint: {diagnostic.hint}", err=True)
+        _render_diagnostic(diagnostic)
+
+
+def _render_diagnostic(diagnostic: Diagnostic) -> None:
+    click.echo(f"Code: {diagnostic.code}", err=True)
+    label = "Warning" if diagnostic.severity is DiagnosticSeverity.WARNING else "Message"
+    click.echo(f"{label}: {diagnostic.message}", err=True)
+    if diagnostic.path:
+        click.echo(f"Path: {diagnostic.path}", err=True)
+    if diagnostic.hint:
+        click.echo(f"Hint: {diagnostic.hint}", err=True)
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
