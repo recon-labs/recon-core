@@ -14,7 +14,11 @@ from recon_core.adapters._project_binding import (
     _LocalFileIdentity,
     _proof_error,
 )
-from recon_core.adapters._resource_scratch import _CheckScratch, _create_check_scratch, _ScratchError
+from recon_core.adapters._resource_scratch import (
+    _CheckScratch,
+    _create_check_scratch,
+    _ScratchError,
+)
 from recon_core.adapters.duckdb._native_resource_controls import (
     _apply_native_controls,
     _native_startup_config,
@@ -434,8 +438,6 @@ class _OwnedDuckDbSession:
                 )
             else:
                 self._scratch = None
-        self._released = (
-            self._connection is None and self._guard is None and self._scratch is None
-        )
+        self._released = self._connection is None and self._guard is None and self._scratch is None
         self._cleanup = tuple(diagnostics)
         return self._cleanup
