@@ -92,7 +92,7 @@ class _ProjectBoundRunner:
         self._root = project_root
         self._connections = deepcopy(dict(connections))
         self._identities = dict(identities)
-        self._stopped = False
+        self._unreleased: list[tuple[_LocalFileIdentity, _OwnedSession]] = []
         self._session_count = 0
 
     def run(
@@ -125,12 +125,16 @@ class _ProjectBoundRunner:
             return _scope_refusal(check, contract)
         if check.check_type != "row_count_diff" and identity.size > _MAX_BOUNDED_LOCAL_DUCKDB_BYTES:
             return _scope_refusal(check, contract, over_cap=True)
-        if self._stopped:
+        if any(
+            failed.path == identity.path
+            or (failed.device, failed.inode) == (identity.device, identity.inode)
+            for failed, _ in self._unreleased
+        ):
             return _safe_error(
                 check,
                 contract,
                 "RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE",
-                "Execution stopped because prior session cleanup could not be confirmed.",
+                "Execution context unavailable because prior session cleanup could not be confirmed.",
             )
         if _local_file_identity(source, self._root) != identity:
             return _safe_error(
@@ -179,7 +183,7 @@ class _ProjectBoundRunner:
         finally:
             cleanup = session.close()
             if not session.released:
-                self._stopped = True
+                self._unreleased.append((identity, session))
 
         # Preserve distinct fixed, non-identifying per-session diagnostics across
         # the service's diagnostic deduplication boundary.
