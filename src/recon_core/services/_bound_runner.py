@@ -32,6 +32,7 @@ from recon_core.check_engine.scan_budget import BOUNDED_LOCAL_SCAN_REQUIRED, SCA
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
+from recon_core.services._run_lifecycle import _CheckResourceFacts, _NativeAdmission
 
 
 class _SessionReader:
@@ -95,15 +96,35 @@ class _ProjectBoundRunner:
         connections: Mapping[str, ConnectionConfig],
         identities: Mapping[str, _LocalFileIdentity],
         resource_policies: Mapping[str, _LocalResourcePolicy],
+        resource_facts: dict[str, _CheckResourceFacts],
     ) -> None:
         self._root = project_root
         self._connections = deepcopy(dict(connections))
         self._identities = dict(identities)
         self._resource_policies = dict(resource_policies)
+        self._resource_facts = resource_facts
         self._unreleased: list[tuple[_LocalFileIdentity, _OwnedSession]] = []
         self._session_count = 0
 
     def run(
+        self,
+        check: LoadedCompiledCheck,
+        contract: LoadedCompiledContractArtifact,
+        adapter: BaseAdapter,
+        evaluate: _BoundEvaluation,
+    ) -> CheckResult:
+        facts = self._resource_facts[check.id]
+        self._resource_facts[check.id] = replace(facts, admission=_NativeAdmission.UNVERIFIED)
+        result = self._run_bound_check(check, contract, adapter, evaluate)
+        facts = self._resource_facts[check.id]
+        if (
+            result.status is CheckStatus.NOT_EXECUTABLE
+            and facts.admission is not _NativeAdmission.VERIFIED
+        ):
+            self._resource_facts[check.id] = replace(facts, admission=_NativeAdmission.REFUSED)
+        return result
+
+    def _run_bound_check(
         self,
         check: LoadedCompiledCheck,
         contract: LoadedCompiledContractArtifact,
@@ -190,6 +211,7 @@ class _ProjectBoundRunner:
         session = _new_owned_session(
             source.type, identity, project_root=self._root, resource_policy=source_policy
         )
+        binding_verified = False
         try:
             session.open()
             lease = session.bind(
@@ -201,6 +223,7 @@ class _ProjectBoundRunner:
             if lease is None:
                 result = _scope_refusal(check, contract)
             else:
+                binding_verified = True
                 result = evaluate(
                     lease.scope.source, lease.scope.target, _SessionReader(session, lease)
                 )
@@ -234,6 +257,13 @@ class _ProjectBoundRunner:
             )
         finally:
             cleanup = self._close_owned_session(session, identity)
+            self._resource_facts[check.id] = replace(
+                self._resource_facts[check.id],
+                admission=(
+                    _NativeAdmission.VERIFIED if binding_verified else _NativeAdmission.UNVERIFIED
+                ),
+                native=session.resource_facts,
+            )
 
         # Preserve distinct fixed, non-identifying per-session diagnostics across
         # the service's diagnostic deduplication boundary.

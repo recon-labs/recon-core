@@ -97,6 +97,7 @@ from recon_core.profiles.connection_references import (
 from recon_core.project import ProjectContext, load_project_context
 from recon_core.services._bound_runner import _ProjectBoundRunner
 from recon_core.services._run_lifecycle import (
+    _CheckResourceFacts,
     _CompiledRunPlan,
     _InvocationOutcome,
     _RunInvocation,
@@ -246,6 +247,7 @@ class RunService:
             tolerance_states=tolerance_states,
             registry=self.adapter_registry,
             environ=self.environ,
+            resource_facts=invocation.resource_facts,
         )
         if runtime_dependencies.diagnostics:
             return ServiceResult(
@@ -287,6 +289,7 @@ def _prepare_runtime_execution_dependencies(
     tolerance_states: Mapping[str, _ToleranceReferenceState],
     registry: AdapterRegistry | None,
     environ: Mapping[str, str] | None,
+    resource_facts: dict[str, _CheckResourceFacts],
 ) -> _RuntimeExecutionDependencies:
     contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
     has_aggregate_checks = any(
@@ -361,6 +364,20 @@ def _prepare_runtime_execution_dependencies(
         runtime_safety_checks=runtime_safety_checks,
         resource_policies=profile_result.profile._execution_policies,
     )
+    policies = profile_result.profile._execution_policies
+    for artifact in profile_candidates:
+        contract = contracts_by_name[artifact.contract_name]
+        source_policy = policies.get(contract.source.connection)
+        target_policy = policies.get(contract.target.connection)
+        for check in artifact.checks:
+            decision = scan_budget_decisions.decisions_by_check_id.get(check.id)
+            resource_facts[check.id] = _CheckResourceFacts(
+                check_id=check.id,
+                preliminary_allowed=decision.allowed if decision is not None else None,
+                preliminary_reason=decision.reason if decision is not None else None,
+                source_policy=source_policy._setting_facts if source_policy is not None else None,
+                target_policy=target_policy._setting_facts if target_policy is not None else None,
+            )
     adapter_candidates = _adapter_required_runtime_candidates(
         profile_candidates,
         scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
@@ -474,7 +491,8 @@ def _prepare_runtime_execution_dependencies(
                 context.project_root,
                 connections_by_name,
                 scan_budget_decisions.identities_by_check_id,
-                profile_result.profile._execution_policies,
+                policies,
+                resource_facts,
             ),
         ),
     )

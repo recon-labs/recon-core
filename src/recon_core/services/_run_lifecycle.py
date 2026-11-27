@@ -3,8 +3,10 @@
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
+from recon_core.adapters._project_binding import _NativeResourceFacts
 from recon_core.artifacts import LoadedCompiledChecksArtifact
-from recon_core.check_engine.models import RunResult
+from recon_core.check_engine.models import CheckReason, RunResult
+from recon_core.config._local_resource_policy import _ResourceSettingFact
 from recon_core.services.results import ExitCategory, ServiceResult
 
 
@@ -76,6 +78,24 @@ class _CompiledRunPlan:
         )
 
 
+class _NativeAdmission(StrEnum):
+    NOT_REACHED = "not_reached"
+    REFUSED = "refused"
+    UNVERIFIED = "unverified"
+    VERIFIED = "verified"
+
+
+@dataclass(frozen=True, slots=True)
+class _CheckResourceFacts:
+    check_id: str
+    preliminary_allowed: bool | None
+    preliminary_reason: CheckReason | None
+    source_policy: tuple[_ResourceSettingFact, ...] | None
+    target_policy: tuple[_ResourceSettingFact, ...] | None
+    admission: _NativeAdmission = _NativeAdmission.NOT_REACHED
+    native: _NativeResourceFacts | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class _InvocationOutcome:
     run_id: str
@@ -88,6 +108,7 @@ class _InvocationOutcome:
     service_result: ServiceResult
     plan: _CompiledRunPlan | None = field(repr=False)
     run_result: RunResult | None = field(repr=False)
+    resource_facts: tuple[_CheckResourceFacts, ...] = field(repr=False)
 
 
 @dataclass(slots=True)
@@ -98,6 +119,7 @@ class _RunInvocation:
     project_name: str | None = None
     stage: _RunStage = _RunStage.PROJECT_CONFIGURATION
     plan: _CompiledRunPlan | None = field(default=None, repr=False)
+    resource_facts: dict[str, _CheckResourceFacts] = field(default_factory=dict, repr=False)
 
     def finish(
         self,
@@ -135,4 +157,5 @@ class _RunInvocation:
             service_result=service_result,
             plan=self.plan,
             run_result=run_result,
+            resource_facts=tuple(self.resource_facts.values()),
         )

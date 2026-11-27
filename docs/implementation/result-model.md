@@ -61,8 +61,14 @@ explicit auto/none reset, without changing normalized policy equality. Native
 resource targeting retains the original authored byte/thread request before
 capacity adjustment; native sessions retain the already verified setting
 readback (not a physical enforcement guarantee). Unknown values remain absent;
-no scratch path is included in these facts. Invocation-wide aggregation and
-publication are separate responsibilities.
+no scratch path is included in these facts. The invocation retains each
+prepared check's preliminary scan decision and source/target policy provenance,
+plus the native runner's actual binding-admission state and safe control facts.
+A preliminary allowance is not verified binding, and a verified binding is not
+proof of successful comparison or cleanup. Native reported byte intervals are
+not exact physical consumption. Catalog row advisory evidence retains availability
+and threshold outcome, never estimated row totals. Unreached stages remain
+unknown. Invocation-wide counts and publication are separate responsibilities.
 The private outcome is not a new serialized or stable result API.
 The public `ServiceResult` dictionary, command exit mapping and no-write
 boundary remain unchanged. See [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).

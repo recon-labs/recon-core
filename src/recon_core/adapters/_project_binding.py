@@ -1,6 +1,7 @@
 """Private adapter-neutral project binding contract and built-in dispatch."""
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
@@ -68,7 +69,44 @@ class _InvalidAggregateResultError(ValueError):
     """Private malformed numeric transport; never include raw query or values."""
 
 
+class _EstimateAvailability(StrEnum):
+    NOT_REQUESTED = "not_requested"
+    UNKNOWN = "unknown"
+    WITHIN_ADVISORY = "within_advisory"
+    EXCEEDS_ADVISORY = "exceeds_advisory"
+
+
+@dataclass(frozen=True, slots=True)
+class _NativeControlFact:
+    """Authored request, adjusted target, proposed assignment and native report."""
+
+    requested: int | None
+    adjusted: int | None
+    assignment: int | None
+    reported_lower: int | None
+    reported_upper: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class _NativeResourceFacts:
+    """Safe typed settings evidence; not actual scan or memory consumption."""
+
+    memory: _NativeControlFact
+    threads: _NativeControlFact
+    spill: _NativeControlFact
+    memory_capacity_known: bool | None
+    cpu_capacity_known: bool | None
+    spill_capacity_known: bool | None
+    estimate: _EstimateAvailability
+    readback_verified: bool
+    advisory_codes: tuple[str, ...]
+    physical_enforcement_proven: bool = field(default=False, init=False)
+
+
 class _OwnedSession(Protocol):
+    @property
+    def resource_facts(self) -> _NativeResourceFacts: ...
+
     @property
     def advisories(self) -> tuple[Diagnostic, ...]: ...
 

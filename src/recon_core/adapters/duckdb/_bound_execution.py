@@ -17,7 +17,10 @@ from recon_core.adapters._project_binding import (
     _BindingScope,
     _BoundSessionError,
     _diagnostic,
+    _EstimateAvailability,
     _LocalFileIdentity,
+    _NativeControlFact,
+    _NativeResourceFacts,
     _proof_error,
 )
 from recon_core.adapters._resource_scratch import (
@@ -31,6 +34,7 @@ from recon_core.adapters.duckdb._native_resource_controls import (
     _NativeControlError,
     _NativeControlReadback,
     _NativeControlRequest,
+    _NativeSizeInterval,
     _read_native_recommendations,
 )
 from recon_core.adapters.duckdb._resource_targets import (
@@ -275,43 +279,6 @@ def _resource_advisories(
     return tuple(advisories)
 
 
-def _adaptive_native_request(
-    connection: Any, scratch: Path, policy: _LocalResourcePolicy
-) -> tuple[_NativeControlRequest, tuple[Diagnostic, ...], _LocalResourceTargets]:
-    observed = _observe_local_resources(scratch)
-    native = _read_native_recommendations(connection)
-    inputs = _LocalResourceInputs(
-        memory_headroom_bytes=observed.memory_headroom_bytes,
-        cpu_capacity=observed.cpu_capacity,
-        scratch_free_bytes=observed.scratch_free_bytes,
-        scratch_memory_backed=observed.scratch_memory_backed,
-        native_memory_bytes=native.memory_bytes,
-        native_threads=native.threads,
-    )
-    targets = _calculate_local_resource_targets(policy, inputs)
-    if targets.managed_memory_bytes == 0:
-        raise _BoundSessionError(
-            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
-            "No usable managed-memory capacity for this check. Free memory or adjust tuning.",
-        )
-    if targets.threads == 0:
-        raise _BoundSessionError(
-            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
-            "No usable threads capacity for this check. Inspect available CPU resources.",
-        )
-    # Native zero-spill effect has not yet been independently established.
-    if targets.spill_bytes == 0:
-        raise _BoundSessionError(
-            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
-            "No usable positive spill capacity; verified no-spill execution is unavailable. "
-            "Free space or select an existing private disk-backed scratch base.",
-        )
-    request = _NativeControlRequest(
-        targets.managed_memory_bytes, targets.threads, targets.spill_bytes, scratch
-    )
-    return request, _resource_advisories(observed, inputs, targets, policy), targets
-
-
 def _catalog_estimated_rows(connection: Any, relation: Relation) -> int | None:
     """Optional native catalog evidence, never execute a data query to estimate."""
     try:
@@ -382,6 +349,101 @@ class _OwnedDuckDbSession:
         self._advisories: tuple[Diagnostic, ...] = ()
         self._resource_targets: _LocalResourceTargets | None = None
         self._control_readback: _NativeControlReadback | None = None
+        self._control_assignment: _NativeControlRequest | None = None
+        self._memory_capacity_known: bool | None = None
+        self._cpu_capacity_known: bool | None = None
+        self._spill_capacity_known: bool | None = None
+        self._estimate = _EstimateAvailability.NOT_REQUESTED
+
+    @property
+    def resource_facts(self) -> _NativeResourceFacts:
+        targets = self._resource_targets
+        assignment = self._control_assignment
+        report = self._control_readback
+
+        def size_fact(
+            requested: int | None,
+            adjusted: int | None,
+            assigned: int | None,
+            reported: _NativeSizeInterval | None,
+        ) -> _NativeControlFact:
+            return _NativeControlFact(
+                requested,
+                adjusted,
+                assigned,
+                reported.lower_bytes if reported is not None else None,
+                reported.upper_bytes if reported is not None else None,
+            )
+
+        return _NativeResourceFacts(
+            memory=size_fact(
+                targets.requested_memory_bytes if targets is not None else None,
+                targets.managed_memory_bytes if targets is not None else None,
+                assignment.memory_bytes if assignment is not None else None,
+                report.memory if report is not None else None,
+            ),
+            threads=_NativeControlFact(
+                targets.requested_threads if targets is not None else None,
+                targets.threads if targets is not None else None,
+                assignment.threads if assignment is not None else None,
+                report.threads if report is not None else None,
+                report.threads if report is not None else None,
+            ),
+            spill=size_fact(
+                targets.requested_spill_bytes if targets is not None else None,
+                targets.spill_bytes if targets is not None else None,
+                assignment.spill_bytes if assignment is not None else None,
+                report.spill if report is not None else None,
+            ),
+            memory_capacity_known=self._memory_capacity_known,
+            cpu_capacity_known=self._cpu_capacity_known,
+            spill_capacity_known=self._spill_capacity_known,
+            estimate=self._estimate,
+            readback_verified=report is not None,
+            advisory_codes=tuple(dict.fromkeys(d.code for d in self._advisories)),
+        )
+
+    def _adaptive_native_request(
+        self, connection: Any, scratch: Path, policy: _LocalResourcePolicy
+    ) -> _NativeControlRequest:
+        observed = _observe_local_resources(scratch)
+        native = _read_native_recommendations(connection)
+        inputs = _LocalResourceInputs(
+            memory_headroom_bytes=observed.memory_headroom_bytes,
+            cpu_capacity=observed.cpu_capacity,
+            scratch_free_bytes=observed.scratch_free_bytes,
+            scratch_memory_backed=observed.scratch_memory_backed,
+            native_memory_bytes=native.memory_bytes,
+            native_threads=native.threads,
+        )
+        self._memory_capacity_known = inputs.memory_headroom_bytes is not None
+        self._cpu_capacity_known = inputs.cpu_capacity is not None
+        self._spill_capacity_known = inputs.scratch_free_bytes is not None
+        targets = _calculate_local_resource_targets(policy, inputs)
+        self._resource_targets = targets
+        if targets.managed_memory_bytes == 0:
+            raise _BoundSessionError(
+                "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                "No usable managed-memory capacity for this check. Free memory or adjust tuning.",
+            )
+        if targets.threads == 0:
+            raise _BoundSessionError(
+                "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                "No usable threads capacity for this check. Inspect available CPU resources.",
+            )
+        # Native zero-spill effect has not yet been independently established.
+        if targets.spill_bytes == 0:
+            raise _BoundSessionError(
+                "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                "No usable positive spill capacity; verified no-spill execution is unavailable. "
+                "Free space or select an existing private disk-backed scratch base.",
+            )
+        request = _NativeControlRequest(
+            targets.managed_memory_bytes, targets.threads, targets.spill_bytes, scratch
+        )
+        self._advisories = _resource_advisories(observed, inputs, targets, policy)
+        return request
+
 
     @property
     def advisories(self) -> tuple[Diagnostic, ...]:
@@ -451,13 +513,10 @@ class _OwnedDuckDbSession:
             try:
                 if self._resource_policy is not None:
                     assert self._scratch is not None
-                    (
-                        self._native_controls,
-                        self._advisories,
-                        self._resource_targets,
-                    ) = _adaptive_native_request(
+                    self._native_controls = self._adaptive_native_request(
                         self._connection, self._scratch.path, self._resource_policy
                     )
+                self._control_assignment = self._native_controls
                 self._control_readback = _apply_native_controls(
                     self._connection,
                     self._native_controls,
@@ -540,6 +599,7 @@ class _OwnedDuckDbSession:
             estimated = _estimated_input_rows(self._connection, self._lease.scope)
             self.verify_lease(self._lease, self._lease.scope)
             if estimated is None:
+                self._estimate = _EstimateAvailability.UNKNOWN
                 self._advisories += (
                     Diagnostic(
                         code="RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN",
@@ -553,6 +613,7 @@ class _OwnedDuckDbSession:
                     ),
                 )
             elif estimated > threshold:
+                self._estimate = _EstimateAvailability.EXCEEDS_ADVISORY
                 self._advisories += (
                     Diagnostic(
                         code="RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY",
@@ -565,6 +626,8 @@ class _OwnedDuckDbSession:
                         hint="Review workload scope or adjust warn-estimated-input-rows.",
                     ),
                 )
+            else:
+                self._estimate = _EstimateAvailability.WITHIN_ADVISORY
         return self._lease
 
     def verify_lease(self, lease: _BindingLease, scope: _BindingScope) -> None:

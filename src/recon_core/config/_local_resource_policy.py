@@ -25,7 +25,10 @@ class _SettingMode(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class _ResourceSettingFact:
-    """Winning authored setting, excluding connection names and path values."""
+    """Winning scope and mode; numeric values use bytes, counts or percent.
+
+    Scratch path values are never retained here.
+    """
 
     setting: str
     scope: _SettingScope
@@ -45,9 +48,7 @@ class _LocalResourcePolicy:
     scratch_directory: str | None = field(default=None, repr=False)
     managed_memory_percent: int | None = None
     spill_percent: int | None = None
-    _setting_facts: tuple[_ResourceSettingFact, ...] = field(
-        default=(), compare=False, repr=False
-    )
+    _setting_facts: tuple[_ResourceSettingFact, ...] = field(default=(), compare=False, repr=False)
 
 
 @dataclass(frozen=True, slots=True)
