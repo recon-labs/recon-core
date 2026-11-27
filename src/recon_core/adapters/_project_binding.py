@@ -23,9 +23,7 @@ class _LocalFileIdentity:
     modified_ns: int
 
 
-def _exceeds_authored_footprint(
-    identity: _LocalFileIdentity, policy: _LocalResourcePolicy
-) -> bool:
+def _exceeds_authored_footprint(identity: _LocalFileIdentity, policy: _LocalResourcePolicy) -> bool:
     limit = policy.max_database_bytes
     return limit is not None and identity.size > limit
 

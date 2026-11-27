@@ -1421,3 +1421,86 @@ def test_guarded_session_refuses_missing_scratch_before_connect(
         assert session.released
     finally:
         assert session.close() == ()
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize(
+    ("rows", "expected"),
+    [
+        ([(0,)], 0),
+        ([(37,)], 37),
+        ([], None),
+        ([(1,), (2,)], None),
+        ([(True,)], None),
+        ([(1.5,)], None),
+        ([("2",)], None),
+        ([(-1,)], None),
+        ([(1 << 63,)], None),
+        ([(None,)], None),
+        ([(1, 2)], None),
+        ("malformed", None),
+    ],
+)
+def test_optional_catalog_estimate_validates_native_shape(rows: object, expected: int | None) -> None:
+    relation = Relation(identifier="private-table", schema="private-schema", catalog="private-db")
+
+    def execute(query: str, parameters: list[str]) -> Any:
+        assert query == (
+            "SELECT estimated_size FROM duckdb_tables() "
+            "WHERE database_name = ? AND schema_name = ? AND table_name = ? LIMIT 2"
+        )
+        assert parameters == ["private-db", "private-schema", "private-table"]
+
+        def fetchmany(limit: int) -> object:
+            assert limit == 2
+            return rows
+
+        return SimpleNamespace(fetchmany=fetchmany)
+
+    assert binding._catalog_estimated_rows(SimpleNamespace(execute=execute), relation) == expected
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize(
+    ("operation", "expected", "roles"),
+    [
+        ("row_count_diff", 8, ("source", "target")),
+        ("null_source_keys", 3, ("source",)),
+        ("null_target_keys", 5, ("target",)),
+        ("duplicate_source_keys", 3, ("source",)),
+        ("duplicate_target_keys", 5, ("target",)),
+        ("missing_keys", 8, ("source", "target")),
+        ("extra_keys", 8, ("source", "target")),
+        ("sum_diff", 8, ("source", "target")),
+        ("grouped_aggregate_diff", 8, ("source", "target")),
+    ],
+)
+def test_optional_estimates_follow_check_roles(
+    monkeypatch: pytest.MonkeyPatch, operation: str, expected: int, roles: tuple[str, ...]
+) -> None:
+    seen: list[str] = []
+    source = Relation(identifier="source", schema="qa", catalog="warehouse")
+    target = Relation(identifier="target", schema="qa", catalog="warehouse")
+    scope = binding._BindingScope("check", operation, source, target)
+
+    def estimate(connection: Any, relation: Relation) -> int:
+        seen.append(relation.identifier)
+        return 3 if relation == source else 5
+
+    monkeypatch.setattr(binding, "_catalog_estimated_rows", estimate)
+    assert binding._estimated_input_rows(object(), scope) == expected
+    assert tuple(seen) == roles
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+def test_optional_catalog_estimate_unknown_and_overflow() -> None:
+    relation = Relation(identifier="private-table", schema="qa", catalog="warehouse")
+    scope = binding._BindingScope("check", "row_count_diff", relation, relation)
+
+    def unavailable(*args: Any) -> Any:
+        raise RuntimeError("private native catalog failure")
+
+    assert binding._estimated_input_rows(SimpleNamespace(execute=unavailable), scope) is None
+    maximum = SimpleNamespace(fetchmany=lambda limit: [((1 << 63) - 1,)])
+    connection = SimpleNamespace(execute=lambda *args: maximum)
+    assert binding._estimated_input_rows(connection, scope) is None

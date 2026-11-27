@@ -77,7 +77,7 @@ def _classify_scan_budget(context: ScanBudgetContext, *, label: str) -> ScanBudg
             reason=CheckReason.SCAN_BUDGET_EXCEEDED,
             diagnostic_code=SCAN_BUDGET_EXCEEDED,
             message=f"{label} scan is not executable because scan budget is exceeded.",
-            hint="Reduce the scan scope or wait for later scan-budget settings support.",
+            hint="Reduce the scan scope or adjust the applicable configured limit, if supported.",
         )
 
     if (
