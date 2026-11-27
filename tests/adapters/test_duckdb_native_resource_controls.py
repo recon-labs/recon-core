@@ -23,6 +23,7 @@ from recon_core.adapters.duckdb._native_resource_controls import (
 _MIB = 1 << 20
 
 
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
 @pytest.mark.parametrize(
     ("display", "lower", "upper"),
     [
@@ -30,9 +31,12 @@ _MIB = 1 << 20
         ("1 byte", 1, 1),
         ("1023 bytes", 1023, 1023),
         ("1.0 KiB", 1024, 1126),
-        ("128.0 MiB", 128 * _MIB, 128 * _MIB + (_MIB - 1) // 10),
+        ("128.0 MiB", 128 * _MIB, 128 * _MIB + 103 * 1024 - 1),
         ("1.2 MB", 1200000, 1299999),
-        ("1.0 GiB", 1 << 30, (1 << 30) + ((1 << 30) - 1) // 10),
+        ("1.0 GiB", 1 << 30, (1 << 30) + 103 * _MIB - 1),
+        ("7.2 GiB", 7 * (1 << 30) + 205 * _MIB, 7 * (1 << 30) + 308 * _MIB - 1),
+        ("77.8 GiB", 77 * (1 << 30) + 820 * _MIB, 77 * (1 << 30) + 922 * _MIB - 1),
+        ("1.9 TiB", (1 << 40) + 922 * (1 << 30), (2 << 40) - 1),
     ],
 )
 def test_native_size_display_interval(display: str, lower: int, upper: int) -> None:
@@ -193,7 +197,14 @@ def duckdb() -> Any:
     return pytest.importorskip("duckdb")
 
 
-def test_native_control_application(tmp_path: Path, duckdb: Any) -> None:
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+@pytest.mark.parametrize(
+    ("memory_bytes", "spill_bytes"),
+    [(128 * _MIB + 17, _MIB + 19), (128 * _MIB + 105000, _MIB + 105000)],
+)
+def test_native_control_application(
+    tmp_path: Path, duckdb: Any, memory_bytes: int, spill_bytes: int
+) -> None:
     database = tmp_path / "fixture.duckdb"
     scratch = tmp_path / "owned scratch"
     scratch.mkdir()
@@ -203,7 +214,7 @@ def test_native_control_application(tmp_path: Path, duckdb: Any) -> None:
     finally:
         connection.close()
 
-    request = _NativeControlRequest(128 * _MIB + 17, 1, _MIB + 19, scratch)
+    request = _NativeControlRequest(memory_bytes, 1, spill_bytes, scratch)
     native = duckdb.connect(str(database), read_only=True, config=_native_startup_config(request))
     try:
         actual = _apply_native_controls(native, request)

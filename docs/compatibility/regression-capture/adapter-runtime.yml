@@ -576,6 +576,8 @@ captures:
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_native_size_display_interval
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_native_control_application
       - tests/adapters/test_duckdb_native_resource_controls.py::test_spill_setting_is_applied_after_connect
       - tests/adapters/test_duckdb_native_resource_controls.py::test_required_control_readback_mismatch
       - tests/adapters/test_duckdb_native_resource_controls.py::test_optional_automatic_controls_leave_native_settings_untouched
