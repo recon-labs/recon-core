@@ -100,7 +100,7 @@ def test_malformed_memory_evidence_is_incomplete(value: str) -> None:
     files = _v2_files()
     files["/sys/fs/cgroup/team/job/memory.max"] = value
     result = _observe_linux_constraints(_MEMBERSHIP, _MOUNTS, _reader(files))
-    assert result.memory_headroom_bytes == 924
+    assert result.memory_headroom_bytes is None
     assert result.memory_incomplete
 
 
