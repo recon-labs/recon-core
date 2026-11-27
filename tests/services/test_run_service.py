@@ -1,9 +1,11 @@
 import ast
+from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 import recon_core.adapters as adapters_module
 import recon_core.adapters.default_renderers as default_renderers_module
@@ -11,6 +13,7 @@ import recon_core.services.run as run_service_module
 from recon_core.adapters import (
     AdapterRegistry,
 )
+from recon_core.artifacts import CompiledCheckLoader, CompiledContractLoader
 from recon_core.check_engine import CheckReason, CheckResult, CheckStatus, ContractResult, RunResult
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
@@ -347,6 +350,7 @@ def test_run_invocation_retains_identity_on_early_failure(
     assert outcome.stage.value == stage
     assert outcome.status.value == "failed"
     assert outcome.run_result is None
+    assert (outcome.plan is not None) == (failure in {"setup", "engine"})
     assert outcome.elapsed_ns >= 0
     assert outcome.started_at.endswith("Z") and outcome.finished_at.endswith("Z")
     assert outcome.service_result.exit_category is category
@@ -481,3 +485,144 @@ def test_invocation_utc_label_preserves_subsecond_precision(
 
     monkeypatch.setattr(run_service_module, "datetime", FixedClock)
     assert run_service_module._utc_timestamp() == "2026-11-27T10:00:00.123456Z"
+
+
+def test_invocation_plan_preserves_loaded_order_and_dependencies(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    first = _compiled_check_payload(check_id="first", name="first")
+    second = _compiled_check_payload(check_id="second", name="second")
+    first["prerequisites"] = ["second"]
+    write_compiled_checks(tmp_path, contract_name="alpha", checks=[first, second])
+    write_compiled_contract(tmp_path, contract_name="alpha")
+    write_compiled_checks(tmp_path, contract_name="empty", checks=[])
+    write_compiled_contract(tmp_path, contract_name="empty")
+    last = _compiled_check_payload(check_id="last", name="last")
+    write_compiled_checks(tmp_path, contract_name="zeta", checks=[last])
+    write_compiled_contract(
+        tmp_path,
+        contract_name="zeta",
+        source_relation=None,
+        source_query="select 'private-query-canary'",
+    )
+
+    outcome = RunService(start_path=tmp_path)._execute_invocation()
+
+    plan = outcome.plan
+    assert plan is not None
+    assert plan.project_name == "ecommerce_recon"
+    assert plan.scope.value == "whole_compiled"
+    assert tuple(c.contract_name for c in plan.contracts) == ("alpha", "empty", "zeta")
+    assert tuple(c.contract_id for c in plan.contracts) == (
+        "contract.ecommerce_recon.alpha",
+        "contract.ecommerce_recon.empty",
+        "contract.ecommerce_recon.zeta",
+    )
+    assert tuple(c.checks for c in plan.contracts)[1] == ()
+    checks = plan.contracts[0].checks
+    assert tuple(c.check_id for c in checks) == ("first", "second")
+    assert checks[0].plan_id == "plan.ecommerce_recon.customer_revenue.first"
+    assert checks[0].prerequisites == ("second",)
+    assert checks[1].prerequisites == ()
+    assert plan.contracts[2].checks[0].check_id == "last"
+    with pytest.raises(FrozenInstanceError):
+        setattr(checks[0], "check_id", "changed")
+    assert "private-query-canary" not in repr(plan)
+    assert str(tmp_path) not in repr(plan)
+    assert outcome.run_result is not None
+    assert tuple(c.contract_name for c in outcome.run_result.contract_results) == (
+        "alpha",
+        "empty",
+        "zeta",
+    )
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "missing_checks",
+        "missing_contract",
+        "malformed",
+        "unsupported_version",
+        "mismatched_reference",
+        "foreign_project",
+        "duplicate_check",
+        "duplicate_contract",
+        "empty",
+    ],
+)
+def test_invalid_compiled_scope_never_reaches_runtime_setup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, invalid: str
+) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    write_compiled_contract(tmp_path)
+    checks = tmp_path / "target" / "compiled_checks" / "customer_revenue.yml"
+    contract = tmp_path / "target" / "compiled_contracts" / "customer_revenue.yml"
+    if invalid == "missing_checks":
+        checks.unlink()
+    elif invalid == "missing_contract":
+        contract.unlink()
+    elif invalid == "malformed":
+        checks.write_text("invalid: [private-query-canary", encoding="utf-8")
+    elif invalid == "unsupported_version":
+        payload = yaml.safe_load(checks.read_text(encoding="utf-8"))
+        payload["artifact_version"] = 999
+        checks.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    elif invalid == "mismatched_reference":
+        payload = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        payload["contract"]["id"] = "contract.other"
+        contract.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    elif invalid == "foreign_project":
+        for path in (checks, contract):
+            payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+            payload["project"]["name"] = "other_project"
+            path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    elif invalid == "duplicate_check":
+        payload = yaml.safe_load(checks.read_text(encoding="utf-8"))
+        payload["checks"].append(payload["checks"][0])
+        checks.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    elif invalid == "duplicate_contract":
+        (checks.parent / "copy.yml").write_bytes(checks.read_bytes())
+    elif invalid == "empty":
+        write_compiled_checks(tmp_path, checks=[])
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail("Invalid artifacts must stop before runtime setup.")
+
+    monkeypatch.setattr(run_service_module, "_prepare_runtime_execution_dependencies", forbidden)
+    outcome = RunService(start_path=tmp_path)._execute_invocation()
+
+    assert outcome.plan is None
+    assert outcome.run_result is None
+    assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert outcome.service_result.diagnostics
+    assert "private-query-canary" not in repr(outcome.service_result)
+    _assert_no_runtime_outputs(tmp_path)
+
+
+def test_invocation_plan_does_not_claim_authored_freshness(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+    project = tmp_path / "recon_project.yml"
+    project.write_text(
+        project.read_text(encoding="utf-8").replace("0.1.0", "0.2.0"), encoding="utf-8"
+    )
+    authored = tmp_path / "contracts" / "customer_revenue.yml"
+    authored.parent.mkdir()
+    authored.write_text("invalid: [private-authored-canary", encoding="utf-8")
+    loaded = CompiledCheckLoader().load(tmp_path / "target")
+    assert loaded.succeeded
+    assert CompiledContractLoader().load_for_compiled_checks(
+        tmp_path / "target", loaded.artifacts
+    ).succeeded
+    before = {path: path.read_bytes() for path in (tmp_path / "target").rglob("*.yml")}
+
+    outcome = RunService(start_path=tmp_path, engine=_CapturingPassEngine())._execute_invocation()
+
+    assert outcome.plan is not None
+    assert outcome.plan.contracts[0].project_version == "0.1.0"
+    assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+    assert {path: path.read_bytes() for path in before} == before
+    _assert_no_runtime_outputs(tmp_path)

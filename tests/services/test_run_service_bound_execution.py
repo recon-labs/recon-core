@@ -12,6 +12,7 @@ from recon_core.adapters import AdapterRegistry, AdapterResolutionResult, Connec
 from recon_core.adapters._local_resource_observation import _LocalObservation
 from recon_core.adapters.duckdb import DuckDbAdapter
 from recon_core.adapters.duckdb import _bound_execution as binding
+from recon_core.artifacts import CompiledContractLoader
 from recon_core.check_engine import CheckEngine, CheckStatus, RunResult
 from recon_core.cli.main import main
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
@@ -956,3 +957,40 @@ def test_invocation_elapsed_includes_native_cleanup_outcome(
         assert outcome.status.value == "completed"
         assert outcome.service_result.exit_category is ExitCategory.SUCCESS
         assert check.status is CheckStatus.PASS and check.executed
+
+
+def test_native_run_uses_loaded_artifacts_after_files_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    target = tmp_path / "target"
+    checks = target / "compiled_checks" / "customer_revenue.yml"
+    contract = target / "compiled_contracts" / "customer_revenue.yml"
+    original_load = CompiledContractLoader._load_for_runtime
+    loads = 0
+
+    def load_then_change(*args: Any, **kwargs: Any) -> Any:
+        nonlocal loads
+        loads += 1
+        result = original_load(*args, **kwargs)
+        assert result[0].succeeded
+        checks.write_text("invalid: [", encoding="utf-8")
+        contract.write_text("invalid: [", encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(CompiledContractLoader, "_load_for_runtime", load_then_change)
+    outcome = RunService(start_path=tmp_path)._execute_invocation()
+
+    assert loads == 1
+    assert outcome.plan is not None
+    assert outcome.run_result is not None
+    assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+    check = outcome.run_result.contract_results[0].check_results[0]
+    assert check.status is CheckStatus.PASS
+    assert check.check_id == outcome.plan.contracts[0].checks[0].check_id
+    assert checks.read_text(encoding="utf-8") == "invalid: ["
+    assert contract.read_text(encoding="utf-8") == "invalid: ["
+    assert not (target / "run_results.json").exists()
