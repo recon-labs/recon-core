@@ -524,6 +524,12 @@ captures:
     current_tests:
       - tests/adapters/test_local_resource_observation.py::test_effective_memory_evidence_ancestor_headroom
       - tests/adapters/test_local_resource_observation.py::test_missing_ancestor_is_not_unlimited
+      - tests/adapters/test_local_resource_observation.py::test_visible_v2_scope_reads_only_matched_membership
+      - tests/adapters/test_local_resource_observation.py::test_ambiguous_v2_mount_mapping_does_not_guess
+      - tests/adapters/test_local_resource_observation.py::test_v1_controller_is_optional_unknown_not_guessed
+      - tests/adapters/test_local_resource_observation.py::test_visible_v2_memory_probe_failure_preserves_cpu
+      - tests/adapters/test_local_resource_observation.py::test_unusable_or_unlimited_cpu_hint_preserves_memory
+      - tests/adapters/test_local_resource_observation.py::test_visible_v2_memory_is_saturated_or_unknown
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -545,6 +551,10 @@ captures:
     current_tests:
       - tests/adapters/test_portable_resource_observation.py::test_portable_facts_preserve_available_memory_and_affinity
       - tests/adapters/test_portable_resource_observation.py::test_windows_job_observation_is_not_host_memory_proof
+      - tests/adapters/test_portable_resource_observation.py::test_portable_observation_does_not_require_process_memory_inspection
+      - tests/adapters/test_portable_resource_observation.py::test_portable_observation_does_not_probe_os_job_or_rlimit_apis
+      - tests/adapters/test_portable_resource_observation.py::test_optional_provider_load_failure_is_not_fatal
+      - tests/adapters/test_portable_resource_observation.py::test_memory_probe_failure_does_not_erase_affinity
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
