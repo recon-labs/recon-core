@@ -1053,10 +1053,9 @@ profiles:
 
     assert result.succeeded
     assert result.profile is not None
-    assert (
-        result.profile.connections["legacy"].config
-        == result.profile.connections["warehouse"].config
-    )
+    legacy_config = result.profile.connections["legacy"].config
+    warehouse_config = result.profile.connections["warehouse"].config
+    assert legacy_config == warehouse_config
     policies = result.profile._execution_policies
     assert set(policies) == {"legacy", "warehouse", "other"}
 
