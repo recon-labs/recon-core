@@ -1,0 +1,63 @@
+name: Temporary configured reader compatibility
+on:
+  push:
+    branches: [experiment/m812-embedded-configured-reader-20261127]
+permissions:
+  contents: read
+jobs:
+  overlap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        duckdb: ['1.0.0','1.3.2','1.4.5','2.0.1']
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "duckdb==${{ matrix.duckdb }}"
+      - name: Compare native simultaneous readers and attachments
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/probe.py" <<'PY'
+          import json
+          import tempfile
+          from pathlib import Path
+          import duckdb
+          
+          def emit(**facts):
+              print(json.dumps(facts,sort_keys=True),flush=True)
+          
+          def attach(actor,path):
+              literal=str(path).replace("'","''")
+              actor.execute(f"ATTACH '{literal}' (READ_ONLY)")
+          
+          with tempfile.TemporaryDirectory(prefix="recon-overlap-") as name:
+              root=Path(name).resolve()
+              a=root/"a.duckdb"
+              b=root/"b.duckdb"
+              for path in (a,b):
+                  with duckdb.connect(str(path)) as c:
+                      c.execute("create table src as select 1 as id")
+              with duckdb.connect(str(a),read_only=True,config={"memory_limit":"384MiB","threads":"2","temp_directory":str(root/"observer")}) as observer:
+                  observer.execute("SET max_temp_directory_size='768MiB'")
+                  q="select current_setting('memory_limit'),current_setting('threads'),current_setting('max_temp_directory_size'),current_setting('temp_directory')"
+                  baseline=observer.execute(q).fetchone()
+                  for label,kwargs in (("ordinary",{}),("explicit_matching",{"config":{"memory_limit":"384MiB","threads":"2","temp_directory":str(root/"observer")}})):
+                      try:
+                          guard=duckdb.connect(str(a),read_only=True,**kwargs)
+                          try: assert guard.execute("select count(*) from src").fetchone()==(1,)
+                          finally: guard.close()
+                          emit(case="configured_reader",mode=label,success=True,unchanged=observer.execute(q).fetchone()==baseline)
+                      except Exception as e:
+                          emit(case="configured_reader",mode=label,success=False,error_type=type(e).__name__,error=str(e).replace(str(root),"<fixture>")[:300],unchanged=observer.execute(q).fetchone()==baseline)
+                  with duckdb.connect(":memory:") as actor:
+                      try:
+                          attach(actor,a)
+                          emit(case="attach_with_configured_reader",success=actor.execute("select count(*) from a.main.src").fetchone()==(1,),unchanged=observer.execute(q).fetchone()==baseline)
+                      except Exception as e:
+                          emit(case="attach_with_configured_reader",success=False,error_type=type(e).__name__,error=str(e).replace(str(root),"<fixture>")[:300])
+          emit(case="cleanup",removed=not Path(name).exists())
+          PY
+          python "$RUNNER_TEMP/probe.py"
