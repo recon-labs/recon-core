@@ -111,17 +111,19 @@ def _read_bound_count_result(connection: Any, query: str, *, max_columns: int) -
 class _VerifiedReadConnection:
     """Only the execute seam needed by the existing result transport readers."""
 
-    def __init__(self, execute: Callable[[str], Any]) -> None:
+    def __init__(self, execute: Callable[..., Any]) -> None:
         self._execute = execute
 
-    def execute(self, query: str) -> Any:
-        return self._execute(query)
+    def execute(self, query: str, *args: Any) -> Any:
+        return self._execute(query, *args)
 
 
 class _ControlledReadCursor:
     """Keep fetch inside its own interruptible span, never the cleanup call."""
 
-    def __init__(self, cursor: Any, control: _RunControl, interrupt: Callable[[], bool]) -> None:
+    def __init__(
+        self, cursor: Any, control: _RunControl, interrupt: Callable[[], bool] | None = None
+    ) -> None:
         self._cursor = cursor
         self._control = control
         self._interrupt = interrupt
@@ -132,7 +134,14 @@ class _ControlledReadCursor:
         return self._cursor.description
 
     def fetchmany(self, size: int) -> Any:
-        return self._control.native_call(lambda: self._cursor.fetchmany(size), self._interrupt)
+        if self._interrupt is not None:
+            return self._control.native_call(lambda: self._cursor.fetchmany(size), self._interrupt)
+        self._control.checkpoint()
+        return self._cursor.fetchmany(size)
+
+    def fetchall(self) -> Any:
+        self._control.checkpoint()
+        return self._cursor.fetchall()
 
 
 def _current_catalog(connection: Any) -> str:
@@ -425,8 +434,11 @@ class _OwnedDuckDbSession:
     def _adaptive_native_request(
         self, connection: Any, scratch: Path, policy: _LocalResourcePolicy
     ) -> _NativeControlRequest:
+        self._checkpoint()
         observed = _observe_local_resources(scratch)
-        native = _read_native_recommendations(connection)
+        self._checkpoint()
+        native = _read_native_recommendations(self._setup_reader(connection))
+        self._checkpoint()
         inputs = _LocalResourceInputs(
             memory_headroom_bytes=observed.memory_headroom_bytes,
             cpu_capacity=observed.cpu_capacity,
@@ -480,6 +492,18 @@ class _OwnedDuckDbSession:
         if self._run_control is not None:
             self._run_control.checkpoint()
 
+    def _setup_reader(self, connection: Any) -> Any:
+        control = self._run_control
+        if control is None:
+            return connection
+
+        def execute(statement: str, *args: Any) -> Any:
+            control.checkpoint()
+            cursor = connection.execute(statement, *args)
+            return _ControlledReadCursor(cursor, control)
+
+        return _VerifiedReadConnection(execute)
+
     def _verify_file(self) -> None:
         self._checkpoint()
         if self._invalidated or _current_file_identity(self._identity.path) != self._identity:
@@ -510,7 +534,9 @@ class _OwnedDuckDbSession:
                 ) from None
         catalog = ""
         try:
+            self._checkpoint()
             duckdb = import_module("duckdb")
+            self._checkpoint()
             if self._native_controls is None:
                 self._connection = duckdb.connect(str(self._identity.path), read_only=True)
                 self._released = False
@@ -518,15 +544,17 @@ class _OwnedDuckDbSession:
                 self._guard = duckdb.connect(str(self._identity.path), read_only=True)
                 self._released = False
                 self._verify_file()
-                catalog = _current_catalog(self._guard)
-                if _local_duckdb_catalog_names(self._guard, self._identity.path) != frozenset(
+                guard_reader = self._setup_reader(self._guard)
+                catalog = _current_catalog(guard_reader)
+                if _local_duckdb_catalog_names(guard_reader, self._identity.path) != frozenset(
                     {_duckdb_identifier_key(catalog)}
                 ):
                     raise _proof_error()
+                self._checkpoint()
                 self._connection = duckdb.connect(
                     ":memory:", config=_native_startup_config(self._native_controls)
                 )
-        except _BoundSessionError:
+        except (_BoundSessionError, _RunStopped):
             self._invalidated = True
             raise
         except Exception:
@@ -546,7 +574,7 @@ class _OwnedDuckDbSession:
                     )
                 self._control_assignment = self._native_controls
                 self._control_readback = _apply_native_controls(
-                    self._connection,
+                    self._setup_reader(self._connection),
                     self._native_controls,
                     assign_memory_threads=self._resource_policy is not None,
                 )
@@ -562,6 +590,7 @@ class _OwnedDuckDbSession:
                 self._invalidated = True
                 raise
             except (_NativeControlError, ValueError):
+                self._checkpoint()
                 self._invalidated = True
                 raise _BoundSessionError(
                     "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
@@ -569,7 +598,12 @@ class _OwnedDuckDbSession:
                     "Inspect supported native controls and selected tuning.",
                 ) from None
             try:
-                _attach_guarded_database(self._connection, self._identity.path, catalog)
+                _attach_guarded_database(
+                    self._setup_reader(self._connection), self._identity.path, catalog
+                )
+            except _RunStopped:
+                self._invalidated = True
+                raise
             except Exception:
                 self._invalidated = True
                 raise _proof_error() from None
@@ -578,6 +612,8 @@ class _OwnedDuckDbSession:
             self._checkpoint()
             self._connection.execute("BEGIN TRANSACTION")
             self._transaction = True
+        except _RunStopped:
+            raise
         except Exception:
             raise _BoundSessionError(
                 ADAPTER_CONNECTION_FAILED,
@@ -592,15 +628,19 @@ class _OwnedDuckDbSession:
         if relation is None:
             return None
         try:
-            catalogs = _local_duckdb_catalog_names(self._connection, self._identity.path)
+            reader = self._setup_reader(self._connection)
+            catalogs = _local_duckdb_catalog_names(reader, self._identity.path)
             self._verify_file()
             if not catalogs:
                 return None
             resolved = _resolve_local_base_table(
-                self._connection, relation, local_catalog_names=catalogs
+                reader, relation, local_catalog_names=catalogs
             )
             self._verify_file()
             return resolved
+        except _RunStopped:
+            self._invalidated = True
+            raise
         except Exception:
             self._invalidated = True
             raise _proof_error() from None
@@ -629,7 +669,9 @@ class _OwnedDuckDbSession:
             self._estimate = _EstimateAvailability.NOT_REQUESTED
         else:
             self._checkpoint()
-            estimated = _estimated_input_rows(self._connection, self._lease.scope)
+            estimated = _estimated_input_rows(
+                self._setup_reader(self._connection), self._lease.scope
+            )
             self.verify_lease(self._lease, self._lease.scope)
             if estimated is None:
                 self._estimate = _EstimateAvailability.UNKNOWN

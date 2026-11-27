@@ -370,6 +370,9 @@ def _prepare_runtime_execution_dependencies(
     resource_facts: dict[str, _CheckResourceFacts],
     control: _RunControl | None = None,
 ) -> _RuntimeExecutionDependencies:
+    def stopped() -> bool:
+        return control is not None and control.observe() is not None
+
     contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
     has_aggregate_checks = any(
         is_aggregate_check_type(check.check_type)
@@ -415,6 +418,8 @@ def _prepare_runtime_execution_dependencies(
         compiled_contracts=compiled_contracts,
     )
 
+    if stopped():
+        return _RuntimeExecutionDependencies()
     profile_result = load_selected_profile_for_connection_names(
         context,
         referenced_connection_names=referenced_connection_names_from_compiled_contracts(
@@ -429,6 +434,8 @@ def _prepare_runtime_execution_dependencies(
             message="Run profile configuration failed.",
         )
 
+    if stopped():
+        return _RuntimeExecutionDependencies()
     assert profile_result.profile is not None
     connections_by_name = _runtime_connections_for_project(
         profile_result.profile.connections,
@@ -442,6 +449,7 @@ def _prepare_runtime_execution_dependencies(
         project_root=context.project_root,
         runtime_safety_checks=runtime_safety_checks,
         resource_policies=profile_result.profile._execution_policies,
+        control=control,
     )
     policies = profile_result.profile._execution_policies
     for artifact in profile_candidates:
@@ -457,6 +465,8 @@ def _prepare_runtime_execution_dependencies(
                 source_policy=source_policy._setting_facts if source_policy is not None else None,
                 target_policy=target_policy._setting_facts if target_policy is not None else None,
             )
+    if stopped():
+        return _RuntimeExecutionDependencies()
     adapter_candidates = _adapter_required_runtime_candidates(
         profile_candidates,
         scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
@@ -481,6 +491,8 @@ def _prepare_runtime_execution_dependencies(
     for connection_index, (connection_name, required_capabilities) in enumerate(
         sorted(required_capabilities_by_connection.items()), start=1
     ):
+        if stopped():
+            break
         aggregate_connection = connection_name in aggregate_connections
         connection = connections_by_name[connection_name]
         # Keep the scan-approved config independent of mutable factory input.
@@ -537,6 +549,8 @@ def _prepare_runtime_execution_dependencies(
             message="Run adapter configuration failed.",
         )
 
+    if stopped():
+        return _RuntimeExecutionDependencies()
     aggregate_blockers = _aggregate_capability_blockers(
         adapter_candidates,
         contracts_by_name=contracts_by_name,
@@ -547,6 +561,8 @@ def _prepare_runtime_execution_dependencies(
     for artifact in adapter_candidates:
         contract = contracts_by_name[artifact.contract_name]
         for check in artifact.checks:
+            if stopped():
+                return _RuntimeExecutionDependencies()
             if not is_aggregate_check_type(check.check_type) or check.id in aggregate_blockers:
                 continue
             adapter = adapters_by_connection[contract.source.connection]
@@ -899,6 +915,7 @@ def _scan_budget_decisions_by_check_id(
     project_root: Path,
     runtime_safety_checks: RuntimeSafetyCheckRegistry,
     resource_policies: Mapping[str, _LocalResourcePolicy],
+    control: _RunControl | None = None,
 ) -> _RuntimeScanBudgetDecisions:
     decisions: dict[str, ScanBudgetDecision] = {}
     identities: dict[str, _LocalFileIdentity] = {}
@@ -908,6 +925,10 @@ def _scan_budget_decisions_by_check_id(
         if contract is None:
             continue
         for check in artifact.checks:
+            if control is not None and control.observe() is not None:
+                return _RuntimeScanBudgetDecisions(
+                    decisions, identities, frozenset(adapter_setup_required_check_ids)
+                )
             aggregate = is_aggregate_check_type(check.check_type)
             source = connections_by_name.get(contract.source.connection)
             target = connections_by_name.get(contract.target.connection)
