@@ -777,7 +777,9 @@ def test_owned_controls_precede_transaction_and_cleanup(
             if query == "pragma database_list":
                 return SimpleNamespace(fetchall=lambda: [(1, "fixture", str(identity.path))])
             if query.startswith("SELECT database_name, path, readonly"):
-                return SimpleNamespace(fetchmany=lambda size: [("fixture", str(identity.path), True)])
+                return SimpleNamespace(
+                    fetchmany=lambda size: [("fixture", str(identity.path), True)]
+                )
             if query.startswith("SELECT current_setting"):
                 return SimpleNamespace(fetchmany=lambda size: [(settings[query.split("'")[1]],)])
             return self
