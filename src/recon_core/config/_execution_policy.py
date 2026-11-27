@@ -62,4 +62,3 @@ def _resolve_target_execution(
             connection_layer,
         )
     return result
-
