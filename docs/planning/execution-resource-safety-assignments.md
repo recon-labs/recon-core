@@ -25,6 +25,22 @@ required before retirement. No gate is closed.
 
 See the [approved M8.1.2 prework](milestone-8-1-2-prework.md) for the exact configuration, candidate/capture disposition and ordered implementation proof.
 
+## Measured calibration carryover (2026-11-27)
+
+The [implementation-level calibration evidence](milestone-8-1-2-prework.md#implementation-level-calibration-evidence-and-open-decision-2026-11-27)
+records actual kernel OOM, not a comparison or handled native query error,
+under representative constrained automatic settings and an explicit
+one-thread costly workload. Step 7B remains open; no default change or
+waiver approved. Within existing R2/R3/R4/R6/R10, A6/A10/A12/A13 and
+P1-P6 requirements, re-evaluate constrained/capable, changing load,
+memory-backed storage and abrupt exit when tuning, native versions,
+deployment or operation scope change. M8.2 owns invocation-level
+lifecycle/termination handling; M10.8 and M29 readiness and future adapter
+promotion must retain honest limits and actual native evidence, no
+blanket version refusal, unproved physical quota, or common mechanism.
+External process/container limits and operator-specific tuning are
+separate from managed native targets. No new milestone or closed gate.
+
 ## Current redesign checkpoint (2026-11-27)
 
 M8.1.2 implementation is suspended. The [reopened prework](milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27)

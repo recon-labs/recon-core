@@ -55,6 +55,62 @@ review when local validation unavailable. Existing standard CI first;
 persistent native/platform proof and Windows live-WAL fixture remain
 mandatory. No code changed in this authorization/inventory step.
 
+## Implementation-level calibration evidence and open decision (2026-11-27)
+
+The initial measured project-runtime experiment [46015981225](https://github.com/recon-labs/recon-core/actions/runs/46015981225)
+at temporary harness commit `d0f36afcc4f5eeededdf43da56214a0e02c82c4f`
+completed 24 synthetic cases, all four pinned engines (1.0.0, 1.3.2,
+1.4.5, 2.0.1). An approximately 770 MiB database completed in a real
+512 MiB/2-CPU cgroup with 128 MiB/one-thread controls and actual spill
+(66-155 MB sampled). Auto memory with one authored thread, 75% memory
+with one thread and a capable 2 GiB environment also completed; small
+compressed wide-key workloads were materially costlier. A real 64 MiB
+ext4 loopback with approximately 53.8 MB free gave controlled native
+query errors on all four pins. Successful/controlled error cases preserved
+the unrelated observer, database bytes/metadata and confirmed owned cleanup.
+Sampler cleanup races in this initial harness prevent an exact peak claim.
+
+The full automatic-thread experiment [46016305450](https://github.com/recon-labs/recon-core/actions/runs/46016305450)
+exposed abrupt termination in tight environments. Isolated case rerun
+[46016574334](https://github.com/recon-labs/recon-core/actions/runs/46016574334)
+at `c01631c9793037e4f5d22f4308db39dd8e47f8cf` confirms OS OOMKilled=true,
+exit 137, not a controlled Recon error. With 512 MiB/2 CPU, the approved
+50% automatic memory/native-bounded threads passed six of eight repeated
+large narrow cases; 1.3.2 and 1.4.5 each terminated one invocation.
+One-thread auto and 25%-memory/one-thread alternatives passed the large
+narrow fixture on all four pins; 25%/two-thread and fixed 128 MiB/two-thread
+alternatives caused native errors on 1.3.2 and 1.4.5. All four capable
+2 GiB/4 CPU cases passed; 75%/auto threads passed on this rerun but earlier
+1.4.5 terminated. The approximately 104 MiB compressed wide-key workload
+with fixed 128 MiB/one thread still caused a kernel OOM on 1.0.0 in the
+rerun; other pins returned controlled error or PASS. Actual tmpfs tests
+verified shared headroom targets and advisories, but 1.4.5 still suffered
+kernel OOM at automatic settings; the 25% variant gave controlled error
+on 1.3.2 and 1.4.5 and PASS on the other two pins. Native-managed memory
+and spill ceilings are not total process/cgroup memory guarantees.
+
+No calibration conclusion based on failed-job counts alone: the detailed
+outcomes above distinguish real native errors, kernel kill, successful
+comparison and test-harness failures. No false success, no claim of cleanup
+after OS kill, no change to approved defaults, no automatic retry, no
+new size/memory-per-thread cap, no reintroduction of worker/watchdog.
+The temporary harness was removed from its experiment branch at
+`c6660b078355c8db7adaf3a1f0ac9a4d5e8ff772`; exact historical reproducibility
+and CI evidence remain. Permanent captured per-check, native spill,
+interruption, error, cleanup and abandoned-residue tests remain.
+
+**Open Step 7B calibration decision:** do not close the gate or claim
+universal safe automatic tuning. The observed tradeoff needs explicit
+maintainer acceptance of the approved best-effort defaults with documented
+limits, or approval of a revised adapter-specific tuning rule followed by
+measured recalibration. Lowering only memory or setting one thread
+universally is not a proven fix. Existing M8.2 invocation lifecycle,
+M10.8 readiness/scope, M29 and future candidate gates retain the measured
+resource and abrupt-exit outcomes; repeat the constrained/capable
+native workloads on default/control/dependency changes and before
+promotion. Independent 7C/7D evidence may proceed; no release, merge
+or completed-gate claim.
+
 ## Current status: whole design reopened (2026-11-27)
 
 Historical suspension record; superseded by the current authorization above.
