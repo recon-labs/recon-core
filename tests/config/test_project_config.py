@@ -422,8 +422,8 @@ def test_local_resource_policy_invalid_integer(tmp_path: Path, field: str, value
     "field",
     [
         "max-database-mib",
-        "managed-memory-mib",
-        "spill-mib",
+        "managed-memory",
+        "spill",
     ],
 )
 @pytest.mark.regression_capture("local-resource-config-strict-validation")
