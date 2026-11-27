@@ -19,7 +19,7 @@ decimal milestone split rules.
 
 ## Version 0.1
 
-M8.1.2 whole design reopened, implementation suspended (2026-11-27); prior mechanism assignments below are historical pending revised prework. No successor implementation before approval; see [M8.1.2 approved prework](milestone-8-1-2-prework.md). It owns hardware-aware local policy, calibration and one-worker stop, scratch recovery and per-check resource scope. Remaining invocation deadlines/cancellation/retry and cumulative resource coordination belong to M8.2; safe resource metadata to M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
+M8.1.2 whole design reopened, implementation suspended (2026-11-27); prior mechanism assignments below are historical pending revised prework. No successor implementation before approval; see [M8.1.2 approved prework](milestone-8-1-2-prework.md). It owns hardware-aware adapter-scoped policy, project/target/connection precedence, calibration, native execution and cleanup prerequisites; historical worker/recovery mechanisms are reopened. Remaining invocation deadlines/cancellation/retry and cumulative resource coordination belong to M8.2; safe resource metadata to M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
 
 Primary goal:
 
@@ -321,6 +321,27 @@ M9.5 (lossless type compatibility for existing key and aggregate checks) is a ma
 ## Execution scope restoration checkpoint
 
 Apply [Gate 4Q execution scope restoration assignments](execution-scope-assignments.md). M8.1.1 temporary protected local base-table scope is implemented and verified on main (PR #38). Pending M10.8 owns S1-S5 local restoration/expansion, M13.5 S5 remote/S6 cross-context, M18 S7, M29 S8. No silent deferral, permanent scope restriction or unproven capability claim.
+
+
+Gate 4L configuration scope/precedence extension, also Gate 4I/4J/8C:
+M8.1.2 owns typed scoped configuration, reset/precedence, separation from
+connection identity, selected-only validation, alias conflicts, both execution
+modes and regression proof for prior configuration/profile/runtime behavior.
+M8.2 owns run-wide cumulative limits/concurrency and lifecycle; M8.3 C10
+owns allowlisted policy origin/effective-vs-requested evidence; M9 carries
+privacy into evidence. M10.5 invalidates stale policy/placement evidence,
+M10.6 re-resolves selected scope, M10.7 teaches config, M10.8 rechecks local
+scope restoration. M11-M13 each define native settings/defaults/permissions
+before experimental admission; M13.5 owns independent multi-context resource
+and client/remote transfer precedence; M18 authored query cannot bypass.
+M28 owns any new typed environment/CLI overrides and hard admin-limit
+precedence before exposure; M29 shared conformance and promotion; M32/32.1
+integration propagation/redaction; M40 hosted tenant quotas and authorization.
+Every future adapter/deployment/capability expansion rechecks these outcomes,
+including driver/executor/cluster scope where applicable. No requirement to
+implement DuckDB fields or ratios on another engine. No new milestone/repo;
+completed milestones remain closed unless actual prerequisite regression
+requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Historical approved M8.1.2 integration checkpoint (2026-11-26; reopened 2026-11-27)
 
