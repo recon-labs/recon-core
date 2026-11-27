@@ -130,6 +130,24 @@ parser errors, template errors, adapter exceptions, and database errors should
 not be surfaced when they can quote rendered profile values, credentials, DSN
 fragments, or source/target context.
 
+
+
+## Adapter-scoped execution policy and precedence (proposed; approval pending)
+
+The current resource configuration proposal is adapter-scoped project defaults,
+selected profile target adapter defaults, and selected target named connection
+overrides, in that order after adapter defaults. Operational policy stays out
+of connection identity/factory payloads, credentials and comparison contracts.
+Resolve each logical setting atomically, with explicit reset to automatic or
+absent; no generic deep merge or global engine-specific default. Unreferenced
+policy values and inactive targets do not affect selected work; validate
+applicable policy, adapter namespace, connection names and conflicting same-
+context aliases before affected data reads. Preserve existing binding and
+profile-selection/redaction, plain parse/compile and public API. No new generic
+adapter method, shared native setting syntax, or hard quota guarantee.
+
+See [current M8.1.2 configuration proposal](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration). Use private typed authored policy, single resolver and independent adapter calculation; no public signature changes or connection payload mutation.
+
 ## Resource config
 
 Resources include:
