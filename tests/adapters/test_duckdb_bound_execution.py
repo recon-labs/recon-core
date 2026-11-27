@@ -829,6 +829,13 @@ def test_owned_controls_precede_transaction_and_cleanup(
     assert session.close() == ()
     assert calls[-3:] == ["ROLLBACK", "close actor", "close guard"]
     assert session.released
+    readback = session._control_readback
+    assert readback is not None
+    assert readback.memory is not None and readback.memory.contains(128 << 20)
+    assert readback.threads == 1
+    assert readback.spill is not None and readback.spill.contains(32 << 20)
+    assert not readback.enforcement_proven
+    assert str(scratch) not in repr(readback)
 
 
 @pytest.mark.regression_capture("duckdb-controlled-owned-session")

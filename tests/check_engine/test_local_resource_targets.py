@@ -406,3 +406,26 @@ def test_memory_aware_threads_preserve_authored_memory_modes(
     assert targets.managed_memory_bytes == expected_memory
     assert targets.threads == expected_threads
     assert not targets.reduced_authored_targets
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+def test_targets_retain_authored_requests_before_adjustment() -> None:
+    targets = _calculate_local_resource_targets(
+        _LocalResourcePolicy(managed_memory_percent=75, threads=8, spill_bytes=900),
+        _LocalResourceInputs(
+            memory_headroom_bytes=800,
+            cpu_capacity=Fraction(2),
+            scratch_free_bytes=600,
+            scratch_memory_backed=True,
+        ),
+    )
+    assert targets.requested_memory_bytes == 600
+    assert targets.requested_threads == 8
+    assert targets.requested_spill_bytes == 900
+    assert targets.managed_memory_bytes == 600
+    assert targets.threads == 2
+    assert targets.spill_bytes == 200
+    unknown = _calculate_local_resource_targets(_LocalResourcePolicy(), _LocalResourceInputs())
+    assert unknown.requested_memory_bytes is None
+    assert unknown.requested_threads is None
+    assert unknown.requested_spill_bytes is None
