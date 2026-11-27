@@ -1,6 +1,6 @@
 # ADR 0027: Run Lifecycle, Result Semantics And Exit Codes
 
-Status: Design direction approved by maintainer (2026-11-27). Detailed interface and native feasibility proof tracked in prework; implementation and validated integration pending.
+Status: Design direction approved by maintainer (2026-11-27). Detailed interface recorded; scoped native feasibility demonstrated on representative Linux, macOS and Windows lanes. Validated integration and runtime implementation pending.
 
 ## Context
 

@@ -407,3 +407,45 @@ totals or raw metadata. All required standard/pinned/platform and production
 path evidence remains mandatory; a synthetic feasibility probe is not
 implementation conformance. Windows host-disabled Ctrl+C is not an engine
 failure or a promise of signal delivery. No OS-version allowlist.
+
+### Native stop feasibility evidence (synthetic, not production integration)
+
+Pinned Core baseline 40e756209b80a267674f7376c6bd4db81c6a7214. Temporary
+probe changes were limited to the workflow and synthetic script; product
+tree unchanged. [Initial probe](https://github.com/recon-labs/recon-core/actions/runs/46031265268)
+failed before executing SQL because the checkout was shallow. Corrected
+[probe](https://github.com/recon-labs/recon-core/actions/runs/46031361731)
+at 7308834d2d4f69d657420d251779936c2e0b9cc6, 7/8 completed successful lanes
+; macOS 26 / 1.4.5 remained queued at the checkpoint.
+Actual successful lanes include all four supported pins on Linux, macOS 15
+with 1.0.0, Windows 2022 with 1.0.0 and Windows 2025 with 1.4.5.
+Each completed lane demonstrated interruption of a synthetic active query,
+repeated interruption across a deliberately forced pre-launch gap, joined
+execution/control calls and an unchanged operational unrelated connection.
+POSIX cases delivered actual SIGINT to the isolated CLI-style process;
+the initial Windows cases used Python-level signal delivery only.
+
+The [first isolated Windows console probe](https://github.com/recon-labs/recon-core/actions/runs/46031594402)
+at 97a87f9e39f4a516d40d9271dcbc82421d9a034b generated isolated console
+events but failed to confirm native return; do not count as success.
+The [corrected isolated fixture](https://github.com/recon-labs/recon-core/actions/runs/46031801850)
+at b3f9704b93157609ee879830cd80e88c3ba945ec passed both Windows lanes,
+jobs 140617206076 and 140617205601. The fixture enabled normal Ctrl+C
+processing only in its isolated child, verified exact console membership
+before generating an actual console event, recorded the handler request,
+confirmed the native interruption and joined the owner before returning.
+No production console manipulation is proposed. A host which suppresses
+signal delivery remains outside a delivered-signal cancellation guarantee.
+The native timeout and embedded Event paths do not depend on Ctrl+C.
+
+The test workload and wait intervals are bounded experimental inputs,
+not runtime defaults, workload caps or a cancellation latency SLA.
+Prior native active-spill interruption/binding/cleanup evidence remains
+the M8.1.2 prerequisite. These independent probes justify the selected
+portable coordination direction, not the implementation of the actual
+RunService deadline, signal path, fetch/cleanup races or safe metadata.
+All B1-B10 production-path and platform proofs remain mandatory, including
+macOS 26 if its required lane is available, equivalent evidence or recorded
+blocker under P1-P6 otherwise. The temporary branch refs were restored
+to the exact baseline; experiment files are absent from mergeable trees.
+No release, global gate closure or runtime implementation approval.
