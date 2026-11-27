@@ -690,3 +690,67 @@ def test_project_run_applies_selected_native_policy(
         assert outcome.status is CheckStatus.PASS and outcome.executed
         assert len(seen) == 1 and not seen[0].exists()
         assert list(scratch.iterdir()) == []
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize("conflict", ["none", "memory", "scratch"])
+def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, conflict: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    scratch = tmp_path / "private-scratch"
+    scratch.mkdir()
+    other = tmp_path / "private-other"
+    other.mkdir()
+    project_path = tmp_path / "recon_project.yml"
+    project = yaml.safe_load(project_path.read_text(encoding="utf-8"))
+    project["execution"] = {
+        "adapters": {"duckdb": {"managed-memory": {"mib": 128}, "threads": 2}}
+    }
+    project_path.write_text(yaml.safe_dump(project, sort_keys=False), encoding="utf-8")
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    target = profile["profiles"]["local"]["outputs"]["dev"]
+    target["connections"]["alias"] = dict(target["connections"]["warehouse"])
+    target["execution"] = {
+        "adapters": {"duckdb": {"managed-memory": {"mib": 64}, "threads": 1}},
+        "connections": {
+            "warehouse": {"scratch-directory": "private-scratch"},
+            "alias": {
+                "scratch-directory": str(other if conflict == "scratch" else scratch),
+                **({"managed-memory": {"mib": 128}} if conflict == "memory" else {}),
+            },
+        },
+    }
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    write_compiled_contract(tmp_path, source_connection="warehouse", target_connection="alias")
+    opened: list[binding._OwnedDuckDbSession] = []
+    original = binding._OwnedDuckDbSession.open
+
+    def open_session(session: binding._OwnedDuckDbSession) -> None:
+        opened.append(session)
+        original(session)
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    if conflict == "none":
+        assert result.exit_category is ExitCategory.SUCCESS
+        assert outcome.status is CheckStatus.PASS and outcome.executed
+        assert len(opened) == 1
+        request = opened[0]._native_controls
+        assert request is not None and request.threads == 1
+        assert request.memory_bytes == 64 * 1024 * 1024
+        assert request.scratch_directory.parent == scratch.resolve()
+    else:
+        assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
+        assert outcome.source_value is None and outcome.target_value is None
+        assert "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE" in {d.code for d in outcome.diagnostics}
+        assert not opened
+        assert str(scratch) not in repr(result) and str(other) not in repr(result)
+    assert not list(scratch.iterdir()) and not list(other.iterdir())
