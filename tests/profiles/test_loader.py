@@ -1083,4 +1083,3 @@ profiles:
     assert other.spill_bytes is None
     assert other.spill_percent == 80
     assert other.threads == 8
-
