@@ -12,7 +12,7 @@ from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.check_engine import CheckStatus
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
-from tests.services._run_service_aggregate_admission import (
+from tests.services.test_run_service_aggregate_admission import (
     _aggregate_check,
     _CapturingAggregateEngine,
     _set_project_duckdb_execution,
