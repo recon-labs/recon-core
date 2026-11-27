@@ -16,9 +16,6 @@ class _LocalResourcePolicy:
     managed_memory_bytes: int | None = None
     threads: int | None = None
     spill_bytes: int | None = None
-    # Parked calculation inputs; remove with the superseded reserve arithmetic.
-    memory_reserve_bytes: int | None = None
-    disk_reserve_bytes: int | None = None
     scratch_directory: str | None = field(default=None, repr=False)
     managed_memory_percent: int | None = None
     spill_percent: int | None = None
