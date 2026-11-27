@@ -839,3 +839,42 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
         assert expected in cli.output
     assert str(database) not in repr(result) and str(database) not in cli.output
     assert str(tmp_path) not in repr(result) and str(tmp_path) not in cli.output
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+def test_future_platform_observation_label_does_not_refuse_verified_native_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    before = database.read_bytes()
+
+    def observe(scratch: Path) -> _LocalObservation:
+        return _LocalObservation(
+            host_available_bytes=512 << 20,
+            platform_cpu_count=1,
+            affinity_count=1,
+            linux_constraints=None,
+            scratch_free_bytes=64 << 20,
+            scratch_memory_backed=False,
+            platform="future-platform-label",
+        )
+
+    monkeypatch.setattr(binding, "_observe_local_resources", observe)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    assert outcome.status is CheckStatus.PASS and outcome.executed
+    assert outcome.source_value == outcome.target_value == 1
+    assert not any("future-platform-label" in repr(d) for d in result.diagnostics)
+    assert not any(d.severity is DiagnosticSeverity.WARNING for d in result.diagnostics)
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 0
+    assert "future-platform-label" not in cli.output
+    assert "Warning:" not in cli.output
+    assert database.read_bytes() == before
