@@ -223,11 +223,23 @@ resources, or macros until those resources are loaded through one shared
 project-loading model. Unsupported built-in check-pack names should still fail
 validation instead of compiling as silent no-ops.
 
-## Planned local execution policy
 
-The reopened [local execution policy ADR](../decisions/adr-0026-local-execution-policy-and-scan-admission.md) retains the prior footprint-limit and estimated-input warning design as historical baseline. Exact settings/defaults require revised research and approval. This is design prework, not accepted configuration syntax in the
-current implementation. Runtime policy is separate from connection secrets,
-contract defaults and compiled comparison semantics.
+
+## Adapter-scoped execution policy and precedence (proposed; approval pending)
+
+The current resource configuration proposal is adapter-scoped project defaults,
+selected profile target adapter defaults, and selected target named connection
+overrides, in that order after adapter defaults. Operational policy stays out
+of connection identity/factory payloads, credentials and comparison contracts.
+Resolve each logical setting atomically, with explicit reset to automatic or
+absent; no generic deep merge or global engine-specific default. Unreferenced
+policy values and inactive targets do not affect selected work; validate
+applicable policy, adapter namespace, connection names and conflicting same-
+context aliases before affected data reads. Preserve existing binding and
+profile-selection/redaction, plain parse/compile and public API. No new generic
+adapter method, shared native setting syntax, or hard quota guarantee.
+
+See [current M8.1.2 configuration proposal](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration) for proposed syntax and exact validation. The project file is `recon_project.yml`; profile file is `connections/profiles.yml`. Existing project/resource defaults below do not apply to operational overrides; no runtime feature claim.
 
 ## Configuration precedence
 
