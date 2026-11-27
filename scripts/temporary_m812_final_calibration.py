@@ -61,6 +61,14 @@ def run(root,base,kind,mode):
         policy.update({"managed-memory":{"percent":75},"spill":{"percent":90}})
     elif mode=="auto-one-thread":
         policy["threads"]=1
+    elif mode=="quarter":
+        policy["managed-memory"]={"percent":25}
+    elif mode=="quarter-one-thread":
+        policy.update({"managed-memory":{"percent":25},"threads":1})
+    elif mode=="half-fixed":
+        policy.update({"managed-memory":{"mib":128},"threads":2})
+    elif mode=="memory-backed-quarter":
+        policy["managed-memory"]={"percent":25}
     _set_project_duckdb_execution(path,policy)
     before=db.stat()
     limit=int((CG/"memory.max").read_text().strip())
@@ -89,7 +97,7 @@ def run(root,base,kind,mode):
         request=session._native_controls
         opened.append(session)
         log("TARGET",memory=request.memory_bytes,threads=request.threads,spill=request.spill_bytes)
-        if mode=="memory-backed":
+        if mode.startswith("memory-backed"):
             facts=facts_seen[-1]
             assert facts.scratch_memory_backed is True
             assert request.spill_bytes<=facts.memory_headroom_bytes-request.memory_bytes
@@ -128,7 +136,7 @@ def run(root,base,kind,mode):
         if mode=="low-disk":
             assert check.status is CheckStatus.ERROR and not check.executed
             assert "RC_ADAPTER_QUERY_FAILED" in codes
-        elif mode=="memory-backed":
+        elif mode.startswith("memory-backed"):
             assert any("memory-backed" in d.message for d in result.diagnostics)
             assert check.status in (CheckStatus.PASS,CheckStatus.ERROR)
             if check.status is CheckStatus.ERROR:

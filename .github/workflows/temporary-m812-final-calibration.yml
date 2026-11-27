@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           ROOT=$(mktemp -d)
-          trap 'sudo umount "$ROOT/low" 2>/dev/null || true; sudo rm -rf "$ROOT"' EXIT
+          trap 'docker rm -f recon-m812-case >/dev/null 2>&1 || true; sudo umount "$ROOT/low" 2>/dev/null || true; sudo rm -rf "$ROOT"' EXIT
           mkdir "$ROOT/project" "$ROOT/scratch" "$ROOT/low"
           chmod 700 "$ROOT/project" "$ROOT/scratch"
           truncate -s 64M "$ROOT/low.img"
@@ -33,17 +33,27 @@ jobs:
           sudo rmdir "$ROOT/low/lost+found"
           printf 'FROM python:3.11-slim\nWORKDIR /app\nCOPY . /app\nRUN pip install --no-cache-dir -e ".[dev,duckdb]" duckdb==%s\n' "$PIN" > "$ROOT/Dockerfile"
           docker build -q -f "$ROOT/Dockerfile" -t recon-m812-calibration .
-          USER_ARGS=(--user "$(id -u):$(id -g)" --network none --rm)
-          docker run "${USER_ARGS[@]}" --memory 2g --cpus 2 -v "$ROOT/project:/fixture:rw" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration setup /fixture
+          USER_ARGS=(--user "$(id -u):$(id -g)" --network none)
+          docker run "${USER_ARGS[@]}" --rm --memory 2g --cpus 2 -v "$ROOT/project:/fixture:rw" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration setup /fixture
           status=0
-          for spec in "512 large fixed scratch 2" "512 large auto scratch 2" "512 large percent scratch 2" "512 large auto-one-thread scratch 2" "2048 large capable scratch 4" "512 small fixed scratch 2" "512 large low-disk low 2" "512 large memory-backed tmpfs 2"; do
+          for spec in "512 large auto scratch 2" "512 large auto scratch 2" "512 large percent scratch 2" "512 large auto-one-thread scratch 2" "512 large quarter scratch 2" "512 large half-fixed scratch 2" "512 large quarter-one-thread scratch 2" "2048 large capable scratch 4" "512 small fixed scratch 2" "512 large low-disk low 2" "512 large memory-backed tmpfs 2" "512 large memory-backed-quarter tmpfs 2"; do
             read -r ram kind mode storage cpus <<< "$spec"
             echo "CASE $spec"
+            CASE_DIR=$(mktemp -d "$ROOT/scratch/case-XXXXXX")
             if [ "$storage" = tmpfs ]; then
               STORAGE=(--tmpfs "/scratch:rw,size=1g,uid=$(id -u),gid=$(id -g),mode=0700")
+            elif [ "$storage" = low ]; then
+              STORAGE=(-v "$ROOT/low:/scratch:rw")
             else
-              STORAGE=(-v "$ROOT/$storage:/scratch:rw")
+              STORAGE=(-v "$CASE_DIR:/scratch:rw")
             fi
-            timeout --kill-after=5s 120s docker run "${USER_ARGS[@]}" --memory "${ram}m" --memory-swap "${ram}m" --cpus "$cpus" -v "$ROOT/project:/fixture:rw" "${STORAGE[@]}" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration run /fixture /scratch "$kind" "$mode" || { echo "CASE_FAILED $spec"; status=1; }
+            rc=0
+            timeout --kill-after=5s 120s docker run --name recon-m812-case "${USER_ARGS[@]}" --memory "${ram}m" --memory-swap "${ram}m" --cpus "$cpus" -v "$ROOT/project:/fixture:rw" "${STORAGE[@]}" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration run /fixture /scratch "$kind" "$mode" || rc=$?
+            docker inspect --format 'CONTAINER OOMKilled={{.State.OOMKilled}} ExitCode={{.State.ExitCode}}' recon-m812-case
+            docker rm -f recon-m812-case >/dev/null
+            if [ "$rc" -ne 0 ]; then
+              echo "CASE_FAILED $spec exit=$rc"
+              status=1
+            fi
           done
           exit "$status"
