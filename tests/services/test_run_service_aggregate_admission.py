@@ -1867,3 +1867,130 @@ def test_unavailable_catalog_estimate_is_advisory_only(
     assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN" in cli.output
     assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY" not in cli.output
     assert "qa.source_customers" not in cli.output and str(tmp_path) not in cli.output
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize("mode", ["auto", "percent", "fixed"])
+def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    from fractions import Fraction
+
+    from recon_core.adapters._local_resource_observation import (
+        _LinuxConstraints,
+        _LocalObservation,
+    )
+    from recon_core.adapters.duckdb._native_resource_controls import _parse_native_size
+
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("5::INTEGER"),
+        target_sql=_native_row("5::INTEGER"),
+        grouped=False,
+    )
+    duckdb = _duckdb_module()
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(operations=row_count_plan()),
+            _aggregate_check(),
+            _aggregate_check(grouped=True),
+        ],
+    )
+    scratch = tmp_path / "private-scratch"
+    scratch.mkdir()
+    settings: dict[str, object] = {"scratch-directory": "private-scratch", "threads": 1}
+    if mode == "percent":
+        settings.update({"managed-memory": {"percent": 75}, "spill": {"percent": 75}})
+    elif mode == "fixed":
+        settings.update({"managed-memory": {"mib": 192}, "spill": {"mib": 192}})
+    _set_project_duckdb_execution(tmp_path, settings)
+    capacities = [(256, 512), (512, 1024), (128, 128)]
+    observations: list[Path] = []
+    observed_targets: list[tuple[int, int]] = []
+
+    def observe(path: Path) -> _LocalObservation:
+        memory, disk = capacities[len(observations) % len(capacities)]
+        assert path.parent == scratch.resolve() and path.is_dir()
+        observations.append(path)
+        return _LocalObservation(
+            host_available_bytes=2048 << 20,
+            platform_cpu_count=8,
+            affinity_count=4,
+            linux_constraints=_LinuxConstraints(
+                memory_headroom_bytes=memory << 20,
+                cpu_capacity=Fraction(3, 2),
+                memory_incomplete=False,
+                cpu_incomplete=False,
+            ),
+            scratch_free_bytes=disk << 20,
+            scratch_memory_backed=False,
+            platform="linux",
+        )
+
+    original_open = binding._OwnedDuckDbSession.open
+    original_recommendations = binding._read_native_recommendations
+
+    def recommendations(native: Any) -> Any:
+        # Deterministic native recommendation clamp; actual setting application
+        # and actual project query execution are not mocked.
+        actual = original_recommendations(native)
+        return type(actual)(memory_bytes=200 << 20, threads=actual.threads)
+
+    def open_session(session: binding._OwnedDuckDbSession) -> None:
+        original_open(session)
+        request = session._native_controls
+        assert request is not None
+        assert request.memory_bytes is not None and request.spill_bytes is not None
+        native = session._connection
+        memory = _parse_native_size(
+            native.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+        )
+        spill = _parse_native_size(
+            native.execute("SELECT current_setting('max_temp_directory_size')").fetchone()[0]
+        )
+        assert memory is not None and memory.contains(request.memory_bytes)
+        assert spill is not None and spill.contains(request.spill_bytes)
+        assert native.execute("SELECT current_setting('threads')").fetchone() == (1,)
+        observed_targets.append((request.memory_bytes, request.spill_bytes))
+
+    monkeypatch.setattr(binding, "_observe_local_resources", observe)
+    monkeypatch.setattr(binding, "_read_native_recommendations", recommendations)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+    observer = duckdb.connect(str(database), read_only=True)
+    query = (
+        "SELECT current_setting('memory_limit'), current_setting('threads'), "
+        "current_setting('temp_directory'), current_setting('max_temp_directory_size')"
+    )
+    before = observer.execute(query).fetchone()
+    try:
+        engine = _CapturingAggregateEngine()
+        result = RunService(start_path=tmp_path, engine=engine).execute()
+        assert result.exit_category is ExitCategory.SUCCESS
+        assert engine.result is not None
+        checks = engine.result.contract_results[0].check_results
+        assert len(checks) == 3
+        assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
+        assert any("controller scope is incomplete" in d.message for d in result.diagnostics)
+        monkeypatch.chdir(tmp_path)
+        cli = CliRunner().invoke(main, ["run"])
+        assert cli.exit_code == 0
+        assert "controller scope is incomplete" in cli.output
+        assert observer.execute(query).fetchone() == before
+        assert observer.execute("SELECT count(*) FROM qa.source_customers").fetchone() == (1,)
+    finally:
+        observer.close()
+    mib = 1 << 20
+    expected = {
+        "auto": [
+            (128 * mib, 512 * mib * 9 // 10),
+            (200 * mib, 1024 * mib * 9 // 10),
+            (64 * mib, 128 * mib * 9 // 10),
+        ],
+        "percent": [(192 * mib, 384 * mib), (384 * mib, 768 * mib), (96 * mib, 96 * mib)],
+        "fixed": [(192 * mib, 192 * mib), (192 * mib, 192 * mib), (128 * mib, 128 * mib)],
+    }[mode]
+    assert observed_targets == expected * 2
+    assert len(set(observations)) == 6
+    assert not list(scratch.iterdir())
+    _assert_no_runtime_outputs(tmp_path)
