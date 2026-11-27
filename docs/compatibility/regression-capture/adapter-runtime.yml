@@ -760,6 +760,8 @@ captures:
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_independent_current_directories
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_requires_confirmed_native_close
       - tests/adapters/test_resource_scratch.py::test_owned_scratch_recovery
       - tests/adapters/test_resource_scratch.py::test_scratch_live_owner_races
       - tests/adapters/test_resource_scratch.py::test_actual_child_lease_prevents_recovery_until_exit
@@ -784,6 +786,9 @@ captures:
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_replaced_directory_is_not_deleted
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_cleanup_failure_is_safe_and_retained
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_cleanup_never_follows_unrelated_symlink
       - tests/adapters/test_resource_scratch.py::test_untrusted_scratch_never_deleted
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
@@ -804,6 +809,8 @@ captures:
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_never_adopts_or_sweeps_existing_storage
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_abrupt_exit_leaves_residue_without_blocking_next_check
       - tests/adapters/test_resource_scratch.py::test_reopen_and_discover_abandoned_sessions
       - tests/adapters/test_resource_scratch.py::test_discovery_rejects_unverified_marker
       - tests/adapters/test_resource_scratch.py::test_reopen_rejects_replaced_root_lock
@@ -828,6 +835,7 @@ captures:
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_protects_windows_directory_and_file
       - tests/adapters/test_windows_scratch_security.py::test_native_private_directory_creation
       - tests/adapters/test_windows_scratch_security.py::test_native_acl_broadening_is_rejected
       - tests/adapters/test_windows_scratch_security.py::test_native_impersonation_cannot_authorize_process_namespace
@@ -891,6 +899,10 @@ captures:
     owner_surface: adapter_runtime
     severity: P2
     current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_requires_existing_directory
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_uses_private_posix_directory
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_rejects_unprotected_writable_base
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_removes_inherited_macos_grants
       - tests/adapters/test_scratch_namespace.py::test_stable_project_namespace_and_recovery
       - tests/adapters/test_scratch_namespace.py::test_namespace_does_not_adopt_arbitrary_directory
       - tests/adapters/test_scratch_namespace.py::test_unknown_filesystem_does_not_authorize_creation
