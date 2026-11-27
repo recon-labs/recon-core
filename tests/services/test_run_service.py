@@ -2,7 +2,7 @@ import ast
 from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import Event
+from threading import Event, Thread
 from typing import Any
 
 import pytest
@@ -12,7 +12,7 @@ from click.testing import CliRunner
 import recon_core.adapters as adapters_module
 import recon_core.adapters.default_renderers as default_renderers_module
 import recon_core.services.run as run_service_module
-from recon_core._run_control import _RunControl, _StopCause
+from recon_core._run_control import _RunControl, _RunStopped, _StopCause
 from recon_core.adapters import (
     AdapterRegistry,
 )
@@ -1064,9 +1064,7 @@ def test_cancelled_run_never_dispatches_later_checks(
 def test_run_control_latches_observation_and_seal(first: str) -> None:
     event = Event()
     now = 0
-    control = _RunControl(
-        started_ns=0, timeout_seconds=1, cancel_event=event, clock=lambda: now
-    )
+    control = _RunControl(started_ns=0, timeout_seconds=1, cancel_event=event, clock=lambda: now)
     assert control.observe() is None
     if first == "sealed":
         assert control.seal() is None
@@ -1115,3 +1113,86 @@ def test_deadline_consumed_in_preparation_prevents_artifact_load(
         d.code for d in outcome.service_result.diagnostics
     }
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_native_control_joins_borrowed_interrupt_before_return() -> None:
+    event = Event()
+    control = _RunControl(started_ns=0, timeout_seconds=None, cancel_event=event, clock=lambda: 0)
+    entered = Event()
+    call_returning = Event()
+    interrupt_entered = Event()
+    release_interrupt = Event()
+    returned = Event()
+    outcomes: list[_StopCause] = []
+
+    def native() -> int:
+        entered.set()
+        if not interrupt_entered.wait(5):
+            raise RuntimeError("No interrupt request.")
+        call_returning.set()
+        return 1
+
+    def interrupt() -> bool:
+        interrupt_entered.set()
+        return release_interrupt.wait(5)
+
+    def run() -> None:
+        try:
+            control.native_call(native, interrupt)
+        except _RunStopped as exc:
+            outcomes.append(exc.cause)
+        finally:
+            returned.set()
+
+    worker = Thread(target=run)
+    worker.start()
+    try:
+        assert entered.wait(5)
+        event.set()
+        assert interrupt_entered.wait(5)
+        assert call_returning.wait(5)
+        assert not returned.wait(0.05)
+    finally:
+        release_interrupt.set()
+        worker.join(5)
+        control.close_observer()
+    assert not worker.is_alive()
+    assert returned.is_set()
+    assert outcomes == [_StopCause.CANCELLED]
+    assert control.seal() is _StopCause.CANCELLED
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_native_control_repeats_failed_interrupt_without_retrying_call() -> None:
+    event = Event()
+    control = _RunControl(started_ns=0, timeout_seconds=None, cancel_event=event, clock=lambda: 0)
+    calls: list[int] = []
+    interrupts: list[int] = []
+    interrupted = Event()
+
+    def native() -> int:
+        calls.append(1)
+        event.set()
+        if not interrupted.wait(5):
+            raise RuntimeError("No repeated interrupt request.")
+        return 1
+
+    def interrupt() -> bool:
+        interrupts.append(1)
+        if len(interrupts) == 1:
+            raise RuntimeError("Synthetic interrupt failure.")
+        interrupted.set()
+        return True
+
+    try:
+        with pytest.raises(_RunStopped) as stopped:
+            control.native_call(native, interrupt)
+        assert stopped.value.cause is _StopCause.CANCELLED
+        with pytest.raises(_RunStopped):
+            control.native_call(native, interrupt)
+        assert calls == [1]
+        assert len(interrupts) >= 2
+    finally:
+        control.close_observer()
+    assert control.seal() is _StopCause.CANCELLED

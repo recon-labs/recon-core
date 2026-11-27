@@ -81,7 +81,6 @@ class _RunControl:
             self._sealed = True
             return cause
 
-
     def checkpoint(self) -> None:
         if (cause := self.observe()) is not None:
             raise _RunStopped(cause)
