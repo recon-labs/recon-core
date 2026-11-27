@@ -188,3 +188,115 @@ def test_observe_real_scratch_without_creating_files(tmp_path: Path) -> None:
     assert missing.scratch_free_bytes is None
     assert missing.scratch_memory_backed is None
     assert not (tmp_path / "missing").exists()
+
+
+@pytest.mark.regression_capture("local-resource-observation-hierarchy")
+def test_visible_v2_scope_reads_only_matched_membership() -> None:
+    files = _v2_files()
+    files["/sys/fs/cgroup/team/job/cpu.max"] = "150000 100000"
+    seen: list[str] = []
+
+    def read(path: Path) -> str:
+        seen.append(path.as_posix())
+        return files[path.as_posix()]
+
+    result = _observe_linux_constraints(_MEMBERSHIP, _MOUNTS, read, 4096)
+
+    assert result.memory_headroom_bytes == 924
+    assert result.cpu_capacity == Fraction(3, 2)
+    assert not result.full_hierarchy_proven
+    assert set(seen) == {
+        "/sys/fs/cgroup/team/job/memory.max",
+        "/sys/fs/cgroup/team/job/memory.current",
+        "/sys/fs/cgroup/team/job/cpu.max",
+    }
+
+
+@pytest.mark.regression_capture("local-resource-observation-hierarchy")
+def test_ambiguous_v2_mount_mapping_does_not_guess() -> None:
+    mounts = _MOUNTS + "31 20 0:27 /team /alternate rw - cgroup2 cgroup rw\n"
+    seen: list[Path] = []
+
+    def read(path: Path) -> str:
+        seen.append(path)
+        return "100"
+
+    result = _observe_linux_constraints(_MEMBERSHIP, mounts, read, 4096)
+
+    assert result.memory_headroom_bytes is None
+    assert result.cpu_capacity is None
+    assert result.memory_incomplete
+    assert result.cpu_incomplete
+    assert not seen
+
+
+@pytest.mark.regression_capture("local-resource-observation-hierarchy")
+def test_v1_controller_is_optional_unknown_not_guessed() -> None:
+    mounts = "29 20 0:26 / /cg/mem rw - cgroup cgroup rw,memory\n"
+    seen: list[Path] = []
+
+    def read(path: Path) -> str:
+        seen.append(path)
+        return "100"
+
+    result = _observe_linux_constraints("5:memory:/job\n", mounts, read, 4096)
+
+    assert result.memory_headroom_bytes is None
+    assert result.cpu_capacity is None
+    assert not result.full_hierarchy_proven
+    assert not seen
+
+
+@pytest.mark.parametrize("failure", [PermissionError, FileNotFoundError, ValueError])
+@pytest.mark.regression_capture("local-resource-observation-hierarchy")
+def test_visible_v2_memory_probe_failure_preserves_cpu(failure: type[Exception]) -> None:
+    files = _v2_files()
+    files["/sys/fs/cgroup/team/job/cpu.max"] = "25000 100000"
+
+    def read(path: Path) -> str:
+        if path.name == "memory.current":
+            raise failure("PRIVATE_SENTINEL")
+        return files[path.as_posix()]
+
+    result = _observe_linux_constraints(_MEMBERSHIP, _MOUNTS, read, 4096)
+
+    assert result.memory_headroom_bytes is None
+    assert result.cpu_capacity == Fraction(1, 4)
+    assert result.memory_incomplete
+    assert not result.full_hierarchy_proven
+    assert "PRIVATE_SENTINEL" not in repr(result)
+
+
+@pytest.mark.parametrize("quota", ["max 100000", "0 100000", "10 0", "bad", "1 -2"])
+@pytest.mark.regression_capture("local-resource-observation-hierarchy")
+def test_unusable_or_unlimited_cpu_hint_preserves_memory(quota: str) -> None:
+    files = _v2_files()
+    files["/sys/fs/cgroup/team/job/cpu.max"] = quota
+    result = _observe_linux_constraints(_MEMBERSHIP, _MOUNTS, _reader(files), 4096)
+
+    assert result.memory_headroom_bytes == 924
+    assert result.cpu_capacity is None
+    assert not result.full_hierarchy_proven
+
+
+@pytest.mark.parametrize(
+    ("limit", "current", "expected"),
+    [
+        ("max", "10", None),
+        ("100", "100", 0),
+        ("100", "101", 0),
+        ("100", "30", 70),
+        ("broken", "10", None),
+    ],
+)
+@pytest.mark.regression_capture("local-resource-observation-hierarchy")
+def test_visible_v2_memory_is_saturated_or_unknown(
+    limit: str, current: str, expected: int | None
+) -> None:
+    files = _v2_files()
+    files["/sys/fs/cgroup/team/job/memory.max"] = limit
+    files["/sys/fs/cgroup/team/job/memory.current"] = current
+    result = _observe_linux_constraints(_MEMBERSHIP, _MOUNTS, _reader(files), 4096)
+
+    assert result.memory_headroom_bytes == expected
+    assert not result.full_hierarchy_proven
