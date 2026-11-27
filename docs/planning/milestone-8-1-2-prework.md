@@ -73,6 +73,279 @@ proposals requiring proof and detailed approval.
 The prior prework below remains a historical baseline for disposition and
 traceability, not a competing implementation plan.
 
+## Consolidated native-first replacement design (proposed for approval, 2026-11-27)
+
+This is the proposed detailed replacement, superseding the earlier provisional
+architecture and tuning proposals below only if approved. Current code remains
+suspended. Both standalone and embedded usage are mandatory in M8.1.2.
+Split Decision: Already Split / Follow Existing Split.
+
+### Selected architecture proposal
+
+Use the same guarded native DuckDB path for both CLI and embedded project runs.
+No process-mode detection, public API change, separate check worker or IPC.
+For each admitted check, the existing owned session holds its ordinary
+read-only connection for the exact approved file (native writer exclusion).
+A separate native memory instance with its own native resource settings
+attaches that file read-only, selects the actual native catalog and owns
+the existing read transaction, typed reads and lease. No database copy or
+new user-facing attachment support. Native catalog name must match the
+original direct connection; no suffix or filename heuristic. For the
+native initial memory catalog collision only, use the tested native
+ATTACH temporary seed / USE / DETACH / attach original / USE / DETACH seed
+sequence. Verify the actual catalog list, file, table scope and native
+read-only property before data queries, no extra user catalog, views, temp
+shadow, external relation or other existing unsupported scope. Keep
+original path/sidecar/lease and result domain protections; never execute
+untrusted SQL. Test native naming collision and quoted identifiers, actual
+transaction, repeated check close/reopen and failure boundaries. Do not
+assume arbitrary new DuckDB versions work without proof, or reject solely
+on version label.
+
+Retain original handle until actor stop and close confirmed. Close actor
+first, then guard, then owned scratch; try applicable cleanup on every
+setup/execute failure, preserve primary and cleanup error, do not release
+protection or delete live scratch if actor close unconfirmed. Keep L1 latch
+for subsequent affected work. Native interrupt only on owned actor; no kill
+of process or unrelated connection. Distinguish cancel requested/confirmed,
+failed/native error and exact comparison result. Full invocation Ctrl-C,
+deadlines, retries and scheduling remain M8.2; prove any cancellation used
+by M8.1.2, including actual active-spill interrupt and cleanup, before exit.
+A native crash or OS OOM can terminate the shared application or CLI.
+No hard process-memory, CPU, disk quota, crash containment or guaranteed
+completion claim. External orchestration may provide those controls.
+
+A normal compatible same-file reader remains unchanged; simultaneous
+independent checks/invocations are not globally reserved or scheduled.
+Existing DuckDB refusal when an already open same-file reader uses a
+different startup configuration remains the existing binding limitation,
+not a new deliberate restriction. Return sanitized scoped connection error
+and advice to close conflicting connection if appropriate or run Recon in
+a separate ordinary invocation; no automatic alternate mode or native
+global mutation. Do not introduce a new borrowed-connection API or require
+callers to authorize arbitrary changes. This limitation is explicitly
+proposed for retention, not an unaddressed embedded milestone deferral.
+Preserve injected loaders, engine, registry and environ, existing API and
+CLI semantics. If future evidence disproves the two-handle equivalence,
+reopen design, do not silently drop guard or restore custom workers.
+
+Rationale: actual ordinary direct CLI proof 45917130110, guarded embedded
+native proof 45920605605 (616 selected existing + 64 focused tests),
+both 1.0.0 actual spill cases 45920361925 and six newer-pin actual spill
+cases 45920605605; all four pins exact outcomes with unchanged observer.
+The independent unguarded alternative failed writer protection; the guard
+corrects it. One path avoids two implementations and context guessing.
+The Windows baseline WAL fixture failure remains an explicit coverage gap,
+not a passed test. Repair the synthetic fixture with portable equivalent
+actual sidecar proof without weakening the regression and verify on both
+Windows releases and existing Linux/macOS lanes.
+
+### Exact proposed policy and configuration
+
+Use optional project `execution.scan-budget.local` (config-version 1).
+Retain six leaves only: `max-database-mib`, `warn-estimated-input-rows`,
+`managed-memory-mib`, `threads`, `spill-mib`, `scratch-directory`.
+All absent by default; empty maps equal absence. Strict positive integers
+not bool/float/string/null; bytes = MiB * 1048576 with checked signed
+64-bit range; thread native accepted domain checked; strict mappings,
+duplicate/unknown keys rejected. Directory nonempty path string, absolute
+or project-relative existing directory, resolve once, no implicit expansion,
+creation of authored parent or silent alternate base. No new env/profile/
+contract/CLI overrides, public config-version change or secret echo.
+Propose removing the two unreleased reserve leaves and continuous pressure
+monitor, and mandatory recovery; explicit memory/thread/spill targets
+remain available to tune. Document these as proposal scope changes, not
+released settings removal.
+
+No default database size or estimated rows ceiling, for either usage path.
+An explicit footprint maximum applies independently to all nine checks;
+actual bytes below/equal pass, above refuse before data reads. No estimate
+used to override required binding. Optional role-summed catalog estimates
+only; missing/invalid estimate is unknown, no data scan to estimate,
+no fabricated warning/zero. Warn above authored threshold without changing
+result or execution. Preserve row-count reason specificity and canonical
+matched admission; no hidden sampling, SQL rewrite, retry or timeout.
+Existing 64 MiB guard remains until equivalent replacement proven on both
+paths, not an alternative runtime mode after exit.
+
+Automatic tuning is best effort, based on freshly observed resources
+before each check; never a guarantee of availability under concurrent load.
+Use integer bytes and native units; no arbitrary MiB floor. Optional
+maintained psutil host available memory and process CPU affinity when
+available (reuse optional DuckDB-extra dependency, no mandatory Core
+dependency; import/probe failure advisory), stdlib disk_usage on selected
+scratch. Native recommended memory/threads read from isolated native
+instance; use conservative lower edge of rounded native display for a
+computed ceiling. Linux simple verified cgroup-v2 fact only: read process
+membership and actual mount mapping, accept memory.max/current and cpu.max
+for an unambiguously matched visible controller scope, distinguish finite,
+unlimited and unavailable; no exhaustive ancestor traversal, v1 parser,
+namespace/host certification or Windows job/processor-group introspection.
+A visible scope is not proof of all ancestors; mark incomplete scope as
+unknown rather than infinite. If matching cannot be established, omit
+that hint and advise when material. No hardcoded OS version gate.
+Keep valid independent facts even when another probe fails.
+
+H = minimum of available trustworthy positive/zero host and applicable
+finite visible headroom observations (max-current saturated at zero).
+No valid observation -> H unknown; preserve native recommendations and
+warn about material missing scope. Proposed default memory M = min(native
+recommended managed target if known, floor(H/2)) when H known; omit
+unknown native recommendation from the minimum if native control support
+otherwise established. H unknown -> retain native recommendation if valid
+and warn; if no valid recommendation, leave native automatic setting only
+when actual native execution/private spill protection is independently
+verified, warn inability to tune. Authored memory target replaces the
+50% heuristic/native recommendation, capped by known finite H when
+applicable; emit safe adjustment advisory if lowered. Do not promise
+effective physical limit. Known zero or target below supported positive
+native resolution must not be rounded up; report unusable resource
+condition before affected data work (no arbitrary small workload cap).
+The default 50% is an adapter-local adjustable starting heuristic, not
+universal safety rule. DuckDB documents managed memory exclusions and
+50-60% total-memory guidance for OS OOM; this design uses available
+headroom rather than total. Probe 45920824959: 20/20 exact successes for
+50%/75% and explicit one-thread alternatives; 75% faster on tested wide
+cases, 50% leaves greater margin for non-managed allocations and shared
+usage. Choose 50% initially, explicit override not restricted to 50%.
+Final implementation-level calibration includes native recommendation
+clamp (not applied in experiment), constrained/capable and changing load,
+larger CPU machines, small costly versus large narrow, actual spill and
+unknown evidence. Do not claim 50% or 75% proves safe everywhere.
+
+C = minimum of independently trustworthy available CPU affinity/count,
+visible positive finite quota/period where known and native recommendation
+for automatic thread target. Round positive fractional CPU quota up to
+an executable thread count; retain fractional quota as observation, not
+CPU guarantee. Explicit threads replaces native default, bounded by known
+available CPU capacity where meaningful; positive integer, native range,
+warn if adjusted. Missing CPU hint retains native/explicit setting and
+advises when material. No default fixed thread count or memory-per-thread
+restriction. Do not infer CPU quota from installed cores alone.
+
+F = actual available bytes at selected scratch directory from disk_usage.
+Default spill target S = floor(9*F/10), using DuckDB's documented native
+90% disk convention, not universal quota. Explicit spill replaces heuristic
+and is capped by known available F, warn if lowered; no physical reserve
+guarantee. F unknown -> use verified native automatic spill mechanism
+where supported, warn missing disk observation; explicit supported native
+spill target still applies, unknown free bytes is not unlimited. Known
+no usable positive spill target: use native no-spill only if exact effect
+verified and emit warning, otherwise affected resource setup error; no
+silent alternate directory, no fabricated minimum. A known memory-backed
+scratch is not independent disk capacity: account for trustworthy shared
+memory headroom where available, otherwise advise uncertainty and recommend
+disk-backed scratch, do not count unknown as physical disk assurance.
+Unknown filesystem type is not by itself refusal. No mandatory filesystem
+classification or global reservation. Native spill setting applied after
+open, before query, because startup readback can be ineffective. Required
+explicit or safety-dependent control must actually work at promised scope;
+if unavailable, verified equivalent or affected refusal, not a silently
+ignored ceiling. Automatic optional tuning missing -> native best effort
+with actionable warning when required scope/privacy/native capability is
+proven. Actual OOM/disk failure -> ERROR not FAIL, no implicit retry.
+
+### Private temporary storage and failure behavior
+
+Unique fresh per-check directory under existing selected trusted base
+(default standard temp base). No persistent project namespace, recovery
+ticket, lease, process ownership or old-directory sweep. Linux standard
+exclusive mode 0700 directory; use actual owner/mode and trusted base
+relationship, avoid unsafe parent rename/redirect boundary. macOS also
+strip inherited ACL grants on newly created empty owned directory before
+data (native chmod -N/maintained equivalent, fixed argv/no shell, verify
+actual absence of grants); keep targeted verification, not recursive
+ancestor ACL enumeration as default. Windows standard mode 0700 where
+actual protected directory privacy supported; otherwise use minimal
+native protected DACL create (reuse proven CreateDirectoryW primitive,
+not entire old namespace/security system), actual directory and file
+inheritance privacy before spill. Choose by supported capability and
+proof, not OS version allowlist; no data written before private access
+established. No unverified or shared-parent adoption. Use only documented
+trusted cooperative parent scope; not a hostile privileged/same-user
+sandbox. Refuse affected setup when actual privacy/ownership cannot be
+proven; optional FS identity/classification missing is not refusal.
+Prevent deletion of unrelated/replaced/live storage, use standard safe
+cleanup of current verified owned directory after close. No automatic
+abandoned recovery, crash residue can remain; document operator/OS
+retention cleanup only for known inactive owned folders. No unknown path
+sweeping. Current native/scratch cleanup failure safe error + L1 affected
+context, unrelated old residue no block.
+
+Evidence: 45920872979 POSIX four lanes passed; actual macOS inherited
+allow despite 0700 removed from empty directory, leaf no grants, collision
+refusal, clean and unrelated retained. 45920973672 all four Windows
+lanes passed after canonical test parent correction: protected owner-only
+native create and file inheritance (zero untrusted effective allow),
+collision retained, cleanup. Standard 3.11 shared parent exposes inherited
+allow, 3.13 tested standard creation private. No actual different-user
+access, hostile replacement/ancestor or all-filesystem guarantee yet.
+At implementation prove actual private spill on representative platforms,
+including default ACL inheritance Linux, safe parent/replacement,
+failure injection, incomplete API, normal/error/cancel and abrupt exit
+no adoption; keep targeted platform mechanisms only when needed.
+A future platform can work via equivalent actual capability, not label.
+
+### Diagnostics, responsibilities and required proof before exit
+
+Use existing service diagnostics and CLI terminal output on both success
+and failure. Safe bounded deduplicated advisory describes missing
+dimension or reduction, consequence, continue/refuse decision and actually
+supported action (e.g. explicit managed setting, private disk-backed
+scratch, independent normal invocation for native configuration conflict).
+No raw database path, user value, SQL, native exception, result, environment
+or secret. Warnings alone not reconciliation WARN/mismatch or exit change;
+native actual errors ERROR, mandatory proof refusal not executed, preserve
+primary plus cleanup diagnostic and L1. No result/state/artifact/sink or
+public adapter schema changes; M8.3 structured projection remains.
+
+Reuse existing config parser, pure scan-budget policy, verified native
+control helpers and bound count reader (fetchmany(2), one expected row/
+column shape, no LIMIT rewrite), current session, renderer and runner;
+separate small adapter-local guard/actor and scratch collaborators if
+needed. RunService preserves dependency injection; no alternate executor,
+CLI mode detection, custom worker/transport, duplicated SQL/compare.
+Reduce observation helpers to scoped best-effort facts and remove obsolete
+worker, codec/proxy, watchdog and persistent namespace/ticket/recovery
+candidate code only after approval; retain necessary native bounded/domain
+and privacy test outcomes. Earlier A1-A13/R1-R10/B8-B10/P1-P6 and capture
+ID disposition table below remains controlling for outcome coverage,
+updated by this common path and exact proposed settings. No deferral of
+embedded adaptive execution. M8.2 B8-B10 remaining invocation lifecycle,
+M8.3 C10, M9.5 type, M10.8 scope, M11-M13/M29 and future adapter
+assignments unchanged, no universal DuckDB mechanism imposed.
+
+Implementation sequence after explicit approval: (1) inventory parked
+candidate changes and approved retirement/replacement capture rows,
+test-first strict six-field config/pure policy (unknown/zero/ranges/
+precedence/no default cap); (2) minimal portable observations and native
+controls/private scratch (actual effect and failure tests); (3) guarded
+native bound session, bounded count, exact identity and noninterference,
+actor/guard cleanup and L1, all nine families both modes; (4) canonical
+admission and terminal advisories, remove interim guard only after
+replacement tests pass, keep low-level helper compatibility; (5) full
+standard CI plus persistent pinned/rolling native matrix, actual older/
+current OS/Python/pin builds, synthetic future/missing API cases, real
+larger-than-RAM spill, small costly workload, insufficient disk and
+active-spill native interrupt, explicit override and measured final
+tuning; (6) capture/index and branch-wide advisory, actual exact test
+nodes and gate dispositions, docs/user guide/changelog, scoped exit
+review and separate merge approval. Critical safety assertion RED then
+GREEN via CI when local unavailable. No fabricated node or green-job-only
+proof. Existing Windows live-WAL-copy failure must be replaced with
+equivalent actual portable fixture and verified, not waived. Prove
+failure paths for actor initialization, native controls/attach/catalog/
+guard/close/cleanup before any result becomes PASS. Persistent CI must
+retain P1-P6, actual image/release/build/arch and version, periodic/
+on-demand/release/change validation, coverage gaps and triage.
+
+Approval requested for one common guarded native path, six optional
+leaves and adjustable 50%/90% default heuristics, minimal observations,
+no mandatory pressure monitor or automatic crash recovery, baseline
+native conflicting-configuration refusal retained with advice.
+Remaining actual implementation and exit proofs above are mandatory.
+Do not treat this proposal as gate closure or implementation authorization.
+
 ## Native-first redesign proposal (2026-11-27; approval pending)
 
 This section is a decision proposal based on comparative evidence, not
