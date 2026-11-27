@@ -425,6 +425,7 @@ def _prepare_runtime_execution_dependencies(
                 context.project_root,
                 connections_by_name,
                 scan_budget_decisions.identities_by_check_id,
+                profile_result.profile._execution_policies,
             ),
         ),
     )

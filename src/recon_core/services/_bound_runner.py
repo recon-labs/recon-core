@@ -28,6 +28,7 @@ from recon_core.check_engine.execution_support import (
 )
 from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.check_engine.scan_budget import BOUNDED_LOCAL_SCAN_REQUIRED, SCAN_BUDGET_EXCEEDED
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
 
@@ -88,10 +89,12 @@ class _ProjectBoundRunner:
         project_root: Path,
         connections: Mapping[str, ConnectionConfig],
         identities: Mapping[str, _LocalFileIdentity],
+        resource_policies: Mapping[str, _LocalResourcePolicy],
     ) -> None:
         self._root = project_root
         self._connections = deepcopy(dict(connections))
         self._identities = dict(identities)
+        self._resource_policies = dict(resource_policies)
         self._unreleased: list[tuple[_LocalFileIdentity, _OwnedSession]] = []
         self._session_count = 0
 
@@ -145,9 +148,26 @@ class _ProjectBoundRunner:
             )
         if contract.source.relation is None or contract.target.relation is None:
             return _scope_refusal(check, contract)
+        source_policy = self._resource_policies.get(
+            contract.source.connection, _LocalResourcePolicy()
+        )
+        target_policy = self._resource_policies.get(
+            contract.target.connection, _LocalResourcePolicy()
+        )
+        if source_policy != target_policy:
+            return not_executable_result(
+                check,
+                contract,
+                reason=CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,
+                diagnostic_code="RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                message="Connection aliases require matching execution policies.",
+                hint="Align the selected connection execution settings.",
+            )
         self._session_count += 1
         session_number = self._session_count
-        session = _new_owned_session(source.type, identity)
+        session = _new_owned_session(
+            source.type, identity, project_root=self._root, resource_policy=source_policy
+        )
         try:
             session.open()
             lease = session.bind(
@@ -163,9 +183,19 @@ class _ProjectBoundRunner:
                     lease.scope.source, lease.scope.target, _SessionReader(session, lease)
                 )
         except _BoundSessionError as exc:
-            result = error_result(
-                check, contract, message=exc.diagnostic.message, diagnostics=(exc.diagnostic,)
-            )
+            if exc.diagnostic.code == "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE":
+                result = not_executable_result(
+                    check,
+                    contract,
+                    reason=CheckReason.BOUNDED_LOCAL_SCAN_REQUIRED,
+                    diagnostic_code=exc.diagnostic.code,
+                    message=exc.diagnostic.message,
+                    hint="Inspect the selected resource settings locally.",
+                )
+            else:
+                result = error_result(
+                    check, contract, message=exc.diagnostic.message, diagnostics=(exc.diagnostic,)
+                )
         except _InvalidAggregateResultError:
             result = _safe_error(
                 check,

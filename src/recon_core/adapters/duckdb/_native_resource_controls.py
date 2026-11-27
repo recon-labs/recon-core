@@ -156,7 +156,7 @@ def _native_startup_config(request: _NativeControlRequest) -> dict[str, str]:
 
 
 def _apply_native_controls(
-    connection: Any, request: _NativeControlRequest
+    connection: Any, request: _NativeControlRequest, *, assign_memory_threads: bool = False
 ) -> _NativeControlReadback:
     """Apply requested spill control and verify reports on the owned connection.
 
@@ -165,6 +165,18 @@ def _apply_native_controls(
     Native effect and isolation proof are the caller's separate obligations.
     """
 
+    if assign_memory_threads:
+        # Adaptive policy reads recommendations from this empty isolated actor.
+        # Assign validated targets before any attachment, transaction or data read.
+        try:
+            if request.memory_bytes is not None:
+                connection.execute(f"SET memory_limit = '{request.memory_bytes} bytes'")
+            if request.threads is not None:
+                connection.execute(f"SET threads = {request.threads}")
+        except Exception:
+            raise _NativeControlError(
+                "Native memory or thread control could not be applied."
+            ) from None
     if request.spill_bytes is not None:
         try:
             connection.execute(f"SET max_temp_directory_size = '{request.spill_bytes} bytes'")

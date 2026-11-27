@@ -6,6 +6,7 @@ from typing import Protocol
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters.models import QueryResult, Relation
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
 
@@ -98,9 +99,15 @@ def _local_file_identity(
     return inspect(connection, project_root)
 
 
-def _new_owned_session(adapter_type: str, identity: _LocalFileIdentity) -> _OwnedSession:
+def _new_owned_session(
+    adapter_type: str,
+    identity: _LocalFileIdentity,
+    *,
+    project_root: Path,
+    resource_policy: _LocalResourcePolicy,
+) -> _OwnedSession:
     if adapter_type != "duckdb":
         raise _proof_error()
     from recon_core.adapters.duckdb._bound_execution import _OwnedDuckDbSession
 
-    return _OwnedDuckDbSession(identity)
+    return _OwnedDuckDbSession(identity, project_root=project_root, resource_policy=resource_policy)

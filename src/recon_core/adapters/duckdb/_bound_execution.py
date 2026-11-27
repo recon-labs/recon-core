@@ -3,9 +3,11 @@
 from collections.abc import Callable
 from importlib import import_module
 from pathlib import Path
+from tempfile import gettempdir
 from typing import Any
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
+from recon_core.adapters._local_resource_observation import _observe_local_resources
 from recon_core.adapters._project_binding import (
     _BindingLease,
     _BindingScope,
@@ -24,6 +26,11 @@ from recon_core.adapters.duckdb._native_resource_controls import (
     _native_startup_config,
     _NativeControlError,
     _NativeControlRequest,
+    _read_native_recommendations,
+)
+from recon_core.adapters.duckdb._resource_targets import (
+    _calculate_local_resource_targets,
+    _LocalResourceInputs,
 )
 from recon_core.adapters.duckdb.adapter import _read_aggregate_result
 from recon_core.adapters.duckdb.renderer_sql import quote_identifier, sql_string_literal
@@ -40,6 +47,7 @@ from recon_core.adapters.lifecycle import (
     ADAPTER_QUERY_FAILED,
 )
 from recon_core.adapters.models import QueryResult, Relation
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic
 
 # The lease binds the typed check family as well as the exact relations.
@@ -159,6 +167,40 @@ def _attach_guarded_database(connection: Any, path: Path, catalog: str) -> None:
         raise _proof_error()
 
 
+def _policy_scratch_base(project_root: Path, policy: _LocalResourcePolicy) -> Path:
+    """Resolve only the selected base; never create or switch an authored location."""
+    path = (
+        Path(gettempdir()) if policy.scratch_directory is None else Path(policy.scratch_directory)
+    )
+    if not path.is_absolute():
+        path = project_root / path
+    return path.resolve(strict=True)
+
+
+def _adaptive_native_request(
+    connection: Any, scratch: Path, policy: _LocalResourcePolicy
+) -> _NativeControlRequest:
+    observed = _observe_local_resources(scratch)
+    native = _read_native_recommendations(connection)
+    targets = _calculate_local_resource_targets(
+        policy,
+        _LocalResourceInputs(
+            memory_headroom_bytes=observed.memory_headroom_bytes,
+            cpu_capacity=observed.cpu_capacity,
+            scratch_free_bytes=observed.scratch_free_bytes,
+            scratch_memory_backed=observed.scratch_memory_backed,
+            native_memory_bytes=native.memory_bytes,
+            native_threads=native.threads,
+        ),
+    )
+    # Native zero-spill effect has not yet been independently established.
+    if targets.spill_bytes == 0:
+        raise _NativeControlError("No usable verified native spill capacity.")
+    return _NativeControlRequest(
+        targets.managed_memory_bytes, targets.threads, targets.spill_bytes, scratch
+    )
+
+
 class _OwnedDuckDbSession:
     """Single-use session; the caller must close it in a finally block."""
 
@@ -168,10 +210,16 @@ class _OwnedDuckDbSession:
         *,
         native_controls: _NativeControlRequest | None = None,
         scratch_base: Path | None = None,
+        project_root: Path | None = None,
+        resource_policy: _LocalResourcePolicy | None = None,
     ) -> None:
         self._identity = identity
-        if native_controls is not None and scratch_base is not None:
+        if (project_root is None) != (resource_policy is None) or sum(
+            mode is not None for mode in (native_controls, scratch_base, resource_policy)
+        ) > 1:
             raise ValueError("Specify one native scratch ownership mode.")
+        self._project_root = project_root
+        self._resource_policy = resource_policy
         self._native_controls = native_controls
         self._scratch_base = scratch_base
         self._scratch: _CheckScratch | None = None
@@ -199,12 +247,17 @@ class _OwnedDuckDbSession:
             raise _proof_error()
         self._attempted = True
         self._verify_file()
-        if self._scratch_base is not None:
+        if self._scratch_base is not None or self._resource_policy is not None:
             try:
-                self._scratch = _create_check_scratch(self._scratch_base)
+                base = self._scratch_base
+                if self._resource_policy is not None:
+                    assert self._project_root is not None
+                    base = _policy_scratch_base(self._project_root, self._resource_policy)
+                assert base is not None
+                self._scratch = _create_check_scratch(base)
                 self._released = False
                 self._native_controls = _NativeControlRequest(None, None, None, self._scratch.path)
-            except (_ScratchError, _NativeControlError):
+            except (OSError, RuntimeError, ValueError):
                 self._invalidated = True
                 raise _BoundSessionError(
                     "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
@@ -242,12 +295,22 @@ class _OwnedDuckDbSession:
         self._verify_file()
         if self._native_controls is not None:
             try:
-                _apply_native_controls(self._connection, self._native_controls)
-            except _NativeControlError:
+                if self._resource_policy is not None:
+                    assert self._scratch is not None
+                    self._native_controls = _adaptive_native_request(
+                        self._connection, self._scratch.path, self._resource_policy
+                    )
+                _apply_native_controls(
+                    self._connection,
+                    self._native_controls,
+                    assign_memory_threads=self._resource_policy is not None,
+                )
+            except (_NativeControlError, ValueError):
                 self._invalidated = True
                 raise _BoundSessionError(
                     "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
-                    "Required native resource setting could not be verified.",
+                    "Required native resource setting could not be verified. "
+                    "Use automatic or fixed MiB tuning if capacity is unavailable.",
                 ) from None
             try:
                 _attach_guarded_database(self._connection, self._identity.path, catalog)
