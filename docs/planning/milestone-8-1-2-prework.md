@@ -227,11 +227,13 @@ Selected target provides deployment overrides today; M28 owns any new
 typed env/CLI override design and precedence proof. No contract/check/package
 override, new target-selection CLI, new config version or new adapter API.
 
-Core validates project/selected-target envelope and known adapter policy
-schema, separates selected execution settings from rendered connection
+Core validates project/selected-target envelope; the DuckDB-specific schema
+and arithmetic have a private adapter-specific owner, not generic engine
+branches scattered across Core. Reuse one resolver for precedence and
+separate selected execution settings from rendered connection
 payloads, and resolves immutable authored policy once per referenced
 connection/context; adapter owns native controls/calculations and fresh
-capacity facts. Current allowed adapter namespace is duckdb; unregistered
+capacity facts. Current supported adapter policy namespace is duckdb; unregistered
 namespace in authored project or selected target defaults is a configuration
 error, not silently ignored. Selected target connection override keys must
 name a declared connection; validate values only for referenced connections
@@ -413,7 +415,11 @@ existing binding/execution/semantic contracts. M8.1.2 owns additive changes
 at those existing seams and regression verification; reopen a completed
 milestone only if concrete proof exposes an incompatible prerequisite.
 M9.5 mandatory type work and M10.8 scope restoration remain unchanged.
-No new milestone, no ecosystem repository before existing checkpoints.
+Before first external adapter at M11-M12, design and prove adapter-owned
+schema discovery/registration and version compatibility without requiring
+Core changes for each subsequent adapter. Do not invent a public extension
+API now; preserve the single resolver and make missing/unknown support
+explicit. No new milestone, no ecosystem repository before existing checkpoints.
 Check both positive and negative config/profile integration for no-op
 unreferenced policy, same-context conflicts, native observer isolation,
 redacted paths/numbers/credentials, deterministic resolution, and no
