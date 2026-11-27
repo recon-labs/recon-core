@@ -236,7 +236,9 @@ def test_malformed_native_setting_shape_is_not_a_recommendation(rows: object) ->
 
 @pytest.mark.parametrize("spill_bytes", [0, 1 << 20], ids=["zero", "one-mib"])
 @pytest.mark.regression_capture("duckdb-native-spill-setting-effect")
-def test_native_spill_setting_effect_not_readback(tmp_path: Path, duckdb: Any, spill_bytes: int) -> None:
+def test_native_spill_setting_effect_not_readback(
+    tmp_path: Path, duckdb: Any, spill_bytes: int
+) -> None:
     """Known spilling synthetic workload must hit the applied managed cap."""
 
     database = tmp_path / "spill-fixture.duckdb"
