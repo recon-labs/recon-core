@@ -1,0 +1,162 @@
+name: Native resource compatibility
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/**"
+      - "docs/compatibility/**"
+      - "docs/planning/execution-resource-safety-assignments.md"
+      - "docs/implementation/testing-plan.md"
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/**"
+      - "docs/compatibility/**"
+      - "docs/planning/execution-resource-safety-assignments.md"
+      - "docs/implementation/testing-plan.md"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native resource (${{ matrix.lane }})
+    runs-on: ${{ matrix.image }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: linux-older
+            image: ubuntu-22.04
+            python: "3.11"
+            duckdb: "1.0.0"
+            numeric-selection: "not bignum"
+          - lane: linux-current
+            image: ubuntu-24.04
+            python: "3.12"
+            duckdb: "1.4.5"
+            numeric-selection: ""
+          - lane: linux-rolling
+            image: ubuntu-latest
+            python: "3.13"
+            duckdb: ""
+            numeric-selection: ""
+          - lane: macos-older
+            image: macos-15
+            python: "3.11"
+            duckdb: "1.0.0"
+            numeric-selection: "not bignum"
+          - lane: macos-current
+            image: macos-26
+            python: "3.12"
+            duckdb: "1.4.5"
+            numeric-selection: ""
+          - lane: macos-rolling
+            image: macos-latest
+            python: "3.13"
+            duckdb: ""
+            numeric-selection: ""
+          - lane: windows-older
+            image: windows-2022
+            python: "3.11"
+            duckdb: "1.0.0"
+            numeric-selection: "not bignum"
+          - lane: windows-current
+            image: windows-2025
+            python: "3.12"
+            duckdb: "1.4.5"
+            numeric-selection: ""
+          - lane: windows-rolling
+            image: windows-latest
+            python: "3.13"
+            duckdb: ""
+            numeric-selection: ""
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install native dependencies and record actual environment
+        shell: bash
+        env:
+          DUCKDB_VERSION: ${{ matrix.duckdb }}
+          REQUESTED_IMAGE: ${{ matrix.image }}
+          RECON_REQUIRE_DUCKDB_TESTS: "1"
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [ -n "$DUCKDB_VERSION" ]; then
+            python -m pip install -e ".[dev,duckdb]" "duckdb==$DUCKDB_VERSION"
+          else
+            python -m pip install -e ".[dev,duckdb]"
+          fi
+          python - <<'PY'
+          import importlib.metadata
+          import json
+          import os
+          import platform
+          import sys
+
+          import duckdb
+          import psutil
+
+          requested = os.environ["DUCKDB_VERSION"]
+          assert not requested or duckdb.__version__ == requested
+          release = (
+              platform.freedesktop_os_release()
+              if platform.system() == "Linux"
+              else platform.mac_ver() if platform.system() == "Darwin"
+              else platform.win32_ver()
+          )
+          print("NATIVE_ENVIRONMENT", json.dumps({
+              "image": os.environ["REQUESTED_IMAGE"],
+              "image_os": os.environ.get("ImageOS"),
+              "image_version": os.environ.get("ImageVersion"),
+              "runner_arch": os.environ.get("RUNNER_ARCH"),
+              "system": platform.system(),
+              "release": release,
+              "kernel_release": platform.release(),
+              "build": platform.version(),
+              "machine": platform.machine(),
+              "python": sys.version,
+              "duckdb": duckdb.__version__,
+              "psutil": psutil.__version__,
+              "recon_core": importlib.metadata.version("recon-core"),
+          }, sort_keys=True))
+          PY
+
+      - name: Verify actual native effects, privacy, binding and graceful degradation
+        shell: bash
+        env:
+          RECON_REQUIRE_DUCKDB_TESTS: "1"
+          NUMERIC_SELECTION: ${{ matrix.numeric-selection }}
+        run: |
+          status=0
+          python -m pytest tests/adapters tests/check_engine tests/services tests/cli --ignore=tests/adapters/test_duckdb_aggregate_numeric_domains.py || status=1
+          # Older pins retain the same explicit numeric-domain selection as
+          # the existing required version CI; M9.5 owns expanded BIGNUM proof.
+          if [ -n "$NUMERIC_SELECTION" ]; then
+            python -m pytest -s tests/adapters/test_duckdb_aggregate_numeric_domains.py -k "$NUMERIC_SELECTION" || status=1
+          else
+            python -m pytest -s tests/adapters/test_duckdb_aggregate_numeric_domains.py || status=1
+          fi
+          exit "$status"
