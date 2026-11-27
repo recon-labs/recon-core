@@ -215,7 +215,8 @@ class RunService:
                 service_result = result
         except Exception:
             service_result = _unexpected_invocation_failure_result(invocation.stage)
-        stop_cause = invocation.control.seal() if invocation.control is not None else None
+        finally:
+            stop_cause = invocation.control.seal() if invocation.control is not None else None
         if stop_cause is not None:
             service_result = _with_stop_result(service_result, stop_cause)
         return invocation.finish(

@@ -2,7 +2,7 @@ import ast
 from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import Event, Thread
+from threading import Event, Thread, enumerate as enumerate_threads
 from typing import Any
 
 import pytest
@@ -1196,3 +1196,28 @@ def test_native_control_repeats_failed_interrupt_without_retrying_call() -> None
     finally:
         control.close_observer()
     assert control.seal() is _StopCause.CANCELLED
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_embedded_base_exception_joins_control_observer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from recon_core.services._run_lifecycle import _RunInvocation
+
+    started: list[Thread] = []
+
+    def evaluate(self: RunService, invocation: _RunInvocation) -> Any:
+        control = invocation.control
+        assert control is not None
+        assert control.native_call(lambda: 42, lambda: False) == 42
+        assert control._observer is not None
+        started.append(control._observer)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(RunService, "_evaluate_invocation", evaluate)
+    with pytest.raises(KeyboardInterrupt):
+        RunService(start_path=tmp_path).execute(cancel_event=Event())
+    assert len(started) == 1
+    assert not started[0].is_alive()
+    assert started[0] not in enumerate_threads()
+    _assert_no_runtime_outputs(tmp_path)
