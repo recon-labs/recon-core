@@ -2,6 +2,7 @@ import ast
 from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Event
 from typing import Any
 
 import pytest
@@ -15,7 +16,14 @@ from recon_core.adapters import (
     AdapterRegistry,
 )
 from recon_core.artifacts import CompiledCheckLoader, CompiledContractLoader
-from recon_core.check_engine import CheckReason, CheckResult, CheckStatus, ContractResult, RunResult
+from recon_core.check_engine import (
+    CheckDispatcher,
+    CheckReason,
+    CheckResult,
+    CheckStatus,
+    ContractResult,
+    RunResult,
+)
 from recon_core.cli.main import main
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
@@ -913,4 +921,138 @@ def test_invocation_rejects_results_outside_loaded_scope(tmp_path: Path, variant
     assert outcome.scope_facts.finalized_check_count == len(checks)
     assert outcome.scope_facts.executed_check_count == len(checks)
     assert outcome.scope_facts.complete is (variant == "complete")
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+@pytest.mark.parametrize("timeout", [0, -1, True, False, 1.5, "private-timeout-canary"])
+def test_invalid_invocation_timeout_stops_before_preparation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, timeout: Any
+) -> None:
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail("Invalid timeout must not start project preparation.")
+
+    monkeypatch.setattr(run_service_module, "load_project_context", forbidden)
+    result = RunService(start_path=tmp_path).execute(timeout_seconds=timeout)
+    assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
+    assert result.diagnostics
+    assert "private-timeout-canary" not in repr(result.to_dict())
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_preset_cancel_event_stops_before_preparation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail("Preset cancellation must not start project preparation.")
+
+    monkeypatch.setattr(run_service_module, "load_project_context", forbidden)
+    event = Event()
+    event.set()
+    service = RunService(start_path=tmp_path)
+    for _ in range(2):
+        result = service.execute(cancel_event=event)
+        assert result.exit_category is ExitCategory.RUNTIME_ERROR
+        assert "RC_RUNTIME_RUN_CANCELLED" in {d.code for d in result.diagnostics}
+        assert event.is_set()
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_large_explicit_timeout_preserves_existing_outcome(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+    service = RunService(start_path=tmp_path)
+    expected = service.execute().to_dict()
+    event = Event()
+    result = service.execute(timeout_seconds=10**100, cancel_event=event)
+    assert result.to_dict() == expected
+    assert not event.is_set()
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_cancellation_before_projection_seal_cannot_return_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+    event = Event()
+
+    def passing_dispatch(self: CheckDispatcher, check: Any) -> CheckResult:
+        return CheckResult(
+            check_id=check.id,
+            name=check.name,
+            check_type=check.check_type,
+            contract_name=check.contract_name,
+            status=CheckStatus.PASS,
+            executed=True,
+        )
+
+    original = run_service_module._run_service_result
+
+    def project_then_cancel(result: RunResult) -> Any:
+        projected = original(result)
+        assert projected.exit_category is ExitCategory.SUCCESS
+        event.set()
+        return projected
+
+    monkeypatch.setattr(CheckDispatcher, "dispatch", passing_dispatch)
+    monkeypatch.setattr(run_service_module, "_run_service_result", project_then_cancel)
+    outcome = RunService(start_path=tmp_path)._execute_invocation(cancel_event=event)
+    assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert outcome.status.value == "failed"
+    assert "RC_RUNTIME_RUN_CANCELLED" in {d.code for d in outcome.service_result.diagnostics}
+    assert outcome.run_result is not None
+    assert outcome.run_result.status.value == "pass"
+    assert outcome.scope_facts.executed_check_count == 1
+    assert event.is_set()
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_cancelled_run_never_dispatches_later_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(check_id="first", name="first"),
+            _compiled_check_payload(check_id="second", name="second"),
+        ],
+    )
+    write_compiled_contract(tmp_path)
+    event = Event()
+    dispatched: list[str] = []
+
+    def dispatch_then_cancel(self: CheckDispatcher, check: Any) -> CheckResult:
+        dispatched.append(check.id)
+        event.set()
+        return CheckResult(
+            check_id=check.id,
+            name=check.name,
+            check_type=check.check_type,
+            contract_name=check.contract_name,
+            status=CheckStatus.PASS,
+            executed=True,
+        )
+
+    monkeypatch.setattr(CheckDispatcher, "dispatch", dispatch_then_cancel)
+    outcome = RunService(start_path=tmp_path)._execute_invocation(cancel_event=event)
+    assert dispatched == ["first"]
+    assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert outcome.run_result is not None
+    checks = outcome.run_result.contract_results[0].check_results
+    assert len(checks) == 2
+    assert checks[1].check_id == "second"
+    assert checks[1].status is CheckStatus.NOT_EXECUTABLE
+    assert checks[1].reason_code is not None
+    assert checks[1].reason_code.value == "run_cancelled"
+    assert not checks[1].executed
+    assert outcome.scope_facts.complete is True
+    assert outcome.scope_facts.finalized_check_count == 2
     _assert_no_runtime_outputs(tmp_path)

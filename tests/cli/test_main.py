@@ -563,3 +563,21 @@ def _compiled_checks_path() -> Path:
 
 def _read_yaml(path: Path) -> object:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "1.5", "private-timeout-canary"])
+def test_run_command_rejects_invalid_timeout(value: str) -> None:
+    result = CliRunner().invoke(main, ["run", "--timeout-seconds", value])
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output
+    assert "No such option" not in result.output
+
+
+def test_run_command_accepts_large_timeout() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        _write_project()
+        expected = runner.invoke(main, ["run"])
+        actual = runner.invoke(main, ["run", "--timeout-seconds", str(10**100)])
+    assert actual.exit_code == expected.exit_code == 3
+    assert actual.output == expected.output
