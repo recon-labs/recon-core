@@ -302,6 +302,41 @@ def _adaptive_native_request(
     return request, _resource_advisories(observed, inputs, targets, policy)
 
 
+def _catalog_estimated_rows(connection: Any, relation: Relation) -> int | None:
+    """Optional native catalog evidence, never execute a data query to estimate."""
+    try:
+        rows = connection.execute(
+            "SELECT estimated_size FROM duckdb_tables() "
+            "WHERE database_name = ? AND schema_name = ? AND table_name = ? LIMIT 2",
+            [relation.catalog, relation.schema, relation.identifier],
+        ).fetchmany(2)
+    except Exception:
+        return None
+    if not isinstance(rows, list | tuple) or len(rows) != 1:
+        return None
+    row = rows[0]
+    if not isinstance(row, tuple) or len(row) != 1:
+        return None
+    count = row[0]
+    return count if type(count) is int and 0 <= count <= (1 << 63) - 1 else None
+
+
+def _estimated_input_rows(connection: Any, scope: _BindingScope) -> int | None:
+    if scope.operation in {"null_source_keys", "duplicate_source_keys"}:
+        relations = (scope.source,)
+    elif scope.operation in {"null_target_keys", "duplicate_target_keys"}:
+        relations = (scope.target,)
+    else:
+        relations = (scope.source, scope.target)
+    total = 0
+    for relation in relations:
+        count = _catalog_estimated_rows(connection, relation)
+        if count is None:
+            return None
+        total += count
+    return total if total <= (1 << 63) - 1 else None
+
+
 class _OwnedDuckDbSession:
     """Single-use session; the caller must close it in a finally block."""
 
@@ -482,6 +517,24 @@ class _OwnedDuckDbSession:
         self._lease = _BindingLease(
             _BindingScope(check_id, operation, source_relation, target_relation)
         )
+        policy = self._resource_policy
+        threshold = policy.warn_estimated_input_rows if policy is not None else None
+        if threshold is not None:
+            estimated = _estimated_input_rows(self._connection, self._lease.scope)
+            self.verify_lease(self._lease, self._lease.scope)
+            if estimated is not None and estimated > threshold:
+                self._advisories += (
+                    Diagnostic(
+                        code="RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY",
+                        severity=DiagnosticSeverity.WARNING,
+                        message=(
+                            "Catalog input row estimate exceeds the configured advisory "
+                            "threshold; execution continues."
+                        ),
+                        resource_type="runtime_policy",
+                        hint="Review workload scope or adjust warn-estimated-input-rows.",
+                    ),
+                )
         return self._lease
 
     def verify_lease(self, lease: _BindingLease, scope: _BindingScope) -> None:

@@ -1643,7 +1643,9 @@ def test_large_native_database_without_default_cap(
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
     checks = engine.result.contract_results[0].check_results
-    assert all(check.status is CheckStatus.NOT_EXECUTABLE and not check.executed for check in checks)
+    assert all(
+        check.status is CheckStatus.NOT_EXECUTABLE and not check.executed for check in checks
+    )
     assert all(
         "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics} for check in checks
     )

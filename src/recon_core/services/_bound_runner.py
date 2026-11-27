@@ -7,9 +7,9 @@ from pathlib import Path
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters._project_binding import (
-    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
     _BindingLease,
     _BoundSessionError,
+    _exceeds_authored_footprint,
     _InvalidAggregateResultError,
     _local_file_identity,
     _LocalFileIdentity,
@@ -63,11 +63,15 @@ def _scope_refusal(
         ),
         diagnostic_code=SCAN_BUDGET_EXCEEDED if over_cap else BOUNDED_LOCAL_SCAN_REQUIRED,
         message=(
-            "Check exceeds the temporary local file limit."
+            "Check exceeds the configured database footprint limit."
             if over_cap
             else "Check requires a verified local base-table execution scope."
         ),
-        hint="Verify the local database and supported base-table relations.",
+        hint=(
+            "Reduce the database footprint or adjust max-database-mib."
+            if over_cap
+            else "Verify the local database and supported base-table relations."
+        ),
     )
 
 
@@ -127,8 +131,6 @@ class _ProjectBoundRunner:
         identity = self._identities.get(check.id)
         if identity is None:
             return _scope_refusal(check, contract)
-        if check.check_type != "row_count_diff" and identity.size > _MAX_BOUNDED_LOCAL_DUCKDB_BYTES:
-            return _scope_refusal(check, contract, over_cap=True)
         if any(
             failed.path == identity.path
             or (failed.device, failed.inode) == (identity.device, identity.inode)
@@ -181,6 +183,8 @@ class _ProjectBoundRunner:
                 message="Connection aliases require matching execution policies.",
                 hint="Align the selected connection execution settings.",
             )
+        if _exceeds_authored_footprint(identity, source_policy):
+            return _scope_refusal(check, contract, over_cap=True)
         self._session_count += 1
         session_number = self._session_count
         session = _new_owned_session(

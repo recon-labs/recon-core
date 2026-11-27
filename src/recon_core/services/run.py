@@ -17,7 +17,7 @@ from recon_core.adapters import (
 )
 from recon_core.adapters._aggregate_runtime import _AggregateRuntimeRenderer
 from recon_core.adapters._project_binding import (
-    _MAX_BOUNDED_LOCAL_DUCKDB_BYTES,
+    _exceeds_authored_footprint,
     _local_file_identity,
     _LocalFileIdentity,
 )
@@ -86,6 +86,7 @@ from recon_core.check_engine.scan_budget import (
     classify_scan_budget,
 )
 from recon_core.compiler.models import RenderingStatus
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import load_selected_profile_for_connection_names
 from recon_core.profiles.connection_references import (
@@ -305,6 +306,7 @@ def _prepare_runtime_execution_dependencies(
         connections_by_name=connections_by_name,
         project_root=context.project_root,
         runtime_safety_checks=runtime_safety_checks,
+        resource_policies=profile_result.profile._execution_policies,
     )
     adapter_candidates = _adapter_required_runtime_candidates(
         profile_candidates,
@@ -751,6 +753,7 @@ def _scan_budget_decisions_by_check_id(
     connections_by_name: Mapping[str, ConnectionConfig],
     project_root: Path,
     runtime_safety_checks: RuntimeSafetyCheckRegistry,
+    resource_policies: Mapping[str, _LocalResourcePolicy],
 ) -> _RuntimeScanBudgetDecisions:
     decisions: dict[str, ScanBudgetDecision] = {}
     identities: dict[str, _LocalFileIdentity] = {}
@@ -772,10 +775,18 @@ def _scan_budget_decisions_by_check_id(
                 if not _contract_has_valid_relation_endpoint_shape(contract):
                     continue
                 identity = _local_file_identity(source, project_root)
+                source_policy = resource_policies.get(
+                    contract.source.connection, _LocalResourcePolicy()
+                )
+                target_policy = resource_policies.get(
+                    contract.target.connection, _LocalResourcePolicy()
+                )
+                # Defer differing authored policies to the bound runner's
+                # canonical alias comparison, before any session is opened.
                 over_cap = (
                     identity is not None
-                    and check.check_type != "row_count_diff"
-                    and identity.size > _MAX_BOUNDED_LOCAL_DUCKDB_BYTES
+                    and source_policy == target_policy
+                    and _exceeds_authored_footprint(identity, source_policy)
                 )
                 if identity is not None:
                     identities[check.id] = identity

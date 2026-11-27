@@ -23,6 +23,13 @@ class _LocalFileIdentity:
     modified_ns: int
 
 
+def _exceeds_authored_footprint(
+    identity: _LocalFileIdentity, policy: _LocalResourcePolicy
+) -> bool:
+    limit = policy.max_database_bytes
+    return limit is not None and identity.size > limit
+
+
 class _BoundSessionError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)

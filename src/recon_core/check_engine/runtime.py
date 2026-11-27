@@ -42,6 +42,7 @@ from recon_core.check_engine.models import CheckReason, CheckResult, CheckStatus
 from recon_core.check_engine.result_metadata import identity_label
 from recon_core.check_engine.scan_budget import (
     BOUNDED_LOCAL_SCAN_REQUIRED,
+    SCAN_BUDGET_EXCEEDED,
     ScanBudgetDecision,
     missing_scan_budget_decision,
 )
@@ -219,6 +220,15 @@ def _row_count_execution_result_if_available(
         and decision is not None
         and not decision.allowed
     ):
+        if decision.reason is CheckReason.SCAN_BUDGET_EXCEEDED:
+            return not_executable_result(
+                check,
+                contract,
+                reason=CheckReason.SCAN_BUDGET_EXCEEDED,
+                diagnostic_code=SCAN_BUDGET_EXCEEDED,
+                message="Check exceeds the configured database footprint limit.",
+                hint="Reduce the database footprint or adjust max-database-mib.",
+            )
         return not_executable_result(
             check,
             contract,
