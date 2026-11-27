@@ -497,6 +497,10 @@ captures:
       relative memory/spill mode validation, mutual exclusion, exact flooring,
       unknown denominator refusal versus automatic advisory, capacity growth
       and shrinkage per check, native effects and both invocation modes.
+      Require adapter-scoped project/target/connection precedence, atomic modes
+      and reset, inactive/unreferenced isolation, wrong adapter/unknown names,
+      same-context alias conflict, native connection identity and factory payload
+      invariance, plain parse/compile compatibility and sanitized diagnostics.
       Current test nodes remain historical candidate proof; add actual
       replacement test nodes and carryover proof before exit. No gate closure.
   - id: local-resource-observation-hierarchy
