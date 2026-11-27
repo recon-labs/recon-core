@@ -1,0 +1,145 @@
+name: Temporary independent native instance feasibility
+on:
+  push:
+    branches:
+      - experiment/m812-native-instance-20261127
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        duckdb: ['1.0.0', '1.3.2', '1.4.5', '2.0.1']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b001d14de1fb613beaaad1f3e914f81dfb125cac
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e ".[dev]" "duckdb==${{ matrix.duckdb }}"
+      - name: Compare actual bound execution and native controls
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/placement.py" <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import tempfile
+          import threading
+          import time
+          from pathlib import Path
+          
+          import duckdb
+          from recon_core.adapters.duckdb._bound_execution import _OwnedDuckDbSession
+          from recon_core.adapters.duckdb._aggregate_runtime import _DuckDbAggregateRuntimeRenderer
+          from recon_core.adapters.duckdb.runtime_scan_guard import _local_file_identity
+          from recon_core.profiles import ConnectionConfig
+          
+          def emit(**facts):
+              print(json.dumps(facts, sort_keys=True), flush=True)
+          
+          def settings(c):
+              names = ("memory_limit", "threads", "max_temp_directory_size", "temp_directory")
+              return {k: c.execute("select current_setting(?)", [k]).fetchone()[0] for k in names}
+          
+          def changes(before, after):
+              return sorted(k for k in before if before[k] != after[k])
+          
+          def setup(path, n):
+              with duckdb.connect(str(path)) as c:
+                  c.execute("create table src as select i as k, 2::bigint as v from range(?) t(i)", [n])
+                  c.execute("create table dst as select i as k, 1::bigint as v from range(?) t(i)", [n])
+          
+          def bound(path, n, config=None, spill=None):
+              identity = _local_file_identity(ConnectionConfig(name="warehouse", type="duckdb", config={"database":path.name}), path.parent)
+              assert identity is not None
+              session = _OwnedDuckDbSession(identity)
+              # Experiment only: substitute connection construction, keep the real binding,
+              # transaction, ordered renderer guards and result readers.
+              import recon_core.adapters.duckdb._bound_execution as mod
+              orig = mod.import_module
+              from types import SimpleNamespace
+              def connect(database, **kw):
+                  if config:
+                      c=duckdb.connect(":memory:",config=config)
+                      try:
+                          literal=database.replace("'","''")
+                          catalog=Path(database).stem.replace('"','""')
+                          c.execute(f"ATTACH '{literal}' AS \"{catalog}\" (READ_ONLY)")
+                          c.execute(f'USE "{catalog}"')
+                      except BaseException:
+                          c.close()
+                          raise
+                  else:
+                      c=duckdb.connect(database, **kw)
+                  if spill is not None:
+                      c.execute("SET max_temp_directory_size = '512MiB'")
+                  return c
+              mod.import_module = lambda name: SimpleNamespace(connect=connect)
+              try:
+                  session.open()
+                  lease = session.bind(check_id="fixture", operation="grouped_aggregate_diff", source="src", target="dst")
+                  assert lease is not None
+                  plan = _DuckDbAggregateRuntimeRenderer().render_bound_grouped_plan(
+                      tuple({"type":"grouped_aggregate","side":s,"aggregate":"sum","column":"v","group_by":["k"]} for s in ("source","target"))+({"type":"compare_grouped_aggregates"},),
+                      source_relation=lease.scope.source,target_relation=lease.scope.target)
+                  def read(q, cols):
+                      return session._read_bound_aggregate(lease,lease.scope,q.sql,expected_columns=cols)
+                  for guard in plan.type_guards:
+                      assert read(guard,("type_check",)).row == (1,)
+                  domain=plan.domain_from_guard(read(plan.domain_guard,("numeric_domain",)))
+                  result=read(plan.final_query(domain),plan.columns)
+                  assert result.row == (n,0,0,0,0,n,0,1,1)
+                  emit(case="bound_exact", rows=n, configured=bool(config), success=True)
+              finally:
+                  mod.import_module=orig
+                  assert session.close()==()
+                  assert session.released
+          
+          def placement(base):
+              n=150000
+              path=base/"fixture.duckdb"
+              setup(path,n)
+              config={"memory_limit":"256MiB","threads":"1","temp_directory":str(base/"instance_spill")}
+              with duckdb.connect(str(path),read_only=True) as observer:
+                  before=settings(observer)
+                  try:
+                      with duckdb.connect(":memory:",config=config) as actor:
+                          literal=str(path).replace("'","''")
+                          actor.execute(f"ATTACH '{literal}' AS fixture (READ_ONLY)")
+                          actor.execute("USE fixture")
+                          actor.execute("SET max_temp_directory_size = '512MiB'")
+                          values=settings(actor)
+                          emit(case="independent_instance",accepted=True,settings_correct=values["threads"]==1 and values["temp_directory"]==config["temp_directory"],same_db_changed=changes(before,settings(observer)),observer_ok=observer.execute("select count(*) from src").fetchone()==(n,),actor_ok=actor.execute("select count(*) from fixture.main.src").fetchone()==(n,))
+                          try:
+                              actor.execute("create table fixture.main.must_not_exist(i int)")
+                          except Exception as e:
+                              emit(case="attached_read_only",refused=True,error_type=type(e).__name__)
+                          else:
+                              emit(case="attached_read_only",refused=False)
+                  except Exception as e:
+                      emit(case="independent_instance",accepted=False,error_type=type(e).__name__)
+                  try:
+                      bound(path,n,config,spill=True)
+                  except Exception as e:
+                      emit(case="independent_bound",success=False,error_type=type(e).__name__,code=getattr(getattr(e,"diagnostic",None),"code",None))
+                  else:
+                      emit(case="independent_bound",success=True)
+                  emit(case="observer_after",changed=changes(before,settings(observer)),observer_ok=observer.execute("select count(*) from src").fetchone()==(n,))
+
+          if sys.argv[1:] and sys.argv[1]=="child":
+              path=Path(sys.argv[2])
+              bound(path,int(sys.argv[3]),{"memory_limit":"256MiB","threads":"1","temp_directory":sys.argv[4]},spill=True)
+          else:
+              emit(version=duckdb.__version__)
+              with tempfile.TemporaryDirectory(prefix="recon-native-first-") as temp:
+                  placement(Path(temp).resolve())
+              emit(case="standard_temp_cleanup",removed=not Path(temp).exists())
+          PY
+          python "$RUNNER_TEMP/placement.py"
