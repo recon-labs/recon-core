@@ -20,8 +20,8 @@ or gate closure until revised prework and separate approval.
 
 The [consolidated native-first replacement design](milestone-8-1-2-prework.md#consolidated-native-first-replacement-design-proposed-for-approval-2026-11-27)
 proposes the same guarded native read-only execution path for standalone
-and embedded usage in M8.1.2, no mandatory subprocess, eight optional
-settings including maintainer-approved memory/spill percentage overrides,
+and embedded usage in M8.1.2, no mandatory subprocess, six logical adapter-scoped
+settings with maintainer-approved memory/spill percentage modes,
 adjustable adapter-local memory/spill heuristics and minimal
 private scratch. Native configuration-conflict limitations and remaining
 implementation proof (including Windows baseline WAL regression) are
@@ -29,13 +29,49 @@ explicit. Prior provisional mechanism proposals below are historical
 where inconsistent. No gate closure or implementation authorization.
 
 Automatic, explicit percentage of freshly observed available capacity, and
-fixed MiB modes are independent for memory/spill; corresponding leaves are
-mutually exclusive. CPU remains automatic or fixed threads. Explicit relative
+fixed MiB modes are independent for memory/spill; each logical setting
+has exactly one mode. CPU remains automatic or fixed threads. Explicit relative
 requests cannot silently degrade when their denominator is unknown; automatic
 missing optional facts remain advisory when safe. Recompute at each check,
 not during it. Elastic capacity, arithmetic, missing/zero evidence, native
 control effects and both execution modes require proof. Future adapters assess
 native-appropriate relative and absolute controls, not universal DuckDB syntax.
+
+
+
+## Adapter-scoped execution policy and precedence (proposed; approval pending)
+
+The current resource configuration proposal is adapter-scoped project defaults,
+selected profile target adapter defaults, and selected target named connection
+overrides, in that order after adapter defaults. Operational policy stays out
+of connection identity/factory payloads, credentials and comparison contracts.
+Resolve each logical setting atomically, with explicit reset to automatic or
+absent; no generic deep merge or global engine-specific default. Unreferenced
+policy values and inactive targets do not affect selected work; validate
+applicable policy, adapter namespace, connection names and conflicting same-
+context aliases before affected data reads. Preserve existing binding and
+profile-selection/redaction, plain parse/compile and public API. No new generic
+adapter method, shared native setting syntax, or hard quota guarantee.
+
+Gate 4L configuration scope/precedence extension, also Gate 4I/4J/8C:
+M8.1.2 owns typed scoped configuration, reset/precedence, separation from
+connection identity, selected-only validation, alias conflicts, both execution
+modes and regression proof for prior configuration/profile/runtime behavior.
+M8.2 owns run-wide cumulative limits/concurrency and lifecycle; M8.3 C10
+owns allowlisted policy origin/effective-vs-requested evidence; M9 carries
+privacy into evidence. M10.5 invalidates stale policy/placement evidence,
+M10.6 re-resolves selected scope, M10.7 teaches config, M10.8 rechecks local
+scope restoration. M11-M13 each define native settings/defaults/permissions
+before experimental admission; M13.5 owns independent multi-context resource
+and client/remote transfer precedence; M18 authored query cannot bypass.
+M28 owns any new typed environment/CLI overrides and hard admin-limit
+precedence before exposure; M29 shared conformance and promotion; M32/32.1
+integration propagation/redaction; M40 hosted tenant quotas and authorization.
+Every future adapter/deployment/capability expansion rechecks these outcomes,
+including driver/executor/cluster scope where applicable. No requirement to
+implement DuckDB fields or ratios on another engine. No new milestone/repo;
+completed milestones remain closed unless actual prerequisite regression
+requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Proposed outcome mapping (approval pending)
 
