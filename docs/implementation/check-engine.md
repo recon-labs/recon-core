@@ -245,9 +245,9 @@ adapter metadata/API/capabilities. It passes a private project execution
 context to the check engine. Each eligible check uses a fresh owned read-only
 DuckDB connection and transaction; the actual catalog proof, type guards
 and data queries use that same connection. Both endpoints must resolve to
-unique project-local base tables. The existing 64 MiB file footprint cap
-applies to grain-key and SUM checks only, not row count; it is not a resource
-bound. Missing/outside/nonregular files, retained sidecars and applicable
+unique project-local base tables. No default database footprint cap applies.
+An optional authored footprint ceiling applies to all supported check types;
+it is not a physical resource bound. Missing/outside/nonregular files, retained sidecars and applicable
 over-cap inputs are refused before native open. Views, external relations
 and ambiguous catalog matches are refused after metadata-only open, with
 no data query. Invalid metadata or stale binding produces an error.
@@ -255,8 +255,9 @@ no data query. Invalid metadata or stale binding produces an error.
 No native session is opened for checks blocked by prerequisites, unsupported
 plans or capabilities. The active binding is checked before each native read;
 rollback and close precede a finalized result. Native failures are check-local
-when release is confirmed; uncertain close stops further eligible native work
-without changing structural or prerequisite blockers. No writable fallback,
+when release is confirmed; uncertain close blocks further eligible native work
+for the affected database, not unrelated databases, without changing structural
+or prerequisite blockers. No writable fallback,
 borrowed connection or run-wide snapshot is implied. Aggregate capability or
 private collaborator blockers remain per check. Unsupported aggregate
 families and row-level value checks remain `not_executable` or blocked until

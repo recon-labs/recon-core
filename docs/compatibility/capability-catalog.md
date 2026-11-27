@@ -162,9 +162,9 @@ adapter API is stable.
 Current adapter-aware rendering is relation-backed only. All supported
 project-run DuckDB row-count, grain-key safety and explicit SUM checks require
 verified project-local regular files without retained sidecars and canonical
-local base tables in one owned read-only transaction per check. The temporary
-64 MiB local database file cap applies to grain-key and SUM checks only;
-row count has no footprint cap. Capability declarations do not by themselves
+local base tables in one owned read-only transaction per check. An optional
+authored footprint ceiling applies to all supported check types; no default
+database-size cap applies. Capability declarations do not by themselves
 prove execution admission. The `queries`
 capability is reserved for future executable query endpoint support and is not
 required by current relation-backed rendering or execution. Relation-backed

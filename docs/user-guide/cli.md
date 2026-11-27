@@ -244,8 +244,9 @@ Current behavior:
 - opens a fresh owned read-only session per eligible check, verifies exact
   local base-table binding before data queries, and cleans up before finalizing
   the result,
-- reports native failures per check; uncertain session release stops further
-  eligible native execution without changing structural or prerequisite blockers,
+- reports native failures per check; uncertain session release blocks further
+  eligible native execution for the affected database, not unrelated databases,
+  without changing structural or prerequisite blockers,
 - executes the final DuckDB row-count comparison query for admitted
   relation-backed `row_count_diff` checks,
 - executes supported grain-key safety checks as bounded count queries for
