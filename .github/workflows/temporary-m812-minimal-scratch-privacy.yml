@@ -1,0 +1,332 @@
+name: Temporary minimal native scratch privacy
+on:
+  push:
+    branches:
+      - experiment/m812-minimal-scratch-privacy-20261127
+permissions:
+  contents: read
+jobs:
+  scratch:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, python: '3.11'}
+          - {os: ubuntu-latest, python: '3.13'}
+          - {os: macos-15, python: '3.11'}
+          - {os: macos-latest, python: '3.13'}
+          - {os: windows-2022, python: '3.11'}
+          - {os: windows-2022, python: '3.13'}
+          - {os: windows-latest, python: '3.11'}
+          - {os: windows-latest, python: '3.13'}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Inspect standard-library scratch privacy and lifecycle
+        shell: bash
+        run: |
+          cat > scratch_windows_create.py <<'PY'
+          """Private Windows scratch ACL provider.
+          
+          Use an explicit protected owner-only inheritable DACL at creation, then
+          inspect the actual descriptor through an existing object handle. This
+          is cooperative local-user privacy, not protection from privileged actors
+          or a proof of filesystem locking semantics.
+          """
+          
+          import ctypes as ct
+          import os
+          import stat
+          from collections.abc import Iterator
+          from contextlib import contextmanager
+          from ctypes import wintypes as wt
+          from importlib import import_module
+          from pathlib import Path
+          from typing import Any
+          
+          
+          class _WindowsScratchSecurityError(RuntimeError):
+              def __init__(self) -> None:
+                  super().__init__("Windows scratch privacy could not be verified.")
+          
+          
+          class _SecurityAttributes(ct.Structure):
+              _fields_ = [
+                  ("length", wt.DWORD),
+                  ("descriptor", ct.c_void_p),
+                  ("inherit", wt.BOOL),
+              ]
+          
+          
+          class _AclSize(ct.Structure):
+              _fields_ = [
+                  ("count", wt.DWORD),
+                  ("used", wt.DWORD),
+                  ("free", wt.DWORD),
+              ]
+          
+          
+          class _Ace(ct.Structure):
+              _fields_ = [
+                  ("kind", ct.c_ubyte),
+                  ("flags", ct.c_ubyte),
+                  ("size", ct.c_ushort),
+                  ("mask", wt.DWORD),
+              ]
+          
+          
+          def _api(library: Any, name: str, result: Any, *args: Any) -> Any:
+              function = getattr(library, name)
+              function.argtypes = list(args)
+              function.restype = result
+              return function
+          
+          
+          def _libraries() -> tuple[Any, Any]:
+              loader = import_module("ctypes").WinDLL
+              return loader("kernel32", use_last_error=True), loader("advapi32", use_last_error=True)
+          
+          
+          @contextmanager
+          def _process_user(kernel: Any, security: Any) -> Iterator[tuple[ct.c_void_p, str]]:
+              handle = ct.c_void_p()
+              current = _api(kernel, "GetCurrentProcess", wt.HANDLE)
+              close = _api(kernel, "CloseHandle", wt.BOOL, wt.HANDLE)
+              local_free = _api(kernel, "LocalFree", ct.c_void_p, ct.c_void_p)
+              open_token = _api(
+                  security, "OpenProcessToken", wt.BOOL, wt.HANDLE, wt.DWORD, ct.POINTER(ct.c_void_p)
+              )
+              token_info = _api(
+                  security,
+                  "GetTokenInformation",
+                  wt.BOOL,
+                  wt.HANDLE,
+                  ct.c_int,
+                  ct.c_void_p,
+                  wt.DWORD,
+                  ct.POINTER(wt.DWORD),
+              )
+              to_string = _api(
+                  security, "ConvertSidToStringSidW", wt.BOOL, ct.c_void_p, ct.POINTER(ct.c_void_p)
+              )
+              # File operations use the thread's effective security context. A process
+              # SID is not proof when the current thread has an impersonation token;
+              # an isolated worker does not automatically inherit that context.
+              current_thread = _api(kernel, "GetCurrentThread", wt.HANDLE)
+              open_thread_token = _api(
+                  security,
+                  "OpenThreadToken",
+                  wt.BOOL,
+                  wt.HANDLE,
+                  wt.DWORD,
+                  wt.BOOL,
+                  ct.POINTER(ct.c_void_p),
+              )
+              thread_token = ct.c_void_p()
+              ctypes_module = import_module("ctypes")
+              ctypes_module.set_last_error(0)
+              if open_thread_token(current_thread(), 0x0008, True, ct.byref(thread_token)):
+                  close(thread_token)
+                  raise _WindowsScratchSecurityError()
+              if ctypes_module.get_last_error() != 1008:  # ERROR_NO_TOKEN
+                  raise _WindowsScratchSecurityError()
+              if not open_token(current(), 0x0008, ct.byref(handle)):
+                  raise _WindowsScratchSecurityError()
+              try:
+                  needed = wt.DWORD()
+                  token_info(handle, 1, None, 0, ct.byref(needed))
+                  # TOKEN_USER is one SID_AND_ATTRIBUTES plus a SID (at most 68 bytes).
+                  # Allow alignment/padding but reject an unbounded native allocation.
+                  if not ct.sizeof(ct.c_void_p) <= needed.value <= 256:
+                      raise _WindowsScratchSecurityError()
+                  data = ct.create_string_buffer(needed.value)
+                  if not token_info(handle, 1, data, len(data), ct.byref(needed)):
+                      raise _WindowsScratchSecurityError()
+                  sid = ct.cast(data, ct.POINTER(ct.c_void_p))[0]
+                  if not sid:
+                      raise _WindowsScratchSecurityError()
+                  text = ct.c_void_p()
+                  if not to_string(sid, ct.byref(text)):
+                      raise _WindowsScratchSecurityError()
+                  try:
+                      yield ct.c_void_p(sid), ct.wstring_at(text)
+                  finally:
+                      local_free(text)
+              finally:
+                  close(handle)
+          
+          
+          def _create_private_directory(path: Path) -> None:
+              """Create, never adopt or repair, a directory with a protected DACL."""
+              try:
+                  kernel, security = _libraries()
+                  local_free = _api(kernel, "LocalFree", ct.c_void_p, ct.c_void_p)
+                  convert = _api(
+                      security,
+                      "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+                      wt.BOOL,
+                      wt.LPCWSTR,
+                      wt.DWORD,
+                      ct.POINTER(ct.c_void_p),
+                      ct.POINTER(wt.DWORD),
+                  )
+                  create = _api(
+                      kernel, "CreateDirectoryW", wt.BOOL, wt.LPCWSTR, ct.POINTER(_SecurityAttributes)
+                  )
+                  if not path.is_absolute() or path.parent.resolve(strict=True) != path.parent:
+                      raise _WindowsScratchSecurityError()
+                  with _process_user(kernel, security) as (_, sid):
+                      descriptor = ct.c_void_p()
+                      # File/directory full access, object and container inheritance,
+                      # no inherited broader grants. Explicit owner is the process user.
+                      if not convert(f"O:{sid}D:P(A;OICI;FA;;;{sid})", 1, ct.byref(descriptor), None):
+                          raise _WindowsScratchSecurityError()
+                      try:
+                          attributes = _SecurityAttributes(ct.sizeof(_SecurityAttributes), descriptor, 0)
+                          if not create(str(path), ct.byref(attributes)):
+                              if import_module("ctypes").get_last_error() in (80, 183):
+                                  raise FileExistsError("Private scratch directory already exists.")
+                              raise _WindowsScratchSecurityError()
+                      finally:
+                          local_free(descriptor)
+                  # Independent test-only ACL inspection follows before synthetic data.
+              except FileExistsError:
+                  raise
+              except Exception:
+                  raise _WindowsScratchSecurityError() from None
+          PY
+          cat > scratch_probe.py <<'PY'
+          import concurrent.futures
+          import json
+          import os
+          import platform
+          import stat
+          import subprocess
+          import sys
+          import tempfile
+          import uuid
+          import shutil
+          from pathlib import Path
+          
+          def emit(**x):
+              print(json.dumps(x, sort_keys=True), flush=True)
+          
+          def privacy(path):
+              if os.name != "nt":
+                  info=path.stat()
+                  return {"owner_matches":info.st_uid==os.geteuid(),"group_other_bits":oct(stat.S_IMODE(info.st_mode)&0o077),"private_mode":not bool(info.st_mode&0o077)}
+              # Inspect actual effective allow entries, not localized account names.
+              env={**os.environ,"RECON_TEST_PATH":str(path)}
+              ps=r"""
+              $ErrorActionPreference='Stop'
+              $a=Get-Acl -LiteralPath $env:RECON_TEST_PATH
+              $user=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+              $owner=$a.GetOwner([Security.Principal.SecurityIdentifier]).Value
+              $trusted=@($user,'S-1-5-18','S-1-5-32-544')
+              $ownerTrusted=$trusted -contains $owner
+              $bad=0
+              foreach($r in $a.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){
+                  if($r.AccessControlType -ne 'Allow' -or ($r.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)){continue}
+                  $sid=$r.IdentityReference.Value
+                  if(($trusted -notcontains $sid) -and -not($sid -eq 'S-1-3-4' -and $ownerTrusted)){$bad++}
+              }
+              @{owner_trusted=$ownerTrusted;untrusted_effective_allow_count=$bad;protected=$a.AreAccessRulesProtected} | ConvertTo-Json -Compress
+              """
+              result=subprocess.run(["pwsh","-NoProfile","-NonInteractive","-Command",ps],env=env,capture_output=True,text=True,check=True,timeout=60)
+              return json.loads(result.stdout)
+          
+          def inspect(base,label):
+              with tempfile.TemporaryDirectory(prefix="recon-fixture-",dir=base) as name:
+                  root=Path(name)
+                  leaf=root/"fixture"
+                  leaf.write_bytes(b"synthetic")
+                  emit(case=label,directory=privacy(root),file=privacy(leaf))
+              assert not root.exists()
+          
+          def create(base):
+              with tempfile.TemporaryDirectory(prefix="recon-concurrent-",dir=base) as name:
+                  root=Path(name)
+                  (root/"fixture").write_bytes(b"synthetic")
+                  return root.name
+          
+          def acl_text(path):
+              return subprocess.run(["ls","-lde",str(path)],capture_output=True,text=True,check=True,timeout=15).stdout
+          
+          def candidate(shared):
+              root=shared/("recon-private-"+uuid.uuid4().hex)
+              if os.name=="nt":
+                  from scratch_windows_create import _create_private_directory
+                  _create_private_directory(root)
+                  facts=privacy(root)
+                  assert facts["protected"] and facts["owner_trusted"] and facts["untrusted_effective_allow_count"]==0
+                  emit(case="native_private_empty",directory=facts)
+              else:
+                  root.mkdir(mode=0o700)
+                  if sys.platform=="darwin":
+                      before=acl_text(root)
+                      # Only remove ACL from our own freshly created EMPTY directory.
+                      subprocess.run(["chmod","-N",str(root)],capture_output=True,check=True,timeout=15)
+                      after=acl_text(root)
+                      assert " allow " not in after
+                      emit(case="darwin_inheritance",inherited_allow=" allow " in before,after_allow=" allow " in after)
+                  assert privacy(root)["private_mode"]
+              try:
+                  leaf=root/"fixture"
+                  leaf.write_bytes(b"synthetic")
+                  if os.name=="nt":
+                      facts=privacy(leaf)
+                      assert facts["untrusted_effective_allow_count"]==0
+                      emit(case="native_private_file",file=facts)
+                  elif sys.platform=="darwin":
+                      assert " allow " not in acl_text(leaf)
+                      emit(case="darwin_file",no_acl_grants=True)
+                  try:
+                      if os.name=="nt":_create_private_directory(root)
+                      else:root.mkdir(mode=0o700)
+                  except FileExistsError:pass
+                  else:raise AssertionError("existing directory adopted")
+                  assert leaf.read_bytes()==b"synthetic"
+                  emit(case="collision",retained=True)
+              finally:
+                  shutil.rmtree(root)
+              assert not root.exists()
+              emit(case="candidate_cleanup",removed=True)
+
+          def main():
+              emit(case="platform",platform=platform.platform(),python=platform.python_version(),architecture=platform.machine())
+              inspect(None,"standard_default")
+              with tempfile.TemporaryDirectory(prefix="recon-synthetic-parent-") as name:
+                  base=Path(name)
+                  shared=base/"shared"
+                  shared.mkdir()
+                  if os.name=="nt":
+                      subprocess.run(["icacls",str(shared),"/grant","*S-1-1-0:(OI)(CI)RX"],capture_output=True,check=True,timeout=15)
+                  else:
+                      shared.chmod(0o1777)
+                  if sys.platform=="darwin":
+                      subprocess.run(["chmod","+a","everyone allow list,search,readattr,readsecurity,file_inherit,directory_inherit",str(shared)],capture_output=True,check=True,timeout=15)
+                  candidate(shared)
+                  inspect(shared,"standard_shared_parent")
+                  sentinel=shared/"unrelated"
+                  sentinel.write_bytes(b"untouched")
+                  with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                      names=list(pool.map(create,[shared]*8))
+                  assert len(set(names))==len(names)
+                  # A deliberately abrupt child exit leaves its own directory. No
+                  # recovery sweep is attempted by a separate subsequent invocation.
+                  code="import os,tempfile,pathlib,sys; d=tempfile.TemporaryDirectory(prefix='recon-crash-',dir=sys.argv[1]); pathlib.Path(d.name,'fixture').write_bytes(b'synthetic'); os._exit(0)"
+                  subprocess.run([sys.executable,"-c",code,str(shared)],check=True,timeout=15)
+                  old=list(shared.glob("recon-crash-*"))
+                  assert len(old)==1 and (old[0]/"fixture").read_bytes()==b"synthetic"
+                  inspect(shared,"fresh_after_abrupt_exit")
+                  assert (old[0]/"fixture").read_bytes()==b"synthetic" and sentinel.read_bytes()==b"untouched"
+                  emit(case="lifecycle",unique=8,normal_cleanup=True,crash_retained=True,unrelated_preserved=True)
+              assert not base.exists()
+              emit(case="experiment_cleanup",removed=True)
+          main()
+          PY
+          python scratch_probe.py
+          rm scratch_probe.py scratch_windows_create.py
