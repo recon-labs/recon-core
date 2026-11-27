@@ -1,0 +1,225 @@
+name: Temporary guarded embedded native conformance
+on:
+  push:
+    branches: [experiment/m812-guarded-embedded-conformance-20261127]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, python: '3.11', duckdb: '1.0.0'}
+          - {os: ubuntu-latest, python: '3.12', duckdb: '1.3.2'}
+          - {os: ubuntu-latest, python: '3.12', duckdb: '1.4.5'}
+          - {os: ubuntu-latest, python: '3.13', duckdb: '2.0.1'}
+          - {os: macos-15, python: '3.11', duckdb: '1.0.0'}
+          - {os: macos-latest, python: '3.13', duckdb: '2.0.1'}
+          - {os: windows-2022, python: '3.11', duckdb: '1.0.0'}
+          - {os: windows-latest, python: '3.13', duckdb: '2.0.1'}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b001d14de1fb613beaaad1f3e914f81dfb125cac
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e ".[dev]" "duckdb==${{ matrix.duckdb }}"
+      - name: Run actual existing service and binding tests with candidate connection factory
+        shell: bash
+        env:
+          RECON_REQUIRE_DUCKDB_TESTS: '1'
+        run: |
+          cat > temporary_instance_plugin.py <<'PY'
+          import tempfile
+          import shutil
+          from pathlib import Path
+          from types import SimpleNamespace
+          import pytest
+          import duckdb
+          from recon_core.adapters.duckdb import _bound_execution as binding
+          
+          class GuardedConnection:
+              def __init__(self,actor,guard,scratch):
+                  self.actor=actor
+                  self.guard=guard
+                  self.scratch=scratch
+              def __getattr__(self,name):
+                  return getattr(self.actor,name)
+              def close(self):
+                  # Release actor before original native writer exclusion.
+                  self.actor.close()
+                  self.guard.close()
+                  shutil.rmtree(self.scratch)
+          
+          def connect(database,*,read_only):
+              assert read_only
+              guard=duckdb.connect(database,read_only=True)
+              actor=None
+              scratch=None
+              try:
+                  native=guard.execute("select current_database()").fetchone()[0]
+                  scratch=Path(tempfile.mkdtemp(prefix="recon-guarded-probe-")).resolve()
+                  actor=duckdb.connect(":memory:",config={"memory_limit":"256MiB","threads":"1","temp_directory":str(scratch)})
+                  if native.lower()=="memory":
+                      actor.execute("ATTACH ':memory:' AS recon_seed")
+                      actor.execute("USE recon_seed")
+                      actor.execute("DETACH memory")
+                  literal=database.replace("'","''")
+                  actor.execute(f"ATTACH '{literal}' (READ_ONLY)")
+                  rows=actor.execute("pragma database_list").fetchall()
+                  matches=[r[1] for r in rows if r[2] and Path(r[2]).resolve()==Path(database).resolve()]
+                  assert matches==[native]
+                  actor.execute('USE "'+native.replace('"','""')+'"')
+                  if native.lower()=="memory":
+                      actor.execute("DETACH recon_seed")
+                  actor.execute("SET max_temp_directory_size='512MiB'")
+                  return GuardedConnection(actor,guard,scratch)
+              except BaseException:
+                  if actor is not None: actor.close()
+                  guard.close()
+                  if scratch is not None: shutil.rmtree(scratch)
+                  raise
+          
+          @pytest.fixture(autouse=True)
+          def guarded_native_instance(monkeypatch):
+              monkeypatch.setattr(binding,"import_module",lambda name:SimpleNamespace(connect=connect))
+              yield
+          PY
+          python -m pytest -p temporary_instance_plugin -q -ra tests/services/test_run_service_bound_execution.py tests/services/test_run_service_duckdb_execution.py tests/services/test_run_service_aggregate_admission.py tests/adapters/test_duckdb_bound_execution.py -k 'test_native_row_count_uses_owned_read_only_session or test_row_count_refuses_view_scope or test_actual_session_and_aliases_writer_conflict or test_run_service_executes_actual_duckdb or test_run_service_allows_key_safety_duckdb or test_run_service_blocks_key_safety_duckdb_view or test_run_service_executes_valid_row_count_and_key_safety_checks or test_native_aggregate_service_numeric_outcomes_and_privacy or test_native_aggregate_service_null_and_empty_outcomes or test_native_grouped_service_distinguishes_absence_from_null or test_native_grouped_service_rejects_incompatible_key_types or test_native_grouped_service_high_cardinality_remains_private or test_qualified_relation_binding or test_owned_session_refuses_new_sidecar or test_lease_invalidation'
+      - name: Existing WAL fixture baseline (Windows only, evidence not candidate qualification)
+        if: always() && runner.os == 'Windows'
+        continue-on-error: true
+        shell: bash
+        run: python -m pytest -q -ra tests/services/test_run_service_duckdb_execution.py -k test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup
+      - name: Native catalog, read-only write rejection and cancellation probes
+        if: always()
+        shell: bash
+        run: |
+          cat > test_temporary_native_instance.py <<'PY'
+          import threading
+          import time
+          import hashlib
+          from pathlib import Path
+          import pytest
+          import duckdb
+          from recon_core.adapters.duckdb import _bound_execution as binding
+          from recon_core.adapters.duckdb.runtime_scan_guard import _local_file_identity
+          from recon_core.profiles import ConnectionConfig
+          
+          def digest(p):
+              return hashlib.sha256(p.read_bytes()).digest()
+          
+          @pytest.mark.parametrize("filename",["ordinary.duckdb","space quote ' ü.duckdb","odd.name.data","memory.duckdb","temp.duckdb","system.duckdb"])
+          def test_native_catalog_names_and_readonly(tmp_path,filename):
+              path=tmp_path/filename
+              with duckdb.connect(str(path)) as c:
+                  c.execute("create table src as select 1 as id")
+                  c.execute("create table dst as select 1 as id")
+                  native_catalog=c.execute("select current_database()").fetchone()[0]
+              before=digest(path)
+              identity=_local_file_identity(ConnectionConfig(name="warehouse",type="duckdb",config={"database":filename}),tmp_path)
+              assert identity is not None
+              session=binding._OwnedDuckDbSession(identity)
+              try:
+                  session.open()
+                  lease=session.bind(check_id="synthetic",operation="row_count_diff",source="src",target="dst")
+                  assert lease is not None
+                  assert lease.scope.source.catalog==native_catalog
+                  c=session._connection
+                  with pytest.raises(Exception) as e:
+                      c.execute("create table must_not_exist(i int)")
+                  assert "read-only" in str(e.value).lower() or "read only" in str(e.value).lower()
+              finally:
+                  assert session.close()==()
+              assert digest(path)==before
+              with duckdb.connect(str(path)) as writer:
+                  assert writer.execute("select count(*) from src").fetchone()==(1,)
+          
+          def test_interrupt_independent_instance(tmp_path):
+              path=tmp_path/"cancel.duckdb"
+              with duckdb.connect(str(path)) as c:
+                  c.execute("create table src as select 1 as id")
+                  c.execute("create table dst as select 1 as id")
+              before=digest(path)
+              identity=_local_file_identity(ConnectionConfig(name="warehouse",type="duckdb",config={"database":path.name}),tmp_path)
+              assert identity is not None
+              session=binding._OwnedDuckDbSession(identity)
+              try:
+                  with duckdb.connect(str(path),read_only=True) as observer:
+                      baseline=observer.execute("select current_setting('memory_limit'),current_setting('threads'),current_setting('temp_directory')").fetchone()
+                      session.open()
+                      lease=session.bind(check_id="synthetic",operation="row_count_diff",source="src",target="dst")
+                      assert lease is not None
+                      c=session._connection
+                      started=threading.Event()
+                      errors=[]
+                      def work():
+                          started.set()
+                          try:
+                              c.execute("select sum(sin(i::double)) from range(1000000000) t(i)").fetchone()
+                          except Exception as e:
+                              errors.append(type(e).__name__)
+                      thread=threading.Thread(target=work,daemon=True)
+                      thread.start()
+                      assert started.wait(5)
+                      time.sleep(.15)
+                      assert thread.is_alive()
+                      c.interrupt()
+                      thread.join(10)
+                      if thread.is_alive():
+                          import os
+                          os._exit(2)
+                      assert errors==["InterruptException"]
+                      assert observer.execute("select count(*) from src").fetchone()==(1,)
+                      assert observer.execute("select current_setting('memory_limit'),current_setting('threads'),current_setting('temp_directory')").fetchone()==baseline
+              finally:
+                  assert session.close()==()
+              assert session.released and digest(path)==before
+
+          def test_concurrent_embedded_runs(tmp_path):
+              from concurrent.futures import ThreadPoolExecutor
+              from recon_core.services import RunService
+              from recon_core.services.results import ExitCategory
+              from tests.services._run_service_fixtures import (
+                  _all_key_safety_checks,_compiled_check_payload,row_count_plan,write_duckdb_key_safety_run_inputs,
+              )
+              from tests.services.test_run_service_aggregate_admission import _aggregate_check
+              from tests.services.test_run_service_bound_execution import _CapturingEngine
+              path=tmp_path/"warehouse.duckdb"
+              with duckdb.connect(str(path)) as c:
+                  c.execute("create schema qa")
+                  c.execute("create table qa.source_customers as select i::integer AS customer_id,1::integer AS month,5::bigint AS revenue from range(1000) t(i)")
+                  c.execute("create table qa.target_customers as select * from qa.source_customers")
+              checks=[_compiled_check_payload(operations=row_count_plan()),*_all_key_safety_checks(),_aggregate_check(tolerance=0),_aggregate_check(grouped=True,tolerance=0)]
+              write_duckdb_key_safety_run_inputs(tmp_path,path,checks=checks)
+              before=digest(path)
+              def run():
+                  engine=_CapturingEngine()
+                  result=RunService(start_path=tmp_path,engine=engine).execute()
+                  assert result.exit_category is ExitCategory.SUCCESS
+                  assert engine.result is not None
+                  statuses=[c.status.value for contract in engine.result.contract_results for c in contract.check_results]
+                  assert statuses==["pass"]*9
+              with duckdb.connect(str(path),read_only=True,config={"memory_limit":"384MiB","threads":"2","temp_directory":str(tmp_path/"observer_spill")}) as observer:
+                  observer.execute("SET max_temp_directory_size='768MiB'")
+                  query="select current_setting('memory_limit'),current_setting('threads'),current_setting('max_temp_directory_size'),current_setting('temp_directory')"
+                  baseline=observer.execute(query).fetchone()
+                  with ThreadPoolExecutor(max_workers=2) as pool:
+                      jobs=[pool.submit(run) for _ in range(2)]
+                      while not all(job.done() for job in jobs):
+                          assert observer.execute(query).fetchone()==baseline
+                          assert observer.execute("select count(*) from qa.source_customers").fetchone()==(1000,)
+                          time.sleep(.01)
+                      for job in jobs: job.result()
+                  assert observer.execute(query).fetchone()==baseline
+              assert digest(path)==before
+              with duckdb.connect(str(path)) as c:
+                  assert c.execute("select count(*) from qa.source_customers").fetchone()==(1000,)
+          PY
+          python -m pytest -p temporary_instance_plugin -q -ra test_temporary_native_instance.py
+          rm -f temporary_instance_plugin.py test_temporary_native_instance.py
