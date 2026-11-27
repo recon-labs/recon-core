@@ -96,6 +96,7 @@ captures:
       - tests/profiles/test_loader.py::test_selected_target_rejects_invalid_operational_policy
       - tests/profiles/test_loader.py::test_selected_target_keeps_operational_policy_out_of_connection_payload
       - tests/profiles/test_loader.py::test_selected_target_rejects_duckdb_policy_for_non_duckdb_connection
+      - tests/profiles/test_loader.py::test_selected_target_resolves_scoped_resource_policy_precedence
     carryover_gates:
       - gate: diagnostics_privacy_carryover
         status: deferred
