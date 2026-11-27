@@ -24,8 +24,8 @@ Current implementation status:
 - `recon run` is implemented as the first check-engine boundary for already
   compiled checks. It executes supported relation-backed same-context DuckDB
   row-count, grain-key safety and explicit SUM checks only on verified
-  project-local base tables. Grain-key and SUM checks retain a temporary
-  64 MiB file cap; row count does not. Other current or later-phase checks
+  project-local base tables. All nine supported check families use adaptive
+  native settings, with no default database size cap. Other current or later-phase checks
   remain blocked or not executable.
 
 ## `recon init`
@@ -215,8 +215,8 @@ base tables within a fresh owned read-only transaction. Use an existing regular
 database file inside the project, without retained sidecars. Views, external
 relations, in-memory and outside-project contexts are outside the temporary
 scope; no borrowed or writable fallback is used. Close conflicting writable
-connections before running. The temporary 64 MiB file cap applies only to
-grain-key and SUM checks, not row count, and is not a resource bound. Checks
+connections before running. The optional authored database footprint cap
+applies to all nine check families; no default size cap is imposed. Checks
 that cannot execute receive explicit diagnostics.
 
 ```bash
@@ -273,23 +273,76 @@ reports/
 Later runner phases may parse or compile automatically after artifact freshness
 semantics are locked.
 
-### Planned adaptive resource warnings (not yet released)
+### Adaptive DuckDB execution (unreleased)
 
-The forthcoming adapter-scoped resource policy uses project adapter defaults, selected target defaults and named connection exceptions; local tuning is not a global policy for remote engines. It is designed to discover actual
-available resources instead of using an OS-version allowlist. An untested
-platform version alone will not be a reason to refuse a check. If optional
-resource observations are unavailable, an independently protected check may
-continue with advice explaining what is unknown, its impact, whether the
-check continues, and available remedies. If required protection cannot be
-established, only affected execution is refused, subject to normal
-prerequisite and lifecycle safety. Resource failures are errors, not
-comparison mismatches. Warnings will be visible in normal terminal output
-and in orchestration logs when those streams are captured. Engine-managed
-memory/spill settings will not promise hard physical RAM or disk ceilings.
-See the [planned platform compatibility policy](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l).
-Current behavior described above remains in effect; new configuration,
-supported remedies and examples will be documented when implementation is
-verified.
+The native path uses fresh available memory, CPU and scratch capacity for
+each check, in CLI and embedded runs. No extra executor, live resizing,
+automatic retry or database-size-based tuning.
+
+Optional project defaults in `recon_project.yml`:
+
+```yaml
+execution:
+  adapters:
+    duckdb:
+      managed-memory: {percent: 50}
+      spill: auto
+      threads: auto
+```
+
+A selected target in `connections/profiles.yml` can override these settings
+under its sibling `execution.adapters.duckdb` mapping, or per named connection
+under `execution.connections.<name>`. Precedence is adapter default, project,
+selected target, named connection. Each setting replaces the inherited mode
+as a whole; omission inherits. Same-context aliases must agree after
+normalization; conflicts refuse the affected check before data reads.
+
+| Setting | Accepted values / default |
+| --- | --- |
+| managed-memory | `auto` (default), `{mib: positive integer}`, or `{percent: 1..100}` |
+| spill | Same modes, independently selected |
+| threads | `auto` (default) or positive integer |
+| scratch-directory | `auto` (standard temporary base) or existing directory path |
+| max-database-mib | `none` (default) or positive integer; explicit admission limit |
+| warn-estimated-input-rows | `none` (default) or positive integer; optional catalog-only advisory |
+
+Auto resets inherited tuning, and none resets the optional thresholds.
+Percent uses freshly observed available capacity, not total machine capacity.
+If its denominator is unknown, use auto or an explicit MiB value. Auto
+managed memory uses half observed headroom, bounded by known native
+recommendations; auto spill uses 90% observed free scratch bytes or verified
+native automatic behavior. Automatic threads use available CPU/native
+recommendations and, when memory headroom is known, DuckDB's documented
+125 MB-per-thread sizing guidance against the managed target, with at least
+one thread for otherwise usable execution. This is a tuning heuristic, not
+a minimum resource requirement. Authored thread counts override the
+memory-aware heuristic, subject to known CPU capacity. Explicit managed
+targets may be reduced to known capacity. MiB is 1,048,576 bytes.
+
+For a constrained workload, try `threads: 1`, a smaller
+`managed-memory` percentage or MiB setting, or more available memory.
+These options can change throughput or cause native query errors; no
+setting guarantees success. Native-managed memory excludes some allocations
+and does not bound total process memory. The OS may terminate even a
+one-thread invocation. An OS-killed invocation cannot return a Recon
+result or perform guaranteed cleanup. Memory-backed scratch shares RAM;
+prefer an existing private disk-backed base for independent spill space.
+Paths are project-relative or absolute, existing only; no implicit parent
+creation or alternate base.
+
+Normal successful and failed runs deliver safe actionable advisories through
+terminal diagnostics (and orchestration logs if captured). Warnings do not
+change comparison status or exit code. Known required control or binding
+failure refuses the affected execution; actual returned native query errors
+are ERROR, not mismatch. Optional observation uncertainty is advisory when
+required protection is independently verified; no OS-version allowlist.
+Private current-check scratch is cleaned after confirmed native close.
+After abrupt exit, only an operator or OS retention policy should remove
+known inactive owned folders; Recon never adopts or sweeps unknown residue.
+
+See the [platform evidence](../compatibility/compatibility-matrix.md#platform-and-resource-control-compatibility-evidence)
+and [measured tuning limitations](../planning/milestone-8-1-2-prework.md#implementation-level-calibration-evidence-and-open-decision-2026-11-27).
+Final milestone validation and separate merge approval remain required.
 
 ## Exit codes
 

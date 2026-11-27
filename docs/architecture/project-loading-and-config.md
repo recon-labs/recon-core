@@ -225,9 +225,9 @@ validation instead of compiling as silent no-ops.
 
 
 
-## Adapter-scoped execution policy and precedence (proposed; approval pending)
+## Adapter-scoped execution policy and precedence (unreleased)
 
-The current resource configuration proposal is adapter-scoped project defaults,
+The implemented local execution policy resolves adapter-scoped project defaults,
 selected profile target adapter defaults, and selected target named connection
 overrides, in that order after adapter defaults. Operational policy stays out
 of connection identity/factory payloads, credentials and comparison contracts.
@@ -239,7 +239,7 @@ context aliases before affected data reads. Preserve existing binding and
 profile-selection/redaction, plain parse/compile and public API. No new generic
 adapter method, shared native setting syntax, or hard quota guarantee.
 
-See [current M8.1.2 configuration proposal](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration) for proposed syntax and exact validation. The project file is `recon_project.yml`; profile file is `connections/profiles.yml`. Existing project/resource defaults below do not apply to operational overrides; no runtime feature claim.
+See [approved M8.1.2 configuration](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration) for approved syntax and exact validation. The project file is `recon_project.yml`; profile file is `connections/profiles.yml`. Existing project/resource defaults below do not apply to operational overrides; unreleased pending final validation and merge approval.
 
 ## Configuration precedence
 

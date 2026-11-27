@@ -25,8 +25,17 @@ required before retirement. No gate is closed.
 
 See the [approved M8.1.2 prework](../planning/milestone-8-1-2-prework.md) for the exact configuration, candidate/capture disposition and ordered implementation proof.
 
-Status: Whole adaptive resource design reopened; implementation suspended
-(2026-11-27). The previous accepted mechanism choices are historical pending
+The maintainer subsequently authorized focused measured tuning reassessment.
+The unreleased implementation retains 50% memory/90% spill starting ratios,
+uses known managed memory and DuckDB's published 125 MB/thread guidance to
+adjust only automatic threads, and retains explicit overrides. This is not
+an admission floor or total process memory guarantee. Native and OS-level
+resource failures remain distinct; no worker/retry/recovery mechanism.
+Actual candidate results and final proof are tracked in the prework.
+All historical proposals below are superseded where inconsistent.
+
+Historical status (superseded by the current authorization): Whole adaptive
+resource design reopened; implementation suspended (2026-11-27). The previous accepted mechanism choices are historical pending
 replacement design and approval. Current runtime unchanged. The approved amendment
 below and [dedicated resource prework](../planning/milestone-8-1-2-prework.md)
 supersede the historical footprint-driven resource decision, not the
@@ -51,7 +60,7 @@ proposed scope reduction, not yet approved for removal. See the
 for comparative proof, outcome dispositions and approval blockers. All prior
 mechanism-specific choices below are historical, not implementation authority.
 
-## Consolidated replacement proposal (approval pending)
+## Historical consolidated replacement proposal (approved above)
 
 The [consolidated native-first replacement design](../planning/milestone-8-1-2-prework.md#consolidated-native-first-replacement-design-proposed-for-approval-2026-11-27)
 proposes the same guarded native read-only execution path for standalone
@@ -74,9 +83,9 @@ native-appropriate relative and absolute controls, not universal DuckDB syntax.
 
 
 
-## Adapter-scoped execution policy and precedence (proposed; approval pending)
+## Approved adapter-scoped execution policy and precedence
 
-The current resource configuration proposal is adapter-scoped project defaults,
+The implemented local execution policy resolves adapter-scoped project defaults,
 selected profile target adapter defaults, and selected target named connection
 overrides, in that order after adapter defaults. Operational policy stays out
 of connection identity/factory payloads, credentials and comparison contracts.
@@ -90,7 +99,7 @@ adapter method, shared native setting syntax, or hard quota guarantee.
 
 See [current M8.1.2 configuration proposal](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration) for exact schema, ownership and acceptance variants. No prior released config migration.
 
-## Proposed replacement following comparative proof (approval pending)
+## Historical proposed replacement following comparative proof
 
 Maintainer scope decision (2026-11-27): M8.1.2 owns adaptive resource
 management for both standalone and embedded Python usage. No deferral of

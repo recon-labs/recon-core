@@ -132,9 +132,9 @@ fragments, or source/target context.
 
 
 
-## Adapter-scoped execution policy and precedence (proposed; approval pending)
+## Adapter-scoped execution policy and precedence (unreleased)
 
-The current resource configuration proposal is adapter-scoped project defaults,
+The implemented local execution policy resolves adapter-scoped project defaults,
 selected profile target adapter defaults, and selected target named connection
 overrides, in that order after adapter defaults. Operational policy stays out
 of connection identity/factory payloads, credentials and comparison contracts.
@@ -146,7 +146,7 @@ context aliases before affected data reads. Preserve existing binding and
 profile-selection/redaction, plain parse/compile and public API. No new generic
 adapter method, shared native setting syntax, or hard quota guarantee.
 
-See [current M8.1.2 configuration proposal](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration). Use private typed authored policy, single resolver and independent adapter calculation; no public signature changes or connection payload mutation.
+See [approved M8.1.2 configuration](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration). Use private typed authored policy, single resolver and independent adapter calculation; no public signature changes or connection payload mutation.
 
 ## Resource config
 
