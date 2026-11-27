@@ -30,8 +30,8 @@ mechanism-specific choices below are historical, not implementation authority.
 
 The [consolidated native-first replacement design](../planning/milestone-8-1-2-prework.md#consolidated-native-first-replacement-design-proposed-for-approval-2026-11-27)
 proposes the same guarded native read-only execution path for standalone
-and embedded usage in M8.1.2, no mandatory subprocess, eight optional
-settings including maintainer-approved memory/spill percentage overrides,
+and embedded usage in M8.1.2, no mandatory subprocess, six logical adapter-scoped
+settings with maintainer-approved memory/spill percentage modes,
 adjustable adapter-local memory/spill heuristics and minimal
 private scratch. Native configuration-conflict limitations and remaining
 implementation proof (including Windows baseline WAL regression) are
@@ -39,13 +39,31 @@ explicit. Prior provisional mechanism proposals below are historical
 where inconsistent. No gate closure or implementation authorization.
 
 Automatic, explicit percentage of freshly observed available capacity, and
-fixed MiB modes are independent for memory/spill; corresponding leaves are
-mutually exclusive. CPU remains automatic or fixed threads. Explicit relative
+fixed MiB modes are independent for memory/spill; each logical setting
+has exactly one mode. CPU remains automatic or fixed threads. Explicit relative
 requests cannot silently degrade when their denominator is unknown; automatic
 missing optional facts remain advisory when safe. Recompute at each check,
 not during it. Elastic capacity, arithmetic, missing/zero evidence, native
 control effects and both execution modes require proof. Future adapters assess
 native-appropriate relative and absolute controls, not universal DuckDB syntax.
+
+
+
+## Adapter-scoped execution policy and precedence (proposed; approval pending)
+
+The current resource configuration proposal is adapter-scoped project defaults,
+selected profile target adapter defaults, and selected target named connection
+overrides, in that order after adapter defaults. Operational policy stays out
+of connection identity/factory payloads, credentials and comparison contracts.
+Resolve each logical setting atomically, with explicit reset to automatic or
+absent; no generic deep merge or global engine-specific default. Unreferenced
+policy values and inactive targets do not affect selected work; validate
+applicable policy, adapter namespace, connection names and conflicting same-
+context aliases before affected data reads. Preserve existing binding and
+profile-selection/redaction, plain parse/compile and public API. No new generic
+adapter method, shared native setting syntax, or hard quota guarantee.
+
+See [current M8.1.2 configuration proposal](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration) for exact schema, ownership and acceptance variants. No prior released config migration.
 
 ## Proposed replacement following comparative proof (approval pending)
 
