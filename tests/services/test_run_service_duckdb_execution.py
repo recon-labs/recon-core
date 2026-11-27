@@ -1,8 +1,10 @@
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
 
-import recon_core.adapters.duckdb.runtime_scan_guard as duckdb_scan_guard_module
 from recon_core.adapters import (
     AdapterCapabilities,
     AdapterRegistry,
@@ -30,6 +32,7 @@ from tests.services._run_service_fixtures import (
     _key_safety_check_payload,
     _key_safety_payload_for,
     _service_result_text,
+    _without_scope_advisory,
     _write_duckdb_key_safety_tables,
     _write_duckdb_row_count_tables,
     _write_mixed_case_duckdb_key_safety_tables,
@@ -128,7 +131,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     assert len(factory.adapters) == 1
     _assert_native_calls(factory, native_calls, 1)
     assert not (tmp_path / "target" / "run_results.json").exists()
@@ -272,7 +275,7 @@ def test_run_service_executes_row_count_with_actual_duckdb_relations_pass(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     _assert_no_runtime_outputs(tmp_path)
 
 
@@ -293,7 +296,7 @@ def test_run_service_executes_row_count_with_actual_duckdb_relations_fail(
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     public_text = _service_result_text(result)
     assert "2" not in public_text
     assert "3" not in public_text
@@ -319,7 +322,8 @@ def test_run_service_sanitizes_actual_duckdb_execution_failure(
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
     public_text = _service_result_text(result)
     assert "Check requires a verified local base-table execution scope." in public_text
     assert len(native_calls["open"]) == len(native_calls["close"]) == 1
@@ -354,7 +358,8 @@ def test_run_service_executes_actual_duckdb_key_safety_all_checks_pass(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "north" not in public_text
     assert "south" not in public_text
@@ -383,7 +388,8 @@ def test_run_service_allows_key_safety_duckdb_local_database_without_duckdb_suff
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "north" not in public_text
     assert "south" not in public_text
@@ -412,7 +418,8 @@ def test_run_service_allows_key_safety_duckdb_base_table_metadata_case_mismatch(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "north" not in public_text
     assert "Source_Customers" not in public_text
@@ -454,7 +461,8 @@ def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_ada
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_REQUIRED]
     public_text = _service_result_text(result)
     assert "secret-external" not in public_text
     assert "external_source" not in public_text
@@ -469,31 +477,52 @@ def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_ada
 
 @pytest.mark.regression_capture("duckdb-wal-sidecar-scan-guard")
 def test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
     duckdb = _duckdb_module()
-    live_directory = tmp_path / "live"
-    live_directory.mkdir()
-    live_database = live_directory / "warehouse.duckdb"
     database = tmp_path / "warehouse.duckdb"
-    connection = duckdb.connect(str(live_database))
-    try:
+    # Leave an actual committed WAL by exiting a synthetic child without
+    # native close. The parent never copies a file with a live Windows handle.
+    code = textwrap.dedent(
+        """
+        import os
+        import sys
+        from pathlib import Path
+
+        import duckdb
+
+        database = Path(sys.argv[1])
+        connection = duckdb.connect(str(database))
         connection.execute("set checkpoint_threshold='1GB'")
         connection.execute("create schema qa")
-        connection.execute(
-            "create table qa.source_customers as "
-            "select i as customer_id, 'secret-wal' as region from range(1000) tbl(i)"
-        )
-        connection.execute(
-            "create table qa.target_customers as "
-            "select i as customer_id, 'secret-wal' as region from range(1000) tbl(i)"
-        )
-        for sidecar_source in live_directory.iterdir():
-            (tmp_path / sidecar_source.name).write_bytes(sidecar_source.read_bytes())
-    finally:
-        connection.close()
-    assert database.stat().st_size <= duckdb_scan_guard_module._MAX_BOUNDED_LOCAL_DUCKDB_BYTES
-    assert (tmp_path / "warehouse.duckdb.wal").is_file()
+        for table in ("source_customers", "target_customers"):
+            connection.execute(
+                f"create table qa.{table}(customer_id integer, region varchar)"
+            )
+        connection.execute("checkpoint")
+        connection.execute("begin transaction")
+        for table in ("source_customers", "target_customers"):
+            connection.execute(
+                f"insert into qa.{table} "
+                "select i, 'secret-wal' from range(1000) tbl(i)"
+            )
+        connection.execute("commit")
+        wal = database.with_name(database.name + ".wal")
+        assert wal.is_file() and wal.stat().st_size > 0
+        os._exit(0)
+        """
+    )
+    child = subprocess.run(
+        [sys.executable, "-c", code, str(database)],
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    assert child.returncode == 0, "Synthetic committed WAL fixture failed."
+    wal = database.with_name(database.name + ".wal")
+    assert database.is_file() and wal.is_file() and wal.stat().st_size > 0
+    before_database = database.read_bytes()
+    before_wal = wal.read_bytes()
     write_duckdb_key_safety_run_inputs(
         tmp_path,
         database,
@@ -514,7 +543,19 @@ def test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup(
     assert "secret-wal" not in public_text
     assert "warehouse.duckdb.wal" not in public_text
     assert factory.adapters == []
+    assert native_calls["open"] == native_calls["close"] == native_calls["query"] == []
+    assert database.read_bytes() == before_database
+    assert wal.read_bytes() == before_wal
     _assert_no_runtime_outputs(tmp_path)
+
+    # Independently prove the untouched WAL contains the committed synthetic
+    # transactions. Only the test explicitly opens it for normal recovery.
+    connection = duckdb.connect(str(database))
+    try:
+        for table in ("source_customers", "target_customers"):
+            assert connection.execute(f"select count(*) from qa.{table}").fetchone() == (1000,)
+    finally:
+        connection.close()
 
 
 @pytest.mark.parametrize(
@@ -596,7 +637,8 @@ def test_run_service_executes_actual_duckdb_key_safety_failures_without_raw_outp
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         expected_diagnostic,
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -641,7 +683,8 @@ def test_run_service_executes_actual_duckdb_duplicate_plus_null_signals(
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_NULL_GRAIN_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
         "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
@@ -696,7 +739,8 @@ def test_run_service_executes_actual_duckdb_key_safety_empty_side_cases(
     result = RunService(start_path=tmp_path).execute()
 
     assert result.exit_category is expected_exit
-    assert [diagnostic.code for diagnostic in result.diagnostics] == list(expected_diagnostics)
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == list(expected_diagnostics)
     public_text = _service_result_text(result)
     assert "source-only" not in public_text
     assert "target-only" not in public_text
@@ -728,7 +772,8 @@ def test_run_service_executes_actual_duckdb_row_count_and_key_safety_together(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     public_text = _service_result_text(result)
     assert "shared" not in public_text
     assert "also-shared" not in public_text
@@ -763,7 +808,8 @@ def test_run_service_preserves_key_safety_shape_blocker_in_mixed_runtime_run(
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
     ]
     _assert_no_runtime_outputs(tmp_path)
@@ -885,7 +931,8 @@ def test_run_service_does_not_mutate_stale_outputs_during_actual_key_safety(
     result = RunService(start_path=tmp_path).execute()
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_MISSING_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -916,7 +963,8 @@ def test_run_service_sanitizes_actual_duckdb_key_safety_type_mismatch(
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run failed during check-engine evaluation."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_QUERY_FAILED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [ADAPTER_QUERY_FAILED]
     public_text = _service_result_text(result)
     assert "DuckDB query execution failed." in public_text
     assert "Recon DuckDB key_diff key type mismatch." not in public_text
@@ -963,7 +1011,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(factory.adapters) == 1
     _assert_native_calls(factory, native_calls, 1)
     assert "failure_count" in native_calls["query"][0]
@@ -1016,7 +1065,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_MISSING_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -1076,7 +1126,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_DUPLICATE_GRAIN_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -1128,7 +1179,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.CHECK_FAILURE
     assert result.message == "Run completed with failing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_NULL_GRAIN_KEYS",
         BOUNDED_LOCAL_SCAN_ALLOWED,
     ]
@@ -1248,7 +1300,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_ADAPTER_QUERY_ENDPOINT_UNSUPPORTED"
     ]
     public_text = _service_result_text(result)
@@ -1448,6 +1501,10 @@ profiles:
     target: dev
     outputs:
       dev:
+        execution:
+          adapters:
+            duckdb:
+              max-database-mib: 64
         connections:
           warehouse:
             type: duckdb
@@ -1511,7 +1568,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(factory.adapters) == 2
     _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
@@ -1658,7 +1716,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
 
@@ -1702,7 +1760,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     assert len(factory.adapters) == 1
     _assert_native_calls(factory, native_calls, 1)
     _assert_no_runtime_outputs(tmp_path)
@@ -1879,7 +1937,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [BOUNDED_LOCAL_SCAN_ALLOWED]
     assert len(factory.adapters) == 1
     _assert_native_calls(factory, native_calls, 2)
     _assert_no_runtime_outputs(tmp_path)
@@ -1929,7 +1988,7 @@ profiles:
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert result.message == "Run completed with passing checks."
-    assert result.diagnostics == ()
+    assert _without_scope_advisory(result.diagnostics) == ()
     _assert_native_calls(factory, native_calls, 1)
     for path, content in output_contents.items():
         assert path.read_text(encoding="utf-8") == content

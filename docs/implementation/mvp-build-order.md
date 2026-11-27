@@ -1,5 +1,30 @@
 # MVP Build Order
 
+## Current implementation authorization (2026-11-27)
+
+The maintainer explicitly approved the consolidated native-first design,
+including its adapter-scoped project/target/connection configuration and
+precedence, and separately authorized implementation. This checkpoint
+supersedes earlier suspension/approval-pending wording below, not any
+required outcome or exit proof. Implement only the approved replacement
+on draft PR #42. No merge, release, production activation, or guard removal
+before the applicable proof and separate merge approval. Split Decision:
+Already Split / Follow Existing Split. No completed milestone reopening.
+
+Approved design revision c1d82f1e55fc0d5160709b8a0fd276e984ad0af8;
+base main b001d14de1fb613beaaad1f3e914f81dfb125cac.
+CI 45965307969: all ten standard jobs concluded success (three Python test
+jobs, three DuckDB semantic jobs, four pinned DuckDB compatibility jobs).
+This is design-baseline CI, not proof of the replacement implementation.
+Historical candidate baseline 64caf7a0709064cc60e143386c7dfaaaaaa86abe
+remains available in history. Existing A1-A13/R1-R10/B8-B10/P1-P6 outcomes,
+M8.2/M8.3/M9.5/M10.8/M11-M13/M29 and all future configuration gates retain
+their assignments. The mechanism-specific scope reductions below are
+approved as part of the replacement, with equivalent applicable outcomes
+required before retirement. No gate is closed.
+
+See the [approved M8.1.2 prework](../planning/milestone-8-1-2-prework.md) for the exact configuration, candidate/capture disposition and ordered implementation proof.
+
 ## Purpose
 
 This document defines a practical implementation order for the first working Recon Core.
@@ -752,13 +777,13 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 detailed design approved; separate implementation authorization pending.
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 approved native-first replacement implemented on draft PR #42; final cumulative validation and merge approval pending.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: adaptive design approved; implementation authorization pending. See [M8.1.2 approved prework](../planning/milestone-8-1-2-prework.md). Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Candidate defaults require measured implementation proof. A10-A13 are mandatory. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: adapter-scoped adaptive replacement implemented and measured; final cumulative review pending. See [M8.1.2 current prework](../planning/milestone-8-1-2-prework.md). Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Candidate defaults require measured implementation proof. A10-A13 are mandatory. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
-Review the [approved detailed resource prework](../planning/milestone-8-1-2-prework.md) and ADR 0026. The umbrella prework is historical for resource decisions; separate implementation approval required.
+Review the [approved detailed resource prework](../planning/milestone-8-1-2-prework.md) and ADR 0026. The umbrella prework is historical for resource decisions; separate merge approval required.
 
 Build:
 
@@ -804,19 +829,42 @@ is mandatory before M8.1.2.
 
 ### Milestone 8.1.2: hardware-aware resource policy and admission
 
-Design approved; prerequisites M8.1.1 and targeted M7.4 correction verified.
-See [M8.1.2 approved prework](../planning/milestone-8-1-2-prework.md).
-Own remaining R1-R10/A1-A13, native controls, adaptive settings, advisories,
-B8 one-worker stop/confirmed exit/parent liveness, B9 owned worker/scratch
-cleanup and recovery, B10 per-check serial worker/re-observation. No blanket
-footprint default or unproven hard ceilings; implementation approval pending. M8.1 umbrella cannot close until
-both children and correction verified.
+**Current checkpoint (2026-11-27): native-first replacement implemented,
+final review and separate merge approval pending.** Follow the
+[approved detailed prework](../planning/milestone-8-1-2-prework.md).
+M8.1.1 and targeted M7.4 correction remain completed. Own remaining
+R1-R10/A1-A13, measured adapter-scoped settings, native effects, advisories,
+B8 native interrupt request versus confirmed stop, B9 confirmed native
+close/current scratch cleanup and safe abrupt residue, B10 serial per-check
+native scope and re-observation. No mandatory worker/IPC, persistent
+recovery, arbitrary default footprint cap or physical quota guarantee.
+M8.1 umbrella cannot close until both children and correction verified.
+
+Gate 4L configuration scope/precedence extension, also Gate 4I/4J/8C:
+M8.1.2 owns typed scoped configuration, reset/precedence, separation from
+connection identity, selected-only validation, alias conflicts, both execution
+modes and regression proof for prior configuration/profile/runtime behavior.
+M8.2 owns run-wide cumulative limits/concurrency and lifecycle; M8.3 C10
+owns allowlisted policy origin/effective-vs-requested evidence; M9 carries
+privacy into evidence. M10.5 invalidates stale policy/placement evidence,
+M10.6 re-resolves selected scope, M10.7 teaches config, M10.8 rechecks local
+scope restoration. M11-M13 each define native settings/defaults/permissions
+before experimental admission; M13.5 owns independent multi-context resource
+and client/remote transfer precedence; M18 authored query cannot bypass.
+M28 owns any new typed environment/CLI overrides and hard admin-limit
+precedence before exposure; M29 shared conformance and promotion; M32/32.1
+integration propagation/redaction; M40 hosted tenant quotas and authorization.
+Every future adapter/deployment/capability expansion rechecks these outcomes,
+including driver/executor/cluster scope where applicable. No requirement to
+implement DuckDB fields or ratios on another engine. No new milestone/repo;
+completed milestones remain closed unless actual prerequisite regression
+requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Milestone 8.2: execution planning and run lifecycle
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: Own remaining B8-B10 invocation deadlines, timeouts, cancellation/retry lifecycle, run-wide cleanup, cumulative resource budgeting and bounded concurrency. Reuse M8.1.2 worker stop/confirmed exit, parent liveness, native/IPC/scratch cleanup and serial per-check resource proof; no duplicate executor. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: Own remaining B8-B10 invocation deadlines, timeouts, cancellation/retry lifecycle, run-wide cleanup, cumulative resource budgeting and bounded concurrency. Reuse M8.1.2 native interrupt/confirmed release, current scratch cleanup and serial per-check resource proof; no duplicate executor. Handle invocation-level abrupt termination and residual risks separately, not by restoring retired IPC/recovery. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build:
 
@@ -1256,7 +1304,7 @@ Depends on the completed M9.5 lossless type compatibility baseline; extend it, d
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: Prove metric/group intermediate workload and native PostgreSQL operational safeguards at experimental checkpoint. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: Prove metric/group intermediate workload and native PostgreSQL operational safeguards at experimental checkpoint. Validate adapter-owned operational schema and extension boundary without adding engine branches to Core. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after Milestones 1-10 are complete and after the 0.1
 release-readiness decision. It also depends on Milestone 7.4's current
@@ -1421,7 +1469,7 @@ feat: add metadata discovery and suggestions
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: Prove mapping/cast/width workload impacts and Snowflake warehouse-native resource, pruning and billing evidence at experimental checkpoint. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: Prove mapping/cast/width workload impacts and Snowflake warehouse-native resource, pruning and billing evidence at experimental checkpoint. Reprove adapter-owned policy schema and extension, role/warehouse authority and no implicit resize. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after the adapter metadata model, resolved column artifacts, schema
 policy behavior, run results, and evidence model are stable enough to show
@@ -3250,7 +3298,7 @@ required.
 
 Apply [Gate 4L adapter-specific resource applicability and proof](../planning/execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) during M8.1.2, M8.2/M8.3, M10/M10.8, M11-M12 PostgreSQL, M12-M13 Snowflake, M13.5, M18, M29 and all later adapter admission, version, deployment and execution expansions. Explicit R1-R10 dispositions and native tests before scoped admission and promotion; preserve actual resource regression capture and M29 carryover. No universal DuckDB mechanisms or CI-derived thresholds.
 
-## Approved M8.1.2 integration checkpoint (2026-11-26)
+## Historical approved M8.1.2 integration checkpoint (2026-11-26; reopened 2026-11-27)
 
 The maintainer-approved detailed design is in [M8.1.2 approved prework](../planning/milestone-8-1-2-prework.md); it supersedes
 historical footprint-driven resource decisions and earlier pending-design
@@ -3268,3 +3316,7 @@ worker and re-observation prerequisites. M8.2 owns remaining run-wide
 lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
 publication. Preserve all future adapter applicability, type and scope gates.
 No gate closed; separate implementation authorization required.
+
+## Mandatory platform compatibility checkpoint
+
+Apply [Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) during M8.1.2, M8.2/M8.3, M10/M10.7/M10.8, M11-M12 PostgreSQL, M12-M13 Snowflake, M13.5, M18, M29, M32/M32.1 and future relevant adapter/version/deployment changes. M8.1.2 exit includes persistent representative multi-version OS CI with pinned and rolling lanes, periodic/on-demand/change checks, actual required control effects, unknown-platform graceful degradation and safe actionable terminal warnings. M29 owns reusable shared proof plus candidate-specific native matrices before promotion; no version allowlist at runtime. Recheck actual latest evidence at release and phase exit. See testing plan and compatibility matrix. No new milestone, adapter, or closure.

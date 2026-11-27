@@ -80,3 +80,36 @@ captures:
       - docs/planning/milestone-7-4-prework.md: Acceptance And Conformance Matrix
     notes: >
       Fixed diagnostic categories suppress arbitrary adapter fields and unknown capability names. Duplicate setup failures for one connection are collapsed without losing failures from distinct connections. Actual CLI pass/fail/error output and logs omit raw data and preserve all existing project files without generated runtime outputs.
+  - id: local-resource-config-strict-validation
+    title: Local resource policy validates ranges and suppresses untrusted config text
+    area: diagnostics-privacy
+    bug_class: diagnostics
+    owner_surface: redaction
+    severity: P2
+    current_tests:
+      - tests/config/test_project_config.py::test_local_resource_policy_values
+      - tests/config/test_project_config.py::test_local_resource_policy_mib_overflow
+      - tests/config/test_project_config.py::test_local_resource_policy_invalid_mapping
+      - tests/config/test_project_config.py::test_scoped_resource_policy_accepts_documented_modes
+      - tests/config/test_project_config.py::test_scoped_resource_policy_rejects_invalid_modes_without_leak
+      - tests/config/test_project_config.py::test_scoped_resource_policy_rejects_wrong_envelope
+      - tests/profiles/test_loader.py::test_selected_target_rejects_invalid_operational_policy
+      - tests/profiles/test_loader.py::test_selected_target_keeps_operational_policy_out_of_connection_payload
+      - tests/profiles/test_loader.py::test_selected_target_rejects_duckdb_policy_for_non_duckdb_connection
+      - tests/profiles/test_loader.py::test_selected_target_resolves_scoped_resource_policy_precedence
+    carryover_gates:
+      - gate: diagnostics_privacy_carryover
+        status: deferred
+        expected_suite: resource_policy_diagnostics
+        rationale: Full runtime and terminal resource diagnostics remain required in the owning implementation and publication phases.
+      - gate: parser_compiler_contract_carryover
+        status: deferred
+        expected_suite: resource_policy_configuration
+        rationale: Later configuration expansion must preserve strict optional settings and safe diagnostic behavior.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: Configuration and precedence
+    notes: >
+      Reject malformed fields, bools, invalid units and overflow; never expose
+      untrusted nested keys or values. Private scratch paths are not echoed.
+      Scoped replacement tests are test-first and pending GREEN; retain
+      historical candidate nodes until their verified replacements are integrated.

@@ -4,6 +4,8 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
+from recon_core.config._execution_policy import _resolve_target_execution
+from recon_core.config._local_resource_policy import _InvalidResourcePolicyError
 from recon_core.profiles._diagnostics import (
     INVALID_PROFILE_CONFIG,
     INVALID_PROFILE_YAML,
@@ -13,6 +15,7 @@ from recon_core.profiles._diagnostics import (
     PROFILE_NOT_FOUND,
     PROFILE_NOT_SELECTED,
     PROFILE_TARGET_NOT_FOUND,
+    invalid_profile_result,
     profile_diagnostic,
 )
 from recon_core.profiles._profile_yaml import load_profile_yaml, profiles_mapping
@@ -124,11 +127,24 @@ def load_selected_profile_for_connection_names(
     if diagnostics:
         return ProfileLoadResult(diagnostics=tuple(diagnostics))
 
+    try:
+        policies = _resolve_target_execution(
+            selected_target.execution,
+            project_defaults=context.config._execution_adapter_defaults,
+            declared_connections=selected_target.connections,
+            referenced_types={
+                name: connection.type for name, connection in rendered_connections.items()
+            },
+        )
+    except _InvalidResourcePolicyError as error:
+        return invalid_profile_result(display_path, str(error))
+
     return ProfileLoadResult(
         profile=SelectedProfile(
             name=selected_target.profile_name,
             target_name=selected_target.target_name,
             connections=rendered_connections,
+            _execution_policies=policies,
         )
     )
 

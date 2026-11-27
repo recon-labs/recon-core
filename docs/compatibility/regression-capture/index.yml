@@ -150,6 +150,97 @@ path_surface_routing:
       surfaces:
         - diagnostics
         - redaction
+        - validation_defaults
+        - scan_safety
+    - path: src/recon_core/config/_execution_policy.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+        - validation_defaults
+        - scan_safety
+    - path: src/recon_core/config/_local_resource_policy.py
+      surfaces:
+        - diagnostics
+        - redaction
+        - validation_defaults
+        - scan_safety
+    - path: tests/config/test_project_config.py
+      surfaces:
+        - diagnostics
+        - redaction
+        - validation_defaults
+        - scan_safety
+    - path: src/recon_core/adapters/duckdb/_resource_targets.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/check_engine/test_local_resource_targets.py
+      surfaces:
+        - scan_safety
+    - path: src/recon_core/adapters/_local_resource_observation.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/adapters/test_local_resource_observation.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: src/recon_core/adapters/_windows_scratch_security.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
+    - path: tests/adapters/test_windows_scratch_security.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
+    - path: src/recon_core/adapters/_darwin_scratch_security.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
+    - path: src/recon_core/adapters/_resource_scratch.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
+    - path: tests/adapters/test_resource_scratch.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
+    - path: src/recon_core/adapters/duckdb/_native_resource_controls.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
+    - path: tests/adapters/test_duckdb_native_resource_controls.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+        - diagnostics
+        - redaction
+    - path: src/recon_core/adapters/_portable_resource_observation.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: tests/adapters/test_portable_resource_observation.py
+      surfaces:
+        - adapter_runtime
+        - scan_safety
+    - path: pyproject.toml
+      surfaces:
+        - python_package_imports
+        - adapter_runtime
+        - scan_safety
     - path: src/recon_core/compiled_artifact_schema.py
       surfaces:
         - artifact_lifecycle
@@ -165,6 +256,10 @@ path_surface_routing:
         - parser
         - redaction
         - source_target_privacy
+    - path: src/recon_core/profiles/models.py
+      surfaces:
+        - profile_secrets
+        - scan_safety
     - path: src/recon_core/profiles/loader.py
       surfaces:
         - diagnostics
@@ -389,6 +484,13 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: tests/profiles/test_loader.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+        - validation_defaults
+        - scan_safety
     - path: tests/profiles/test_loader_boundaries.py
       surfaces:
         - diagnostics

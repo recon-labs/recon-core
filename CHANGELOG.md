@@ -37,6 +37,14 @@ This project follows semantic versioning once public package releases begin.
 
 ### Changed
 
+- Unreleased adapter-scoped DuckDB execution policy: independent automatic,
+  fixed MiB or percentage memory/spill controls, memory-aware automatic
+  threads, explicit overrides, optional footprint and row-estimate settings,
+  fresh per-check native control verification and private current scratch.
+  Safe advisories reach CLI and embedded results without changing outcomes.
+  Native managed targets are not physical memory/disk guarantees; no
+  mandatory subprocess, IPC or persistent crash recovery.
+
 - Optimize private project-run grouped SUM joins after verified binding and
   ordered type guards. Preserve strict unbound SQL, public compiled SQL,
   result semantics and existing admission; no new resource defaults.
@@ -44,8 +52,9 @@ This project follows semantic versioning once public package releases begin.
 - Project-run DuckDB row-count, key-safety and SUM checks now bind exact local
   base tables in a fresh owned read-only transaction per check. Views,
   outside-project databases and other unverified scopes are temporarily
-  unsupported. The existing 64 MiB cap remains only for key-safety and SUM
-  checks. Native failures are check-local; cleanup failures invalidate the
+  unsupported. All nine project-run check families have no default database
+  size cap; explicit authored footprint limits remain enforced. Native
+  failures are check-local; cleanup failures invalidate the
   result and uncertain close stops subsequent native work. Public prepared
   adapter helpers and compiled SQL remain unchanged.
 

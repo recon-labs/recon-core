@@ -21,6 +21,7 @@ class SelectedProfileTarget:
     profile_name: str
     target_name: str
     connections: Mapping[object, object]
+    execution: object
 
 
 def normalized_connection_names(names: tuple[str, ...]) -> tuple[str, ...]:
@@ -96,6 +97,7 @@ def selected_profile_target(
         profile_name=selected_profile_name,
         target_name=raw_target_name,
         connections=raw_connections,
+        execution=raw_target.get("execution", {}),
     )
 
 

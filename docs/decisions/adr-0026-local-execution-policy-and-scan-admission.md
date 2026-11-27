@@ -1,13 +1,129 @@
 # ADR 0026: Local Execution Policy And Scan Admission
 
-Status: Accepted adaptive resource design; implementation authorization and
-native exit proof pending. Current runtime unchanged. The approved amendment
+## Current implementation authorization (2026-11-27)
+
+The maintainer explicitly approved the consolidated native-first design,
+including its adapter-scoped project/target/connection configuration and
+precedence, and separately authorized implementation. This checkpoint
+supersedes earlier suspension/approval-pending wording below, not any
+required outcome or exit proof. Implement only the approved replacement
+on draft PR #42. No merge, release, production activation, or guard removal
+before the applicable proof and separate merge approval. Split Decision:
+Already Split / Follow Existing Split. No completed milestone reopening.
+
+Approved design revision c1d82f1e55fc0d5160709b8a0fd276e984ad0af8;
+base main b001d14de1fb613beaaad1f3e914f81dfb125cac.
+CI 45965307969: all ten standard jobs concluded success (three Python test
+jobs, three DuckDB semantic jobs, four pinned DuckDB compatibility jobs).
+This is design-baseline CI, not proof of the replacement implementation.
+Historical candidate baseline 64caf7a0709064cc60e143386c7dfaaaaaa86abe
+remains available in history. Existing A1-A13/R1-R10/B8-B10/P1-P6 outcomes,
+M8.2/M8.3/M9.5/M10.8/M11-M13/M29 and all future configuration gates retain
+their assignments. The mechanism-specific scope reductions below are
+approved as part of the replacement, with equivalent applicable outcomes
+required before retirement. No gate is closed.
+
+See the [approved M8.1.2 prework](../planning/milestone-8-1-2-prework.md) for the exact configuration, candidate/capture disposition and ordered implementation proof.
+
+The maintainer subsequently authorized focused measured tuning reassessment.
+The unreleased implementation retains 50% memory/90% spill starting ratios,
+uses known managed memory and the measured 125 MB/thread heuristic to
+adjust only automatic threads, and retains explicit overrides. This is not
+an admission floor or total process memory guarantee. Native and OS-level
+resource failures remain distinct; no worker/retry/recovery mechanism.
+Actual candidate results and final proof are tracked in the prework.
+All historical proposals below are superseded where inconsistent.
+
+Historical status (superseded by the current authorization): Whole adaptive
+resource design reopened; implementation suspended (2026-11-27). The previous accepted mechanism choices are historical pending
+replacement design and approval. Current runtime unchanged. The approved amendment
 below and [dedicated resource prework](../planning/milestone-8-1-2-prework.md)
 supersede the historical footprint-driven resource decision, not the
 verified read-only binding and L1 lifecycle requirements. No gate satisfaction
 or implementation claim is made.
 
-## Accepted adaptive resource amendment
+## Reopened design direction (2026-11-27)
+
+The maintainer approved reconsidering the complete implementation, including
+process placement, resource observations, calibration, transport and scratch
+recovery. Favor native controls and maintained interfaces; require concrete
+benefit and necessity for extra OS-specific mechanisms. Shared execution
+resources are not inherently unsafe. Preserve actual noninterference with
+unrelated sessions, required binding, exact outcomes, bounded results,
+private scratch and no unrelated deletion, explicit supported controls,
+truthful cancellation and cleanup. Optional missing observations are advisory
+where otherwise safe. No automatic OS-version refusal or arbitrary workload
+cap. Compare direct owned execution and conditional child isolation; do not
+assume either is suitable before native proof. Automatic crash recovery is a
+proposed scope reduction, not yet approved for removal. See the
+[reopened prework](../planning/milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27)
+for comparative proof, outcome dispositions and approval blockers. All prior
+mechanism-specific choices below are historical, not implementation authority.
+
+## Historical consolidated replacement proposal (approved above)
+
+The [consolidated native-first replacement design](../planning/milestone-8-1-2-prework.md#consolidated-native-first-replacement-design-proposed-for-approval-2026-11-27)
+proposes the same guarded native read-only execution path for standalone
+and embedded usage in M8.1.2, no mandatory subprocess, six logical adapter-scoped
+settings with maintainer-approved memory/spill percentage modes,
+adjustable adapter-local memory/spill heuristics and minimal
+private scratch. Native configuration-conflict limitations and remaining
+implementation proof (including Windows baseline WAL regression) are
+explicit. Prior provisional mechanism proposals below are historical
+where inconsistent. No gate closure or implementation authorization.
+
+Automatic, explicit percentage of freshly observed available capacity, and
+fixed MiB modes are independent for memory/spill; each logical setting
+has exactly one mode. CPU remains automatic or fixed threads. Explicit relative
+requests cannot silently degrade when their denominator is unknown; automatic
+missing optional facts remain advisory when safe. Recompute at each check,
+not during it. Elastic capacity, arithmetic, missing/zero evidence, native
+control effects and both execution modes require proof. Future adapters assess
+native-appropriate relative and absolute controls, not universal DuckDB syntax.
+
+
+
+## Approved adapter-scoped execution policy and precedence
+
+The implemented local execution policy resolves adapter-scoped project defaults,
+selected profile target adapter defaults, and selected target named connection
+overrides, in that order after adapter defaults. Operational policy stays out
+of connection identity/factory payloads, credentials and comparison contracts.
+Resolve each logical setting atomically, with explicit reset to automatic or
+absent; no generic deep merge or global engine-specific default. Unreferenced
+policy values and inactive targets do not affect selected work; validate
+applicable policy, adapter namespace, connection names and conflicting same-
+context aliases before affected data reads. Preserve existing binding and
+profile-selection/redaction, plain parse/compile and public API. No new generic
+adapter method, shared native setting syntax, or hard quota guarantee.
+
+See [current M8.1.2 configuration proposal](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration) for exact schema, ownership and acceptance variants. No prior released config migration.
+
+## Historical proposed replacement following comparative proof
+
+Maintainer scope decision (2026-11-27): M8.1.2 owns adaptive resource
+management for both standalone and embedded Python usage. No deferral of
+embedded adaptation or replacement admission to M8.2. Preserve shared
+application safety and current API capabilities; prove the smallest native-first
+mechanism without automatically restoring per-check workers, custom IPC or
+OS ownership inspection. M8.2 retains full invocation lifecycle and cumulative
+resource responsibilities. Exact mechanism and remaining scope dispositions
+are not approved yet.
+
+Ordinary configured native read-only sessions in a dedicated invocation passed
+all nine check families on eight environment combinations; same-file external
+readers unchanged, writers refused, database unchanged and scratch cleaned.
+Independent in-process ATTACH is rejected as-is due to writer/catalog
+regressions. Prefer the ordinary invocation, not per-check subprocesses or
+custom IPC, and standard unique private scratch, not persistent recovery.
+Native tuning remains valuable: untreated defaults OOM or fail binding on
+real wider workloads; measured controls and separate scratch succeed.
+See the [native-first redesign proposal](../planning/milestone-8-1-2-prework.md#native-first-redesign-proposal-2026-11-27-approval-pending)
+for evidence, embedded API boundary, proposed reserve/recovery/worker scope
+changes, gate and regression dispositions, and remaining proof. No new
+architecture, default or implementation approved by this proposal alone.
+
+## Historical accepted adaptive resource amendment (reopened)
 
 Core owns the normalized project-local policy, admission, reason and advice.
 The adapter owns actual native settings, evidence, placement, binding and
@@ -74,6 +190,27 @@ with the subsequent run-lifecycle phase; durable safe resource evidence
 with publication. Future adapter/version/placement admission and promotion
 must independently prove applicable resource controls and evidence;
 no requirement to reproduce DuckDB mechanisms on remote/distributed engines.
+
+## Platform compatibility and graceful degradation
+
+Untested versions are not runtime allowlists or blockers. Admission depends
+on actual execution-scope capability and independently verified required
+protection. Optional unavailable, unsupported or malformed observations
+produce actionable safe advice and do not prevent otherwise safe work.
+Verified equivalent mechanisms may be used at the same scope without
+changing reconciliation meaning; required protection that cannot be
+established refuses only affected execution. Native failures are errors,
+not mismatches. Diagnostics explain what is unknown, practical impact,
+whether work continues, and supported remediation, with bounded
+deduplication and no sensitive values. Deliver through ordinary terminal
+diagnostics, including successful checks, so orchestration capture can
+retain them. No promise that every orchestrator captures every stream.
+The [mandatory platform subfamilies P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l)
+govern current and future adapter/version/deployment conformance, actual
+native evidence, periodic compatibility validation and regression carryover.
+Tested compatibility is distinct from untested best-effort execution;
+no automatic version-based refusal, silent downgrade or universal OS
+mechanism.
 
 ## Historical decision (superseded for resource policy)
 

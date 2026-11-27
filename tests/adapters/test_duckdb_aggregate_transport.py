@@ -98,6 +98,7 @@ def _execute(
     ],
 )
 @pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
+@pytest.mark.regression_capture("duckdb-worker-lossless-result-transport")
 def test_private_transport_preserves_native_numeric_values(
     monkeypatch: pytest.MonkeyPatch,
     logical_type: str,
@@ -123,6 +124,7 @@ def test_private_transport_preserves_native_numeric_values(
 
 @pytest.mark.parametrize("sign", ("", "-"))
 @pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
+@pytest.mark.regression_capture("duckdb-worker-lossless-result-transport")
 def test_private_transport_large_typed_integer_ignores_decimal_context(
     monkeypatch: pytest.MonkeyPatch, sign: str
 ) -> None:
@@ -166,6 +168,7 @@ def test_private_transport_large_typed_integer_ignores_decimal_context(
     ],
 )
 @pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
+@pytest.mark.regression_capture("duckdb-worker-lossless-result-transport")
 def test_private_transport_rejects_invalid_envelope_without_leaking_values(
     monkeypatch: pytest.MonkeyPatch, description: object, rows: list[tuple[object, ...]]
 ) -> None:
@@ -295,6 +298,7 @@ def test_private_transport_real_driver_domains_and_public_execute(real_adapter: 
 
 
 @pytest.mark.regression_capture("duckdb-private-bounded-aggregate-transport")
+@pytest.mark.regression_capture("duckdb-worker-lossless-result-transport")
 def test_private_transport_real_driver_rejects_multiple_rows(real_adapter: Any) -> None:
     with pytest.raises(AdapterLifecycleError) as caught:
         _execute(real_adapter, "SELECT i AS value FROM range(10000) r(i)")
@@ -302,6 +306,7 @@ def test_private_transport_real_driver_rejects_multiple_rows(real_adapter: Any) 
 
 
 @pytest.mark.regression_capture("duckdb-private-typed-numeric-transport")
+@pytest.mark.regression_capture("duckdb-worker-lossless-result-transport")
 def test_private_transport_real_driver_arbitrary_integer_availability(real_adapter: Any) -> None:
     version_parts = importlib.import_module("duckdb").__version__.split(".")[:2]
     version = tuple(int(part) for part in version_parts)

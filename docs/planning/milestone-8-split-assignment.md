@@ -1,8 +1,33 @@
 # Milestone 8 Split Assignment
 
+## Current implementation authorization (2026-11-27)
+
+The maintainer explicitly approved the consolidated native-first design,
+including its adapter-scoped project/target/connection configuration and
+precedence, and separately authorized implementation. This checkpoint
+supersedes earlier suspension/approval-pending wording below, not any
+required outcome or exit proof. Implement only the approved replacement
+on draft PR #42. No merge, release, production activation, or guard removal
+before the applicable proof and separate merge approval. Split Decision:
+Already Split / Follow Existing Split. No completed milestone reopening.
+
+Approved design revision c1d82f1e55fc0d5160709b8a0fd276e984ad0af8;
+base main b001d14de1fb613beaaad1f3e914f81dfb125cac.
+CI 45965307969: all ten standard jobs concluded success (three Python test
+jobs, three DuckDB semantic jobs, four pinned DuckDB compatibility jobs).
+This is design-baseline CI, not proof of the replacement implementation.
+Historical candidate baseline 64caf7a0709064cc60e143386c7dfaaaaaa86abe
+remains available in history. Existing A1-A13/R1-R10/B8-B10/P1-P6 outcomes,
+M8.2/M8.3/M9.5/M10.8/M11-M13/M29 and all future configuration gates retain
+their assignments. The mechanism-specific scope reductions below are
+approved as part of the replacement, with equivalent applicable outcomes
+required before retirement. No gate is closed.
+
+See the [approved M8.1.2 prework](milestone-8-1-2-prework.md) for the exact configuration, candidate/capture disposition and ordered implementation proof.
+
 ## Scope and ordering
 
-M8.1.2 detailed design approved; implementation authorization pending. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
+M8.1.2 native-first replacement implemented on draft PR #42; final cumulative validation and separate merge approval pending. Existing split remains. [Approved prework](milestone-8-1-2-prework.md) and [resource-safety assignments](execution-resource-safety-assignments.md) preserve A1-A13/R1-R10/P1-P6, B8-B10 and C10 outcomes without mandatory worker/IPC/recovery mechanisms.
 
 Split Decision: Required. The maintainer approved the implementation-bearing
 split and the adapter-aware advisory direction. M8 is an umbrella, not an
@@ -34,7 +59,7 @@ attribution privately.
 | BDD/workflows | Valid bounded local run, unsafe/unknown/over-limit block, larger known-scope opt-in, advisory-only risk, unsupported suggestion no execution change. | Pass/fail/mixed run, no checks, prerequisite blocked, load/setup/execution/cleanup failures, truthful timing and preserved preflight. | Successful and failed checks generate trustworthy allowed artifacts, unsafe/write-failed path does not leave misleading output, consistent exit/terminal, suppressed sensitive payload, no external sink. |
 | Required tests | Config/validation, real DuckDB scan guard and admission, service and check engine negative cases, no-scan spies, safe diagnostics, advisory invariant tests, preserve existing row-count/key/aggregate coverage. | Service/engine lifecycle and timing tests, ordering, dependency and mixed status tests, distinct connection failures, plan and scope, no generated results, preserve A tests. | Version/schema serialization, writer path and atomicity/failure/cleanup tests, privacy and CLI tests for every outcome, integration tests against real local adapter, carry forward A/B tests. |
 | Phase exit | TDD RED/GREEN and fresh cumulative review against approved matrix; prove no capability shrink or accidental production claim; record carryover, docs and validation. | Same review; prove status/timing/cleanup and preserved admission/semantics, no writes. | Same review plus final umbrella coverage/orphan check, full required branch-wide validation, compatibility/changelog review and maintainer approval. |
-| Blockers before coding | Approved M8.1.2 design and dedicated prework; validate integration and obtain separate implementation authorization. Candidate tuning, combined worker/recovery and native proof remain mandatory implementation/exit obligations. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
+| Blockers before coding | Approved M8.1.2 design and dedicated prework; validate integration and obtain separate implementation authorization. Measured tuning, native scope/effect, interruption and current scratch proof remain mandatory implementation/exit obligations. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
 
 ## Required acceptance row families and carryover
 
@@ -65,9 +90,9 @@ cases. No row can be silently dropped.
 | B5 | Preserve A admission, capability and advisory evidence; no execution on hard block or hidden fallback. |
 | B6 | Whole-project invocation scope with future selected-scope readiness, artifact/sink references only as allowed in memory. |
 | B7 | Privacy-safe lifecycle/plan metadata and no result/evidence/state writes. |
-| B8 | M8.1.2: one-worker stop/confirmed exit, parent liveness and interrupted outcomes. M8.2: remaining invocation deadlines/timeouts, cancellation lifecycle and safe retry. |
-| B9 | M8.1.1: native binding cleanup/L1. M8.1.2: worker/IPC/native/scratch cleanup, crash recovery and primary versus cleanup error. M8.2: remaining run-wide lifecycle/cleanup. |
-| B10 | M8.1.2: one active worker per check, re-observation, per-check resource scope. M8.2: cumulative envelopes, concurrency and fan-out. No automatic escalation. |
+| B8 | M8.1.2: native interrupt request distinct from confirmed stop and release, interrupted outcomes. M8.2: remaining invocation deadlines/timeouts, abrupt termination, cancellation lifecycle and safe retry. |
+| B9 | M8.1.1: native binding cleanup/L1. M8.1.2: native close/current scratch cleanup, retain uncertain/abrupt residue, primary versus cleanup error. M8.2: remaining run-wide lifecycle/cleanup. |
+| B10 | M8.1.2: one owned native session per check, re-observation, per-check resource scope. M8.2: cumulative envelopes, concurrency and fan-out. No automatic escalation. |
 | C1 | Versioned schema, path and invocation/timing/status/scope fields, backward/forward compatibility policy. |
 | C2 | Allowlisted placement, adapter/capability, scan evidence and advisory fields, availability/reasons, no misleading claims. |
 | C3 | Privacy matrix for every public field, diagnostic code/message/context/hint and raw values/keys/counts/diffs/SQL/plan/error text. |
@@ -237,7 +262,7 @@ required.
 
 Maintainer-approved adaptive, adapter-aware, minimally restrictive local execution with portable best-effort protection, strict controls only when proven and isolation where necessary. Preserve native spilling and larger-than-memory work. No universal CI-derived ratios or caps. Distinguish execution scope from client transport, use engine-specific mechanisms and never downgrade required enforcement. Apply [Gate 4L adapter-specific resource applicability and proof](execution-resource-safety-assignments.md#mandatory-adapter-specific-resource-applicability-and-proof) to all future adapters and expansions. Exact settings, defaults, worker design and pulled-forward lifecycle requirements remain pending detailed prework and separate approval. No successor implementation authorized.
 
-## Approved M8.1.2 integration checkpoint (2026-11-26)
+## Historical approved M8.1.2 integration checkpoint (2026-11-26; reopened 2026-11-27)
 
 The maintainer-approved detailed design is in [M8.1.2 approved prework](milestone-8-1-2-prework.md); it supersedes
 historical footprint-driven resource decisions and earlier pending-design
@@ -255,3 +280,25 @@ worker and re-observation prerequisites. M8.2 owns remaining run-wide
 lifecycle, deadlines, retry, cumulative resources and concurrency; M8.3 C10
 publication. Preserve all future adapter applicability, type and scope gates.
 No gate closed; separate implementation authorization required.
+
+## Platform compatibility carryover
+
+The [Gate 4L P1-P6 subfamilies](execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) refine A2/A3/A4/A6/A7/A8/A9/A10/A12/A13 and R2/R3/R5/R8/R10 without changing the existing split. M8.1.2 owns local runtime graceful degradation, actual native platform proof, safe terminal warnings and persistent multi-version CI before exit. M8.2 retains run lifecycle and deduplication across the invocation; M8.3 owns structured publication preserving resource uncertainty and advisory meaning. M10/M10.7/M10.8, experimental PostgreSQL/Snowflake, M13.5/M18, M29 and every future adapter and relevant version/deployment expansion retain their assigned native P1-P6 obligations. No gate satisfied solely by documentation.
+
+
+## Approved scoped operational policy checkpoint
+
+M8.1.2 owns adapter-scoped project defaults, selected target adapter defaults
+and named connection overrides, atomic logical-setting replacement/reset,
+selected-only validation, policy separation from connection identity and
+credentials, same-context alias conflict handling and both execution modes.
+Preserve existing profile/adapter and plain parse/compile contracts. Gate 4L
+with 4I/4J/8C requires actual positive/negative tests. M8.2 owns cumulative
+resource lifecycle; M8.3 C10 policy provenance; M10.5/10.6 freshness and
+selection; M10.7 guidance; M10.8 local scope restoration; M11-M13 native
+adapter settings; M13.5 multi-context/transfer; M18 query non-bypass; M28
+typed env/CLI overrides and hard admin-limit precedence; M29 shared native
+conformance; M32 integrations; M40 hosted quota/authorization. No universal
+DuckDB settings, premature API or new milestone. No gate closure.
+
+See [current prework](milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration).

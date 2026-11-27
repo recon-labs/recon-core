@@ -6,6 +6,7 @@ from typing import Protocol
 
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters.models import QueryResult, Relation
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
 
@@ -20,6 +21,11 @@ class _LocalFileIdentity:
     inode: int
     size: int
     modified_ns: int
+
+
+def _exceeds_authored_footprint(identity: _LocalFileIdentity, policy: _LocalResourcePolicy) -> bool:
+    limit = policy.max_database_bytes
+    return limit is not None and identity.size > limit
 
 
 class _BoundSessionError(RuntimeError):
@@ -64,6 +70,9 @@ class _InvalidAggregateResultError(ValueError):
 
 class _OwnedSession(Protocol):
     @property
+    def advisories(self) -> tuple[Diagnostic, ...]: ...
+
+    @property
     def released(self) -> bool: ...
 
     def open(self) -> None: ...
@@ -98,9 +107,25 @@ def _local_file_identity(
     return inspect(connection, project_root)
 
 
-def _new_owned_session(adapter_type: str, identity: _LocalFileIdentity) -> _OwnedSession:
+def _normalize_owned_resource_policy(
+    adapter_type: str, project_root: Path, policy: _LocalResourcePolicy
+) -> _LocalResourcePolicy:
+    if adapter_type != "duckdb":
+        raise _proof_error()
+    from recon_core.adapters.duckdb._bound_execution import _normalize_resource_policy
+
+    return _normalize_resource_policy(project_root, policy)
+
+
+def _new_owned_session(
+    adapter_type: str,
+    identity: _LocalFileIdentity,
+    *,
+    project_root: Path,
+    resource_policy: _LocalResourcePolicy,
+) -> _OwnedSession:
     if adapter_type != "duckdb":
         raise _proof_error()
     from recon_core.adapters.duckdb._bound_execution import _OwnedDuckDbSession
 
-    return _OwnedDuckDbSession(identity)
+    return _OwnedDuckDbSession(identity, project_root=project_root, resource_policy=resource_policy)

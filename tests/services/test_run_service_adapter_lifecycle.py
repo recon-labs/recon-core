@@ -30,6 +30,7 @@ from tests.services._run_service_fixtures import (
     _key_safety_check_payload,
     _key_safety_payload_for,
     _service_result_text,
+    _without_scope_advisory,
     _write_duckdb_row_count_tables,
     row_count_plan,
     write_bounded_local_duckdb_fixture,
@@ -166,7 +167,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         "RC_RUNTIME_UNSUPPORTED_TYPED_OPERATION"
     ]
     assert "LATER_PHASE_DB" not in _service_result_text(result)
@@ -758,11 +760,14 @@ profiles:
     monkeypatch.setattr(binding._OwnedDuckDbSession, "close", fail_cleanup)
     result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
 
-    diagnostic_text = f"{result.diagnostics[0].message} {result.diagnostics[0].hint}"
+    diagnostic_text = "\n".join(
+        f"{diagnostic.message} {diagnostic.hint}" for diagnostic in result.diagnostics
+    )
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run failed during check-engine evaluation."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [ADAPTER_CLOSE_FAILED]
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [ADAPTER_CLOSE_FAILED]
     assert "Read-only transaction cleanup failed." in diagnostic_text
     assert "super-secret" not in diagnostic_text
     adapter = factory.adapters[0]
@@ -832,7 +837,8 @@ profiles:
 
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run failed during check-engine evaluation."
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [
+    diagnostics = _without_scope_advisory(result.diagnostics)
+    assert [diagnostic.code for diagnostic in diagnostics] == [
         ADAPTER_QUERY_FAILED,
         ADAPTER_CLOSE_FAILED,
     ]

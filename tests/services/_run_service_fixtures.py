@@ -23,9 +23,33 @@ from recon_core.check_engine import (
     ContractResult,
     RunResult,
 )
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 BOUNDED_LOCAL_SCAN_ALLOWED = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_ALLOWED"
 BOUNDED_LOCAL_SCAN_REQUIRED = "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
+
+
+def _without_scope_advisory(diagnostics: tuple[Diagnostic, ...]) -> tuple[Diagnostic, ...]:
+    """Assert optional scope advice separately from exact reconciliation diagnostics."""
+    scope_advice = tuple(
+        d
+        for d in diagnostics
+        if d.code == "RC_RUNTIME_RESOURCE_ADVISORY"
+        and d.message.startswith("Local controller scope is incomplete;")
+    )
+    assert len(scope_advice) <= 1
+    for advisory in scope_advice:
+        assert advisory == Diagnostic(
+            code="RC_RUNTIME_RESOURCE_ADVISORY",
+            severity=DiagnosticSeverity.WARNING,
+            message=(
+                "Local controller scope is incomplete; resource tuning uses available facts, "
+                "not a host or container limit guarantee."
+            ),
+            resource_type="runtime_policy",
+            hint="Inspect container resource limits locally and adjust managed settings if needed.",
+        )
+    return tuple(d for d in diagnostics if d not in scope_advice)
 
 
 def write_bounded_local_duckdb_fixture(

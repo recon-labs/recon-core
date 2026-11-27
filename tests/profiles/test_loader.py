@@ -842,3 +842,244 @@ def compiled_contract(
             relation="qa.target_relation",
         ),
     )
+
+
+@pytest.mark.parametrize(
+    "execution",
+    [
+        "{adapters: {PRIVATE_SENTINEL: {threads: 2}}}",
+        "{adapters: {duckdb: {managed-memory: {percent: 101}}}}",
+        "{connections: {missing: {threads: 2}}}",
+        "{connections: {legacy: {managed-memory: {percent: 75, mib: 2048}}}}",
+        "{connections: {legacy: {threads: PRIVATE_SENTINEL}}}",
+        "{connections: {legacy: {threads: '2'}}}",
+        "{connections: {legacy: {scratch-directory: null}}}",
+        "{connections: {legacy: {spill: {mib: 8796093022208}}}}",
+    ],
+)
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_selected_target_rejects_invalid_operational_policy(tmp_path: Path, execution: str) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        f"""
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: private.duckdb
+        execution: {execution}
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile_for_connection_names(
+        context_result.context,
+        referenced_connection_names=("legacy",),
+        environ={},
+    )
+
+    assert not result.succeeded
+    assert result.profile is None
+    assert result.diagnostics
+    assert all(
+        diagnostic.code == "RC_CONFIG_INVALID_PROFILE_CONFIG" for diagnostic in result.diagnostics
+    )
+    assert "PRIVATE_SENTINEL" not in repr(result.diagnostics)
+    assert "private.duckdb" not in repr(result.diagnostics)
+
+
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_selected_target_keeps_operational_policy_out_of_connection_payload(
+    tmp_path: Path,
+) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('DB_PATH') }}"
+          warehouse:
+            type: duckdb
+            database: "{{ env_var('DB_PATH') }}"
+          unused:
+            type: duckdb
+            database: "{{ env_var('UNUSED_DB') }}"
+        execution:
+          adapters:
+            duckdb:
+              managed-memory: {mib: 2048}
+          connections:
+            legacy:
+              managed-memory: auto
+            warehouse:
+              managed-memory: auto
+            unused:
+              managed-memory: {percent: 999}
+      prod:
+        connections:
+          legacy:
+            type: duckdb
+            database: "{{ env_var('PROD_DB') }}"
+        execution:
+          adapters:
+            duckdb:
+              threads: PRIVATE_SENTINEL
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile_for_connection_names(
+        context_result.context,
+        referenced_connection_names=("legacy", "warehouse"),
+        environ={"DB_PATH": "private.duckdb"},
+    )
+
+    assert result.succeeded
+    assert result.profile is not None
+    assert set(result.profile.connections) == {"legacy", "warehouse"}
+    for connection in result.profile.connections.values():
+        assert connection.config == {"type": "duckdb", "database": "private.duckdb"}
+    assert result.diagnostics == ()
+
+
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_selected_target_rejects_duckdb_policy_for_non_duckdb_connection(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          warehouse:
+            type: snowflake
+            account: PRIVATE_SENTINEL
+        execution:
+          connections:
+            warehouse:
+              managed-memory: {percent: 75}
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile_for_connection_names(
+        context_result.context,
+        referenced_connection_names=("warehouse",),
+        environ={},
+    )
+
+    assert not result.succeeded
+    assert result.profile is None
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROFILE_CONFIG"
+    assert "PRIVATE_SENTINEL" not in repr(result.diagnostics)
+
+
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_selected_target_resolves_scoped_resource_policy_precedence(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    project = tmp_path / "recon_project.yml"
+    project.write_text(
+        project.read_text(encoding="utf-8")
+        + """
+execution:
+  adapters:
+    duckdb:
+      managed-memory: {percent: 75}
+      spill: {mib: 4096}
+      threads: 8
+      max-database-mib: 1024
+      warn-estimated-input-rows: 50000
+""",
+        encoding="utf-8",
+    )
+    write_profiles(
+        tmp_path,
+        """
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy: {type: duckdb, database: private.duckdb}
+          warehouse: {type: duckdb, database: private.duckdb}
+          other: {type: duckdb, database: other.duckdb}
+        execution:
+          adapters:
+            duckdb:
+              managed-memory: {mib: 2048}
+              spill: {percent: 80}
+          connections:
+            legacy:
+              managed-memory: auto
+              threads: auto
+              max-database-mib: none
+              warn-estimated-input-rows: none
+            warehouse:
+              managed-memory: {percent: 60}
+              spill: auto
+""",
+    )
+    context_result = load_project_context(tmp_path)
+    assert context_result.succeeded
+    assert context_result.context is not None
+
+    result = load_selected_profile_for_connection_names(
+        context_result.context,
+        referenced_connection_names=("legacy", "warehouse", "other"),
+        environ={},
+    )
+
+    assert result.succeeded
+    assert result.profile is not None
+    legacy_config = result.profile.connections["legacy"].config
+    warehouse_config = result.profile.connections["warehouse"].config
+    assert legacy_config == warehouse_config
+    policies = result.profile._execution_policies
+    assert set(policies) == {"legacy", "warehouse", "other"}
+
+    legacy = policies["legacy"]
+    assert legacy.managed_memory_bytes is None
+    assert legacy.managed_memory_percent is None
+    assert legacy.spill_bytes is None
+    assert legacy.spill_percent == 80
+    assert legacy.threads is None
+    assert legacy.max_database_bytes is None
+    assert legacy.warn_estimated_input_rows is None
+
+    warehouse = policies["warehouse"]
+    assert warehouse.managed_memory_bytes is None
+    assert warehouse.managed_memory_percent == 60
+    assert warehouse.spill_bytes is None
+    assert warehouse.spill_percent is None
+    assert warehouse.threads == 8
+    assert warehouse.max_database_bytes == 1024 * (1 << 20)
+    assert warehouse.warn_estimated_input_rows == 50000
+
+    other = policies["other"]
+    assert other.managed_memory_bytes == 2048 * (1 << 20)
+    assert other.managed_memory_percent is None
+    assert other.spill_bytes is None
+    assert other.spill_percent == 80
+    assert other.threads == 8

@@ -343,3 +343,245 @@ unexpected-setting: true
     assert diagnostic.code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
     assert diagnostic.path == str(project_file)
     assert "unexpected-setting" in diagnostic.message
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        "",
+        "execution: {}\n",
+        "execution:\n  adapters: {}\n",
+        "execution:\n  adapters:\n    duckdb: {}\n",
+    ],
+)
+def test_local_resource_policy_defaults(tmp_path: Path, settings: str) -> None:
+    result = load_project_config(write_project_config(tmp_path, "name: recon\n" + settings))
+    baseline = load_project_config(write_project_config(tmp_path, "name: recon\n"))
+    assert result.succeeded
+    assert result.config == baseline.config
+    assert result.config is not None
+    assert result.config._execution_adapter_defaults == {}
+
+
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_local_resource_policy_values(tmp_path: Path) -> None:
+    project_file = write_project_config(
+        tmp_path,
+        """name: recon
+execution:
+  adapters:
+    duckdb:
+      max-database-mib: 8796093022207
+      warn-estimated-input-rows: 9223372036854775807
+      managed-memory: {mib: 8192}
+      threads: 8
+      spill: {mib: 20480}
+      scratch-directory: private-scratch
+""",
+    )
+    result = load_project_config(project_file)
+    assert result.succeeded
+    assert result.config is not None
+    policy = result.config._execution_adapter_defaults["duckdb"].policy
+    mib = 1 << 20
+    assert policy.max_database_bytes == 8796093022207 * mib
+    assert policy.warn_estimated_input_rows == (1 << 63) - 1
+    assert policy.managed_memory_bytes == 8192 * mib
+    assert policy.threads == 8
+    assert policy.spill_bytes == 20480 * mib
+    assert policy.managed_memory_percent is None
+    assert policy.spill_percent is None
+    assert policy.scratch_directory == "private-scratch"
+    assert not (tmp_path / "private-scratch").exists()
+    assert "private-scratch" not in repr(result.config)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "max-database-mib",
+        "warn-estimated-input-rows",
+        "managed-memory",
+        "threads",
+        "spill",
+    ],
+)
+@pytest.mark.parametrize("value", ["0", "-1", "true", "1.0", "'1'", "null", "9223372036854775808"])
+def test_local_resource_policy_invalid_integer(tmp_path: Path, field: str, value: str) -> None:
+    setting = f"{{mib: {value}}}" if field in {"managed-memory", "spill"} else value
+    project_file = write_project_config(
+        tmp_path, f"name: recon\nexecution:\n  adapters:\n    duckdb:\n      {field}: {setting}\n"
+    )
+    result = load_project_config(project_file)
+    assert not result.succeeded
+    assert result.config is None
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "max-database-mib",
+        "managed-memory",
+        "spill",
+    ],
+)
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_local_resource_policy_mib_overflow(tmp_path: Path, field: str) -> None:
+    value = "{mib: 8796093022208}" if field in {"managed-memory", "spill"} else "8796093022208"
+    project_file = write_project_config(
+        tmp_path,
+        f"name: recon\nexecution:\n  adapters:\n    duckdb:\n      {field}: {value}\n",
+    )
+    assert not load_project_config(project_file).succeeded
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        "execution: null\n",
+        "execution: []\n",
+        "execution: {PRIVATE_SENTINEL: true}\n",
+        "execution: {1: true}\n",
+        "execution: {adapters: null}\n",
+        "execution: {adapters: []}\n",
+        "execution: {adapters: {PRIVATE_SENTINEL: true}}\n",
+        "execution: {adapters: {duckdb: null}}\n",
+        "execution: {adapters: {duckdb: []}}\n",
+        "execution: {adapters: {duckdb: {PRIVATE_SENTINEL: true}}}\n",
+        "execution: {adapters: {duckdb: {1: true}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: null}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: 1}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: ''}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: '   '}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: [PRIVATE_SENTINEL]}}}\n",
+        "execution: {adapters: {duckdb: {threads: PRIVATE_SENTINEL}}}\n",
+        "execution: {adapters: {duckdb: {memory-reserve-mib: 1}}}\n",
+        "execution: {adapters: {duckdb: {disk-reserve-mib: 1}}}\n",
+    ],
+)
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_local_resource_policy_invalid_mapping(tmp_path: Path, settings: str) -> None:
+    result = load_project_config(write_project_config(tmp_path, "name: recon\n" + settings))
+    assert not result.succeeded
+    assert result.config is None
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
+    assert "PRIVATE_SENTINEL" not in repr(result.diagnostics)
+
+
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
+def test_local_resource_policy_duplicate_key(tmp_path: Path) -> None:
+    result = load_project_config(
+        write_project_config(
+            tmp_path,
+            "name: recon\nexecution: {adapters: {duckdb: {threads: 1, threads: 2}}}\n",
+        )
+    )
+    assert not result.succeeded
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_YAML"
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        "execution: {adapters: {}}",
+        "execution: {adapters: {duckdb: {}}}",
+        "execution: {adapters: {duckdb: {managed-memory: auto, spill: auto}}}",
+        "execution: {adapters: {duckdb: {managed-memory: {percent: 1}}}}",
+        "execution: {adapters: {duckdb: {managed-memory: {percent: 100}}}}",
+        "execution: {adapters: {duckdb: {spill: {percent: 90}}}}",
+        "execution: {adapters: {duckdb: {managed-memory: {mib: 65536}, threads: 8}}}",
+        "execution: {adapters: {duckdb: {spill: {mib: 8796093022207}}}}",
+        "execution: {adapters: {duckdb: {threads: auto, scratch-directory: auto}}}",
+        "execution: {adapters: {duckdb: {max-database-mib: none}}}",
+        "execution: {adapters: {duckdb: {warn-estimated-input-rows: none}}}",
+    ],
+)
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_scoped_resource_policy_accepts_documented_modes(tmp_path: Path, settings: str) -> None:
+    result = load_project_config(write_project_config(tmp_path, f"name: recon\n{settings}\n"))
+
+    assert result.succeeded
+    assert result.config is not None
+    assert result.diagnostics == ()
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "managed-memory: {percent: 0}",
+        "managed-memory: {percent: 101}",
+        "managed-memory: {percent: -1}",
+        "managed-memory: {percent: true}",
+        "managed-memory: {percent: 1.0}",
+        "managed-memory: {percent: '1'}",
+        "managed-memory: {percent: null}",
+        "managed-memory: {percent: 75, mib: 1024}",
+        "managed-memory: {}",
+        "managed-memory: null",
+        "managed-memory: PRIVATE_SENTINEL",
+        "spill: {percent: 101}",
+        "spill: {mib: 0}",
+        "spill: {mib: 8796093022208}",
+        "spill: {mib: 10, percent: 20}",
+        "threads: 0",
+        "threads: true",
+        "threads: '8'",
+        "threads: null",
+        "scratch-directory: ''",
+        "scratch-directory: null",
+        "scratch-directory: [PRIVATE_SENTINEL]",
+        "max-database-mib: 0",
+        "warn-estimated-input-rows: 9223372036854775808",
+        "PRIVATE_SENTINEL: 1",
+    ],
+)
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_scoped_resource_policy_rejects_invalid_modes_without_leak(
+    tmp_path: Path, setting: str
+) -> None:
+    result = load_project_config(
+        write_project_config(
+            tmp_path,
+            f"name: recon\nexecution: {{adapters: {{duckdb: {{{setting}}}}}}}\n",
+        )
+    )
+
+    assert not result.succeeded
+    assert result.config is None
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
+    assert "PRIVATE_SENTINEL" not in repr(result.diagnostics)
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        "execution: {adapters: {PRIVATE_SENTINEL: {}}}",
+        "execution: {adapters: {duckdb: null}}",
+        "execution: {adapters: []}",
+        "execution: {connections: {legacy: {}}}",
+        "execution: {scan-budget: {local: {threads: 2}}}",
+    ],
+)
+@pytest.mark.regression_capture("local-resource-config-strict-validation")
+def test_scoped_resource_policy_rejects_wrong_envelope(tmp_path: Path, settings: str) -> None:
+    result = load_project_config(write_project_config(tmp_path, f"name: recon\n{settings}\n"))
+
+    assert not result.succeeded
+    assert result.config is None
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_CONFIG"
+    assert "PRIVATE_SENTINEL" not in repr(result.diagnostics)
+
+
+@pytest.mark.regression_capture("yaml-loader-duplicate-key-protection")
+def test_scoped_resource_policy_rejects_duplicate_mode_key(tmp_path: Path) -> None:
+    result = load_project_config(
+        write_project_config(
+            tmp_path,
+            "name: recon\n"
+            "execution: {adapters: {duckdb: {managed-memory: {percent: 75, percent: 80}}}}\n",
+        )
+    )
+
+    assert not result.succeeded
+    assert result.diagnostics[0].code == "RC_CONFIG_INVALID_PROJECT_YAML"

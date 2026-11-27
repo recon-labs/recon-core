@@ -137,3 +137,63 @@ than leaving it implicit.
 ## Execution scope restoration checkpoint
 
 The current protected local base-table restriction is temporary. Safe broader local contexts, cross-context execution, query endpoints and shared adapter conformance require their own proof; see the [execution scope restoration assignments](../planning/execution-scope-assignments.md). No permanent scope restriction or unproven capability is implied.
+
+## Platform and resource-control compatibility evidence
+
+[Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) requires explicit platform evidence separate from runtime capability decisions. Untested OS/engine/dependency versions alone do not block execution; required protection must be proven at actual scope. Optional missing observations warn where independently safe. No implied broad support claim.
+
+The local adaptive resource implementation is unreleased. Initial native
+compatibility proof [46017023573](https://github.com/recon-labs/recon-core/actions/runs/46017023573)
+at `1c354e1f341e5fe8ad406f7375823a3761f49a4f` passed all nine lanes;
+standard [46017023550](https://github.com/recon-labs/recon-core/actions/runs/46017023550)
+passed all ten jobs. The subsequent memory-aware automatic tuning
+implementation at `42f0a3995a303dcfa37c4f9a678d5d5418381558` passed
+[standard CI 46020772943](https://github.com/recon-labs/recon-core/actions/runs/46020772943)
+and [native compatibility CI 46020772995](https://github.com/recon-labs/recon-core/actions/runs/46020772995).
+Measured constrained/capable calibration and remaining physical-memory
+limitations are recorded in the approved prework. Final exact-head
+validation and separate exit approval remain required. The table below
+records the initial actual environment evidence, not a broad support
+declaration. All initial lanes use psutil 7.2.2.
+
+| Lane | Actual OS / kernel or build | Architecture | Python | DuckDB | Job ID |
+| --- | --- | --- | --- | --- | --- |
+| Linux older | Ubuntu 22.04.5 / 6.8.0-1073-azure | x86_64 | 3.11.18 | 1.0.0 | 140566647454 |
+| Linux current | Ubuntu 24.04.5 / 7.0.0-1018-aws | x86_64 | 3.12.16 | 1.4.5 | 140566647110 |
+| Linux rolling | Ubuntu 26.04.1 / 7.0.0-1018-aws | x86_64 | 3.13.18 | 2.0.1 | 140566647448 |
+| macOS older | 15.8.2 / Darwin 24.6.0 | arm64 | 3.11.9 | 1.0.0 | 140566647410 |
+| macOS current | 26.7.2 / Darwin 25.6.0 | arm64 | 3.12.10 | 1.4.5 | 140566647557 |
+| macOS rolling | 26.7.2 / Darwin 25.6.0 | arm64 | 3.13.17 | 2.0.1 | 140566647441 |
+| Windows older | Server 2022 / 10.0.20348 | AMD64 | 3.11.9 | 1.0.0 | 140566647307 |
+| Windows current | Server 2025 / 10.0.26100 | AMD64 | 3.12.10 | 1.4.5 | 140566647643 |
+| Windows rolling | Server 2025 / 10.0.26100 | AMD64 | 3.13.17 | 2.0.1 | 140566647584 |
+
+Job logs retain exact runner image labels/versions and OS build strings,
+Python builds and dependency versions. Each lane exercises the native
+adapter, check-engine, service and CLI suites, including exact native
+binding and results, actual spill controls, cancellation, private scratch,
+cleanup, partial/unknown observations and portable committed WAL refusal.
+Linux: 1442 passed/23 skipped; macOS: 1443/22; Windows: 1458/7, plus
+86 numeric tests or 76 passed/10 deselected on the older 1.0.0 pin under
+the existing M9.5 BIGNUM disposition. Standard CI independently covers
+1.3.2. No new numeric-domain exclusion. Actual privacy/ownership proof is
+scope-specific, not a hostile same-user/privileged sandbox guarantee.
+
+Coverage gaps: no exhaustive OS/engine/Python Cartesian matrix, Linux
+arm64, macOS x86_64, Windows ARM64/client releases, arbitrary filesystems,
+or every container hierarchy/remote deployment. Current and rolling
+macOS/Windows resolve to the same OS releases, but different native
+dependency lanes; count each actual OS only once. The Linux constrained
+calibration demonstrates that managed native limits are not physical
+quotas; see the [measured tuning evidence and remaining limitations](../planning/milestone-8-1-2-prework.md#implementation-level-calibration-evidence-and-open-decision-2026-11-27).
+No runtime version allowlist. M8.1.2 owns final validation; M10/M10.8
+readiness, M29 and each future adapter owner recheck the actual matrix,
+new version/dependency changes and coverage gaps before promotion or
+scope expansion. Recheck periodic/manual/change/release runs and triage
+failures; synthetic fault injection does not certify untested platforms.
+
+Use the [testing plan](../implementation/testing-plan.md#platform-and-dependency-compatibility)
+for persistent pinned and rolling coverage, periodic/on-demand checks and
+regression triage. Future PostgreSQL, Snowflake, distributed or other adapters
+must record their own applicable client/driver/server/cluster scope and
+native evidence; no DuckDB platform mechanisms imposed.

@@ -317,9 +317,20 @@ scope. Record the decision and remaining follow-up.
 
 ## Mandatory cumulative review-fix loop
 
-Authorized review-fix work and implementation-bearing phase or milestone
-exit reviews must repeat the review-fix cycle until a fresh review of the
-cumulative approved scope finds no actionable defects or material risks.
+Every authorized substantive implementation or change iteration (including
+low-risk changes, tests, documentation, metadata and governance) must repeat
+the review-fix-revalidate cycle until a fresh review of its cumulative approved
+scope finds no actionable defects or material risks, or a genuine blocker is
+recorded. Phase and milestone exits require a fresh review of the full
+cumulative phase or branch, not just the last change.
+
+Every step plan must explicitly include the loop and semantic anti-pattern
+checks in each implementation/change step and a final cumulative exit loop.
+Each substantive progress or completion report must include concise evidence-
+based anti-pattern and review-fix status, concrete reasons, and any remaining
+proof or findings. Do not infer design integrity from passing tests alone.
+Test-first and CI-pending checkpoints remain incomplete; do not claim exit
+or advance dependent work while required proof or blockers remain.
 Review-only requests remain read-only; this process does not grant permission
 to edit, commit, push, expand scope, or merge.
 

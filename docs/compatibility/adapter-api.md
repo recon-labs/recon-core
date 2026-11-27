@@ -29,8 +29,8 @@ Current state:
   plans to SQL,
 - current same-context DuckDB row-count, grain-key safety and explicit SUM
   checks use a privately owned read-only transaction on verified project-local
-  base tables; the temporary 64 MiB file cap applies only to grain-key and SUM
-  checks, not row count,
+  base tables; the unreleased M8.1.2 project policy removes the default
+  footprint cap for all nine families and enforces optional authored limits,
 - metadata fetching, materialization/staging,
   probabilistic key-diff, and result/evidence sink writes are not implemented
   yet.
@@ -771,3 +771,25 @@ predicate; scalar and public compile/detail SQL are unchanged. The
 one-row summary and privacy contract are unchanged. This is not a resource
 limit or portable collation guarantee. The known DuckDB 1.0.0 grouped
 collation gap remains explicitly assigned to mandatory M9.5.
+
+## Platform and deployment resource conformance
+
+All adapter candidates and expansions must apply [Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) before scoped experimental admission and official promotion, and upon relevant platform, engine, dependency, permission or deployment changes. Core policy uses actual verified capabilities, not an OS/version allowlist. Adapter-native observations and controls preserve scope, provenance, unknown and unsupported states; optional unavailable facts warn only when independently safe, equivalent verified mechanisms may be used at the same scope, and unproven required protection refuses affected work. Native failure is ERROR. Provide actionable privacy-safe advice through normal diagnostics; no silent downgrade or altered comparison meaning. M29 shared test kit must cover P1-P6 semantics and candidate-specific native proof; remote and distributed adapters do not inherit local DuckDB mechanisms. This planning requirement does not add public adapter signatures or certify any capability.
+
+
+## Scoped operational policy checkpoint (implemented; unreleased)
+
+M8.1.2 owns adapter-scoped project defaults, selected target adapter defaults
+and named connection overrides, atomic logical-setting replacement/reset,
+selected-only validation, policy separation from connection identity and
+credentials, same-context alias conflict handling and both execution modes.
+Preserve existing profile/adapter and plain parse/compile contracts. Gate 4L
+with 4I/4J/8C requires actual positive/negative tests. M8.2 owns cumulative
+resource lifecycle; M8.3 C10 policy provenance; M10.5/10.6 freshness and
+selection; M10.7 guidance; M10.8 local scope restoration; M11-M13 native
+adapter settings; M13.5 multi-context/transfer; M18 query non-bypass; M28
+typed env/CLI overrides and hard admin-limit precedence; M29 shared native
+conformance; M32 integrations; M40 hosted quota/authorization. No universal
+DuckDB settings, premature API or new milestone. No gate closure.
+
+See [current prework](../planning/milestone-8-1-2-prework.md#exact-proposed-policy-and-configuration).

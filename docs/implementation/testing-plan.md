@@ -253,7 +253,7 @@ Future result, evidence, state, sink, probabilistic, and adapter conformance mat
 | Dimension | Owning milestone | Cases | Expected behavior | Test coverage | Docs or gate impact | Out-of-scope rationale |
 | --- | --- | --- | --- | --- | --- | --- |
 | Scan-budget configuration and execution advisories | 8.1 | Config validation/precedence, bounded local admission, trustworthy non-executing estimates, unknown/over-budget, scan versus returned/transfer size, workload/cost limitations, warning versus hard block, safe recommendations. | Preserve supported semantics; no scan after hard block and no silent scope change. | Config, scan guard, policy and runtime admission tests; advisory redaction and no-auto-rewrite tests. | Gate 4L, 4I, 3F2, 6, applicable adapter gates; ADR 0025 and ADR 0026; historical cases in [reopened phase prework](../planning/milestone-8-1-prework.md); revise A1-A13 before coding. | Engine-specific production estimates and deeper suggestions remain later work. |
-| Local resource policy and calibrated admission | 8.1 | Hardware/cgroup, RAM/CPU/disk, native controls across pins, large efficient and small expensive fixtures, compression/skew/repeated scans, unknown evidence, overrides. | Useful measured defaults, no arbitrary footprint restriction or false resource guarantees. | Expanded A10-A13 and existing cases; bounded version-pinned probes. | Gate 4L/4I/4B/4J/8C; reopened ADR 0026. | Exact policy pending design review. |
+| Local resource policy and calibrated admission | 8.1 | Hardware/cgroup, RAM/CPU/disk, native controls across pins, large efficient and small expensive fixtures, compression/skew/repeated scans, unknown evidence, overrides. | Useful measured defaults, no arbitrary footprint restriction or false resource guarantees. | Expanded A10-A13 and existing cases; bounded version-pinned probes. | Gate 4L/4I/4B/4J/8C; reopened ADR 0026. | Exact policy pending design review. Scoped configuration: test project/target/connection precedence, atomic setting replacement and reset, wrong adapter, unknown names, inactive/unreferenced values, same-context alias conflict, identity and factory payload invariance, parse/compile and injected loaders, private diagnostics. Approved percentage extension: test independent auto/fixed/relative memory and spill, strict 1-100 and conflicts, exact arithmetic and units, capacity increase/decrease at next check, unknown denominator refusal vs automatic advisory, fixed adjustment, native effects in both invocation modes; retain all other gates. |
 | Resource lifecycle | 8.2 | Deadlines, timeout/cancel confirmation, cumulative resources, concurrency, spill/connection cleanup and retries. | No hidden retry/escalation or false stopped outcome. | B8-B10, lifecycle tests. | Gate 5/4L/4I/3F2/6. | M8.1 must prove prerequisite controls first. |
 | Safe resource metadata | 8.3 | Effective policy, estimate/actual/unknown, enforcement, timeout/cancel/cleanup and privacy. | Safe allowlist and truthful outcomes. | C10, artifact and CLI tests. | Gate 5/5E/4L/6. | No raw host/plan/data metadata. |
 | Native resource and workload conformance | 11-13, 12.5, 29 | PostgreSQL/Snowflake native controls/evidence, richer analysis, cross-adapter safety/performance. | No universal cost score or unsupported claims. | Experimental checkpoint tests and shared conformance. | Gate 4L/4I/3L/8/8C; [assignments](../planning/execution-resource-safety-assignments.md). | Preserve prior regressions. |
@@ -651,3 +651,51 @@ finding is assigned to M9.5 by maintainer approval; preserve explicit
 four-pin differential evidence here without new exclusions. Implementation
 was separately approved; final acceptance, cumulative review and exit
 approval remain required.
+
+## Platform and dependency compatibility
+
+[Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) is a mandatory native and shared-conformance requirement. The tested matrix describes evidence, not a runtime version allowlist.
+
+The approved native-first implementation retains outcome-based compatibility
+testing; mechanism-specific retain/replace/retire dispositions are recorded
+in M8.1.2 prework and regression capture metadata. Native control effects, shared-session
+noninterference, actual scratch privacy, correct outcomes and graceful
+degradation remain mandatory. M8.1.2 owns the first persistent local-resource compatibility workflow, before
+exit. Keep existing required semantic/pinned-engine CI. On resource/native lifecycle,
+dependency, OS/runner or compatibility changes and before release/promotion,
+run targeted representative native platform coverage (including actual
+control effects, bounded transport and cleanup), not just import checks.
+Maintain distinct older/current pinned supported releases where runner
+availability permits, plus rolling latest OS and resolvable recent compatible
+dependencies; confirm actual release/build, architecture, Python and
+dependency/engine version from each job. Select a risk-based matrix: native
+minimum/current engine and dependency versions, Python 3.11-3.13 current
+declared test lanes, representative platform and architecture intersections,
+with extra combinations for affected controls. Do not count aliases as
+different OS releases or automatically drop prior supported regressions.
+Use isolated bounded fixtures and no customer data.
+
+The native-resource-compatibility.yml workflow implements monthly cadence,
+manual dispatch, relevant PR/main changes and release tags. Its initial
+nine-lane exact proof is recorded in the compatibility matrix; preserve
+standard required CI and revalidate the final milestone revision. New releases and runner
+image/label retirement, reported compatibility failures, or a relevant
+dependency update require reevaluation rather than waiting for the next
+schedule. Check scheduled runs are enabled and actually ran; record missed
+runs, unavailable platforms and proof gaps, use equivalent environments as
+needed. Rolling failures require triage and capture, not silent suppression;
+known supported regressions block relevant release/exit. Unsupported or
+untested environments are not automatically refused at runtime; prove
+required controls independently. A new version without a suitable CI image
+must not be listed as verified solely because a synthetic test passed.
+
+Exercise unknown future versions, unavailable/denied/malformed observations,
+partially available facts, actual equivalent controls, missing required
+controls, and warnings in terminal/captured logs without changing check
+status, exit categories, privacy or scope. For each adapter distinguish
+client OS/driver, server/warehouse/cluster versions and deployment constraints;
+apply only relevant native tests, with documented rationale. M10 readiness,
+experimental adapter admission, M29 certification, and subsequent changes
+must verify the matrix and unresolved P1-P6 obligations. Record evidence
+and regression captures using existing metadata and compatibility matrix;
+no parallel tracker.

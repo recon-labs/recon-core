@@ -34,6 +34,7 @@ from tests.services._run_service_fixtures import (
     _duckdb_module,
     _key_safety_payload_for,
     _service_result_text,
+    _without_scope_advisory,
     row_count_plan,
     write_compiled_checks,
     write_compiled_contract,
@@ -436,6 +437,8 @@ def test_aggregate_scan_safety_blocks_before_adapter_setup(
             connection.close()
 
     write_duckdb_row_count_run_inputs(tmp_path, database)
+    if fixture == "oversized":
+        _set_project_duckdb_execution(tmp_path, {"max-database-mib": 64})
     write_compiled_checks(tmp_path, checks=[_aggregate_check(grouped=grouped)])
     factory = _TrackingAggregateFactory()
     registry = AdapterRegistry()
@@ -449,7 +452,12 @@ def test_aggregate_scan_safety_blocks_before_adapter_setup(
         if fixture == "oversized"
         else "RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED"
     )
-    assert [diagnostic.code for diagnostic in result.diagnostics] == [expected_code]
+    diagnostics = (
+        _without_scope_advisory(result.diagnostics)
+        if fixture in {"view", "missing_table"}
+        else result.diagnostics
+    )
+    assert [diagnostic.code for diagnostic in diagnostics] == [expected_code]
     assert "grain-key" not in _service_result_text(result).lower()
     count = 1 if fixture in {"view", "missing_table"} else 0
     assert len(factory.adapters) == count
@@ -816,6 +824,7 @@ def _assert_native_aggregate_result(
     ],
 )
 @pytest.mark.regression_capture("aggregate-native-service-numeric-semantics")
+@pytest.mark.regression_capture("duckdb-worker-lossless-result-transport")
 def test_native_aggregate_service_numeric_outcomes_and_privacy(
     tmp_path: Path,
     grouped: bool,
@@ -1546,25 +1555,32 @@ def test_aggregate_rejects_wrong_factory_connection_before_open(
     _assert_no_runtime_outputs(tmp_path)
 
 
+def _set_project_duckdb_execution(path: Path, settings: dict[str, object]) -> None:
+    project_path = path / "recon_project.yml"
+    project = yaml.safe_load(project_path.read_text(encoding="utf-8"))
+    project["execution"] = {"adapters": {"duckdb": settings}}
+    project_path.write_text(yaml.safe_dump(project, sort_keys=False), encoding="utf-8")
+
+
 @pytest.mark.parametrize("offset", [-1, 0, 1])
-@pytest.mark.parametrize("family", ["row", "key", "scalar", "grouped"])
+@pytest.mark.parametrize("family", range(9))
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
-def test_legacy_footprint_policy(
-    tmp_path: Path, offset: int, family: str, session_trace: _NativeSessionTrace
+def test_explicit_footprint_policy(
+    tmp_path: Path, offset: int, family: int, session_trace: _NativeSessionTrace
 ) -> None:
     database = tmp_path / "warehouse.duckdb"
     with database.open("wb") as stream:
         stream.truncate(64 * 1024 * 1024 + offset)
     write_duckdb_row_count_run_inputs(tmp_path, database)
-    payload = {
-        "row": _compiled_check_payload(operations=row_count_plan()),
-        "key": _key_safety_payload_for("missing_keys"),
-        "scalar": _aggregate_check(),
-        "grouped": _aggregate_check(grouped=True),
-    }[family]
-    write_compiled_checks(tmp_path, checks=[payload])
-    # The sparse file is only file-size evidence, not a valid database.
-    # Observe whether admission permits an open attempt without reading it.
+    _set_project_duckdb_execution(tmp_path, {"max-database-mib": 64})
+    payloads = [
+        _compiled_check_payload(operations=row_count_plan()),
+        *_all_key_safety_checks(),
+        _aggregate_check(),
+        _aggregate_check(grouped=True),
+    ]
+    write_compiled_checks(tmp_path, checks=[payloads[family]])
+    # A sparse file supplies only size evidence; no data read is possible.
     session_trace.failures[1] = "connect"
     engine = _CapturingAggregateEngine()
     result = RunService(
@@ -1575,7 +1591,7 @@ def test_legacy_footprint_policy(
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
     check = engine.result.contract_results[0].check_results[0]
-    if offset > 0 and family != "row":
+    if offset > 0:
         assert check.status is CheckStatus.NOT_EXECUTABLE
         assert "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics}
         assert session_trace.sessions == []
@@ -1588,8 +1604,8 @@ def test_legacy_footprint_policy(
 
 
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
-def test_large_native_database_does_not_cap_row_count(
-    tmp_path: Path, session_trace: _NativeSessionTrace
+def test_large_native_database_without_default_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, session_trace: _NativeSessionTrace
 ) -> None:
     database = _write_native_aggregate_inputs(
         tmp_path,
@@ -1600,8 +1616,7 @@ def test_large_native_database_does_not_cap_row_count(
     duckdb = _duckdb_module()
     writer = duckdb.connect(str(database))
     try:
-        # Deterministic high-entropy UBIGINT columns keep this synthetic
-        # fixture above the legacy cap without making the checked tables large.
+        # High-entropy synthetic padding makes the file exceed the old cap.
         columns = ", ".join(f"hash(i * 10 + {j}) as c{j}" for j in range(10))
         writer.execute(f"create table padding as select {columns} from range(1250000) r(i)")
     finally:
@@ -1611,28 +1626,78 @@ def test_large_native_database_does_not_cap_row_count(
         tmp_path,
         checks=[
             _compiled_check_payload(operations=row_count_plan()),
-            _key_safety_payload_for("missing_keys"),
+            *_all_key_safety_checks(),
             _aggregate_check(),
             _aggregate_check(grouped=True),
         ],
     )
+    before = database.stat()
     engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.result is not None
+    checks = engine.result.contract_results[0].check_results
+    assert len(checks) == 9
+    assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
+    assert checks[0].source_value == checks[0].target_value == 1
+    assert len(session_trace.sessions) == len(session_trace.closes) == 9
+    monkeypatch.chdir(tmp_path)
+    assert CliRunner().invoke(main, ["run"]).exit_code == 0
+    assert len(session_trace.sessions) == len(session_trace.closes) == 18
+
+    _set_project_duckdb_execution(tmp_path, {"max-database-mib": 64})
     result = RunService(start_path=tmp_path, engine=engine).execute()
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
-    row, *heavy = engine.result.contract_results[0].check_results
-    assert row.status is CheckStatus.PASS
-    assert row.source_value == row.target_value == 1
-    assert all(check.status is CheckStatus.NOT_EXECUTABLE for check in heavy)
+    checks = engine.result.contract_results[0].check_results
     assert all(
-        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics} for check in heavy
+        check.status is CheckStatus.NOT_EXECUTABLE and not check.executed for check in checks
     )
-    assert len(session_trace.sessions) == len(session_trace.closes) == 1
-    assert len(session_trace.row_queries) == 1
-    assert session_trace.aggregate_columns == []
+    assert all(
+        "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in {d.code for d in check.diagnostics} for check in checks
+    )
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 3 and "RC_RUNTIME_SCAN_BUDGET_EXCEEDED" in cli.output
+    assert len(session_trace.sessions) == len(session_trace.closes) == 18
+    assert database.stat().st_size == before.st_size
+    assert database.stat().st_mtime_ns == before.st_mtime_ns
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize("threshold", [1, 2, 3])
+@pytest.mark.parametrize("same_relation", [False, True])
+def test_optional_native_input_row_estimate_is_role_summed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, threshold: int, same_relation: bool
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=False,
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    if same_relation:
+        write_compiled_contract(tmp_path, target_relation="qa.source_customers")
+    _set_project_duckdb_execution(tmp_path, {"warn-estimated-input-rows": threshold})
+    result = RunService(start_path=tmp_path).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    warnings = [
+        d for d in result.diagnostics if d.code == "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY"
+    ]
+    assert bool(warnings) is (threshold < 2)
+    assert all(d.severity is DiagnosticSeverity.WARNING for d in warnings)
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 0
+    assert ("RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY" in cli.output) is (threshold < 2)
+    assert "qa.source_customers" not in cli.output
+    assert "qa.target_customers" not in cli.output
+    _assert_no_runtime_outputs(tmp_path)
 
 
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
+@pytest.mark.regression_capture("duckdb-worker-bound-session-scope")
 def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1659,12 +1724,16 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         native.close()
     before = database.read_bytes()
     sessions: list[list[str]] = []
+    guards: list[list[str]] = []
+    closures: list[str] = []
+    scratch_paths: list[Path] = []
 
     class Connection:
-        def __init__(self, connection: Any) -> None:
+        def __init__(self, connection: Any, *, actor: bool) -> None:
             self.connection = connection
+            self.actor = actor
             self.statements: list[str] = []
-            sessions.append(self.statements)
+            (sessions if actor else guards).append(self.statements)
 
         def execute(self, query: str, *args: Any, **kwargs: Any) -> Any:
             self.statements.append(query)
@@ -1673,11 +1742,20 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         def close(self) -> None:
             self.connection.close()
             self.statements.append("CLOSE")
+            closures.append("actor" if self.actor else "guard")
 
-    def connect(path: str, *, read_only: bool) -> Connection:
+    def connect(
+        path: str, *, read_only: bool = False, config: dict[str, str] | None = None
+    ) -> Connection:
+        if path == ":memory:":
+            assert not read_only and config is not None
+            scratch = Path(config["temp_directory"])
+            assert scratch.is_dir()
+            scratch_paths.append(scratch)
+            return Connection(duckdb.connect(path, config=config), actor=True)
         assert path == str(database)
-        assert read_only is True
-        return Connection(duckdb.connect(path, read_only=read_only))
+        assert read_only is True and config is None
+        return Connection(duckdb.connect(path, read_only=read_only), actor=False)
 
     monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
     engine = _CapturingAggregateEngine()
@@ -1685,10 +1763,24 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     assert result.exit_category is ExitCategory.SUCCESS
     assert engine.result is not None
     checks = engine.result.contract_results[0].check_results
-    assert len(checks) == len(sessions) == 9
+    assert len(checks) == len(sessions) == len(guards) == 9
     assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
-    for check, statements in zip(checks, sessions, strict=True):
-        assert statements[0] == "BEGIN TRANSACTION"
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 0
+    assert len(sessions) == len(guards) == len(scratch_paths) == 18
+    assert len(set(scratch_paths)) == 18
+    assert all(not path.exists() for path in scratch_paths)
+    assert closures == ["actor", "guard"] * 18
+    assert str(database) not in cli.output and str(tmp_path) not in cli.output
+    for check, statements, guard in zip(checks * 2, sessions, guards, strict=True):
+        assert guard[-1] == "CLOSE" and "BEGIN TRANSACTION" not in guard
+        start = statements.index("BEGIN TRANSACTION")
+        assert any("ATTACH " in statement for statement in statements[:start])
+        assert any(
+            "current_setting('temp_directory')" in statement for statement in statements[:start]
+        )
+        statements = statements[start:]
         assert statements[-2:] == ["ROLLBACK", "CLOSE"]
         assert statements[1] == statements[3] == "pragma database_list"
         assert all("information_schema.tables" in statements[i] for i in (2, 4))
@@ -1748,3 +1840,180 @@ def test_binding_drift_between_aggregate_guards_stops_final_read(
         sidecar.unlink(missing_ok=True)
     writer = _duckdb_module().connect(str(database))
     writer.close()
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+def test_unavailable_catalog_estimate_is_advisory_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("1::INTEGER"),
+        target_sql=_native_row("1::INTEGER"),
+        grouped=False,
+    )
+    write_compiled_checks(tmp_path, checks=[_compiled_check_payload(operations=row_count_plan())])
+    _set_project_duckdb_execution(tmp_path, {"warn-estimated-input-rows": 1})
+    monkeypatch.setattr(binding, "_catalog_estimated_rows", lambda connection, relation: None)
+    engine = _CapturingAggregateEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.result is not None
+    check = engine.result.contract_results[0].check_results[0]
+    assert check.status is CheckStatus.PASS and check.executed
+    assert check.source_value == check.target_value == 1
+    codes = {d.code for d in result.diagnostics}
+    assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY" not in codes
+    unknown = [d for d in result.diagnostics if d.code == "RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN"]
+    assert len(unknown) == 1
+    assert unknown[0].severity is DiagnosticSeverity.WARNING and unknown[0].hint
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 0
+    assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN" in cli.output
+    assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY" not in cli.output
+    assert "qa.source_customers" not in cli.output and str(tmp_path) not in cli.output
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize("mode", ["auto", "percent", "fixed", "auto-threads"])
+def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    from fractions import Fraction
+
+    from recon_core.adapters._local_resource_observation import (
+        _LinuxConstraints,
+        _LocalObservation,
+    )
+    from recon_core.adapters.duckdb._native_resource_controls import _parse_native_size
+
+    database = _write_native_aggregate_inputs(
+        tmp_path,
+        source_sql=_native_row("5::INTEGER"),
+        target_sql=_native_row("5::INTEGER"),
+        grouped=False,
+    )
+    duckdb = _duckdb_module()
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(operations=row_count_plan()),
+            _aggregate_check(),
+            _aggregate_check(grouped=True),
+        ],
+    )
+    scratch = tmp_path / "private-scratch"
+    scratch.mkdir()
+    settings: dict[str, object] = {"scratch-directory": "private-scratch", "threads": 1}
+    if mode == "auto-threads":
+        settings.pop("threads")
+    if mode == "percent":
+        settings.update({"managed-memory": {"percent": 75}, "spill": {"percent": 75}})
+    elif mode == "fixed":
+        settings.update({"managed-memory": {"mib": 192}, "spill": {"mib": 192}})
+    _set_project_duckdb_execution(tmp_path, settings)
+    capacities = [(256, 512), (1024 if mode == "auto-threads" else 512, 1024), (128, 128)]
+    observations: list[Path] = []
+    observed_targets: list[tuple[int, int]] = []
+    observed_threads: list[int] = []
+
+    def observe(path: Path) -> _LocalObservation:
+        memory, disk = capacities[len(observations) % len(capacities)]
+        assert path.parent == scratch.resolve() and path.is_dir()
+        observations.append(path)
+        return _LocalObservation(
+            host_available_bytes=2048 << 20,
+            platform_cpu_count=8,
+            affinity_count=4,
+            linux_constraints=_LinuxConstraints(
+                memory_headroom_bytes=memory << 20,
+                cpu_capacity=Fraction(3, 2),
+                memory_incomplete=False,
+                cpu_incomplete=False,
+            ),
+            scratch_free_bytes=disk << 20,
+            scratch_memory_backed=False,
+            platform="linux",
+        )
+
+    original_open = binding._OwnedDuckDbSession.open
+    original_recommendations = binding._read_native_recommendations
+
+    def recommendations(native: Any) -> Any:
+        # Deterministic native recommendation clamp; actual setting application
+        # and actual project query execution are not mocked.
+        actual = original_recommendations(native)
+        if mode == "auto-threads":
+            return type(actual)(memory_bytes=800 << 20, threads=4)
+        return type(actual)(memory_bytes=200 << 20, threads=actual.threads)
+
+    def open_session(session: binding._OwnedDuckDbSession) -> None:
+        original_open(session)
+        request = session._native_controls
+        assert request is not None
+        assert request.memory_bytes is not None and request.spill_bytes is not None
+        native = session._connection
+        memory = _parse_native_size(
+            native.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+        )
+        spill = _parse_native_size(
+            native.execute("SELECT current_setting('max_temp_directory_size')").fetchone()[0]
+        )
+        assert memory is not None and memory.contains(request.memory_bytes)
+        assert spill is not None and spill.contains(request.spill_bytes)
+        assert request.threads is not None
+        assert native.execute("SELECT current_setting('threads')").fetchone() == (request.threads,)
+        observed_threads.append(request.threads)
+        observed_targets.append((request.memory_bytes, request.spill_bytes))
+
+    monkeypatch.setattr(binding, "_observe_local_resources", observe)
+    monkeypatch.setattr(binding, "_read_native_recommendations", recommendations)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+    observer = duckdb.connect(str(database), read_only=True)
+    query = (
+        "SELECT current_setting('memory_limit'), current_setting('threads'), "
+        "current_setting('temp_directory'), current_setting('max_temp_directory_size')"
+    )
+    before = observer.execute(query).fetchone()
+    try:
+        engine = _CapturingAggregateEngine()
+        result = RunService(start_path=tmp_path, engine=engine).execute()
+        assert result.exit_category is ExitCategory.SUCCESS
+        assert engine.result is not None
+        checks = engine.result.contract_results[0].check_results
+        assert len(checks) == 3
+        assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
+        assert any("controller scope is incomplete" in d.message for d in result.diagnostics)
+        parallelism = [d for d in result.diagnostics if "Automatic threads reduced" in d.message]
+        assert len(parallelism) == (1 if mode == "auto-threads" else 0)
+        assert all(d.severity is DiagnosticSeverity.WARNING and d.hint for d in parallelism)
+        monkeypatch.chdir(tmp_path)
+        cli = CliRunner().invoke(main, ["run"])
+        assert cli.exit_code == 0
+        assert "controller scope is incomplete" in cli.output
+        assert ("Automatic threads reduced" in cli.output) is (mode == "auto-threads")
+        assert observer.execute(query).fetchone() == before
+        assert observer.execute("SELECT count(*) FROM qa.source_customers").fetchone() == (1,)
+    finally:
+        observer.close()
+    mib = 1 << 20
+    expected = {
+        "auto": [
+            (128 * mib, 512 * mib * 9 // 10),
+            (200 * mib, 1024 * mib * 9 // 10),
+            (64 * mib, 128 * mib * 9 // 10),
+        ],
+        "percent": [(192 * mib, 384 * mib), (384 * mib, 768 * mib), (96 * mib, 96 * mib)],
+        "fixed": [(192 * mib, 192 * mib), (192 * mib, 192 * mib), (128 * mib, 128 * mib)],
+        "auto-threads": [
+            (128 * mib, 512 * mib * 9 // 10),
+            (512 * mib, 1024 * mib * 9 // 10),
+            (64 * mib, 128 * mib * 9 // 10),
+        ],
+    }[mode]
+    assert observed_targets == expected * 2
+    assert observed_threads == ([1, 2, 1] if mode == "auto-threads" else [1, 1, 1]) * 2
+    assert len(set(observations)) == 6
+    assert not list(scratch.iterdir())
+    _assert_no_runtime_outputs(tmp_path)

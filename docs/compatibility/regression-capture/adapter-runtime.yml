@@ -414,8 +414,8 @@ captures:
       - tests/adapters/test_duckdb_bound_execution.py::test_mismatched_table_metadata_is_invalid_evidence
       - tests/services/test_run_service_bound_execution.py::test_actual_session_and_aliases_writer_conflict
       - tests/services/test_run_service_aggregate_admission.py::test_all_nine_checks_use_owned_transaction_and_qualified_queries
-      - tests/services/test_run_service_aggregate_admission.py::test_legacy_footprint_policy
-      - tests/services/test_run_service_aggregate_admission.py::test_large_native_database_does_not_cap_row_count
+      - tests/services/test_run_service_aggregate_admission.py::test_explicit_footprint_policy
+      - tests/services/test_run_service_aggregate_admission.py::test_large_native_database_without_default_cap
       - tests/adapters/test_duckdb_bound_execution.py::test_file_drift_invalidates_active_lease
       - tests/adapters/test_duckdb_bound_execution.py::test_quoted_relation_and_temp_shadow_keep_exact_binding
       - tests/services/test_run_service_aggregate_admission.py::test_binding_drift_between_aggregate_guards_stops_final_read
@@ -471,3 +471,464 @@ captures:
       Keep strict unbound and public rendering, ordered guards, native numeric
       domains and the full bounded summary; missing private collaborators fail
       closed. Native performance and semantic proof remain mandatory.
+  - id: local-adaptive-resource-targets
+    title: Adaptive local managed targets honor effective headroom and uncertainty
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: core_runtime_policy
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_local_resource_targets.py::test_adaptive_targets_follow_effective_environment
+      - tests/check_engine/test_local_resource_targets.py::test_automatic_parallelism_uses_known_managed_memory_without_admission_floor
+      - tests/check_engine/test_local_resource_targets.py::test_memory_aware_threads_preserve_authored_memory_modes
+      - tests/services/test_run_service_bound_execution.py::test_project_run_alias_policy_uses_resolved_scratch_and_precedence
+      - tests/services/test_run_service_bound_execution.py::test_project_resource_advisories_are_safe_and_do_not_change_outcome
+      - tests/services/test_run_service_bound_execution.py::test_future_platform_observation_label_does_not_refuse_verified_native_scope
+      - tests/services/test_run_service_aggregate_admission.py::test_optional_native_input_row_estimate_is_role_summed
+      - tests/services/test_run_service_aggregate_admission.py::test_unavailable_catalog_estimate_is_advisory_only
+      - tests/services/test_run_service_aggregate_admission.py::test_fresh_native_targets_for_each_check_and_both_invocation_paths
+      - tests/adapters/test_duckdb_bound_execution.py::test_optional_catalog_estimate_validates_native_shape
+      - tests/adapters/test_duckdb_bound_execution.py::test_optional_estimates_follow_check_roles
+      - tests/adapters/test_duckdb_bound_execution.py::test_optional_catalog_estimate_unknown_and_overflow
+      - tests/check_engine/test_local_resource_targets.py::test_unknown_is_not_zero_or_unlimited
+      - tests/check_engine/test_local_resource_targets.py::test_memory_backed_scratch_cannot_double_count_headroom
+      - tests/check_engine/test_local_resource_targets.py::test_relative_targets_follow_changing_capacity
+      - tests/check_engine/test_local_resource_targets.py::test_percentage_targets_floor_exactly
+      - tests/check_engine/test_local_resource_targets.py::test_fixed_targets_only_reduce_at_known_capacity
+      - tests/check_engine/test_local_resource_targets.py::test_automatic_memory_uses_available_headroom_and_native_recommendation
+      - tests/check_engine/test_local_resource_targets.py::test_unknown_explicit_percentage_denominator_refuses
+      - tests/check_engine/test_local_resource_targets.py::test_unknown_capacity_preserves_independent_explicit_fixed_requests
+      - tests/check_engine/test_local_resource_targets.py::test_missing_cpu_hint_keeps_native_recommendation
+      - tests/check_engine/test_local_resource_targets.py::test_memory_and_spill_choose_modes_independently
+      - tests/check_engine/test_local_resource_targets.py::test_zero_percentage_capacity_is_known_zero
+      - tests/check_engine/test_local_resource_targets.py::test_relative_memory_backed_spill_does_not_double_count_capacity
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: adaptive_resource_policy
+        rationale: Shared conformance requires native evidence for each adapter; the pure calculation does not prove control enforcement.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
+      - docs/planning/execution-resource-safety-assignments.md: R2-R4
+    notes: >
+      Preserve known zero versus unavailable evidence, independently bounded
+      hardware headroom, adapter-specific tuning, and memory-backed scratch
+      accounting. Native automatic settings do not prove effective limits.
+      Additional measured fraction comparison CI 46021219113 retains 50% over
+      25% with memory-aware threads; lower memory did not improve outcomes.
+      Focused measured reassessment CI 46020054117 and actual implementation
+      calibration 46020823693: memory-aware automatic parallelism improves
+      repeated large constrained workloads while preserving capable machine
+      throughput; small wide and explicit high-memory settings can still
+      suffer kernel OOM. Retain the measured 125 decimal MB/thread heuristic
+      as automatic tuning only, explicit overrides and unknown/zero behavior.
+      Revalidate constrained/capable narrow/wide and tmpfs workloads on
+      tuning/native/deployment change, distinguish native ERROR and OS kill.
+      Measured calibration CI 46015981225, 46016305450, 46016574334:
+      confirmed intermittent kernel OOM at automatic native-bounded settings
+      and at a fixed one-thread costly workload; see approved prework open
+      Step 7B decision. Recheck actual constrained/capable and memory-backed
+      workloads when changing resource defaults or native versions. Do not
+      infer hard memory containment or successful cleanup after abrupt exit.
+      Approved design extension: retain automatic and fixed targets; require
+      relative memory/spill mode validation, mutual exclusion, exact flooring,
+      unknown denominator refusal versus automatic advisory, capacity growth
+      and shrinkage per check, native effects and both invocation modes.
+      Require adapter-scoped project/target/connection precedence, atomic modes
+      and reset, inactive/unreferenced isolation, wrong adapter/unknown names,
+      same-context alias conflict, native connection identity and factory payload
+      invariance, plain parse/compile compatibility and sanitized diagnostics.
+      Pure target calculation now belongs to the private DuckDB adapter owner;
+      obsolete reserve and speculative native spill ceiling arithmetic retired.
+      Existing applicable outcomes retained and new calculation nodes listed.
+      Exact GREEN, native unit/effect and carryover proof remain required.
+  - id: local-resource-observation-hierarchy
+    title: Local resource observation preserves matched visible headroom and missing evidence
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_local_resource_observation.py::test_effective_memory_evidence_visible_headroom
+      - tests/adapters/test_local_resource_observation.py::test_missing_visible_limit_is_not_unlimited
+      - tests/adapters/test_local_resource_observation.py::test_visible_v2_scope_reads_only_matched_membership
+      - tests/adapters/test_local_resource_observation.py::test_ambiguous_v2_mount_mapping_does_not_guess
+      - tests/adapters/test_local_resource_observation.py::test_v1_controller_is_optional_unknown_not_guessed
+      - tests/adapters/test_local_resource_observation.py::test_visible_v2_memory_probe_failure_preserves_cpu
+      - tests/adapters/test_local_resource_observation.py::test_unusable_or_unlimited_cpu_hint_preserves_memory
+      - tests/adapters/test_local_resource_observation.py::test_visible_v2_memory_is_saturated_or_unknown
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: local_resource_observation
+        rationale: Native controls and full environment scope still require capability-specific conformance; preserve these facts and uncertainty.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
+      - docs/planning/execution-resource-safety-assignments.md: R2
+    notes: >
+      Use one unambiguously mapped visible cgroup-v2 scope, not host total.
+      Unknown or unlimited at that scope does not prove all ancestor limits.
+      Preserve independent facts; no exhaustive hierarchy or v1 inspection.
+      Real constrained/native and cross-platform proof remains required.
+  - id: portable-resource-observation-uncertainty
+    title: Portable host and process observations preserve independent scope
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_portable_resource_observation.py::test_portable_facts_preserve_available_memory_and_affinity
+      - tests/adapters/test_portable_resource_observation.py::test_windows_host_hints_are_not_complete_process_scope
+      - tests/adapters/test_portable_resource_observation.py::test_portable_observation_does_not_require_process_memory_inspection
+      - tests/adapters/test_portable_resource_observation.py::test_portable_observation_does_not_probe_os_job_or_rlimit_apis
+      - tests/adapters/test_portable_resource_observation.py::test_optional_provider_load_failure_is_not_fatal
+      - tests/adapters/test_portable_resource_observation.py::test_memory_probe_failure_does_not_erase_affinity
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: local_resource_observation
+        rationale: Portable facts are not proof of complete execution scope or native enforcement.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
+      - docs/planning/execution-resource-safety-assignments.md: R2
+    notes: >
+      Optional host availability, affinity and filesystem hints are partial.
+      No process memory, Windows job/processor-group or rlimit inspection.
+      Never infer unlimited resources or physical quota proof from those hints.
+
+  - id: duckdb-native-resource-control-readback
+    title: DuckDB native assignment checks readback without claiming quota enforcement
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_native_size_display_interval
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_native_control_application
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_spill_setting_is_applied_after_connect
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_required_control_readback_mismatch
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_optional_automatic_controls_leave_native_settings_untouched
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_unavailable_optional_recommendations_do_not_invent_limits
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_automatic_spill_description_is_not_a_finite_limit
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_unrecognized_automatic_spill_is_not_verified
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_automatic_controls_still_require_private_scratch_readback
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_explicit_spill_failure_does_not_fall_back_to_automatic
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_actual_automatic_controls_keep_native_defaults
+      - tests/services/test_run_service_bound_execution.py::test_project_run_applies_selected_native_policy
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_controls
+        rationale: Assignment and readback are only one part of native resource conformance; actual effects, monitored scope, and isolation remain mandatory.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: Calculations and pressure behavior
+      - docs/planning/execution-resource-safety-assignments.md: R3
+    notes: >
+      Startup spill settings can report the requested value without applying
+      the control. Apply the native SET before transaction and metadata work.
+      Preserve rounded byte intervals, exact integer thread evidence and
+      sanitized failures; readback alone never proves physical quota.
+      Replacement test-first cases require independent optional native defaults,
+      no silent fallback for explicit controls, known automatic spill reporting
+      and required scratch verification. Actual native zero-spill effect remains
+      mandatory before enabling no-spill execution.
+
+  - id: duckdb-native-spill-setting-effect
+    title: Post-connect managed spill limit affects a known spilling workload
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_native_resource_controls.py::test_native_spill_setting_effect_not_readback
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_controls
+        rationale: The synthetic native negative case is not full bound worker, pressure or physical quota proof.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A13 and native control effects
+    notes: >
+      The readback-only startup control regression is preserved with a real
+      post-connect SET effect case on the supported native pins. A controlled
+      native resource error is not a successful comparison or a hard disk quota.
+
+  - id: duckdb-worker-lossless-result-transport
+    title: Owned native numeric reads preserve exact values and bounded shapes
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_preserves_native_numeric_values
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_large_typed_integer_ignores_decimal_context
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_real_driver_arbitrary_integer_availability
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_rejects_invalid_envelope_without_leaking_values
+      - tests/adapters/test_duckdb_aggregate_transport.py::test_private_transport_real_driver_rejects_multiple_rows
+      - tests/services/test_run_service_aggregate_admission.py::test_native_aggregate_service_numeric_outcomes_and_privacy
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_bounded_result_transport
+        rationale: Future adapters must prove exact native domains and bounded result transport at their actual execution boundary.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A5 native bounded result outcomes
+    notes: >
+      The unreleased worker codec and frame-length mechanism were retired with the approved native-first path. Preserve exact integers, decimals, native nonfinite classification, invalid shape rejection and bounded native reads. No worker framing requirement.
+
+  - id: duckdb-bound-count-result-transport
+    title: Project count summaries reject malformed native rows with bounded reads
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_bound_execution.py::test_bound_count_reader_rejects_invalid_rows
+      - tests/adapters/test_duckdb_bound_execution.py::test_bound_count_reader_rejects_extra_columns_before_fetch
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_bounded_result_transport
+        rationale: Future adapters must prove bounded count reads at their actual native boundary.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A5 and worker transport
+    notes: >
+      Bound count reads use fetchmany(2), with operation-specific maximum
+      arity and exact integer values. Existing Core result-shape validation
+      remains authoritative and public low-level adapter reads are unchanged.
+
+  - id: duckdb-worker-control-protocol
+    title: Owned native lease rejects stale or mismatched execution proof
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_bound_execution.py::test_lease_invalidation
+      - tests/adapters/test_duckdb_bound_execution.py::test_scope_refusal_cannot_be_rebound
+      - tests/adapters/test_duckdb_bound_execution.py::test_aggregate_describe_cannot_bypass_invalidated_binding
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_binding_scope
+        rationale: Future adapters must prove single-use scope and stale-proof rejection with their own native mechanism.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A4 A5 A7 A13 and B8 native binding
+    notes: >
+      Retire unreleased IPC packet framing, bootstrap, replay sequence and watchdog-specific assertions. The native lease is single-use and rejects mismatched or invalidated scope before reads, including transport-generated DESCRIBE.
+
+  - id: duckdb-worker-process-lifecycle
+    title: Native interruption and confirmed release are distinct
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_bound_execution.py::test_native_interrupt_request_is_not_release
+      - tests/adapters/test_duckdb_bound_execution.py::test_native_interrupt_after_close_is_not_accepted
+      - tests/adapters/test_duckdb_bound_execution.py::test_actual_guarded_native_interrupt_during_spill
+      - tests/services/test_run_service_bound_execution.py::test_cleanup_failure_is_check_local_or_stops_native_execution
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_lifecycle
+        rationale: Future adapters require actual active native interruption, confirmed cleanup and affected-context isolation; broader invocation lifecycle belongs to M8.2.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: B8 and B9 native stop and cleanup
+    notes: >
+      The parked subprocess stop, reaping and parent EOF watchdog were retired. Native interrupt requests do not prove completion or release. Retain actual spill interruption, observer noninterference, confirmed native release and affected-context cleanup latch.
+
+  - id: duckdb-controlled-owned-session
+    title: Required native control verification precedes the owned transaction
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_bound_execution.py::test_owned_controls_precede_transaction_and_cleanup
+      - tests/adapters/test_duckdb_bound_execution.py::test_unverified_required_setting_prevents_transaction
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_preserves_catalog_and_reader
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_excludes_writer_without_observer
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_native_actor_does_not_close_guard_when_actor_close_unconfirmed
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_session_owns_scratch_until_confirmed_close
+      - tests/adapters/test_duckdb_bound_execution.py::test_guarded_session_refuses_missing_scratch_before_connect
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_controls
+        rationale: Native effect, owned scratch and cleanup must be proved by each adapter.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A13 and worker prerequisites
+    notes: >
+      The controlled owned session applies and checks native settings before
+      transaction work. Failed required verification is sanitized and leaves
+      the session unavailable for binding; native release is still required.
+
+  - id: duckdb-worker-bound-session-scope
+    title: Native project queries consume only the exact owned binding
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_duckdb_bound_execution.py::test_lease_invalidation
+      - tests/adapters/test_duckdb_bound_execution.py::test_scope_refusal_cannot_be_rebound
+      - tests/adapters/test_duckdb_bound_execution.py::test_lease_rejects_wrong_transport_family
+      - tests/adapters/test_duckdb_bound_execution.py::test_bound_query_reads_canonical_relation
+      - tests/services/test_run_service_aggregate_admission.py::test_all_nine_checks_use_owned_transaction_and_qualified_queries
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_binding_scope
+        rationale: Future adapters must preserve check, relation, session and operation binding with native execution proof.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A4 A5 A7 A13 and B8 native binding
+    notes: >
+      Retire worker-only generation, nonce and child proof fields. The native transaction owns an identity-only lease; invalid scope or wrong operation cannot execute. Actual project queries retain exact canonical relations, bounded shapes and one owned session per check.
+
+  - id: owned-scratch-two-lease-recovery
+    title: Current scratch is isolated and requires confirmed native close
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_independent_current_directories
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_requires_confirmed_native_close
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_lifecycle
+        rationale: Native scratch lifecycle must preserve independent owners and confirmed closure.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A10 and B9 native scratch
+    notes: >
+      Retire unreleased persistent two-lease recovery. Each check owns fresh private storage; no deletion until confirmed native close.
+
+  - id: owned-scratch-untrusted-retained
+    title: Unverified current scratch ownership never authorizes deletion
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_replaced_directory_is_not_deleted
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_cleanup_failure_is_safe_and_retained
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_cleanup_never_follows_unrelated_symlink
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_retains_storage_when_privacy_changes
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_lifecycle
+        rationale: Future adapters must verify current ownership and retain uncertain storage.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A10 and B9 native scratch
+    notes: >
+      Revalidate current directory and base identity and privacy; retain uncertain storage. Standard cleanup does not follow unrelated directory symlinks.
+
+  - id: owned-scratch-discovery
+    title: New checks never adopt or sweep abandoned scratch
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_never_adopts_or_sweeps_existing_storage
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_abrupt_exit_leaves_residue_without_blocking_next_check
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_lifecycle
+        rationale: Future adapters must prove no deletion of unrelated or unverified abandoned storage.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A10 and B9 native scratch
+    notes: >
+      Retire persistent discovery, markers and recovery. Abrupt exit may leave residue; future checks create independent private storage without adopting or sweeping it.
+
+  - id: windows-scratch-private-acl
+    title: Windows scratch directory privacy requires actual protected ACL evidence
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_protects_windows_directory_and_file
+      - tests/adapters/test_windows_scratch_security.py::test_native_private_directory_creation
+      - tests/adapters/test_windows_scratch_security.py::test_native_acl_broadening_is_rejected
+      - tests/adapters/test_windows_scratch_security.py::test_native_impersonation_cannot_authorize_process_namespace
+      - tests/adapters/test_windows_scratch_security.py::test_native_private_file_inheritance_and_explicit_acl
+      - tests/adapters/test_windows_scratch_security.py::test_native_file_acl_broadening_is_rejected
+      - tests/adapters/test_windows_scratch_security.py::test_native_file_owner_boundary
+      - tests/adapters/test_windows_scratch_security.py::test_native_security_handle_must_match_requested_object
+      - tests/adapters/test_windows_scratch_security.py::test_native_ancestor_permissions_distinguish_path_control
+      - tests/adapters/test_windows_scratch_security.py::test_native_ancestor_trusted_installer_identity_is_exact
+      - tests/adapters/test_windows_scratch_security.py::test_native_ancestor_owner_rights_follow_verified_owner
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_lifecycle
+        rationale: Native ACL privacy is platform-specific; current private directory and file inheritance proof remains required.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: B9 native scratch privacy
+    notes: >
+      Create with a protected inheritable owner grant, then verify the actual
+      owner and DACL through a directory handle. Mode bits and inherited
+      defaults alone do not prove Windows privacy.
+      Process identity does not authorize an impersonating thread; retain
+      uncertainty when the actual file-operation security context is not verified.
+      Inspect actual leaf ACLs as well as directories; inherited or explicit
+      owner-only file grants may qualify, but additional trustees do not.
+      Windows can assign the built-in Administrators group as the default
+      leaf owner; verify that exact privileged owner separately from the sole
+      user grant. Directory ownership remains strictly the current user.
+      Compare native volume and full file identifiers of independently opened
+      handles; reject mismatched, reparse, delete-pending or unexpected objects.
+      Ancestor ACL candidate distinguishes effective path-control grants from
+      harmless read/traverse/add-subdirectory and inherit-only entries;
+      unknown ACL shapes remain unqualified, not blanket platform refusal.
+      Recognize the exact Windows Modules Installer service SID for ancestors,
+      never arbitrary service SIDs or relaxed ownership of private objects.
+
+  - id: scratch-filesystem-scope-evidence
+    title: Optional scratch filesystem facts retain uncertainty
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_local_resource_observation.py::test_scratch_filesystem_evidence
+      - tests/adapters/test_local_resource_observation.py::test_observe_real_scratch_without_creating_files
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_observation
+        rationale: Future adapters need truthful optional storage facts without requiring exhaustive filesystem classification.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A10 and B9
+    notes: >
+      Retire mandatory opened-mount qualification of the unreleased recovery
+      mechanism. Optional filesystem type is not a privacy or physical disk
+      guarantee; unknown storage type alone does not refuse execution.
+
+  - id: scratch-namespace-qualification
+    title: Current scratch creation verifies private storage and trusted base
+    area: adapter-runtime
+    bug_class: scan_safety
+    owner_surface: adapter_runtime
+    severity: P2
+    current_tests:
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_requires_existing_directory
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_uses_private_posix_directory
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_rejects_unprotected_writable_base
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_removes_inherited_macos_grants
+      - tests/adapters/test_resource_scratch.py::test_darwin_acl_inspection_failure_is_uncertainty
+      - tests/adapters/test_resource_scratch.py::test_check_scratch_windows_base_permissions
+    carryover_gates:
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: native_resource_lifecycle
+        rationale: Platform-specific current directory privacy and cleanup require native conformance.
+    requirement_refs:
+      - docs/planning/milestone-8-1-2-prework.md: A10 and B9 native scratch
+    notes: >
+      Retire stable namespace and filesystem qualification machinery. Use existing trusted cooperative base, exclusive current directory creation, targeted native privacy proof and cleanup identity checks; no automatic recovery.

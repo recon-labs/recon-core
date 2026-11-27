@@ -5,11 +5,14 @@ from typing import Any
 
 import pytest
 import yaml
+from click.testing import CliRunner
 
 from recon_core.adapters import AdapterRegistry, AdapterResolutionResult, ConnectionConfig
+from recon_core.adapters._local_resource_observation import _LocalObservation
 from recon_core.adapters.duckdb import DuckDbAdapter
 from recon_core.adapters.duckdb import _bound_execution as binding
 from recon_core.check_engine import CheckEngine, CheckStatus, RunResult
+from recon_core.cli.main import main
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
@@ -86,10 +89,13 @@ class _CapturingEngine(CheckEngine):
         return self.result
 
 
-@pytest.mark.parametrize("uncertain_close", [False, True])
+@pytest.mark.parametrize(
+    ("uncertain_close", "reported"), [(False, True), (True, True), (True, False)]
+)
 @pytest.mark.regression_capture("project-binding-check-local-cleanup")
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
 def test_cleanup_failure_is_check_local_or_stops_native_execution(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain_close: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain_close: bool, reported: bool
 ) -> None:
     database = tmp_path / "warehouse.duckdb"
     duckdb = _duckdb_module()
@@ -147,6 +153,8 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
             # Real release keeps the synthetic fixture safe; inject the
             # uncertainty reported to the runner, not a real leaked handle.
             session._released = not uncertain_close
+            if not reported:
+                return diagnostics
             return diagnostics + (
                 Diagnostic(
                     code="RC_ADAPTER_CLOSE_FAILED",
@@ -167,6 +175,7 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     aliased = contracts["other_revenue"].check_results[0]
     assert malformed.status is CheckStatus.NOT_EXECUTABLE and not malformed.executed
     assert first.status is CheckStatus.ERROR
+    assert "RC_ADAPTER_CLOSE_FAILED" in {d.code for d in first.diagnostics}
     assert not first.executed
     assert first.source_value is None and first.target_value is None
     assert dependent.status is CheckStatus.BLOCKED
@@ -476,16 +485,12 @@ def test_native_failure_isolation_across_database_files(
     assert blocked.reason_code is not None and blocked.reason_code.value == "prerequisite_error"
     assert not blocked.executed
     assert opened == closed
-    if failure == "uncertain_close":
-        assert unrelated.status is CheckStatus.ERROR and not unrelated.executed
-        assert "RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE" in {d.code for d in unrelated.diagnostics}
-        assert len(opened) == 1
-        assert reads == opened
-    else:
-        assert unrelated.status is CheckStatus.PASS and unrelated.executed
-        assert unrelated.source_value == unrelated.target_value == 1
-        assert len(opened) == 2
-        assert reads == (opened[1:] if failure == "open" else opened)
+    # An uncertain close must latch only the affected file/context, not
+    # independent databases. The same-context alias test retains refusal.
+    assert unrelated.status is CheckStatus.PASS and unrelated.executed
+    assert unrelated.source_value == unrelated.target_value == 1
+    assert len(opened) == 2
+    assert reads == (opened[1:] if failure == "open" else opened)
     public = repr(engine.result.to_dict()) + repr(result.diagnostics)
     for token in ("private-first", "private-other", "private-native-query-error"):
         assert token not in public
@@ -621,3 +626,255 @@ def test_project_run_never_borrows_or_closes_supplied_connection(
         assert borrowed.execute("SELECT id FROM qa.source_customers").fetchall() == [(1,)]
     finally:
         borrowed.close()
+
+
+@pytest.mark.parametrize("missing_scratch", [False, True])
+@pytest.mark.regression_capture("duckdb-native-resource-control-readback")
+def test_project_run_applies_selected_native_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_scratch: bool
+) -> None:
+    from recon_core.adapters.duckdb._native_resource_controls import _parse_native_size
+
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    scratch = tmp_path / "scratch"
+    if not missing_scratch:
+        scratch.mkdir()
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    profile["profiles"]["local"]["outputs"]["dev"]["execution"] = {
+        "connections": {
+            "warehouse": {
+                "managed-memory": {"mib": 64},
+                "threads": 1,
+                "spill": {"mib": 32},
+                "scratch-directory": "scratch",
+            }
+        }
+    }
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    seen: list[Path] = []
+    original = binding._OwnedDuckDbSession._read_bound_query
+
+    def read(
+        session: binding._OwnedDuckDbSession,
+        lease: binding._BindingLease,
+        scope: binding._BindingScope,
+        query: str,
+    ) -> Any:
+        native = session._connection
+        memory = _parse_native_size(
+            native.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+        )
+        spill = _parse_native_size(
+            native.execute("SELECT current_setting('max_temp_directory_size')").fetchone()[0]
+        )
+        assert memory is not None and memory.contains(64 * 1024 * 1024)
+        assert spill is not None and spill.contains(32 * 1024 * 1024)
+        assert native.execute("SELECT current_setting('threads')").fetchone() == (1,)
+        owned = Path(native.execute("SELECT current_setting('temp_directory')").fetchone()[0])
+        assert owned.parent == scratch.resolve() and owned.is_dir()
+        assert session._guard is not None
+        seen.append(owned)
+        return original(session, lease, scope, query)
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "_read_bound_query", read)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    if missing_scratch:
+        assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
+        assert "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE" in {d.code for d in outcome.diagnostics}
+        assert not scratch.exists() and not seen
+    else:
+        assert result.exit_category is ExitCategory.SUCCESS
+        assert outcome.status is CheckStatus.PASS and outcome.executed
+        assert len(seen) == 1 and not seen[0].exists()
+        assert list(scratch.iterdir()) == []
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize("conflict", ["none", "memory", "scratch"])
+def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, conflict: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    scratch = tmp_path / "private-scratch"
+    scratch.mkdir()
+    other = tmp_path / "private-other"
+    other.mkdir()
+    project_path = tmp_path / "recon_project.yml"
+    project = yaml.safe_load(project_path.read_text(encoding="utf-8"))
+    project["execution"] = {"adapters": {"duckdb": {"managed-memory": {"mib": 128}, "threads": 2}}}
+    project_path.write_text(yaml.safe_dump(project, sort_keys=False), encoding="utf-8")
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    target = profile["profiles"]["local"]["outputs"]["dev"]
+    target["connections"]["alias"] = dict(target["connections"]["warehouse"])
+    target["execution"] = {
+        "adapters": {"duckdb": {"managed-memory": {"mib": 64}, "threads": 1}},
+        "connections": {
+            "warehouse": {"scratch-directory": "private-scratch"},
+            "alias": {
+                "scratch-directory": str(other if conflict == "scratch" else scratch),
+                **({"managed-memory": {"mib": 128}} if conflict == "memory" else {}),
+            },
+        },
+    }
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+    write_compiled_contract(tmp_path, source_connection="warehouse", target_connection="alias")
+    opened: list[binding._OwnedDuckDbSession] = []
+    original = binding._OwnedDuckDbSession.open
+
+    def open_session(session: binding._OwnedDuckDbSession) -> None:
+        opened.append(session)
+        original(session)
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    if conflict == "none":
+        assert result.exit_category is ExitCategory.SUCCESS
+        assert outcome.status is CheckStatus.PASS and outcome.executed
+        assert len(opened) == 1
+        request = opened[0]._native_controls
+        assert request is not None and request.threads == 1
+        assert request.memory_bytes == 64 * 1024 * 1024
+        assert request.scratch_directory.parent == scratch.resolve()
+    else:
+        assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
+        assert outcome.source_value is None and outcome.target_value is None
+        assert "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE" in {d.code for d in outcome.diagnostics}
+        assert not opened
+        assert str(scratch) not in repr(result) and str(other) not in repr(result)
+    assert not list(scratch.iterdir()) and not list(other.iterdir())
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize(
+    "mode",
+    ["auto", "reduced", "percent", "percent-spill", "zero-memory", "zero-spill", "zero-threads"],
+)
+@pytest.mark.parametrize("different", [False, True])
+def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, different: bool
+) -> None:
+    database = tmp_path / "private-warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(
+        duckdb,
+        database,
+        source_rows=((1,),),
+        target_rows=((2,), (3,)) if different else ((2,),),
+    )
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    profile_path = tmp_path / "connections" / "profiles.yml"
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    tuning: dict[str, object] = {}
+    if mode == "reduced":
+        tuning = {"managed-memory": {"mib": 128}, "threads": 2, "spill": {"mib": 64}}
+    elif mode == "percent":
+        tuning = {"managed-memory": {"percent": 75}}
+    elif mode == "percent-spill":
+        tuning = {"spill": {"percent": 75}}
+    profile["profiles"]["local"]["outputs"]["dev"]["execution"] = {
+        "connections": {"warehouse": tuning}
+    }
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+
+    def observe(scratch: Path) -> _LocalObservation:
+        return _LocalObservation(
+            host_available_bytes=(
+                0 if mode == "zero-memory" else 64 * 1024 * 1024 if mode == "reduced" else None
+            ),
+            platform_cpu_count=0 if mode == "zero-threads" else 1 if mode == "reduced" else None,
+            affinity_count=None,
+            linux_constraints=None,
+            scratch_free_bytes=(
+                0 if mode == "zero-spill" else 32 * 1024 * 1024 if mode == "reduced" else None
+            ),
+            scratch_memory_backed=False,
+            platform="synthetic",
+        )
+
+    monkeypatch.setattr(binding, "_observe_local_resources", observe)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    refusal = mode.startswith(("percent", "zero"))
+    if refusal:
+        assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
+        assert outcome.source_value is None and outcome.target_value is None
+        assert result.exit_category is ExitCategory.RUNTIME_ERROR
+        expected = "percentage" if mode.startswith("percent") else "No usable"
+        assert any(expected in d.message for d in result.diagnostics)
+    else:
+        assert outcome.status is (CheckStatus.FAIL if different else CheckStatus.PASS)
+        assert result.exit_category is (
+            ExitCategory.CHECK_FAILURE if different else ExitCategory.SUCCESS
+        )
+        warnings = [d for d in result.diagnostics if d.severity is DiagnosticSeverity.WARNING]
+        assert len(warnings) == 3
+        assert all(d.hint for d in warnings)
+        assert all(
+            any(dimension in d.message for d in warnings)
+            for dimension in ("managed-memory", "threads", "spill")
+        )
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == (3 if refusal else 1 if different else 0)
+    if not refusal:
+        assert "Warning:" in cli.output
+        assert all(d.code in cli.output for d in warnings)
+    else:
+        assert expected in cli.output
+    assert str(database) not in repr(result) and str(database) not in cli.output
+    assert str(tmp_path) not in repr(result) and str(tmp_path) not in cli.output
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+def test_future_platform_observation_label_does_not_refuse_verified_native_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    before = database.read_bytes()
+
+    def observe(scratch: Path) -> _LocalObservation:
+        return _LocalObservation(
+            host_available_bytes=512 << 20,
+            platform_cpu_count=1,
+            affinity_count=1,
+            linux_constraints=None,
+            scratch_free_bytes=64 << 20,
+            scratch_memory_backed=False,
+            platform="future-platform-label",
+        )
+
+    monkeypatch.setattr(binding, "_observe_local_resources", observe)
+    engine = _CapturingEngine()
+    result = RunService(start_path=tmp_path, engine=engine).execute()
+    assert result.exit_category is ExitCategory.SUCCESS
+    assert engine.result is not None
+    outcome = engine.result.contract_results[0].check_results[0]
+    assert outcome.status is CheckStatus.PASS and outcome.executed
+    assert outcome.source_value == outcome.target_value == 1
+    assert not any("future-platform-label" in repr(d) for d in result.diagnostics)
+    assert not any(d.severity is DiagnosticSeverity.WARNING for d in result.diagnostics)
+    monkeypatch.chdir(tmp_path)
+    cli = CliRunner().invoke(main, ["run"])
+    assert cli.exit_code == 0
+    assert "future-platform-label" not in cli.output
+    assert "Warning:" not in cli.output
+    assert database.read_bytes() == before

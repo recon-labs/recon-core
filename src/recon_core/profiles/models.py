@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic
 
 
@@ -22,6 +23,9 @@ class SelectedProfile:
     name: str
     target_name: str
     connections: dict[str, ConnectionConfig]
+    _execution_policies: dict[str, _LocalResourcePolicy] = field(
+        default_factory=dict, repr=False, compare=False, kw_only=True
+    )
 
 
 @dataclass(frozen=True, slots=True)
