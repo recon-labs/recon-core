@@ -442,12 +442,15 @@ captures:
     title: Invocation identity and timing surround preparation and native cleanup
     area: check-engine
     bug_class: invocation_timing
-    owner_surface: execution_result
+    owner_surface: run_results
     severity: P2
     current_tests:
       - tests/services/test_run_service.py::test_run_service_clock_surrounds_preparation_and_evaluation
       - tests/services/test_run_service.py::test_run_invocation_retains_identity_on_early_failure
       - tests/services/test_run_service.py::test_run_invocation_elapsed_survives_wall_clock_rollback
+      - tests/services/test_run_service.py::test_run_invocation_preserves_outcome_and_private_values
+      - tests/services/test_run_service.py::test_invocation_utc_label_preserves_subsecond_precision
+      - tests/services/test_run_service_bound_execution.py::test_invocation_elapsed_includes_native_cleanup_outcome
       - tests/services/test_run_service_bound_execution.py::test_native_run_finish_is_recorded_after_confirmed_cleanup
       - tests/check_engine/test_engine.py::test_engine_computes_finish_when_no_label_is_supplied
     carryover_gates:

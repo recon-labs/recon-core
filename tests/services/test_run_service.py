@@ -1,4 +1,5 @@
 import ast
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,8 @@ import recon_core.services.run as run_service_module
 from recon_core.adapters import (
     AdapterRegistry,
 )
+from recon_core.check_engine import CheckReason, CheckResult, CheckStatus, ContractResult, RunResult
+from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.services import RunService
 from recon_core.services.results import ExitCategory
 from tests.services._run_service_fixtures import (
@@ -382,3 +385,95 @@ def test_run_invocation_elapsed_survives_wall_clock_rollback(
         "diagnostics",
     }
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+@pytest.mark.parametrize(
+    ("status", "category", "lifecycle"),
+    [
+        (CheckStatus.PASS, ExitCategory.SUCCESS, "completed"),
+        (CheckStatus.FAIL, ExitCategory.CHECK_FAILURE, "completed"),
+        (CheckStatus.WARN, ExitCategory.SUCCESS, "completed"),
+        (CheckStatus.ERROR, ExitCategory.RUNTIME_ERROR, "failed"),
+        (CheckStatus.SKIPPED, ExitCategory.SUCCESS, "completed"),
+        (CheckStatus.BLOCKED, ExitCategory.RUNTIME_ERROR, "failed"),
+        (CheckStatus.NOT_EXECUTABLE, ExitCategory.RUNTIME_ERROR, "failed"),
+        (None, ExitCategory.RUNTIME_ERROR, "failed"),
+    ],
+)
+def test_run_invocation_preserves_outcome_and_private_values(
+    tmp_path: Path, status: CheckStatus | None, category: ExitCategory, lifecycle: str
+) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+    reason = {
+        CheckStatus.SKIPPED: CheckReason.SKIPPED_BY_POLICY,
+        CheckStatus.BLOCKED: CheckReason.PREREQUISITE_MISSING,
+        CheckStatus.NOT_EXECUTABLE: CheckReason.MISSING_ENGINE_CAPABILITY,
+    }.get(status)
+    contracts: tuple[ContractResult, ...] = ()
+    if status is not None:
+        executed = status in {CheckStatus.PASS, CheckStatus.FAIL, CheckStatus.WARN}
+        check = CheckResult(
+            check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
+            name="row_count_diff",
+            check_type="row_count_diff",
+            contract_name="customer_revenue",
+            status=status,
+            executed=executed,
+            reason_code=reason,
+            message="Check did not execute." if reason is not None else None,
+            blocked_by=("missing-check",) if status is CheckStatus.BLOCKED else (),
+            source_value=123456789 if executed else None,
+            target_value=123456788 if status is CheckStatus.FAIL else 123456789 if executed else None,
+            diagnostics=(
+                Diagnostic(
+                    code="RC_TEST_OUTCOME",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Test outcome.",
+                ),
+            )
+            if not executed
+            else (),
+        )
+        contracts = (
+            ContractResult.from_check_results(
+                contract_name="customer_revenue", check_results=(check,)
+            ),
+        )
+
+    class OutcomeEngine:
+        def run(self, *args: Any, **kwargs: Any) -> RunResult:
+            return RunResult.from_contract_results(
+                run_id=kwargs["run_id"],
+                project_name=kwargs["project_name"],
+                started_at=kwargs["started_at"],
+                finished_at="2026-11-27T10:00:00Z",
+                contract_results=contracts,
+            )
+
+    outcome = RunService(start_path=tmp_path, engine=OutcomeEngine())._execute_invocation()
+
+    assert outcome.status.value == lifecycle
+    assert outcome.service_result.exit_category is category
+    assert outcome.run_result is not None
+    assert outcome.run_result.status.value == (status.value if status is not None else "no_checks")
+    assert outcome.run_result.run_id == outcome.run_id
+    assert outcome.run_result.finished_at == outcome.finished_at
+    assert outcome.elapsed_ns >= 0
+    assert "123456789" not in repr(outcome)
+    assert "123456789" not in repr(outcome.service_result.to_dict())
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_invocation_utc_label_preserves_subsecond_precision(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FixedClock:
+        @staticmethod
+        def now(tz: Any) -> datetime:
+            assert tz is UTC
+            return datetime(2026, 11, 27, 10, 0, 0, 123456, tzinfo=UTC)
+
+    monkeypatch.setattr(run_service_module, "datetime", FixedClock)
+    assert run_service_module._utc_timestamp() == "2026-11-27T10:00:00.123456Z"

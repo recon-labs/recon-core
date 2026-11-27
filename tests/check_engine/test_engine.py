@@ -55,6 +55,8 @@ def test_engine_assembles_run_and_contract_results_without_execution(tmp_path: P
     )
 
     assert result.project_name == "ecommerce_recon"
+    assert result.started_at == "2026-06-11T10:00:00Z"
+    assert result.finished_at == "2026-06-11T10:00:01Z"
     assert result.status is RunStatus.NOT_EXECUTABLE
     assert result.artifact_refs == ()
     assert result.sink_refs == ()

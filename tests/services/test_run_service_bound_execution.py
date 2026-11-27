@@ -909,3 +909,50 @@ def test_native_run_finish_is_recorded_after_confirmed_cleanup(
 
     assert result.exit_category is ExitCategory.SUCCESS
     assert events == ["timestamp", "closed", "timestamp"]
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+@pytest.mark.parametrize("reported_cleanup_failure", [False, True])
+def test_invocation_elapsed_includes_native_cleanup_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reported_cleanup_failure: bool
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    tick = 1_000_000_000
+    real_close = binding._OwnedDuckDbSession.close
+
+    def close(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        nonlocal tick
+        diagnostics = real_close(session)
+        assert session.released
+        tick += 250_000_000
+        if reported_cleanup_failure:
+            diagnostics += (
+                Diagnostic(
+                    code="RC_ADAPTER_CLOSE_FAILED",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Read-only execution session cleanup failed.",
+                ),
+            )
+        return diagnostics
+
+    monkeypatch.setattr(run_service_module, "monotonic_ns", lambda: tick)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", close)
+    outcome = RunService(start_path=tmp_path)._execute_invocation()
+
+    assert outcome.elapsed_ns == 250_000_000
+    assert outcome.run_result is not None
+    assert outcome.run_result.finished_at == outcome.finished_at
+    check = outcome.run_result.contract_results[0].check_results[0]
+    if reported_cleanup_failure:
+        assert outcome.status.value == "failed"
+        assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+        assert check.status is CheckStatus.ERROR and not check.executed
+        assert check.source_value is check.target_value is check.diff_value is None
+        assert "RC_ADAPTER_CLOSE_FAILED" in {d.code for d in check.diagnostics}
+    else:
+        assert outcome.status.value == "completed"
+        assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+        assert check.status is CheckStatus.PASS and check.executed
