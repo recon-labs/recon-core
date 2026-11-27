@@ -14,6 +14,7 @@ from recon_core.adapters._project_binding import (
     _LocalFileIdentity,
     _proof_error,
 )
+from recon_core.adapters._resource_scratch import _CheckScratch, _create_check_scratch, _ScratchError
 from recon_core.adapters.duckdb._native_resource_controls import (
     _apply_native_controls,
     _native_startup_config,
@@ -158,10 +159,18 @@ class _OwnedDuckDbSession:
     """Single-use session; the caller must close it in a finally block."""
 
     def __init__(
-        self, identity: _LocalFileIdentity, *, native_controls: _NativeControlRequest | None = None
+        self,
+        identity: _LocalFileIdentity,
+        *,
+        native_controls: _NativeControlRequest | None = None,
+        scratch_base: Path | None = None,
     ) -> None:
         self._identity = identity
+        if native_controls is not None and scratch_base is not None:
+            raise ValueError("Specify one native scratch ownership mode.")
         self._native_controls = native_controls
+        self._scratch_base = scratch_base
+        self._scratch: _CheckScratch | None = None
         self._connection: Any = None
         self._guard: Any = None
         self._attempted = False
@@ -186,6 +195,18 @@ class _OwnedDuckDbSession:
             raise _proof_error()
         self._attempted = True
         self._verify_file()
+        if self._scratch_base is not None:
+            try:
+                self._scratch = _create_check_scratch(self._scratch_base)
+                self._released = False
+                self._native_controls = _NativeControlRequest(None, None, None, self._scratch.path)
+            except (_ScratchError, _NativeControlError):
+                self._invalidated = True
+                raise _BoundSessionError(
+                    "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                    "Private temporary storage could not be established. "
+                    "Use an existing writable private scratch base.",
+                ) from None
         catalog = ""
         try:
             duckdb = import_module("duckdb")
@@ -404,6 +425,17 @@ class _OwnedDuckDbSession:
                 )
             else:
                 self._guard = None
-        self._released = self._connection is None and self._guard is None
+        if self._connection is None and self._guard is None and self._scratch is not None:
+            try:
+                self._scratch.cleanup(native_closed=True)
+            except _ScratchError:
+                diagnostics.append(
+                    _diagnostic(ADAPTER_CLOSE_FAILED, "Private temporary storage cleanup failed.")
+                )
+            else:
+                self._scratch = None
+        self._released = (
+            self._connection is None and self._guard is None and self._scratch is None
+        )
         self._cleanup = tuple(diagnostics)
         return self._cleanup
