@@ -86,10 +86,12 @@ class _CapturingEngine(CheckEngine):
         return self.result
 
 
-@pytest.mark.parametrize("uncertain_close", [False, True])
+@pytest.mark.parametrize(
+    ("uncertain_close", "reported"), [(False, True), (True, True), (True, False)]
+)
 @pytest.mark.regression_capture("project-binding-check-local-cleanup")
 def test_cleanup_failure_is_check_local_or_stops_native_execution(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain_close: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain_close: bool, reported: bool
 ) -> None:
     database = tmp_path / "warehouse.duckdb"
     duckdb = _duckdb_module()
@@ -147,6 +149,8 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
             # Real release keeps the synthetic fixture safe; inject the
             # uncertainty reported to the runner, not a real leaked handle.
             session._released = not uncertain_close
+            if not reported:
+                return diagnostics
             return diagnostics + (
                 Diagnostic(
                     code="RC_ADAPTER_CLOSE_FAILED",
@@ -167,6 +171,7 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     aliased = contracts["other_revenue"].check_results[0]
     assert malformed.status is CheckStatus.NOT_EXECUTABLE and not malformed.executed
     assert first.status is CheckStatus.ERROR
+    assert "RC_ADAPTER_CLOSE_FAILED" in {d.code for d in first.diagnostics}
     assert not first.executed
     assert first.source_value is None and first.target_value is None
     assert dependent.status is CheckStatus.BLOCKED
