@@ -1,6 +1,7 @@
 """Project-run native binding and check-local lifecycle proof."""
 
 from pathlib import Path
+from threading import Event
 from typing import Any
 
 import pytest
@@ -1137,3 +1138,58 @@ def test_legacy_setup_preserves_distinct_connection_failures(
     assert len({d.hint for d in failures}) == len(expected)
     assert "private-alias" not in repr(outcome.service_result)
     assert "private-database" not in repr(outcome.service_result)
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+@pytest.mark.parametrize("cancel_after_cleanup", [False, True])
+def test_native_invocation_control_preserves_completed_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cancel_after_cleanup: bool
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(check_id="first", name="first", operations=row_count_plan()),
+            _compiled_check_payload(check_id="second", name="second", operations=row_count_plan()),
+        ],
+    )
+    before = database.read_bytes()
+    event = Event()
+    closed: list[bool] = []
+    real_close = binding._OwnedDuckDbSession.close
+
+    def close(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        diagnostics = real_close(session)
+        closed.append(session.released)
+        if cancel_after_cleanup:
+            event.set()
+        return diagnostics
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", close)
+    outcome = RunService(start_path=tmp_path)._execute_invocation(
+        timeout_seconds=10**100, cancel_event=event
+    )
+    assert outcome.run_result is not None
+    checks = outcome.run_result.contract_results[0].check_results
+    assert len(checks) == 2
+    assert checks[0].status is CheckStatus.PASS and checks[0].executed
+    assert outcome.scope_facts.complete is True
+    if cancel_after_cleanup:
+        assert closed == [True]
+        assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+        assert checks[1].status is CheckStatus.NOT_EXECUTABLE
+        assert checks[1].reason_code is not None
+        assert checks[1].reason_code.value == "run_cancelled"
+        assert not checks[1].executed
+        assert event.is_set()
+    else:
+        assert closed == [True, True]
+        assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+        assert checks[1].status is CheckStatus.PASS and checks[1].executed
+        assert not event.is_set()
+    assert database.read_bytes() == before
+    writer = duckdb.connect(str(database))
+    writer.close()
