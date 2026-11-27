@@ -152,6 +152,13 @@ path_surface_routing:
         - redaction
         - validation_defaults
         - scan_safety
+    - path: src/recon_core/config/_execution_policy.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+        - validation_defaults
+        - scan_safety
     - path: src/recon_core/config/_local_resource_policy.py
       surfaces:
         - diagnostics
@@ -312,6 +319,10 @@ path_surface_routing:
         - parser
         - redaction
         - source_target_privacy
+    - path: src/recon_core/profiles/models.py
+      surfaces:
+        - profile_secrets
+        - scan_safety
     - path: src/recon_core/profiles/loader.py
       surfaces:
         - diagnostics
@@ -536,6 +547,13 @@ path_surface_routing:
         - diagnostics
         - profile_secrets
         - redaction
+    - path: tests/profiles/test_loader.py
+      surfaces:
+        - diagnostics
+        - profile_secrets
+        - redaction
+        - validation_defaults
+        - scan_safety
     - path: tests/profiles/test_loader_boundaries.py
       surfaces:
         - diagnostics
