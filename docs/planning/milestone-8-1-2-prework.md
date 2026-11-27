@@ -1127,8 +1127,8 @@ Use existing configuration error taxonomy for malformed YAML and settings
 (`RC_CONFIG_INVALID_PROJECT_CONFIG`); suppress unknown authored field values
 and untrusted native text in newly introduced diagnostics. Preserve existing
 placement, prerequisite, artifact, capability and L1 precedence. The
-following codes are approved planning names for implementation; wire through
-the existing diagnostic owner and review the public inventory before release.
+following table records current native-first outcomes and diagnostic codes;
+review the public inventory before release.
 
 | Case | Expected outcome and safe code |
 | --- | --- |
@@ -1136,13 +1136,15 @@ the existing diagnostic owner and review the public inventory before release.
 | Required binding unavailable | not_executable / bounded_local_scan_required / RC_RUNTIME_BOUNDED_LOCAL_SCAN_REQUIRED; no data read |
 | Unsafe executing preflight | not_executable / unsafe_scan_preflight / RC_RUNTIME_UNSAFE_SCAN_PREFLIGHT |
 | Required resource evidence/control unavailable before work | not_executable / existing bounded_local_scan_required reason, RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE; no data read |
-| Explicit estimate threshold exceeded after admission | existing comparison status, RC_RUNTIME_SCAN_ESTIMATED_INPUT_ROWS_WARNING |
+| Explicit estimate threshold exceeded after admission | existing comparison status, RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY |
+| Configured estimate threshold cannot be evaluated | existing comparison status, RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN |
 | Best-effort observation limitation or reduced effective target | existing comparison status, RC_RUNTIME_RESOURCE_ADVISORY |
 | Setup or native data execution failure | error / existing RC_ADAPTER_CONNECTION_FAILED or RC_ADAPTER_QUERY_FAILED; safe fixed message |
-| Observed resource exhaustion or pressure cancellation | error / RC_RUNTIME_RESOURCE_EXECUTION_FAILED; no comparison values |
+| Returned native resource exhaustion or interruption | error / RC_ADAPTER_QUERY_FAILED; no comparison values |
+| OS termination (e.g. kernel OOM) | no returned result or guaranteed cleanup; invocation-level handling remains M8.2 |
 | Invalid transport or binding drift | error / RC_RUNTIME_BINDING_PROOF_FAILED or RC_RUNTIME_AGGREGATE_RESULT_INVALID (numeric evidence), no raw payload |
-| Worker stop unconfirmed or native/scratch cleanup fails | error / existing RC_ADAPTER_CLOSE_FAILED, L1 RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE for subsequent affected checks; preserve primary diagnostic |
-| Abandoned scratch cannot be safely recovered | RC_RUNTIME_RESOURCE_ADVISORY if independently safe new execution; otherwise L1 error; never delete uncertain ownership |
+| Native/scratch cleanup cannot be confirmed | error / existing RC_ADAPTER_CLOSE_FAILED, L1 RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE for subsequent affected checks; preserve primary diagnostic |
+| Abandoned scratch from an earlier invocation | never adopt or sweep; fresh independently private storage; no automatic recovery or discovery guarantee |
 
 Unknown optional metadata is neither zero nor a hard admission reason.
 Missing required proof cannot be converted to a warning. Explicit footprint
@@ -1154,7 +1156,9 @@ taxonomy cannot express required behavior, reopen compatibility/design review
 rather than silently coerce it. Warning diagnostics must be emitted safely on
 success and failure without changing status or exit category.
 
-## Implementation sequence and test plan
+## Historical implementation sequence and test plan (superseded mechanisms)
+
+The current authorization and native-first sequence above control work. This historical sequence is retained for outcome traceability, not worker or recovery implementation authority.
 
 1. Test-first strict config, pure policy and observation, including A1-A4,
    A6, A10-A12 and the actual candidate reserve/thread comparison. Decide
