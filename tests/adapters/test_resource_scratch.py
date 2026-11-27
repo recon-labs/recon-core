@@ -499,7 +499,9 @@ def test_check_scratch_never_adopts_or_sweeps_existing_storage(
 
 
 @pytest.mark.regression_capture("owned-scratch-discovery")
-def test_check_scratch_abrupt_exit_leaves_residue_without_blocking_next_check(tmp_path: Path) -> None:
+def test_check_scratch_abrupt_exit_leaves_residue_without_blocking_next_check(
+    tmp_path: Path,
+) -> None:
     from recon_core.adapters import _resource_scratch
 
     base = tmp_path.resolve()
@@ -607,6 +609,10 @@ def test_check_scratch_removes_inherited_macos_grants(tmp_path: Path) -> None:
         timeout=15,
         check=True,
     )
+    inherited = base / "inherited-control"
+    inherited.mkdir(mode=0o700)
+    assert not _darwin_no_acl_grants(inherited, inherited.lstat())
+    inherited.rmdir()
     scratch = _resource_scratch._create_check_scratch(base)
     try:
         assert _darwin_no_acl_grants(scratch.path, scratch.path.lstat())
