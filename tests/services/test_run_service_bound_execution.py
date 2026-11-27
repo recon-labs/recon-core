@@ -847,17 +847,40 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
 
     monkeypatch.setattr(binding, "_observe_local_resources", observe)
     engine = _CapturingEngine()
-    result = RunService(start_path=tmp_path, engine=engine).execute()
+    invocation = RunService(start_path=tmp_path, engine=engine)._execute_invocation()
+    result = invocation.service_result
+    facts = invocation.resource_facts[0]
+    assert facts.preliminary_allowed is True
+    assert invocation.plan is not None
+    assert facts.check_id == invocation.plan.contracts[0].checks[0].check_id
     assert engine.result is not None
     outcome = engine.result.contract_results[0].check_results[0]
     refusal = mode.startswith(("percent", "zero"))
     if refusal:
+        assert facts.admission.value == "refused"
+        assert facts.native is not None
+        assert not facts.native.readback_verified
         assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
         assert outcome.source_value is None and outcome.target_value is None
         assert result.exit_category is ExitCategory.RUNTIME_ERROR
         expected = "percentage" if mode.startswith("percent") else "No usable"
         assert any(expected in d.message for d in result.diagnostics)
     else:
+        assert facts.admission.value == "verified"
+        assert facts.native is not None and facts.native.readback_verified
+        assert facts.native.memory.reported_lower is not None
+        assert facts.native.threads.reported_lower is not None
+        assert not facts.native.physical_enforcement_proven
+        if mode == "reduced":
+            assert facts.native.memory.requested == 128 << 20
+            assert facts.native.memory.adjusted == 64 << 20
+            assert facts.native.threads.requested == 2
+            assert facts.native.threads.adjusted == 1
+            assert facts.native.spill.requested == 64 << 20
+            assert facts.native.spill.adjusted == 32 << 20
+        else:
+            assert facts.native.memory.requested is None
+            assert facts.native.memory_capacity_known is False
         assert outcome.status is (CheckStatus.FAIL if different else CheckStatus.PASS)
         assert result.exit_category is (
             ExitCategory.CHECK_FAILURE if different else ExitCategory.SUCCESS
@@ -869,6 +892,9 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
             any(dimension in d.message for d in warnings)
             for dimension in ("managed-memory", "threads", "spill")
         )
+    assert str(tmp_path) not in repr(facts)
+    assert "synthetic" not in repr(facts)
+    assert "private-warehouse" not in repr(facts)
     monkeypatch.chdir(tmp_path)
     cli = CliRunner().invoke(main, ["run"])
     assert cli.exit_code == (3 if refusal else 1 if different else 0)
