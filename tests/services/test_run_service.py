@@ -1226,3 +1226,72 @@ def test_embedded_base_exception_joins_control_observer(
         for control in controls:
             control.close_observer()
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+@pytest.mark.parametrize("status", [CheckStatus.PASS, CheckStatus.FAIL, CheckStatus.ERROR])
+def test_stop_after_prerequisite_preserves_result_and_finalizes_dependents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: CheckStatus
+) -> None:
+    write_project(tmp_path)
+    dependent = _compiled_check_payload(check_id="dependent", name="dependent")
+    dependent["prerequisites"] = ["prerequisite"]
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            dependent,
+            _compiled_check_payload(check_id="prerequisite", name="prerequisite"),
+            _compiled_check_payload(check_id="later", name="later"),
+        ],
+    )
+    write_compiled_contract(tmp_path)
+    event = Event()
+    dispatched: list[str] = []
+    diagnostic = Diagnostic(
+        code="RC_TEST_PRIOR_FAILURE",
+        severity=DiagnosticSeverity.ERROR,
+        message="Prior check failed independently.",
+    )
+
+    def dispatch(self: CheckDispatcher, check: Any) -> CheckResult:
+        dispatched.append(check.id)
+        event.set()
+        return CheckResult(
+            check_id=check.id,
+            name=check.name,
+            check_type=check.check_type,
+            contract_name=check.contract_name,
+            status=status,
+            executed=status is not CheckStatus.ERROR,
+            message=diagnostic.message if status is CheckStatus.ERROR else None,
+            diagnostics=(diagnostic,) if status is CheckStatus.ERROR else (),
+        )
+
+    monkeypatch.setattr(CheckDispatcher, "dispatch", dispatch)
+    outcome = RunService(start_path=tmp_path)._execute_invocation(cancel_event=event)
+    assert dispatched == ["prerequisite"]
+    assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert outcome.scope_facts.complete is True
+    assert outcome.run_result is not None
+    dependent_result, prior, later = outcome.run_result.contract_results[0].check_results
+    assert prior.status is status
+    if status is CheckStatus.ERROR:
+        assert diagnostic in prior.diagnostics
+        assert diagnostic in outcome.service_result.diagnostics
+    for result in (dependent_result, later):
+        assert result.status is CheckStatus.NOT_EXECUTABLE
+        assert result.reason_code is CheckReason.RUN_CANCELLED
+        assert result.blocked_by == ()
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_explicit_control_rejects_unproven_injected_engine(tmp_path: Path) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+    service = RunService(start_path=tmp_path, engine=_RaisingEngine())
+    result = service.execute(cancel_event=Event())
+    assert result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert [d.code for d in result.diagnostics] == ["RC_RUNTIME_RUN_CONTROL_UNAVAILABLE"]
+    _assert_no_runtime_outputs(tmp_path)

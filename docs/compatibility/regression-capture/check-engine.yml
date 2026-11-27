@@ -471,6 +471,8 @@ captures:
       - tests/services/test_run_service.py::test_native_control_joins_borrowed_interrupt_before_return
       - tests/services/test_run_service.py::test_native_control_repeats_failed_interrupt_without_retrying_call
       - tests/services/test_run_service.py::test_embedded_base_exception_joins_control_observer
+      - tests/services/test_run_service.py::test_stop_after_prerequisite_preserves_result_and_finalizes_dependents
+      - tests/services/test_run_service.py::test_explicit_control_rejects_unproven_injected_engine
       - tests/services/test_run_service_bound_execution.py::test_invocation_elapsed_includes_native_cleanup_outcome
       - tests/services/test_run_service_bound_execution.py::test_native_run_finish_is_recorded_after_confirmed_cleanup
       - tests/check_engine/test_engine.py::test_engine_computes_finish_when_no_label_is_supplied
