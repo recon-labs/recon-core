@@ -758,7 +758,9 @@ def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
 
 
 @pytest.mark.regression_capture("local-adaptive-resource-targets")
-@pytest.mark.parametrize("mode", ["auto", "reduced", "percent"])
+@pytest.mark.parametrize(
+    "mode", ["auto", "reduced", "percent", "percent-spill", "zero-memory", "zero-spill", "zero-threads"]
+)
 @pytest.mark.parametrize("different", [False, True])
 def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, different: bool
@@ -779,6 +781,8 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
         tuning = {"managed-memory": {"mib": 128}, "threads": 2, "spill": {"mib": 64}}
     elif mode == "percent":
         tuning = {"managed-memory": {"percent": 75}}
+    elif mode == "percent-spill":
+        tuning = {"spill": {"percent": 75}}
     profile["profiles"]["local"]["outputs"]["dev"]["execution"] = {
         "connections": {"warehouse": tuning}
     }
@@ -786,11 +790,15 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
 
     def observe(scratch: Path) -> _LocalObservation:
         return _LocalObservation(
-            host_available_bytes=64 * 1024 * 1024 if mode == "reduced" else None,
-            platform_cpu_count=1 if mode == "reduced" else None,
+            host_available_bytes=(
+                0 if mode == "zero-memory" else 64 * 1024 * 1024 if mode == "reduced" else None
+            ),
+            platform_cpu_count=0 if mode == "zero-threads" else 1 if mode == "reduced" else None,
             affinity_count=None,
             linux_constraints=None,
-            scratch_free_bytes=32 * 1024 * 1024 if mode == "reduced" else None,
+            scratch_free_bytes=(
+                0 if mode == "zero-spill" else 32 * 1024 * 1024 if mode == "reduced" else None
+            ),
             scratch_memory_backed=False,
             platform="synthetic",
         )
@@ -800,11 +808,13 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
     result = RunService(start_path=tmp_path, engine=engine).execute()
     assert engine.result is not None
     outcome = engine.result.contract_results[0].check_results[0]
-    if mode == "percent":
+    refusal = mode.startswith(("percent", "zero"))
+    if refusal:
         assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
         assert outcome.source_value is None and outcome.target_value is None
         assert result.exit_category is ExitCategory.RUNTIME_ERROR
-        assert any("percentage" in d.message for d in result.diagnostics)
+        expected = "percentage" if mode.startswith("percent") else "No usable"
+        assert any(expected in d.message for d in result.diagnostics)
     else:
         assert outcome.status is (CheckStatus.FAIL if different else CheckStatus.PASS)
         assert result.exit_category is (
@@ -819,11 +829,11 @@ def test_project_resource_advisories_are_safe_and_do_not_change_outcome(
         )
     monkeypatch.chdir(tmp_path)
     cli = CliRunner().invoke(main, ["run"])
-    assert cli.exit_code == (3 if mode == "percent" else 1 if different else 0)
-    if mode != "percent":
+    assert cli.exit_code == (3 if refusal else 1 if different else 0)
+    if not refusal:
         assert "Warning:" in cli.output
         assert all(d.code in cli.output for d in warnings)
     else:
-        assert "percentage" in cli.output
+        assert expected in cli.output
     assert str(database) not in repr(result) and str(database) not in cli.output
     assert str(tmp_path) not in repr(result) and str(tmp_path) not in cli.output
