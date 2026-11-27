@@ -46,10 +46,12 @@ clock, independently of wall-clock adjustments. A structured early failure
 retains its invocation identity, timing, stage and command outcome without
 inventing a project name or check results. Unexpected preparation exceptions
 are sanitized at the invocation boundary and retain the actual failure stage.
-Known configuration and artifact failures keep their existing exit mapping. A completed check evaluation may
-produce a reconciliation mismatch; invocation failure is not itself a data
-mismatch. The private outcome retains a plan only after compiled checks and matching
-contracts have been loaded and validated. It describes whole loaded compiled
+Known configuration and artifact failures keep their existing exit mapping.
+If command-result projection fails after check evaluation, the invocation
+retains the completed internal results and records the failed projection stage.
+A completed check evaluation may produce a reconciliation mismatch; invocation
+failure is not itself a data mismatch. The private outcome retains a plan only
+after compiled checks and matching contracts have been loaded and validated. It describes whole loaded compiled
 scope, ordered contract/check/plan identities and prerequisite references;
 empty contracts remain visible. It contains no SQL, path, relation or data
 payload. The engine evaluates the original loaded artifacts once. This is not

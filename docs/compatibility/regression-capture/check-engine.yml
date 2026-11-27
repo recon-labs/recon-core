@@ -578,8 +578,9 @@ captures:
       - docs/planning/milestone-8-2-prework.md: B4
       - docs/implementation/errors-and-diagnostics.md: Owned runtime binding and cleanup
     notes: >
-      Unexpected preparation faults finalize the invocation at the actual stage
-      with sanitized runtime failure rather than pretending authored input is
-      invalid. Expected configuration outcomes keep their categories. Repeated
+      Unexpected preparation or result-projection faults finalize the invocation
+      at the actual stage with sanitized runtime failure rather than pretending
+      authored input is invalid. Completed results survive a projection failure.
+      Expected configuration outcomes keep their categories. Repeated
       diagnostics for the same setup are deduplicated, while distinct connection
       setup events have safe invocation-local identity.

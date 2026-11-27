@@ -171,16 +171,16 @@ class RunService:
             run_id=f"run-{uuid4().hex}",
             started_at=_utc_timestamp(),
         )
+        run_result: RunResult | None = None
         try:
             result = self._evaluate_invocation(invocation)
             if isinstance(result, RunResult):
                 run_result = result
+                invocation.stage = _RunStage.RESULT_PROJECTION
                 service_result = _run_service_result(result)
             else:
-                run_result = None
                 service_result = result
         except Exception:
-            run_result = None
             service_result = _unexpected_invocation_failure_result(invocation.stage)
         return invocation.finish(
             finished_at=_utc_timestamp(),
@@ -1007,18 +1007,18 @@ def _compiled_contract_load_failure_result(
 def _unexpected_invocation_failure_result(stage: _RunStage) -> ServiceResult:
     if stage is _RunStage.CHECK_EXECUTION:
         return _engine_failure_result()
-    message = "Run preparation failed before a trustworthy result was produced."
+    message = f"Unexpected runtime failure during {stage.value.replace('_', ' ')}."
     return ServiceResult(
         exit_category=ExitCategory.RUNTIME_ERROR,
         message=message,
         diagnostics=(
             Diagnostic(
-                code="RC_RUNTIME_RUN_PREPARATION_FAILED",
+                code="RC_RUNTIME_RUN_INTERNAL_ERROR",
                 severity=DiagnosticSeverity.ERROR,
                 message=message,
                 resource_type="run_invocation",
                 resource_name=stage.value,
-                hint="Inspect the failed preparation stage locally.",
+                hint="Inspect the recorded invocation stage locally.",
             ),
         ),
     )

@@ -14,6 +14,7 @@ class _RunStage(StrEnum):
     COMPILED_CONTRACTS = "compiled_contracts"
     RUNTIME_SETUP = "runtime_setup"
     CHECK_EXECUTION = "check_execution"
+    RESULT_PROJECTION = "result_projection"
 
 
 class _InvocationStatus(StrEnum):

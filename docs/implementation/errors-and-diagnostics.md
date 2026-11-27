@@ -429,7 +429,7 @@ results. Locked codes:
 | `RC_RUNTIME_KEY_SAFETY_RESULT_INVALID` | run | error | A key-safety adapter query returned an invalid bounded count result. |
 | `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, was skipped, was not executable, or is missing. |
 | `RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR` | run | error | An unexpected check-engine error occurred after sanitization. |
-| `RC_RUNTIME_RUN_PREPARATION_FAILED` | run | error | An unexpected failure occurred at the recorded invocation preparation stage. |
+| `RC_RUNTIME_RUN_INTERNAL_ERROR` | run | error | An unexpected failure occurred at the recorded invocation preparation or result-projection stage. |
 | `RC_RUNTIME_CHECK_FAILURE_BEFORE_CLEANUP` | run | error | A check reached a reconciliation mismatch before cleanup invalidated its comparison result. |
 
 Runtime adapter execution adds adapter-family diagnostics for connection,
@@ -445,8 +445,9 @@ eligible work on the affected database can continue only after release is
 confirmed; independent databases remain eligible. An unexpected close or
 release-proof exception is an uncertain cleanup failure, not a new query
 failure. Fixed safe connection/session ordinals distinguish otherwise
-identical events. Unexpected preparation faults produce a finalized runtime
-failure with the actual stage and no raw exception payload; expected input
+identical events. Unexpected preparation or result-projection faults produce
+a finalized runtime failure with the actual stage and no raw exception payload.
+A projection failure retains completed internal check results; expected input
 and setup diagnostics keep their existing categories.
 
 Future runtime, state, and evidence phases may add or retain additional

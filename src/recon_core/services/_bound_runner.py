@@ -286,23 +286,18 @@ class _ProjectBoundRunner:
         self, session: _OwnedSession, identity: _LocalFileIdentity
     ) -> tuple[Diagnostic, ...]:
         cleanup: tuple[Diagnostic, ...] = ()
+        cleanup_raised = False
         try:
             cleanup = session.close()
             released = session.released
         except Exception:
             # A close/release exception is not proof that native resources were released.
             released = False
-            cleanup += (
-                Diagnostic(
-                    code=ADAPTER_CLOSE_FAILED,
-                    severity=DiagnosticSeverity.ERROR,
-                    message="Native execution cleanup could not be confirmed.",
-                ),
-            )
+            cleanup_raised = True
         if not released:
             self._unreleased.append((identity, session))
-            if not cleanup:
-                cleanup = (
+            if cleanup_raised or not cleanup:
+                cleanup += (
                     Diagnostic(
                         code=ADAPTER_CLOSE_FAILED,
                         severity=DiagnosticSeverity.ERROR,
