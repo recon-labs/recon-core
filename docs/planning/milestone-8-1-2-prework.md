@@ -99,7 +99,25 @@ The temporary harness was removed from its experiment branch at
 and CI evidence remain. Permanent captured per-check, native spill,
 interruption, error, cleanup and abandoned-residue tests remain.
 
-**Open Step 7B calibration decision:** do not close the gate or claim
+**Step 7B focused reassessment approved (2026-11-27):** The maintainer
+authorizes measured improvement of automatic memory/thread selection
+and explicit best-effort limitations with actionable advice. Keep authored
+fixed/percentage memory, explicit thread settings, precedence, spill
+scope and the native-first architecture unchanged. Compare baseline to
+DuckDB-specific automatic thread selection using its published memory
+per thread guidance (https://duckdb.org/docs/current/guides/performance/environment).
+The documented 125 decimal MB/thread rule of thumb and 1 GB/thread
+lower edge of ideal performance guidance are candidate tuning inputs,
+not workload admission floors, physical guarantees or cross-adapter
+requirements. Retain at least one thread for otherwise usable native
+execution; do not raise zero capacity, introduce a hardcoded database
+threshold, retry automatically, or force one thread on capable machines.
+Evaluate repeated actual narrow/wide, constrained/capable and tmpfs
+cases, including OS-killed cases as distinct from native errors. Adopt
+only a measured improvement with transparent remaining limits.
+
+**Historical open Step 7B calibration decision (superseded by focused
+reassessment approval):** do not close the gate or claim
 universal safe automatic tuning. The observed tradeoff needs explicit
 maintainer acceptance of the approved best-effort defaults with documented
 limits, or approval of a revised adapter-specific tuning rule followed by
