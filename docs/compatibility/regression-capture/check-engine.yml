@@ -500,6 +500,7 @@ captures:
     severity: P2
     current_tests:
       - tests/services/test_run_service.py::test_invocation_plan_preserves_loaded_order_and_dependencies
+      - tests/services/test_run_service.py::test_invocation_rejects_results_outside_loaded_scope
       - tests/services/test_run_service.py::test_invalid_compiled_scope_never_reaches_runtime_setup
       - tests/services/test_run_service.py::test_invocation_plan_does_not_claim_authored_freshness
       - tests/services/test_run_service_bound_execution.py::test_native_run_uses_loaded_artifacts_after_files_change
@@ -521,12 +522,15 @@ captures:
         rationale: Future artifact format and semantic freshness changes must retain explicit scope.
     requirement_refs:
       - docs/planning/milestone-8-2-prework.md: B2
+      - docs/planning/milestone-8-2-prework.md: B6
       - docs/architecture/parse-compile-run.md: Freshness of artifacts
     notes: >
       Validate loaded inputs before setup; never relabel foreign project artifacts.
       Freeze only identity, order and prerequisites, retain empty contracts in
       mixed scopes, and evaluate the loaded artifacts without a second read or
-      implicit compile. No claim of authored-source freshness or atomic snapshot.
+      implicit compile. Reject incomplete or mismatched result scope before success;
+      retain actual returned results and distinguish known zero from unknown plan.
+      No claim of authored-source freshness or atomic snapshot.
   - id: run-aggregate-status-precedence
     title: Mixed and empty outcomes preserve check and contract aggregation
     area: check-engine

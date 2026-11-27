@@ -1,5 +1,5 @@
 import ast
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -351,6 +351,15 @@ def test_run_invocation_retains_identity_on_early_failure(
     assert outcome.status.value == "failed"
     assert outcome.run_result is None
     assert (outcome.plan is not None) == (failure in {"setup", "engine"})
+    assert outcome.scope_facts.planned_check_count == (
+        0 if failure == "empty" else 1 if failure in {"setup", "engine"} else None
+    )
+    assert outcome.scope_facts.planned_contract_count == (
+        1 if failure in {"setup", "engine"} else None
+    )
+    assert outcome.scope_facts.finalized_check_count == 0
+    assert outcome.scope_facts.executed_check_count == 0
+    assert outcome.scope_facts.complete is (False if failure in {"setup", "engine"} else None)
     assert outcome.elapsed_ns >= 0
     assert outcome.started_at.endswith("Z") and outcome.finished_at.endswith("Z")
     assert outcome.service_result.exit_category is category
@@ -465,6 +474,12 @@ def test_run_invocation_preserves_outcome_and_private_values(
     assert outcome.service_result.exit_category is category
     assert outcome.run_result is not None
     assert outcome.run_result.status.value == (status.value if status is not None else "no_checks")
+    assert outcome.scope_facts.planned_check_count == 1
+    assert outcome.scope_facts.finalized_check_count == (0 if status is None else 1)
+    assert outcome.scope_facts.executed_check_count == (
+        1 if status in {CheckStatus.PASS, CheckStatus.FAIL, CheckStatus.WARN} else 0
+    )
+    assert outcome.scope_facts.complete is (status is not None)
     assert outcome.run_result.run_id == outcome.run_id
     assert outcome.run_result.finished_at == outcome.finished_at
     assert outcome.elapsed_ns >= 0
@@ -518,6 +533,11 @@ def test_invocation_plan_preserves_loaded_order_and_dependencies(tmp_path: Path)
         "contract.ecommerce_recon.empty",
         "contract.ecommerce_recon.zeta",
     )
+    assert outcome.scope_facts.planned_contract_count == 3
+    assert outcome.scope_facts.planned_check_count == 3
+    assert outcome.scope_facts.finalized_check_count == 3
+    assert outcome.scope_facts.executed_check_count == 0
+    assert outcome.scope_facts.complete is True
     assert plan.contracts[1].checks == ()
     checks = plan.contracts[0].checks
     assert tuple(c.check_id for c in checks) == ("first", "second")
@@ -597,6 +617,8 @@ def test_invalid_compiled_scope_never_reaches_runtime_setup(
 
     assert outcome.plan is None
     assert outcome.run_result is None
+    assert outcome.scope_facts.planned_check_count == (0 if invalid == "empty" else None)
+    assert outcome.scope_facts.complete is None
     assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
     assert outcome.service_result.diagnostics
     assert "private-query-canary" not in repr(outcome.service_result)
@@ -689,4 +711,102 @@ def test_unexpected_invocation_failure_is_finalized_without_private_payload(
     assert "private-preparation-error" not in repr(outcome)
     assert "super-secret" not in repr(outcome.service_result.to_dict())
     assert service.execute().to_dict() == outcome.service_result.to_dict()
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-loaded-compiled-scope")
+@pytest.mark.parametrize(
+    "variant",
+    [
+        "missing_check",
+        "extra_check",
+        "duplicate_check",
+        "wrong_check_id",
+        "wrong_check_type",
+        "wrong_check_contract",
+        "reordered_checks",
+        "missing_contract",
+        "extra_contract",
+        "reordered_contracts",
+        "wrong_project",
+        "wrong_run_id",
+        "complete",
+    ],
+)
+def test_invocation_rejects_results_outside_loaded_scope(tmp_path: Path, variant: str) -> None:
+    write_project(tmp_path)
+    write_compiled_checks(
+        tmp_path,
+        contract_name="alpha",
+        checks=[
+            _compiled_check_payload(check_id="first", name="first"),
+            _compiled_check_payload(check_id="second", name="second"),
+        ],
+    )
+    write_compiled_contract(tmp_path, contract_name="alpha")
+    write_compiled_checks(tmp_path, contract_name="empty", checks=[])
+    write_compiled_contract(tmp_path, contract_name="empty")
+
+    first = CheckResult(
+        check_id="first",
+        name="first",
+        check_type="row_count_diff",
+        contract_name="alpha",
+        status=CheckStatus.PASS,
+        executed=True,
+    )
+    second = replace(first, check_id="second", name="second")
+    checks = (first, second)
+    if variant == "missing_check":
+        checks = (first,)
+    elif variant == "extra_check":
+        checks += (replace(first, check_id="extra"),)
+    elif variant == "duplicate_check":
+        checks = (first, first)
+    elif variant == "wrong_check_id":
+        checks = (first, replace(second, check_id="foreign"))
+    elif variant == "wrong_check_type":
+        checks = (first, replace(second, check_type="sum_diff"))
+    elif variant == "wrong_check_contract":
+        checks = (first, replace(second, contract_name="foreign"))
+    elif variant == "reordered_checks":
+        checks = (second, first)
+
+    alpha = ContractResult.from_check_results(contract_name="alpha", check_results=checks)
+    empty = ContractResult.from_check_results(contract_name="empty", check_results=())
+    contracts = (alpha, empty)
+    if variant == "missing_contract":
+        contracts = (alpha,)
+    elif variant == "extra_contract":
+        contracts += (replace(empty, contract_name="foreign"),)
+    elif variant == "reordered_contracts":
+        contracts = (empty, alpha)
+
+    class ScopeEngine:
+        def run(self, *args: Any, **kwargs: Any) -> RunResult:
+            return RunResult.from_contract_results(
+                run_id="foreign" if variant == "wrong_run_id" else kwargs["run_id"],
+                project_name="foreign" if variant == "wrong_project" else kwargs["project_name"],
+                started_at=kwargs["started_at"],
+                finished_at="2026-11-27T10:00:00Z",
+                contract_results=contracts,
+            )
+
+    outcome = RunService(start_path=tmp_path, engine=ScopeEngine())._execute_invocation()
+    if variant == "complete":
+        assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+        assert outcome.status.value == "completed"
+    else:
+        assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+        assert outcome.status.value == "failed"
+        assert [d.code for d in outcome.service_result.diagnostics] == [
+            "RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR"
+        ]
+    assert outcome.run_result is not None
+    assert outcome.run_result.contract_results == contracts
+    assert outcome.scope_facts.planned_contract_count == 2
+    assert outcome.scope_facts.planned_check_count == 2
+    assert outcome.scope_facts.finalized_check_count == len(checks)
+    assert outcome.scope_facts.executed_check_count == len(checks)
+    assert outcome.scope_facts.complete is (variant == "complete")
     _assert_no_runtime_outputs(tmp_path)
