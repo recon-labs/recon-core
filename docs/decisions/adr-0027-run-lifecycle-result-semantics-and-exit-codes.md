@@ -1,6 +1,6 @@
 # ADR 0027: Run Lifecycle, Result Semantics And Exit Codes
 
-Status: Proposed - maintainer approval required.
+Status: Design direction approved by maintainer (2026-11-27). Detailed interface and native feasibility proof tracked in prework; implementation and validated integration pending.
 
 ## Context
 
@@ -9,7 +9,7 @@ engine. Invocation timing is incomplete, and the finish timestamp is
 supplied before evaluation. Native check ownership, interruption and
 confirmed cleanup already exist; invocation-wide lifecycle is separate.
 
-## Proposed decision
+## Decision direction
 
 Use one invocation-local owner for identity, UTC labels, monotonic elapsed
 time, explicit loaded plan, preparation, execution and finalization.
@@ -53,5 +53,16 @@ See [execution lifecycle prework](../planning/milestone-8-2-prework.md)
 for decision details, scope, acceptance dimensions, test plan, gates and
 exit criteria. Native cancellation and race proof are mandatory before
 claiming active stop support. If unsupported, revisit the decision rather
-than silently degrading required behavior. No compatibility claim or
-implementation authority from this proposal.
+than silently degrading required behavior. No compatibility claim or implementation authority from design approval alone.
+
+The detailed approved-direction refinement uses optional
+`--timeout-seconds` and embedded keyword-only `timeout_seconds` and
+caller-owned `cancel_event`. One monotonic deadline and first observed
+stop cause; runtime stop maps to the existing runtime error category.
+An invocation-local control owner coordinates the already existing native
+interrupt with active-call return and confirmed cleanup, not query retry.
+CLI-only main-thread signal coordination and a joined in-process execution
+thread use the same runner; embedded calls install no signal handlers.
+No OS-specific console modification or hard termination guarantee.
+See the prework for exact non-execution reasons, timing, compatibility,
+metadata ownership, cumulative envelope and required proof.

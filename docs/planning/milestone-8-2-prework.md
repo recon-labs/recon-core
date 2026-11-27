@@ -47,11 +47,11 @@ new comparison operations, run-results writer, evidence or sinks. M8.3 owns
 publication and final CLI mapping. No default deadline/retry/concurrency
 policy is selected by this initial audit.
 
-## Proposed design for maintainer approval
+## Maintainer-approved design direction (historical proposal text)
 
-This proposal does not authorize implementation. ADR
+The maintainer approved this direction; it does not authorize runtime implementation. ADR
 [0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md)
-is proposed, not accepted. Keep the existing milestone split: lifecycle
+records the approved direction and detailed interface refinement below. Keep the existing milestone split: lifecycle
 and native stop coordination are cohesive; publication and broader
 execution remain separate. No new executor, process worker, scheduler,
 global resource manager or persistent recovery infrastructure.
@@ -234,3 +234,176 @@ implementation. No schema/version bump for artifacts not emitted here.
   matrix, pre-commit and branch-wide regression capture advisory pass.
   Docs, compatibility/changelog, private continuity and future gates synced.
   Separate implementation and merge approval; no release or M8.3 work.
+
+## Maintainer-approved direction and detailed interface contract (2026-11-27)
+
+The maintainer approved the proposed direction above. This section refines
+the interfaces and lifecycle semantics without changing the approved scope.
+No runtime implementation or public support claim from prework alone.
+Implementation authorization remains separate after validated prework
+integration.
+
+### Invocation interfaces and ownership
+
+- CLI: `recon run --timeout-seconds 60` is an optional positive integer
+  number of seconds; omission means no deadline. No environment variable
+  or project/profile/contract configuration precedence is added. Invalid
+  CLI syntax/value is a usage error; invalid embedded argument is a
+  configuration error with sanitized diagnostics before project/native work.
+- Embedded: `RunService.execute(*, timeout_seconds: int | None = None,
+  cancel_event: threading.Event | None = None) -> ServiceResult`.
+  The caller owns the Event; Recon never clears or mutates it. A pre-set
+  event requests cancellation before preparation. No default deadline,
+  new mandatory argument, callback registry or public adapter API.
+  Reject bool and other non-integer timeout values, zero and negatives.
+  Use integer monotonic nanosecond arithmetic; do not convert an arbitrary
+  authored duration to an unbounded native/thread wait or hardcode a
+  maximum workload duration. Wait in bounded observation intervals.
+- Existing `ServiceResult` return fields, dictionary and non-run commands
+  stay unchanged. A private run-specific invocation envelope behind
+  `RunService.execute` owns the typed plan, optional finalized internal
+  `RunResult`, invocation lifecycle status, stage, safe diagnostics and
+  command projection; later publication consumes this same envelope,
+  not a second run or raw dataclass serialization. Early failures have
+  identity/timing even before a valid plan exists. Unknown project/scope
+  is absent. No generated artifacts or new stable serialization here.
+- Generate `run-{uuid4().hex}` at invocation entry. Record precise UTC
+  labels and monotonic elapsed time at one invocation finalization boundary
+  after native/session cleanup and control-thread join. Duration is not
+  derived from wall clock or summed across checks. Clock correction or
+  suspend semantics cannot be presented as hard wall-clock termination.
+- Existing exported `CheckEngine.run` accepts its historical
+  `finished_at` keyword for callers supplying an already known label;
+  extend the private engine injection contract to allow an unset
+  `finished_at` (None), and compute the engine-end label after evaluation
+  when unset. RunService must not fabricate a future timestamp. Its
+  authoritative finalized envelope records the invocation-end label
+  after cleanup; preserve legacy direct engine explicit-value use and
+  existing test injection without a second execution path or exception-
+  driven signature fallback. This pre-alpha injected engine seam is not a
+  promise of native cancellation support for arbitrary custom engines;
+  an explicit required control cannot silently be ignored. Use the same
+  cooperative context contract or report affected unsupported control.
+- Freeze the loaded plan identity/order/dependency and whole compiled
+  scope, use the existing index/cache and loader uniqueness/matching
+  checks. Do not reparse authored YAML, re-read a different artifact
+  mid-run, imply authored-source freshness, or build another graph engine.
+  Plan/capability/admission facts describe actual known stages, not a
+  claim that every planned check ran. Preserve known blocked decisions.
+
+### Stop, result and cleanup semantics
+
+- First observed stop cause is latched invocation-locally; if deadline
+  and caller signal are first observed together, explicit cancellation
+  wins deterministically. Preserve distinct already-recorded failures;
+  no inference of real-world event ordering. Check at preparation/plan
+  boundaries, dependency resolution and before each native data statement
+  and subsequent fetch/verification; no new work after observed stop.
+  Blocking setup calls without a safe native interrupt are cooperative
+  checkpoints, not hard time limits. No timeout reset per check.
+- Proposed additive non-execution reasons are `run_cancelled` and
+  `run_deadline_exceeded` under existing `not_executable` status, with
+  distinct safe diagnostics `RC_RUNTIME_RUN_CANCELLED` and
+  `RC_RUNTIME_RUN_DEADLINE_EXCEEDED`. Unstarted planned checks get the
+  invocation stop reason, not `selected_out` or a fabricated prerequisite
+  blocker. An interrupted attempted check with no trustworthy completed
+  comparison is `error` without value payload, with stop and actual
+  cleanup/native diagnostics. Preserve earlier finalized results and
+  valid completed evaluation only after confirmed cleanup. Record attempt
+  separately from the existing executed/completed-result flag.
+- Existing aggregate check-status precedence remains unchanged. A stopped
+  or failed invocation has a distinct lifecycle failure/stop reason,
+  never successful or a fabricated `no_checks` aggregate. Command exit
+  for runtime stop is 3, even if a preceding check passed/failed; earlier
+  independent configuration/validation failure retains its truthful
+  primary category. Invalid CLI usage uses the existing usage exit 2;
+  invalid embedded operational arguments use configuration exit 4.
+  Finalization seals a single outcome: stop observed before sealing
+  cannot become success, a later event cannot rewrite a returned result.
+- Cancellation during rollback/close does not interrupt cleanup.
+  Preserve primary and cleanup failure, retain uncertain scratch and
+  affected-database isolation, no forced close or recovery. Completion
+  may exceed the timeout; process kill cannot return a trustworthy result.
+- Native stop coordination is one invocation-local control owner, with
+  an active-call lease managed by the adapter around actual interruptible
+  execution/fetch spans. Register before a native call, recheck stop
+  immediately before entering, and recheck after return before accepting
+  result. An interrupt before native launch is not proof; while stop is
+  latched and the same call is still in flight, a bounded observation
+  cadence may repeat the existing native interrupt request until call
+  returns. Do not retry the query. No interrupt of a different session,
+  idle/cleanup call, or next invocation. No lock held across native work;
+  unregister and join any borrowed interrupt caller before rollback,
+  close or scratch cleanup. The private session protocol may expose the
+  already-existing interrupt capability; public BaseAdapter is unchanged.
+  Verify actual active-spill interrupt and close in production integration,
+  not only a mocked thread or returned interrupt call.
+- CLI must remain responsive to delivered SIGINT while native code runs.
+  Use the ordinary synchronous RunService/CheckEngine execution once on a
+  joined in-process execution thread, with the CLI main thread coordinating
+  signals (one native owner, not a worker process or parallel executor).
+  A scoped main-thread SIGINT handler records only a simple stop latch;
+  ordinary coordinator code transfers that request, never closes native
+  handles or runs native work in a signal handler. Restore prior handler
+  on all paths; respect ignored/unavailable signal delivery. Embedded
+  calls stay synchronous on the caller's thread and never install signal
+  handlers; an invocation-local observer is needed only when explicit
+  cancellation/deadline is requested. Share one stop-control implementation
+  rather than separate CLI/embedded runners. No detached/daemon runtime
+  threads, cross-process IPC, OS-specific production console manipulation,
+  global scheduler or forced process termination. Do not claim control
+  of a signal that the host never delivers. Explicit timeout and caller
+  Event remain independent of CLI signal delivery.
+
+### Cumulative envelope and typed evidence
+
+Keep exactly one active native check per invocation, even through dependency
+recursion, and freshly resolve resource observations for each owned session.
+Different independent invocations are not globally serialized; no
+process-wide resource reservation. Track exact planned/attempted/finalized
+check counts and native-call attempts, elapsed time and peak concurrent
+owned native work; distinguish attempts from data scans or comparison
+completion. Shared explicit deadline budgets the invocation. Managed
+memory/thread/spill settings are per-session controls, not actual bytes
+consumed or additive cumulative use. Do not sum capacities or optional
+catalog row estimates as actual scans. Where scope-correct cumulative
+actual scan/CPU/disk/transport/cost evidence is not available, retain
+explicit unavailable provenance; no invented cap. Additional engine-specific
+cumulative control/measurement and multi-context budgets remain mandatory
+at the native adapter, scope expansion and conformance checkpoints in the
+resource assignment (R1/R7/R8, M12.5/M13.5/M29 and integration gates).
+No new blanket limit, workload cap or run-wide physical guarantee.
+
+Preserve evidence at its owner: configuration resolver records per-setting
+authored scope/mode where known (including reset); existing native adapter
+records requested/adjusted target, verified effective readback/availability
+and binding/placement outcomes without path, raw host facts or query text.
+The current code discards `_apply_native_controls` readback and only emits
+advisories from adaptive target calculation; preserve typed safe facts at
+those seams, not by re-observing, recomputing or reverse-parsing diagnostics.
+Do not duplicate policy precedence or native control math. Final actual
+admission must not be conflated with preliminary scan-budget classification.
+Use allowlisted per-check metadata for capability/placement/admission,
+policy mode/origin, control effect/unknown state and advisory codes;
+keep sensitive identifiers, data, raw plans and credentials private.
+C10 owns public field allowlist/versioned publication, not rerunning a check.
+No public resource settings change or new type/scope capability.
+
+### Additional required proof before exit
+
+Extend B1-B10 with simultaneous stop/deadline, preset/reused caller Event,
+invalid arguments, very large valid integer duration (no wait overflow),
+wall-clock rollback, direct legacy engine interface, unknown injected
+control, before/after dependency, before launch/execute/fetch/verification,
+between statements, during cleanup, cancellation after final seal, repeated
+interrupt lease and deregistration, exception-raising interrupt, actual
+SIGINT and restored prior handler, non-main embedded invocation, no runtime
+daemon/thread leak, and unchanged unrelated connection/invocation.
+Test no more native reads after observed stop and no release while interrupt
+or executing call remains live. Test one actual plan evaluated once, matching
+loader inputs, distinct stage outcome and unchanged ServiceResult dictionary.
+Verify safe typed native readback/availability and no false actual-resource
+totals or raw metadata. All required standard/pinned/platform and production
+path evidence remains mandatory; a synthetic feasibility probe is not
+implementation conformance. Windows host-disabled Ctrl+C is not an engine
+failure or a promise of signal delivery. No OS-version allowlist.
