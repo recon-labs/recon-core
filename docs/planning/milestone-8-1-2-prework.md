@@ -1,6 +1,63 @@
 # Milestone 8.1.2 - Adaptive Local Resource Policy And Admission
 
+## Current implementation authorization (2026-11-27)
+
+The maintainer explicitly approved the consolidated native-first design,
+including its adapter-scoped project/target/connection configuration and
+precedence, and separately authorized implementation. This checkpoint
+supersedes earlier suspension/approval-pending wording below, not any
+required outcome or exit proof. Implement only the approved replacement
+on draft PR #42. No merge, release, production activation, or guard removal
+before the applicable proof and separate merge approval. Split Decision:
+Already Split / Follow Existing Split. No completed milestone reopening.
+
+Approved design revision c1d82f1e55fc0d5160709b8a0fd276e984ad0af8;
+base main b001d14de1fb613beaaad1f3e914f81dfb125cac.
+CI 45965307969: all ten standard jobs concluded success (three Python test
+jobs, three DuckDB semantic jobs, four pinned DuckDB compatibility jobs).
+This is design-baseline CI, not proof of the replacement implementation.
+Historical candidate baseline 64caf7a0709064cc60e143386c7dfaaaaaa86abe
+remains available in history. Existing A1-A13/R1-R10/B8-B10/P1-P6 outcomes,
+M8.2/M8.3/M9.5/M10.8/M11-M13/M29 and all future configuration gates retain
+their assignments. The mechanism-specific scope reductions below are
+approved as part of the replacement, with equivalent applicable outcomes
+required before retirement. No gate is closed.
+
+### Implementation step 1: candidate disposition and test-first order
+
+Compared approved design head against main: 51 changed files, including dependency, source, test and documentation paths (see exact Git
+compare; use actual path inventory for routing). Candidate implementation remains parked until each replacement
+slice is ready. No history rewrite.
+
+| Candidate source/test family | Approved implementation action and proof |
+| --- | --- |
+| config/_local_resource_policy.py, config/project_config.py, tests/config/test_project_config.py; existing profile selection/rendering/model seams | Replace unreleased scan-budget.local and reserve leaves with the six logical adapter-scoped settings and one resolver; preserve old public project/profile behaviors, strict typed literals, duplicates, secret-safe diagnostics, selected target/reference behavior, atomic precedence/reset, identity invariance and same-context conflict refusal. Tests first. |
+| check_engine/scan_budget.py, tests/check_engine/test_local_resource_targets.py | Preserve existing admission APIs and current footprint guard; replace historical reserve formulas with approved automatic/percent/fixed calculation and unknown/zero behavior. Move engine-specific arithmetic to private DuckDB owner as necessary; preserve one policy resolver. Test changing capacity, explicit bounds, native rounding, scratch shared headroom; no interim cap removal here. |
+| adapters/_local_resource_observation.py and _portable_resource_observation.py plus matching tests | Replace exhaustive cgroup hierarchy/Windows job/mount instrumentation with trustworthy independent optional facts, minimal verified cgroup-v2 scope and native recommendations. Retain missing/zero/partial/malformed/denied evidence, constrained scope, actual native behavior; not blanket unlimited. |
+| adapters/duckdb/_native_resource_controls.py and native control tests | Reuse verified native control and readback helpers where suitable; preserve actual spill effect, failed control refusal, settings isolation, startup vs post-open distinction. |
+| adapters/duckdb/_bound_execution.py, test_duckdb_bound_execution.py and test_duckdb_adapter.py | Preserve exact binding, bounded fetchmany(2) count reader, exact domains, existing public adapter compatibility; replace control session path with guarded native actor and actual close/interrupt/noninterference proof. Do not weaken M8.1.1 or M7.4. |
+| adapters/duckdb/_resource_worker.py, _worker_bound_session.py, _worker_control_protocol.py, _worker_result_codec.py plus matching candidate tests | Retire subprocess/IPC/codec/proxy/replay/EOF watchdog mechanism after approved native replacement proof. Retain exact native numeric/shape bounds, binding/lease, cancel requested vs confirmed, errors and L1/noninterference. No worker crash-containment claim. |
+| adapters/_resource_scratch.py, _scratch_filesystem.py, _scratch_namespace.py, _windows_scratch_security.py plus matching candidate tests | Replace stable namespace/tickets/leases/restart recovery and exhaustive mount/ACL checks with unique private per-check scratch and minimal actual native privacy mechanism; retain no-delete-unowned/replaced/live, actual ACL inheritance, cleanup/failure, abrupt residue retained and fresh invocation independent. Reuse only proven needed primitives. |
+| pyproject.toml | Review optional psutil extra against minimal observation; no mandatory Core dependency. |
+| regression capture metadata and index | Retain all main rows. Preserve historical candidate nodes until each replacement is implemented and verified. Update applicable capture rows and markers to actual new nodes, reroute changed/deleted paths, record retired mechanism rationale and carryover; do not claim proof before GREEN. |
+
+The existing A/R/B/P and capture-ID disposition table below is approved
+subject to these scoped replacement proofs. Specific obsolete IPC framing,
+persistent recovery and exhaustive OS-certification cases may retire;
+all applicable correctness, privacy, required-control, noninterference,
+cancellation and cleanup outcomes must be tested. Preserve exact historical
+nodes in prior commit and private evidence. No regression row silently
+deleted or marked satisfied. First slice: tests for project/target/connection
+schema, strict validation and precedence plus pure target calculations,
+then smallest conformant implementation. Critical negative assertions
+require observed RED before GREEN; ordinary test-first cases may use source
+review when local validation unavailable. Existing standard CI first;
+persistent native/platform proof and Windows live-WAL fixture remain
+mandatory. No code changed in this authorization/inventory step.
+
 ## Current status: whole design reopened (2026-11-27)
+
+Historical suspension record; superseded by the current authorization above.
 
 **Implementation suspended by maintainer.** The previous detailed design and
 implementation authorization below are historical, not coding authority.
