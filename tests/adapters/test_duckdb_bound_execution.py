@@ -1153,6 +1153,7 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
         )
         before = observer.execute(setting_sql).fetchone()
         native_interrupted = []
+        native_errors = []
         outcomes = []
         thread = None
         try:
@@ -1179,6 +1180,8 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
                         return self.native.execute(statement, *args)
                     except duckdb.Error as error:
                         if statement == query:
+                            message = str(error).replace(str(base), "<fixture>")[:300]
+                            native_errors.append((type(error).__name__, message))
                             native_interrupted.append("interrupt" in str(error).lower())
                         raise
 
@@ -1213,7 +1216,10 @@ def test_actual_guarded_native_interrupt_during_spill(tmp_path: Path, duckdb: An
             assert scratch.path.is_dir()
             thread.join(15)
             assert not thread.is_alive(), "Native query did not stop."
-            assert native_interrupted == [True], "Native interruption was not confirmed."
+            assert native_interrupted == [True], (
+                "Native interruption was not confirmed: "
+                f"errors={native_errors!r}, outcomes={outcomes!r}"
+            )
             assert outcomes == ["RC_ADAPTER_QUERY_FAILED"], "Cancelled query returned a result."
             assert observer.execute(setting_sql).fetchone() == before
             assert observer.execute("SELECT 42").fetchone() == (42,)
