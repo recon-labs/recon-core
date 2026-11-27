@@ -35,9 +35,9 @@ class _NativeSizeInterval:
 
 
 def _parse_native_size(value: object) -> _NativeSizeInterval | None:
-    # The tested DuckDB formatter truncates to one decimal digit. Byte
-    # counts below the first unit are exact. Never interpret prose defaults
-    # (including percentage or unlimited descriptions) as finite sizes.
+    # DuckDB formats the largest radix unit using only the next-lower unit
+    # for the truncated fractional digit. Smaller units are discarded first.
+    # Byte counts below the first unit are exact; prose defaults are not sizes.
     if not isinstance(value, str):
         return None
     match = _DISPLAY.fullmatch(value)
@@ -52,9 +52,11 @@ def _parse_native_size(value: object) -> _NativeSizeInterval | None:
     multiplier = _UNITS.get(unit)
     if multiplier is None or fractional is None or whole == 0:
         return None
-    tenths = whole * 10 + int(fractional)
-    lower = (tenths * multiplier + 9) // 10
-    upper = ((tenths + 1) * multiplier - 1) // 10
+    radix = 1024 if unit.endswith("iB") else 1000
+    step = multiplier // radix
+    digit = int(fractional)
+    lower = whole * multiplier + ((digit * radix + 9) // 10) * step
+    upper = whole * multiplier + (((digit + 1) * radix + 9) // 10) * step - 1
     if lower > _MAX:
         return None
     return _NativeSizeInterval(lower, min(upper, _MAX))
