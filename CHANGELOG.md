@@ -53,6 +53,10 @@ This project follows semantic versioning once public package releases begin.
   and primary diagnostics; uncertain cleanup isolates only the affected database.
   Retain private policy origin, actual admission, requested and adjusted native
   targets and verified reported settings without changing execution policy.
+  Add optional invocation timeout and caller cancellation, with explicit stop
+  reasons and safe diagnostics, existing exit categories and no default
+  deadline. Delivered CLI SIGINT requests cooperative cancellation; native
+  cleanup is awaited rather than forcing process or session termination.
 
 - Unreleased adapter-scoped DuckDB execution policy: independent automatic,
   fixed MiB or percentage memory/spill controls, memory-aware automatic

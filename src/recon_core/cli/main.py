@@ -1,5 +1,9 @@
 """Click entry point for the Recon Core CLI."""
 
+import signal
+from threading import Event, Thread, current_thread, main_thread
+from types import FrameType
+
 import click
 
 from recon_core import get_version
@@ -81,10 +85,63 @@ def compile_command(render_sql: bool) -> None:
 @click.option("--timeout-seconds", type=click.IntRange(min=1), help="Optional run deadline.")
 def run(timeout_seconds: int | None) -> None:
     """Run compiled reconciliation checks."""
+    _handle_result(_execute_cli_run(timeout_seconds))
+
+
+def _execute_cli_run(timeout_seconds: int | None) -> ServiceResult:
+    """Coordinate delivered SIGINT without interrupting cleanup or native ownership."""
     service = RunService()
-    result = (
-        service.execute()
-        if timeout_seconds is None
-        else service.execute(timeout_seconds=timeout_seconds)
-    )
-    _handle_result(result)
+
+    def execute_without_signal_control() -> ServiceResult:
+        if timeout_seconds is None:
+            return service.execute()
+        return service.execute(timeout_seconds=timeout_seconds)
+
+    if current_thread() is not main_thread():
+        return execute_without_signal_control()
+    previous = signal.getsignal(signal.SIGINT)
+    if previous is None or previous == signal.SIG_IGN:
+        return execute_without_signal_control()
+
+    requested = False
+    cancel_event = Event()
+    finished = Event()
+    results: list[ServiceResult] = []
+    errors: list[BaseException] = []
+
+    def request_stop(signum: int, frame: FrameType | None) -> None:
+        nonlocal requested
+        requested = True
+
+    def execute() -> None:
+        try:
+            results.append(
+                service.execute(timeout_seconds=timeout_seconds, cancel_event=cancel_event)
+            )
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            finished.set()
+
+    try:
+        signal.signal(signal.SIGINT, request_stop)
+    except (OSError, ValueError):
+        return execute_without_signal_control()
+
+    worker = Thread(target=execute, name="recon-cli-run", daemon=False)
+    try:
+        worker.start()
+        try:
+            while not finished.is_set():
+                if requested:
+                    cancel_event.set()
+                finished.wait(0.01)
+        finally:
+            if not finished.is_set():
+                cancel_event.set()
+            worker.join()
+    finally:
+        signal.signal(signal.SIGINT, previous)
+    if errors:
+        raise errors[0]
+    return results[0]

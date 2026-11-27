@@ -86,6 +86,14 @@ Execution means the existing result-model `executed` flag, not an attempted
 native call. Scope completeness is independent of comparison status; no result
 is invented for an unprepared check. Invocation-wide attempts and publication
 remain separate responsibilities.
+The optional invocation deadline uses monotonic time shared across preparation
+and evaluation. Caller cancellation and deadline expiry latch the first observed
+stop, with cancellation winning a simultaneous observation. The invocation
+retains completed results and marks unstarted checks with an explicit stop
+reason; an interrupted comparison without trustworthy evidence is an error.
+Stop requests do not prove native termination. Active interrupt callers return
+before session cleanup; cleanup may exceed the deadline. The final seal cannot
+be rewritten by a later stop request. No default deadline or automatic retry.
 The private outcome is not a new serialized or stable result API. Only the
 existing four-field `ServiceResult` dictionary (exit category, exit code,
 message and safe diagnostics) is returned by the public command service.

@@ -231,3 +231,19 @@ configuration error -> 4
 ## Design principle
 
 CLI commands should be thin wrappers around testable application services.
+
+### Optional run cancellation
+
+`recon run --timeout-seconds 60` requests one cooperative invocation deadline,
+including preparation, checks and cleanup. Omission adds no deadline. Embedded
+callers may use `RunService.execute(timeout_seconds=60, cancel_event=event)`
+with a caller-owned `threading.Event`; Recon never mutates that event. CLI
+SIGINT, when delivered, requests cancellation on the existing invocation and
+restores the previous signal handler. Embedded calls stay on the caller's
+thread without installing a signal handler. Invalid CLI timeout values are
+usage errors; invalid embedded controls are configuration errors. A stopped
+run returns the existing runtime-error category (exit 3), preserving an
+independent earlier configuration or validation failure. This is cooperative
+control, not guaranteed wall-clock termination: native calls and confirmed
+cleanup may outlast the deadline. No query is automatically retried, and no
+new output files are created.
