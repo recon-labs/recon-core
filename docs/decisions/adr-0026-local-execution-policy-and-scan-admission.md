@@ -28,6 +28,15 @@ mechanism-specific choices below are historical, not implementation authority.
 
 ## Proposed replacement following comparative proof (approval pending)
 
+Maintainer scope decision (2026-11-27): M8.1.2 owns adaptive resource
+management for both standalone and embedded Python usage. No deferral of
+embedded adaptation or replacement admission to M8.2. Preserve shared
+application safety and current API capabilities; prove the smallest native-first
+mechanism without automatically restoring per-check workers, custom IPC or
+OS ownership inspection. M8.2 retains full invocation lifecycle and cumulative
+resource responsibilities. Exact mechanism and remaining scope dispositions
+are not approved yet.
+
 Ordinary configured native read-only sessions in a dedicated invocation passed
 all nine check families on eight environment combinations; same-file external
 readers unchanged, writers refused, database unchanged and scratch cleaned.
