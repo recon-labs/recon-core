@@ -81,7 +81,7 @@ def _parse_duckdb_resource_layer(value: object) -> _LocalResourceLayer:
         allowed=frozenset(integers) | frozenset(modes) | {"scratch-directory"},
         location="DuckDB resource policy",
     )
-    changes: dict[str, int | str | None] = {}
+    changes: dict[str, int | None] = {}
     for key, (attribute, multiplier, reset) in integers.items():
         if key in settings:
             authored = settings[key]
@@ -96,17 +96,29 @@ def _parse_duckdb_resource_layer(value: object) -> _LocalResourceLayer:
             fixed, percent = _managed_mode(settings[key], location=key)
             changes[f"{prefix}_bytes"] = fixed
             changes[f"{prefix}_percent"] = percent
+    scratch_directory: str | None = None
     if "scratch-directory" in settings:
         scratch = settings["scratch-directory"]
         if not isinstance(scratch, str) or not scratch.strip() or "\x00" in scratch:
             raise _InvalidResourcePolicyError(
                 "Resource policy scratch-directory must be auto or a non-empty path string."
             )
-        changes["scratch_directory"] = None if scratch == "auto" else scratch
-    # Only the closed schema above can produce attribute names.
+        scratch_directory = None if scratch == "auto" else scratch
+    authored_fields = frozenset(changes)
+    if "scratch-directory" in settings:
+        authored_fields |= {"scratch_directory"}
     return _LocalResourceLayer(
-        policy=replace(_LocalResourcePolicy(), **changes),
-        authored_fields=frozenset(changes),
+        policy=_LocalResourcePolicy(
+            max_database_bytes=changes.get("max_database_bytes"),
+            warn_estimated_input_rows=changes.get("warn_estimated_input_rows"),
+            managed_memory_bytes=changes.get("managed_memory_bytes"),
+            managed_memory_percent=changes.get("managed_memory_percent"),
+            threads=changes.get("threads"),
+            spill_bytes=changes.get("spill_bytes"),
+            spill_percent=changes.get("spill_percent"),
+            scratch_directory=scratch_directory,
+        ),
+        authored_fields=authored_fields,
     )
 
 
