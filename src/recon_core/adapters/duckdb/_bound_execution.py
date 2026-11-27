@@ -353,7 +353,7 @@ class _OwnedDuckDbSession:
         self._memory_capacity_known: bool | None = None
         self._cpu_capacity_known: bool | None = None
         self._spill_capacity_known: bool | None = None
-        self._estimate = _EstimateAvailability.NOT_REQUESTED
+        self._estimate: _EstimateAvailability | None = None
 
     @property
     def resource_facts(self) -> _NativeResourceFacts:
@@ -443,7 +443,6 @@ class _OwnedDuckDbSession:
         )
         self._advisories = _resource_advisories(observed, inputs, targets, policy)
         return request
-
 
     @property
     def advisories(self) -> tuple[Diagnostic, ...]:
@@ -595,7 +594,9 @@ class _OwnedDuckDbSession:
         )
         policy = self._resource_policy
         threshold = policy.warn_estimated_input_rows if policy is not None else None
-        if threshold is not None:
+        if threshold is None:
+            self._estimate = _EstimateAvailability.NOT_REQUESTED
+        else:
             estimated = _estimated_input_rows(self._connection, self._lease.scope)
             self.verify_lease(self._lease, self._lease.scope)
             if estimated is None:

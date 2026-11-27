@@ -113,8 +113,12 @@ class _ProjectBoundRunner:
         adapter: BaseAdapter,
         evaluate: _BoundEvaluation,
     ) -> CheckResult:
-        facts = self._resource_facts[check.id]
-        self._resource_facts[check.id] = replace(facts, admission=_NativeAdmission.UNVERIFIED)
+        facts = self._resource_facts.get(check.id)
+        if facts is None:
+            facts = _CheckResourceFacts(check.id, None, None, None, None)
+        self._resource_facts[check.id] = replace(
+            facts, admission=_NativeAdmission.UNVERIFIED, capability_admitted=True
+        )
         result = self._run_bound_check(check, contract, adapter, evaluate)
         facts = self._resource_facts[check.id]
         if (

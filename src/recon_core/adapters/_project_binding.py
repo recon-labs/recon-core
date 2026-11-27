@@ -97,7 +97,7 @@ class _NativeResourceFacts:
     memory_capacity_known: bool | None
     cpu_capacity_known: bool | None
     spill_capacity_known: bool | None
-    estimate: _EstimateAvailability
+    estimate: _EstimateAvailability | None
     readback_verified: bool
     advisory_codes: tuple[str, ...]
     physical_enforcement_proven: bool = field(default=False, init=False)

@@ -93,6 +93,7 @@ class _CheckResourceFacts:
     source_policy: tuple[_ResourceSettingFact, ...] | None
     target_policy: tuple[_ResourceSettingFact, ...] | None
     admission: _NativeAdmission = _NativeAdmission.NOT_REACHED
+    capability_admitted: bool | None = None
     native: _NativeResourceFacts | None = None
 
 

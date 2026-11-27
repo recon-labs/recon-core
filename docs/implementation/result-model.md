@@ -65,7 +65,9 @@ no scratch path is included in these facts. The invocation retains each
 prepared check's preliminary scan decision and source/target policy provenance,
 plus the native runner's actual binding-admission state and safe control facts.
 A preliminary allowance is not verified binding, and a verified binding is not
-proof of successful comparison or cleanup. Native reported byte intervals are
+proof of successful comparison or cleanup. Reaching the native runner records
+admission through the existing capability gates; otherwise capability admission
+is unknown, with typed final non-execution reasons retained by the result model. Native reported byte intervals are
 not exact physical consumption. Catalog row advisory evidence retains availability
 and threshold outcome, never estimated row totals. Unreached stages remain
 unknown. Invocation-wide counts and publication are separate responsibilities.

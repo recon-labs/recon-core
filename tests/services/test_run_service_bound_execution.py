@@ -763,7 +763,7 @@ def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
             "warehouse": {"scratch-directory": "private-scratch"},
             "alias": {
                 "scratch-directory": str(other if conflict == "scratch" else scratch),
-                **({"managed-memory": {"mib": 128}} if conflict == "memory" else {}),
+                "managed-memory": {"mib": 128 if conflict == "memory" else 64},
             },
         },
     }
@@ -778,10 +778,19 @@ def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
 
     monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
     engine = _CapturingEngine()
-    result = RunService(start_path=tmp_path, engine=engine).execute()
+    invocation = RunService(start_path=tmp_path, engine=engine)._execute_invocation()
+    result = invocation.service_result
+    facts = invocation.resource_facts[0]
+    assert facts.source_policy is not None and facts.target_policy is not None
+    source = {fact.setting: fact for fact in facts.source_policy}
+    target_facts = {fact.setting: fact for fact in facts.target_policy}
+    assert source["managed-memory"].scope.value == "target"
+    assert target_facts["managed-memory"].scope.value == "connection"
+    assert str(scratch) not in repr(facts) and str(other) not in repr(facts)
     assert engine.result is not None
     outcome = engine.result.contract_results[0].check_results[0]
     if conflict == "none":
+        assert facts.admission.value == "verified"
         assert result.exit_category is ExitCategory.SUCCESS
         assert outcome.status is CheckStatus.PASS and outcome.executed
         assert len(opened) == 1
@@ -790,6 +799,7 @@ def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
         assert request.memory_bytes == 64 * 1024 * 1024
         assert request.scratch_directory.parent == scratch.resolve()
     else:
+        assert facts.admission.value == "refused" and facts.native is None
         assert outcome.status is CheckStatus.NOT_EXECUTABLE and not outcome.executed
         assert outcome.source_value is None and outcome.target_value is None
         assert "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE" in {d.code for d in outcome.diagnostics}

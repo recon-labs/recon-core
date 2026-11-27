@@ -479,6 +479,7 @@ captures:
     severity: P2
     current_tests:
       - tests/check_engine/test_local_resource_targets.py::test_adaptive_targets_follow_effective_environment
+      - tests/check_engine/test_local_resource_targets.py::test_targets_retain_authored_requests_before_adjustment
       - tests/check_engine/test_local_resource_targets.py::test_automatic_parallelism_uses_known_managed_memory_without_admission_floor
       - tests/check_engine/test_local_resource_targets.py::test_memory_aware_threads_preserve_authored_memory_modes
       - tests/services/test_run_service_bound_execution.py::test_project_run_alias_policy_uses_resolved_scratch_and_precedence
@@ -514,6 +515,10 @@ captures:
       Preserve known zero versus unavailable evidence, independently bounded
       hardware headroom, adapter-specific tuning, and memory-backed scratch
       accounting. Native automatic settings do not prove effective limits.
+      Preserve winning policy provenance, requested/adjusted/assigned targets
+      and verified report intervals without paths or host facts. Preliminary
+      scan allowance never implies verified binding; actual refusal and
+      unavailable estimates remain distinct.
       Additional measured fraction comparison CI 46021219113 retains 50% over
       25% with memory-aware threads; lower memory did not improve outcomes.
       Focused measured reassessment CI 46020054117 and actual implementation

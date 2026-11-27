@@ -655,7 +655,15 @@ def test_aggregate_capability_blocker_preserves_unrelated_row_count(
     )
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
-    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+    invocation = RunService(start_path=tmp_path, adapter_registry=registry)._execute_invocation()
+    result = invocation.service_result
+    first, second = invocation.resource_facts
+    assert first.capability_admitted is True and first.admission.value == "verified"
+    assert second.capability_admitted is None and second.admission.value == "not_reached"
+    assert second.native is None
+    assert invocation.run_result is not None
+    reason = invocation.run_result.contract_results[0].check_results[1].reason_code
+    assert reason is not None and reason.value == "missing_engine_capability"
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
     assert "RC_ADAPTER_CAPABILITY_UNSUPPORTED" in {d.code for d in result.diagnostics}
@@ -1583,11 +1591,16 @@ def test_explicit_footprint_policy(
     # A sparse file supplies only size evidence; no data read is possible.
     session_trace.failures[1] = "connect"
     engine = _CapturingAggregateEngine()
-    result = RunService(
+    invocation = RunService(
         start_path=tmp_path,
         engine=engine,
         adapter_registry=_tracking_registry(_TrackingAggregateFactory()),
-    ).execute()
+    )._execute_invocation()
+    result = invocation.service_result
+    facts = invocation.resource_facts[0]
+    assert facts.preliminary_allowed is (offset <= 0)
+    assert (facts.native is None) is (offset > 0)
+    assert facts.admission.value == ("not_reached" if offset > 0 else "unverified")
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
     check = engine.result.contract_results[0].check_results[0]
@@ -1633,7 +1646,16 @@ def test_large_native_database_without_default_cap(
     )
     before = database.stat()
     engine = _CapturingAggregateEngine()
-    result = RunService(start_path=tmp_path, engine=engine).execute()
+    invocation = RunService(start_path=tmp_path, engine=engine)._execute_invocation()
+    result = invocation.service_result
+    assert len(invocation.resource_facts) == 9
+    assert all(
+        fact.admission.value == "verified"
+        and fact.capability_admitted is True
+        and fact.native is not None
+        and fact.native.readback_verified
+        for fact in invocation.resource_facts
+    )
     assert result.exit_category is ExitCategory.SUCCESS
     assert engine.result is not None
     checks = engine.result.contract_results[0].check_results
@@ -1646,7 +1668,15 @@ def test_large_native_database_without_default_cap(
     assert len(session_trace.sessions) == len(session_trace.closes) == 18
 
     _set_project_duckdb_execution(tmp_path, {"max-database-mib": 64})
-    result = RunService(start_path=tmp_path, engine=engine).execute()
+    blocked = RunService(start_path=tmp_path, engine=engine)._execute_invocation()
+    result = blocked.service_result
+    assert len(blocked.resource_facts) == 9
+    assert all(
+        fact.preliminary_allowed is False
+        and fact.admission.value == "not_reached"
+        and fact.native is None
+        for fact in blocked.resource_facts
+    )
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
     checks = engine.result.contract_results[0].check_results
@@ -1680,7 +1710,11 @@ def test_optional_native_input_row_estimate_is_role_summed(
     if same_relation:
         write_compiled_contract(tmp_path, target_relation="qa.source_customers")
     _set_project_duckdb_execution(tmp_path, {"warn-estimated-input-rows": threshold})
-    result = RunService(start_path=tmp_path).execute()
+    invocation = RunService(start_path=tmp_path)._execute_invocation()
+    result = invocation.service_result
+    native = invocation.resource_facts[0].native
+    assert native is not None and native.estimate is not None
+    assert native.estimate.value == ("exceeds_advisory" if threshold < 2 else "within_advisory")
     assert result.exit_category is ExitCategory.SUCCESS
     warnings = [
         d for d in result.diagnostics if d.code == "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY"
@@ -1856,7 +1890,12 @@ def test_unavailable_catalog_estimate_is_advisory_only(
     _set_project_duckdb_execution(tmp_path, {"warn-estimated-input-rows": 1})
     monkeypatch.setattr(binding, "_catalog_estimated_rows", lambda connection, relation: None)
     engine = _CapturingAggregateEngine()
-    result = RunService(start_path=tmp_path, engine=engine).execute()
+    invocation = RunService(start_path=tmp_path, engine=engine)._execute_invocation()
+    result = invocation.service_result
+    native = invocation.resource_facts[0].native
+    assert native is not None and native.estimate is not None
+    assert native.estimate.value == "unknown"
+    assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN" in native.advisory_codes
     assert result.exit_category is ExitCategory.SUCCESS
     assert engine.result is not None
     check = engine.result.contract_results[0].check_results[0]
