@@ -268,6 +268,8 @@ def test_run_service_sanitizes_engine_boundary_exception(tmp_path: Path) -> None
     assert "super-secret" not in diagnostic_text
     assert "traceback" not in diagnostic_text.lower()
 
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
 def test_run_service_clock_surrounds_preparation_and_evaluation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -314,6 +316,7 @@ def test_run_service_clock_surrounds_preparation_and_evaluation(
         ("engine", "check_execution", ExitCategory.RUNTIME_ERROR),
     ],
 )
+@pytest.mark.regression_capture("run-invocation-identity-timing")
 def test_run_invocation_retains_identity_on_early_failure(
     tmp_path: Path, failure: str, stage: str, category: ExitCategory
 ) -> None:
@@ -349,6 +352,7 @@ def test_run_invocation_retains_identity_on_early_failure(
     _assert_no_runtime_outputs(tmp_path)
 
 
+@pytest.mark.regression_capture("run-invocation-identity-timing")
 def test_run_invocation_elapsed_survives_wall_clock_rollback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

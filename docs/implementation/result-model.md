@@ -38,6 +38,18 @@ Future generated `RunResult` artifacts may include sink-write metadata and
 artifact references, but the exact serialized schema belongs to the future
 run-result artifact phase or the later sink phase that first emits it.
 
+The run service owns a private invocation outcome around the existing
+check-engine result. It allocates a fresh run ID and UTC start label before
+project preparation and records the finish label after evaluation, native
+cleanup and command-result projection. Elapsed nanoseconds use a monotonic
+clock, independently of wall-clock adjustments. A structured early failure
+retains its invocation identity, timing, stage and command outcome without
+inventing a project name or check results. A completed check evaluation may
+produce a reconciliation mismatch; invocation failure is not itself a data
+mismatch. The private outcome is not a new serialized or stable result API.
+The public `ServiceResult` dictionary, command exit mapping and no-write
+boundary remain unchanged. See [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
+
 ## Contract result
 
 ```python

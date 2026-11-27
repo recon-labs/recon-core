@@ -1281,6 +1281,8 @@ class _RecordingDuckDbAdapter(BaseAdapter):
 class _OtherAdapter(_RecordingDuckDbAdapter):
     adapter_type = "otherdb"
 
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
 def test_engine_computes_finish_when_no_label_is_supplied(tmp_path: Path) -> None:
     artifact = _artifact(tmp_path, checks=(_check(),))
     before = datetime.now(UTC)

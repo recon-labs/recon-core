@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from time import monotonic_ns
 from typing import Protocol
 from uuid import uuid4
 
@@ -94,6 +95,7 @@ from recon_core.profiles.connection_references import (
 )
 from recon_core.project import ProjectContext, load_project_context
 from recon_core.services._bound_runner import _ProjectBoundRunner
+from recon_core.services._run_lifecycle import _InvocationOutcome, _RunInvocation, _RunStage
 from recon_core.services.results import ExitCategory, ServiceResult
 
 
@@ -116,7 +118,7 @@ class _CheckEngine(Protocol):
         *,
         run_id: str,
         started_at: str,
-        finished_at: str,
+        finished_at: str | None,
         project_name: str | None = None,
         execution_context: CheckExecutionContext | None = None,
     ) -> RunResult: ...
@@ -155,6 +157,29 @@ class RunService:
     environ: Mapping[str, str] | None = None
 
     def execute(self) -> ServiceResult:
+        return self._execute_invocation().service_result
+
+    def _execute_invocation(self) -> _InvocationOutcome:
+        invocation = _RunInvocation(
+            started_ns=monotonic_ns(),
+            run_id=f"run-{uuid4().hex}",
+            started_at=_utc_timestamp(),
+        )
+        result = self._evaluate_invocation(invocation)
+        if isinstance(result, RunResult):
+            run_result = result
+            service_result = _run_service_result(result)
+        else:
+            run_result = None
+            service_result = result
+        return invocation.finish(
+            finished_at=_utc_timestamp(),
+            finished_ns=monotonic_ns(),
+            run_result=run_result,
+            service_result=service_result,
+        )
+
+    def _evaluate_invocation(self, invocation: _RunInvocation) -> ServiceResult | RunResult:
         context_result = load_project_context(self.start_path)
         if not context_result.succeeded:
             return ServiceResult(
@@ -165,11 +190,14 @@ class RunService:
 
         assert context_result.context is not None
         context = context_result.context
+        invocation.project_name = context.config.name
+        invocation.stage = _RunStage.COMPILED_CHECKS
         loader = self.loader if self.loader is not None else CompiledCheckLoader()
         load_result = loader.load(context.paths.target_path)
         if not load_result.succeeded:
             return _load_failure_result(load_result)
 
+        invocation.stage = _RunStage.COMPILED_CONTRACTS
         tolerance_states: dict[str, _ToleranceReferenceState] = {}
         if self.contract_loader is None:
             contract_load_result, tolerance_states = CompiledContractLoader()._load_for_runtime(
@@ -182,6 +210,7 @@ class RunService:
         if not contract_load_result.succeeded:
             return _compiled_contract_load_failure_result(contract_load_result)
 
+        invocation.stage = _RunStage.RUNTIME_SETUP
         runtime_dependencies = _prepare_runtime_execution_dependencies(
             context,
             check_artifacts=load_result.artifacts,
@@ -197,19 +226,18 @@ class RunService:
                 diagnostics=runtime_dependencies.diagnostics,
             )
 
-        started_at = _utc_timestamp()
+        invocation.stage = _RunStage.CHECK_EXECUTION
         try:
-            run_result = (self.engine if self.engine is not None else CheckEngine()).run(
+            return (self.engine if self.engine is not None else CheckEngine()).run(
                 load_result.artifacts,
-                run_id=f"run-{uuid4().hex}",
-                started_at=started_at,
-                finished_at=_utc_timestamp(),
+                run_id=invocation.run_id,
+                started_at=invocation.started_at,
+                finished_at=None,
                 project_name=context.config.name,
                 execution_context=runtime_dependencies.execution_context,
             )
         except Exception:
             return _engine_failure_result()
-        return _run_service_result(run_result)
 
 
 _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES = ("row_count", "cte_support")
@@ -1038,4 +1066,4 @@ def _dedupe_diagnostics(diagnostics: tuple[Diagnostic, ...]) -> tuple[Diagnostic
 
 
 def _utc_timestamp() -> str:
-    return datetime.now(tz=UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")

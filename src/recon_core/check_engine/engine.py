@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Protocol
 
 from recon_core.adapters import BaseAdapter, ConnectionConfig, SqlRenderer
@@ -81,7 +82,7 @@ class CheckEngine:
         *,
         run_id: str,
         started_at: str,
-        finished_at: str,
+        finished_at: str | None,
         project_name: str | None = None,
         execution_context: CheckExecutionContext | None = None,
     ) -> RunResult:
@@ -115,7 +116,11 @@ class CheckEngine:
             run_id=run_id,
             project_name=resolved_project_name,
             started_at=started_at,
-            finished_at=finished_at,
+            finished_at=(
+                finished_at
+                if finished_at is not None
+                else datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
+            ),
             contract_results=tuple(contract_results),
             diagnostics=tuple(run_diagnostics),
         )

@@ -101,7 +101,7 @@ compiled-check rendering metadata.
 
 Current run-service responsibilities:
 
-- locate the project root,
+- allocate invocation identity and start timing before locating the project root,
 - load already compiled check artifacts from the generated target path,
 - load matching compiled-contract artifacts for runtime metadata,
 - prepare runtime profile and adapter dependencies only for executable
@@ -111,6 +111,8 @@ Current run-service responsibilities:
   structural, prerequisite, placement, capability and preliminary scope checks,
 - resolve exact local base tables and verify the binding before native reads,
 - roll back and close each owned session before finalizing its result,
+- finalize invocation timing after evaluation and native cleanup, including
+  structured early failures, using monotonic elapsed time,
 - map command-level outcomes and diagnostics to `ServiceResult`,
 - return a concise command message and exit category.
 
@@ -135,12 +137,13 @@ open/read/cleanup errors are check-local; uncertain cleanup blocks later
 native work for the affected database, not unrelated databases. Owned scratch
 is removed only after confirmed native closure; abrupt termination can leave
 residue. Managed settings do not guarantee total process memory or physical
-storage limits. Invocation-wide lifecycle, cumulative budgets and publication
+storage limits. Invocation-wide cancellation, deadlines, cumulative budgets and publication
 remain separate gated work.
 
 Later runner and evidence phases may expand `RunService` responsibilities to:
 
-- parse and compile automatically when artifact freshness semantics are locked,
+- evaluate artifact freshness under a separately approved policy, without
+  silently recompiling current authored inputs,
 - build execution plans,
 - run additional checks through supported adapter execution paths,
 - write run results,

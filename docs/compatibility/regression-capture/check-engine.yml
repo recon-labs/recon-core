@@ -438,3 +438,43 @@ captures:
       - docs/planning/milestone-8-1-1-prework.md: Acceptance matrix and planned test nodes
     notes: >
       Cleanup failure removes comparison values, actual dependents are blocked, and unrelated eligible checks continue only after confirmed release. No writes or writable fallback.
+  - id: run-invocation-identity-timing
+    title: Invocation identity and timing surround preparation and native cleanup
+    area: check-engine
+    bug_class: invocation_timing
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_clock_surrounds_preparation_and_evaluation
+      - tests/services/test_run_service.py::test_run_invocation_retains_identity_on_early_failure
+      - tests/services/test_run_service.py::test_run_invocation_elapsed_survives_wall_clock_rollback
+      - tests/services/test_run_service_bound_execution.py::test_native_run_finish_is_recorded_after_confirmed_cleanup
+      - tests/check_engine/test_engine.py::test_engine_computes_finish_when_no_label_is_supplied
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: invocation_lifecycle
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: invocation_lifecycle
+        rationale: Native Core proof is retained; external adapters must prove their own cleanup timing.
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: invocation_lifecycle
+        rationale: Future run-result publication must use the finalized invocation, not guessed timestamps.
+      - gate: diagnostics_privacy_carryover
+        status: deferred
+        expected_suite: invocation_lifecycle
+        rationale: Existing command diagnostics remain safe; generated metadata must pass its publication privacy gate.
+      - gate: cli_behavior_carryover
+        status: deferred
+        expected_suite: invocation_lifecycle
+        rationale: Existing exit mapping is preserved; final terminal projection remains separate.
+    requirement_refs:
+      - docs/planning/milestone-8-2-prework.md: B1
+      - docs/decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md: Decision direction
+    notes: >
+      Allocate a new invocation before preparation, preserve structured early
+      failure identity and unknown project state, compute elapsed time monotonically,
+      and finalize only after native evaluation and cleanup. Never guess the finish
+      timestamp before running the engine or change the existing command dictionary.

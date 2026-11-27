@@ -880,6 +880,8 @@ def test_future_platform_observation_label_does_not_refuse_verified_native_scope
     assert "Warning:" not in cli.output
     assert database.read_bytes() == before
 
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
 def test_native_run_finish_is_recorded_after_confirmed_cleanup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

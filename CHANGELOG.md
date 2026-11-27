@@ -37,6 +37,11 @@ This project follows semantic versioning once public package releases begin.
 
 ### Changed
 
+- Record run invocation identity before project preparation and finalize timing
+  after evaluation and native cleanup. Internal elapsed time uses a monotonic
+  clock; structured early failures retain invocation metadata. Existing command
+  output and exit codes are unchanged; no new result artifact is written.
+
 - Unreleased adapter-scoped DuckDB execution policy: independent automatic,
   fixed MiB or percentage memory/spill controls, memory-aware automatic
   threads, explicit overrides, optional footprint and row-estimate settings,
@@ -55,7 +60,7 @@ This project follows semantic versioning once public package releases begin.
   unsupported. All nine project-run check families have no default database
   size cap; explicit authored footprint limits remain enforced. Native
   failures are check-local; cleanup failures invalidate the
-  result and uncertain close stops subsequent native work. Public prepared
+  result and uncertain close blocks subsequent native work for the affected database. Public prepared
   adapter helpers and compiled SQL remain unchanged.
 
 - `recon init` now scaffolds `check_packs/` and `macros/`, writes matching
