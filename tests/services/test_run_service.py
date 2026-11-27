@@ -12,6 +12,7 @@ from click.testing import CliRunner
 import recon_core.adapters as adapters_module
 import recon_core.adapters.default_renderers as default_renderers_module
 import recon_core.services.run as run_service_module
+from recon_core._run_control import _RunControl, _StopCause
 from recon_core.adapters import (
     AdapterRegistry,
 )
@@ -1055,4 +1056,62 @@ def test_cancelled_run_never_dispatches_later_checks(
     assert not checks[1].executed
     assert outcome.scope_facts.complete is True
     assert outcome.scope_facts.finalized_check_count == 2
+    _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+@pytest.mark.parametrize("first", ["deadline", "cancelled", "sealed"])
+def test_run_control_latches_observation_and_seal(first: str) -> None:
+    event = Event()
+    now = 0
+    control = _RunControl(
+        started_ns=0, timeout_seconds=1, cancel_event=event, clock=lambda: now
+    )
+    assert control.observe() is None
+    if first == "sealed":
+        assert control.seal() is None
+        event.set()
+        now = 2_000_000_000
+        assert control.observe() is None
+        return
+    now = 1_000_000_000
+    if first == "cancelled":
+        event.set()
+        expected = _StopCause.CANCELLED
+    else:
+        expected = _StopCause.DEADLINE
+    assert control.observe() is expected
+    event.set()
+    assert control.seal() is expected
+    assert control.observe() is expected
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_deadline_consumed_in_preparation_prevents_artifact_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_project(tmp_path)
+    now = 0
+    original = run_service_module.load_project_context
+
+    def prepare(*args: Any, **kwargs: Any) -> Any:
+        nonlocal now
+        result = original(*args, **kwargs)
+        now = 1_000_000_000
+        return result
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail("Expired invocation must not load artifacts.")
+
+    monkeypatch.setattr(run_service_module, "monotonic_ns", lambda: now)
+    monkeypatch.setattr(run_service_module, "load_project_context", prepare)
+    monkeypatch.setattr(CompiledCheckLoader, "load", forbidden)
+    outcome = RunService(start_path=tmp_path)._execute_invocation(timeout_seconds=1)
+    assert outcome.stop_cause is _StopCause.DEADLINE
+    assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert outcome.elapsed_ns == 1_000_000_000
+    assert outcome.plan is None and outcome.run_result is None
+    assert "RC_RUNTIME_RUN_DEADLINE_EXCEEDED" in {
+        d.code for d in outcome.service_result.diagnostics
+    }
     _assert_no_runtime_outputs(tmp_path)

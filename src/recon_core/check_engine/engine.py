@@ -205,9 +205,8 @@ class CheckEngine:
 
 
 def _observe_stop(context: CheckExecutionContext | None) -> _StopCause | None:
-    if context is None or context._run_control is None:
-        return None
-    return context._run_control.observe()
+    control = getattr(context, "_run_control", None)
+    return control.observe() if isinstance(control, _RunControl) else None
 
 
 def _stopped_check_result(check: LoadedCompiledCheck, cause: _StopCause) -> CheckResult:

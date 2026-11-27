@@ -59,6 +59,8 @@ def test_status_and_reason_values_match_locked_taxonomy() -> None:
         "not_implemented_in_current_phase",
         "skipped_by_policy",
         "selected_out",
+        "run_cancelled",
+        "run_deadline_exceeded",
     ]
 
 

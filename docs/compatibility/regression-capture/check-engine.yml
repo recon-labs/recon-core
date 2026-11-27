@@ -466,6 +466,8 @@ captures:
       - tests/services/test_run_service.py::test_large_explicit_timeout_preserves_existing_outcome
       - tests/services/test_run_service.py::test_cancellation_before_projection_seal_cannot_return_success
       - tests/services/test_run_service.py::test_cancelled_run_never_dispatches_later_checks
+      - tests/services/test_run_service.py::test_run_control_latches_observation_and_seal
+      - tests/services/test_run_service.py::test_deadline_consumed_in_preparation_prevents_artifact_load
       - tests/services/test_run_service_bound_execution.py::test_invocation_elapsed_includes_native_cleanup_outcome
       - tests/services/test_run_service_bound_execution.py::test_native_run_finish_is_recorded_after_confirmed_cleanup
       - tests/check_engine/test_engine.py::test_engine_computes_finish_when_no_label_is_supplied
