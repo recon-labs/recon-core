@@ -142,39 +142,120 @@ Windows releases and existing Linux/macOS lanes.
 
 ### Exact proposed policy and configuration
 
-Use optional project `execution.scan-budget.local` (config-version 1).
-Retain eight optional leaves: `max-database-mib`, `warn-estimated-input-rows`,
-`managed-memory-mib`, `managed-memory-percent`, `threads`, `spill-mib`,
-`spill-percent`, `scratch-directory`. Maintainer approved the percentage
-extension on 2026-11-27; overall replacement and implementation approval
-remain separate.
-All absent by default; empty maps equal absence. Strict positive integers
-not bool/float/string/null; bytes = MiB * 1048576 with checked signed
-64-bit range; thread native accepted domain checked; strict mappings,
-duplicate/unknown keys rejected. Directory nonempty path string, absolute
-or project-relative existing directory, resolve once, no implicit expansion,
-creation of authored parent or silent alternate base. Percentages are strict
-integers 1 through 100 inclusive (not bool, float, string or null). Each
-percentage is mutually exclusive with its corresponding MiB leaf; reject
-both present even if equivalent before adapter execution. Memory and spill
-choose independently; missing both means automatic. CPU remains automatic
-or explicit threads; no CPU percentage or process quota. Example:
+Configuration placement and precedence are reopened by maintainer request
+(2026-11-27); this replacement is a proposal, not implementation approval.
+The previously approved automatic/percentage/fixed tuning modes remain.
+No released configuration migration: the prior execution.scan-budget.local
+and its candidate leaves were never released. Do not implement a deprecated
+alias or two configuration loaders for them.
+
+Use the existing project file recon_project.yml (config-version 1) and
+connections/profiles.yml selected profile/target. Keep execution policy
+separate from connection identity, authentication/credentials, contract
+comparison semantics, and native factory connection payloads. Reserve
+execution for operational policy; no generic public controls are introduced
+until their semantics are independently agreed. The only implemented adapter
+policy in this milestone is DuckDB.
+
+Project-wide adapter defaults (optional):
 
 ```yaml
 execution:
-  scan-budget:
-    local:
-      managed-memory-percent: 75
-      spill-percent: 80
+  adapters:
+    duckdb:
+      managed-memory:
+        percent: 75
+      spill:
+        percent: 80
 ```
 
-Use `managed-memory-mib: 65536` instead of `managed-memory-percent` for a
-fixed 64 GiB request. Omit both for the adaptive default. No new env/profile/
-contract/CLI overrides, public config-version change or secret echo.
-Propose removing the two unreleased reserve leaves and continuous pressure
-monitor, and mandatory recovery; explicit memory/thread/spill targets
-remain available to tune. Document these as proposal scope changes, not
-released settings removal.
+In connections/profiles.yml, the existing selected target may carry adapter
+defaults and connection-specific exceptions in a sibling execution mapping,
+not inside the connection payload:
+
+```yaml
+profiles:
+  local:
+    target: dev
+    outputs:
+      dev:
+        connections:
+          legacy:
+            type: duckdb
+            database: data/example.duckdb
+          warehouse:
+            type: duckdb
+            database: data/example.duckdb
+        execution:
+          adapters:
+            duckdb:
+              managed-memory:
+                mib: 2048
+          connections:
+            legacy:
+              managed-memory: auto
+            warehouse:
+              managed-memory: auto
+```
+
+Resolve independently by logical setting in ascending precedence: native/
+adapter automatic defaults -> project defaults for literal adapter type ->
+selected target defaults for that type -> selected target named connection
+override. No extra profile/environment selection or environment-specific
+file discovery. A setting replaces the complete logical setting, not a
+deep merge of mode members. Omitted means inherit; explicit auto resets
+memory, spill, threads or scratch to adapter automatic; explicit none resets
+optional max-database-mib and warn-estimated-input-rows to absent. Empty
+outer maps inherit; empty mode maps, null, duplicate/unknown fields or
+conflicting mode members are invalid. No project/target hard security
+ceilings are implied by these overridable defaults; native/operator limits
+still apply. Future hard admin limits must be separate non-bypassable policy,
+not another override of tuning defaults.
+
+DuckDB has six logical settings: managed-memory and spill (literal auto or
+mapping with exactly one of percent or mib), threads (auto or positive int),
+scratch-directory (auto or nonempty path), max-database-mib and
+warn-estimated-input-rows (none or positive int). Percent is strict YAML
+integer 1..100; MiB and other integers are positive within checked signed
+64-bit/native domains; bool/float/quoted numeric/null invalid. Resolve
+authored scratch paths relative to the project root unless absolute,
+existing directory only, no implicit expansion, parent creation or alternate
+base. Scratch auto uses verified standard temp base. No implicit environment
+string-to-integer conversion or new templating: operational values are
+typed literals initially; existing credential env_var rendering unchanged.
+Selected target provides deployment overrides today; M28 owns any new
+typed env/CLI override design and precedence proof. No contract/check/package
+override, new target-selection CLI, new config version or new adapter API.
+
+Core validates project/selected-target envelope and known adapter policy
+schema, separates selected execution settings from rendered connection
+payloads, and resolves immutable authored policy once per referenced
+connection/context; adapter owns native controls/calculations and fresh
+capacity facts. Current allowed adapter namespace is duckdb; unregistered
+namespace in authored project or selected target defaults is a configuration
+error, not silently ignored. Selected target connection override keys must
+name a declared connection; validate values only for referenced connections
+against their literal adapter type. Unselected target execution settings
+are not loaded/validated beyond existing YAML document rules. Plain parse/
+compile must not require profiles or native engine, and existing adapter-aware
+compile behavior, injected loaders/registry/environ and public model
+signatures remain compatible. Validate applicable runtime policy before data
+reads; do not make rendering require capacity probes or open connections
+just to validate tuning. Do not pass policy data through factory config,
+native DSNs, SQL or adapter identity. Preserve existing connection-config
+equality, same-file binding and redaction. A check using two connection
+aliases in the same supported execution context must have identical
+normalized effective authored policy (including reset/default and resolved
+scratch path semantics); conflict blocks the affected check before data
+reads with actionable sanitized advice to align settings. No choosing the
+first/last alias, implicit policy merge, duplicate query or new cross-context
+execution. Separate checks may use different policies serially, with fresh
+native actor settings. M13.5 owns cross-context multi-resource policy and
+placement, including independent remote/client scopes.
+
+Propose removal of the two unreleased reserve leaves and continuous pressure
+monitor, mandatory recovery, and the old project-local config parser shape;
+preserve native control outcomes and existing public compatibility.
 
 No default database size or estimated rows ceiling, for either usage path.
 An explicit footprint maximum applies independently to all nine checks;
@@ -256,7 +337,7 @@ and is capped by known available F, warn if lowered; no physical reserve
 guarantee. Authored percentage q uses S = floor(F*q/100), not total disk.
 F unknown -> use verified native automatic spill mechanism where supported,
 warn missing disk observation; explicit supported fixed target still applies.
-Explicit spill-percent with unknown F refuses affected setup with actionable
+Explicit spill percentage with unknown F refuses affected setup with actionable
 advice to use automatic/fixed MiB or an observable scratch base. No silent
 substitution; unknown free bytes is not unlimited. Known
 no usable positive spill target: use native no-spill only if exact effect
@@ -288,13 +369,13 @@ or promise that capacity remains available; invisible capacity is not assumed.
 
 | Acceptance variant | Mandatory implementation proof (A1/A3/A4/A6/A10/A12/A13; R2-R4/R6/R7/R10; P1-P6) |
 | --- | --- |
-| Configuration | Omitted/empty mapping; independent auto/fixed/percent modes; 1/50/75/90/100; reject 0/101/negative/bool/float/string/null, paired conflicting fields, duplicates and unknown keys. |
+| Configuration | Omitted/empty outer mapping; independent auto/fixed/percent modes; 1/50/75/90/100; reject 0/101/negative/bool/float/string/null, conflicting mode members, empty mode maps, duplicates and unknown keys; project/target/connection precedence, atomic replacement and resets, wrong adapter, unselected/unreferenced policy, same-context alias equality/conflict, compile/parse and injected-loader compatibility. |
 | Pure policy | Exact byte arithmetic, non-divisible capacity, native unit flooring, overflow/native domain, zero vs unknown, partial facts, native recommendation below explicit percent, independent dimensions, fixed known-capacity adjustment. |
 | Changing capacity | Same project and percentage across RAM/disk increase and decrease; recompute per check; fixed unchanged until capacity cap; automatic native recommendation clamp; CPU unchanged; no mid-check resize. |
 | Failure/advice | Unknown explicit percent denominator refuses before affected data reads; automatic and fixed behavior unchanged; bounded sanitized actionable diagnostic, partial scope warning; no silent fallback or mismatch; actual native error is ERROR. |
 | Native integration | Both modes of invocation, all nine check families, four pinned engines and representative older/current OS/Python; actual setting effects, bounded exact results, real spill/insufficient disk, memory-backed scratch, cancellation, cleanup and unrelated observer unchanged. Distinguish injected arithmetic proof from measured native effects; controlled changing capacity. |
 
-BDD: Given unchanged configuration `managed-memory-percent: 75` and observed
+BDD: Given unchanged configuration `managed-memory: {percent: 75}` and observed
 headroom 16 GiB, 32 GiB, then 8 GiB across checks, request 12, 24 and 6 GiB
 respectively, subject to native representation and required protection;
 unrelated sessions unchanged. Given unknown headroom, refuse the explicitly
@@ -302,14 +383,42 @@ percentage-configured affected check and advise alternatives. Automatic
 missing optional evidence remains best effort where safe. Fixed 12 GiB
 stays fixed at 16/32 GiB headroom and adjusts down at 8 GiB.
 
-Responsibility: existing config parser validates exclusivity/domain; pure
-scan-budget policy calculates requested/effective targets from fresh typed
+Responsibility: existing config/profile loaders validate and separate authored
+policy from connection payloads; one resolver owns scope/precedence and alias
+conflict admission; pure adapter-local calculation consumes fresh typed
 observations; adapter owns native application/effect proof; existing service
-and CLI own safe advisories. No second policy or public mode selector.
+and CLI own safe advisories. No duplicated resolver, global DuckDB defaults,
+new mandatory adapter method or separate executor.
 Extend existing `local-adaptive-resource-targets` capture; record actual test
 nodes at implementation exit, not fabricated passing nodes. Future adapters
 with elastic capacity independently assess automatic, relative and absolute
 controls where native semantics support them; no universal percent or syntax.
+
+### Cross-adapter design audit and required dispositions
+
+| Risk | Resolution / owner |
+| --- | --- |
+| Global local-only resource knobs or engine-native defaults leaking into other adapters | M8.1.2 adapter namespace and per-context selection; native semantics only. Future adapter prework Gate 4L. |
+| Deployment/connection precedence, inherited fixed vs relative mode, accidental weak admin limit | M8.1.2 typed layers, atomic replacement, explicit reset; defaults not security quotas. M28 typed env/CLI overrides and any hard admin policy before expansion. |
+| Policy mistaken for connection identity or credentials | M8.1.2 keep separate; preserve ADR 0020 identity, factory payload, selected profile, secrets, plain parse/compile, and same-binding behavior. Gate 4J/4I regression proof. |
+| Shared execution, aliases, concurrent load and multiple engines | M8.1.2 refuse only ambiguous same-context conflicting authored policies, no blanket process refusal; M8.2 cumulative/run concurrency and lifecycle; M13.5 cross-context budgets/transfer. |
+| Freshness and cached/selected work | M8.1.2 capacity per check, no plan-dependent hidden fallback; M10.5 freshness, M10.6 selected scope, M10.7 onboarding, M10.8 restored binding scope. |
+| Runtime policy changes mistaken for reconciliation semantics or leaked as evidence | M8.1.2 preserve contract/compiled plan meaning and privacy; M8.3 C10 safe effective-policy provenance, M9 evidence and M32 integrations. |
+| Generic adapter API churn and future capability assumptions | Keep current API and private local collaborators; M11-M13 each adapter owns native resource schema, defaults and permissions; M29 shared contract and test kit, distributed adapters recheck actual driver/executor/cluster scope. |
+| Premature hard quotas, dynamic autoscaler orchestration, profile-level settings in contracts | Non-goals now; M28 overrides and M40 hosted tenant quota/authorization separately gated. No automatic warehouse resize, remote tuning or data movement. |
+
+No completed milestone reopening recommended: M2 project config and M6
+profile/adapter foundations remain valid; M7.2-M7.4 and M8.1.1 retain their
+existing binding/execution/semantic contracts. M8.1.2 owns additive changes
+at those existing seams and regression verification; reopen a completed
+milestone only if concrete proof exposes an incompatible prerequisite.
+M9.5 mandatory type work and M10.8 scope restoration remain unchanged.
+No new milestone, no ecosystem repository before existing checkpoints.
+Check both positive and negative config/profile integration for no-op
+unreferenced policy, same-context conflicts, native observer isolation,
+redacted paths/numbers/credentials, deterministic resolution, and no
+accidental profile loading in plain parse/compile. Record actual test nodes
+and capture dispositions before exit. No runtime or gate completion claim.
 
 ### Private temporary storage and failure behavior
 
@@ -383,7 +492,7 @@ assignments unchanged, no universal DuckDB mechanism imposed.
 
 Implementation sequence after explicit approval: (1) inventory parked
 candidate changes and approved retirement/replacement capture rows,
-test-first strict eight-field config/pure policy (mode exclusivity, percent
+test-first scoped six-setting config/pure policy (precedence, reset, mode exclusivity, percent
 arithmetic, changing capacity, unknown/zero/ranges/
 precedence/no default cap); (2) minimal portable observations and native
 controls/private scratch (actual effect and failure tests); (3) guarded
@@ -406,9 +515,9 @@ guard/close/cleanup before any result becomes PASS. Persistent CI must
 retain P1-P6, actual image/release/build/arch and version, periodic/
 on-demand/release/change validation, coverage gaps and triage.
 
-Approval requested for one common guarded native path, eight optional
-leaves with approved percentage extension and adjustable 50%/90% default
-heuristics, minimal observations,
+Approval requested for one common guarded native path, scoped six logical
+settings with approved percentage modes, proposed project/target/connection
+precedence and adjustable 50%/90% defaults, minimal observations,
 no mandatory pressure monitor or automatic crash recovery, baseline
 native conflicting-configuration refusal retained with advice.
 Remaining actual implementation and exit proofs above are mandatory.
