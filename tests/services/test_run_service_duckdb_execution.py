@@ -1,3 +1,6 @@
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -475,31 +478,52 @@ def test_run_service_blocks_key_safety_duckdb_view_over_external_file_before_ada
 
 @pytest.mark.regression_capture("duckdb-wal-sidecar-scan-guard")
 def test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup(
-    tmp_path: Path,
+    tmp_path: Path, native_calls: dict[str, list[str]]
 ) -> None:
     duckdb = _duckdb_module()
-    live_directory = tmp_path / "live"
-    live_directory.mkdir()
-    live_database = live_directory / "warehouse.duckdb"
     database = tmp_path / "warehouse.duckdb"
-    connection = duckdb.connect(str(live_database))
-    try:
+    # Leave an actual committed WAL by exiting a synthetic child without
+    # native close. The parent never copies a file with a live Windows handle.
+    code = textwrap.dedent(
+        """
+        import os
+        import sys
+        from pathlib import Path
+
+        import duckdb
+
+        database = Path(sys.argv[1])
+        connection = duckdb.connect(str(database))
         connection.execute("set checkpoint_threshold='1GB'")
         connection.execute("create schema qa")
-        connection.execute(
-            "create table qa.source_customers as "
-            "select i as customer_id, 'secret-wal' as region from range(1000) tbl(i)"
-        )
-        connection.execute(
-            "create table qa.target_customers as "
-            "select i as customer_id, 'secret-wal' as region from range(1000) tbl(i)"
-        )
-        for sidecar_source in live_directory.iterdir():
-            (tmp_path / sidecar_source.name).write_bytes(sidecar_source.read_bytes())
-    finally:
-        connection.close()
-    assert database.stat().st_size <= duckdb_scan_guard_module._MAX_BOUNDED_LOCAL_DUCKDB_BYTES
-    assert (tmp_path / "warehouse.duckdb.wal").is_file()
+        for table in ("source_customers", "target_customers"):
+            connection.execute(
+                f"create table qa.{table}(customer_id integer, region varchar)"
+            )
+        connection.execute("checkpoint")
+        connection.execute("begin transaction")
+        for table in ("source_customers", "target_customers"):
+            connection.execute(
+                f"insert into qa.{table} "
+                "select i, 'secret-wal' from range(1000) tbl(i)"
+            )
+        connection.execute("commit")
+        wal = database.with_name(database.name + ".wal")
+        assert wal.is_file() and wal.stat().st_size > 0
+        os._exit(0)
+        """
+    )
+    child = subprocess.run(
+        [sys.executable, "-c", code, str(database)],
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    assert child.returncode == 0, "Synthetic committed WAL fixture failed."
+    wal = database.with_name(database.name + ".wal")
+    assert database.is_file() and wal.is_file() and wal.stat().st_size > 0
+    before_database = database.read_bytes()
+    before_wal = wal.read_bytes()
     write_duckdb_key_safety_run_inputs(
         tmp_path,
         database,
@@ -520,7 +544,19 @@ def test_run_service_blocks_key_safety_duckdb_wal_sidecar_before_adapter_setup(
     assert "secret-wal" not in public_text
     assert "warehouse.duckdb.wal" not in public_text
     assert factory.adapters == []
+    assert native_calls["open"] == native_calls["close"] == native_calls["query"] == []
+    assert database.read_bytes() == before_database
+    assert wal.read_bytes() == before_wal
     _assert_no_runtime_outputs(tmp_path)
+
+    # Independently prove the untouched WAL contains the committed synthetic
+    # transactions. Only the test explicitly opens it for normal recovery.
+    connection = duckdb.connect(str(database))
+    try:
+        for table in ("source_customers", "target_customers"):
+            assert connection.execute(f"select count(*) from qa.{table}").fetchone() == (1000,)
+    finally:
+        connection.close()
 
 
 @pytest.mark.parametrize(
