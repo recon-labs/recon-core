@@ -514,6 +514,8 @@ captures:
       Preserve known zero versus unavailable evidence, independently bounded
       hardware headroom, adapter-specific tuning, and memory-backed scratch
       accounting. Native automatic settings do not prove effective limits.
+      Additional measured fraction comparison CI 46021219113 retains 50% over
+      25% with memory-aware threads; lower memory did not improve outcomes.
       Focused measured reassessment CI 46020054117 and actual implementation
       calibration 46020823693: memory-aware automatic parallelism improves
       repeated large constrained workloads while preserving capable machine

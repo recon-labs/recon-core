@@ -170,6 +170,33 @@ and actionable advisories verified. Both temporary harnesses removed
 (a882c4c5a3445c44c049d62cc5c5aaebddc5076d and
 41ca23f815655566194765994e052e69192e2c37); immutable evidence retained.
 
+Additional memory-fraction comparison [46021219113](https://github.com/recon-labs/recon-core/actions/runs/46021219113)
+at test-only commit `98397a0ce3196a45a972b065526ce3a3a805dfd8`:
+120 cases, four pins, three repetitions per configuration/workload.
+Both candidates use the same 125 MB/thread guidance; compare the current
+50% automatic memory target with a 25% alternative. Actual observations
+and real project query execution were retained; only the candidate
+calculation was varied. No harness assertion failures.
+
+| Workload | 50% PASS / ERROR / OOM | 25% PASS / ERROR / OOM |
+| --- | --- | --- |
+| 512 MiB large disk | 12 / 0 / 0 | 12 / 0 / 0 |
+| 512 MiB large tmpfs | 12 / 0 / 0 | 12 / 0 / 0 |
+| 512 MiB small wide | 6 / 6 / 0 | 3 / 8 / 1 |
+| 1 GiB small wide, four CPUs | 6 / 6 / 0 | 6 / 6 / 0 |
+| 2 GiB large, four CPUs | 12 / 0 / 0 | 12 / 0 / 0 |
+| Total | 48 / 12 / 0 | 45 / 14 / 1 |
+
+The 25% alternative does not improve overall measured outcomes; at 1 GiB
+it also reduces automatic threads from four to two without improving
+pass counts. Retain the approved 50% starting heuristic and measured
+memory-aware threads. This run does not erase earlier observed OOM kills
+or establish universal safety. All 119 returned outcomes confirmed
+release, observer isolation, unchanged database and scratch cleanup.
+The one kernel OOM kill occurred on DuckDB 1.0.0 at 25%/512 MiB, small
+wide workload. Temporary harness removed at
+`87ad598db57338e777f9ddaf5d4d7c98cd6b2e2c`.
+
 Step 7B measured improvement and best-effort limitations meet the approved
 focused reassessment: retain the modest native-specific automatic heuristic,
 not a hard quota, retry, worker, or new workload restriction. Document
