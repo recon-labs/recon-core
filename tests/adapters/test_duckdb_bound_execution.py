@@ -1183,6 +1183,11 @@ def test_actual_guarded_native_interrupt_during_spill(
                 lease, lease.scope, plan.domain_guard.sql, expected_columns=("numeric_domain",)
             )
             query = plan.final_query(plan.domain_from_guard(proof)).sql
+            assert not any(
+                entry.is_file() and entry.stat().st_size > 0
+                for entry in scratch.path.rglob("*")
+            ), "Spill proof must start without prior spill bytes."
+            active = threading.Event()
 
             class ObservedActor:
                 def __init__(self, native):
@@ -1192,6 +1197,8 @@ def test_actual_guarded_native_interrupt_during_spill(
                     return getattr(self.native, name)
 
                 def execute(self, statement, *args):
+                    if statement == query:
+                        active.set()
                     try:
                         return self.native.execute(statement, *args)
                     except duckdb.Error as error:
@@ -1200,6 +1207,9 @@ def test_actual_guarded_native_interrupt_during_spill(
                             native_errors.append((type(error).__name__, message))
                             native_interrupted.append("interrupt" in str(error).lower())
                         raise
+                    finally:
+                        if statement == query:
+                            active.clear()
 
             session._connection = ObservedActor(session._connection)
 
@@ -1218,6 +1228,9 @@ def test_actual_guarded_native_interrupt_during_spill(
             deadline = time.monotonic() + 30
             seen = False
             while thread.is_alive() and time.monotonic() < deadline:
+                if not active.is_set():
+                    time.sleep(0.005)
+                    continue
                 for entry in scratch.path.rglob("*"):
                     try:
                         if entry.is_file() and entry.stat().st_size > 0:
@@ -1228,7 +1241,7 @@ def test_actual_guarded_native_interrupt_during_spill(
                 if seen:
                     break
                 time.sleep(0.005)
-            assert seen and thread.is_alive(), "No active native spill observed."
+            assert seen and active.is_set(), "No active native spill observed."
             if mode == "interrupt":
                 assert session.request_interrupt() is True
             assert not session.released
