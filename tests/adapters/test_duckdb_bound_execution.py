@@ -843,3 +843,186 @@ def test_unverified_required_setting_prevents_transaction(
         assert session.close() == ()
     assert session.released
     assert calls[-1] == "close"
+
+
+@pytest.mark.parametrize("filename", ["local.duckdb", "memory.duckdb", "quoted'file.duckdb"])
+@pytest.mark.regression_capture("duckdb-controlled-owned-session")
+def test_guarded_native_actor_preserves_catalog_and_reader(
+    tmp_path: Path, duckdb: Any, filename: str
+) -> None:
+    from recon_core.adapters._resource_scratch import _create_check_scratch
+    from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
+
+    path = tmp_path.resolve() / filename
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute('CREATE TABLE "quoted""table" AS SELECT 17 AS id')
+        writer.execute("CREATE TABLE dst AS SELECT 23 AS id")
+    finally:
+        writer.close()
+
+    identity = guard._current_file_identity(path)
+    assert identity is not None
+    scratch = _create_check_scratch(tmp_path.resolve())
+    observer = duckdb.connect(str(path), read_only=True)
+    session = binding._OwnedDuckDbSession(
+        identity,
+        native_controls=_NativeControlRequest(128 << 20, 1, 32 << 20, scratch.path),
+    )
+
+    def settings(connection: Any) -> tuple[object, ...]:
+        return connection.execute(
+            "SELECT current_setting('memory_limit'), current_setting('threads'), "
+            "current_setting('temp_directory'), current_setting('max_temp_directory_size')"
+        ).fetchone()
+
+    try:
+        original_catalog = observer.execute("SELECT current_database()").fetchone()[0]
+        before = settings(observer)
+        session.open()
+        lease = session.bind(
+            check_id="check-1",
+            operation="row_count_diff",
+            source=f'{original_catalog}.main.quoted"table',
+            target="dst",
+        )
+        assert lease is not None
+        assert lease.scope.source.catalog == original_catalog
+        assert lease.scope.target.catalog == original_catalog
+        for relation, expected in ((lease.scope.source, 17), (lease.scope.target, 23)):
+            query = f"SELECT id FROM {render_relation(relation)}"
+            assert session._read_bound_query(lease, lease.scope, query).rows == ((expected,),)
+        assert settings(observer) == before
+        assert observer.execute("SELECT id FROM dst").fetchone() == (23,)
+        actor_settings = settings(session._connection)
+        assert actor_settings[1] == 1
+        assert Path(actor_settings[2]) == scratch.path
+        with pytest.raises(Exception):
+            session._connection.execute(
+                f"UPDATE {render_relation(lease.scope.source)} SET id = 999"
+            )
+        assert observer.execute('SELECT id FROM "quoted""table"').fetchone() == (17,)
+        with pytest.raises(Exception):
+            duckdb.connect(str(path))
+    finally:
+        diagnostics = session.close()
+        observer.close()
+        if session.released:
+            scratch.cleanup(native_closed=True)
+    assert diagnostics == ()
+    assert session.released
+    assert not scratch.path.exists()
+    reopened = duckdb.connect(str(path))
+    try:
+        assert reopened.execute('SELECT id FROM "quoted""table"').fetchone() == (17,)
+    finally:
+        reopened.close()
+
+
+@pytest.mark.regression_capture("duckdb-controlled-owned-session")
+def test_guarded_native_actor_excludes_writer_without_observer(tmp_path: Path, duckdb: Any) -> None:
+    from recon_core.adapters._resource_scratch import _create_check_scratch
+    from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
+
+    path = tmp_path.resolve() / "fixture.duckdb"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 42 AS id")
+    finally:
+        writer.close()
+
+    identity = guard._current_file_identity(path)
+    assert identity is not None
+    scratch = _create_check_scratch(tmp_path.resolve())
+    session = binding._OwnedDuckDbSession(
+        identity,
+        native_controls=_NativeControlRequest(128 << 20, 1, 32 << 20, scratch.path),
+    )
+    try:
+        session.open()
+        lease = session.bind(
+            check_id="check-1", operation="row_count_diff", source="src", target="src"
+        )
+        assert lease is not None
+        # The guard, not an unrelated observer, must exclude an ordinary writer.
+        with pytest.raises(Exception):
+            duckdb.connect(str(path))
+        query = f"SELECT id FROM {render_relation(lease.scope.source)}"
+        assert session._read_bound_query(lease, lease.scope, query).rows == ((42,),)
+    finally:
+        diagnostics = session.close()
+        if session.released:
+            scratch.cleanup(native_closed=True)
+    assert diagnostics == ()
+    assert session.released
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("INSERT INTO src VALUES (43)")
+        assert writer.execute("SELECT count(*) FROM src").fetchone() == (2,)
+    finally:
+        writer.close()
+
+
+@pytest.mark.regression_capture("duckdb-controlled-owned-session")
+def test_guarded_native_actor_does_not_close_guard_when_actor_close_unconfirmed(
+    tmp_path: Path, duckdb: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from recon_core.adapters._resource_scratch import _create_check_scratch
+    from recon_core.adapters.duckdb._native_resource_controls import _NativeControlRequest
+
+    path = tmp_path.resolve() / "fixture.duckdb"
+    writer = duckdb.connect(str(path))
+    try:
+        writer.execute("CREATE TABLE src AS SELECT 42 AS id")
+    finally:
+        writer.close()
+
+    identity = guard._current_file_identity(path)
+    assert identity is not None
+    scratch = _create_check_scratch(tmp_path.resolve())
+    handles: list[tuple[str, Any]] = []
+    close_calls: list[str] = []
+
+    class Connection:
+        def __init__(self, kind: str, native: Any) -> None:
+            self.kind = kind
+            self.native = native
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self.native, name)
+
+        def close(self) -> None:
+            close_calls.append(self.kind)
+            if self.kind == "actor":
+                raise RuntimeError("PRIVATE_SENTINEL")
+            self.native.close()
+
+    def connect(database: str, *args: Any, **kwargs: Any) -> Connection:
+        native = duckdb.connect(database, *args, **kwargs)
+        kind = "actor" if database == ":memory:" else "guard"
+        handles.append((kind, native))
+        return Connection(kind, native)
+
+    monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
+    session = binding._OwnedDuckDbSession(
+        identity,
+        native_controls=_NativeControlRequest(128 << 20, 1, 32 << 20, scratch.path),
+    )
+    try:
+        session.open()
+        assert [kind for kind, _ in handles] == ["guard", "actor"]
+        diagnostics = session.close()
+        assert not session.released
+        assert close_calls == ["actor"]
+        assert diagnostics
+        assert all("PRIVATE_SENTINEL" not in str(item) for item in diagnostics)
+        with pytest.raises(Exception):
+            duckdb.connect(str(path))
+        assert scratch.path.is_dir()
+        assert session.close() == diagnostics
+        assert close_calls == ["actor"]
+    finally:
+        # Test-only recovery of deliberately failed handles, in ownership order.
+        for _, handle in reversed(handles):
+            handle.close()
+        scratch.cleanup(native_closed=True)
