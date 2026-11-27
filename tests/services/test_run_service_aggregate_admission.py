@@ -1659,12 +1659,15 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         native.close()
     before = database.read_bytes()
     sessions: list[list[str]] = []
+    guards: list[list[str]] = []
+    closures: list[str] = []
 
     class Connection:
-        def __init__(self, connection: Any) -> None:
+        def __init__(self, connection: Any, *, actor: bool) -> None:
             self.connection = connection
+            self.actor = actor
             self.statements: list[str] = []
-            sessions.append(self.statements)
+            (sessions if actor else guards).append(self.statements)
 
         def execute(self, query: str, *args: Any, **kwargs: Any) -> Any:
             self.statements.append(query)
@@ -1673,11 +1676,17 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         def close(self) -> None:
             self.connection.close()
             self.statements.append("CLOSE")
+            closures.append("actor" if self.actor else "guard")
 
-    def connect(path: str, *, read_only: bool) -> Connection:
+    def connect(
+        path: str, *, read_only: bool = False, config: dict[str, str] | None = None
+    ) -> Connection:
+        if path == ":memory:":
+            assert not read_only and config is not None
+            return Connection(duckdb.connect(path, config=config), actor=True)
         assert path == str(database)
-        assert read_only is True
-        return Connection(duckdb.connect(path, read_only=read_only))
+        assert read_only is True and config is None
+        return Connection(duckdb.connect(path, read_only=read_only), actor=False)
 
     monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
     engine = _CapturingAggregateEngine()
@@ -1685,10 +1694,17 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     assert result.exit_category is ExitCategory.SUCCESS
     assert engine.result is not None
     checks = engine.result.contract_results[0].check_results
-    assert len(checks) == len(sessions) == 9
+    assert len(checks) == len(sessions) == len(guards) == 9
+    assert closures == ["actor", "guard"] * 9
     assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
-    for check, statements in zip(checks, sessions, strict=True):
-        assert statements[0] == "BEGIN TRANSACTION"
+    for check, statements, guard in zip(checks, sessions, guards, strict=True):
+        assert guard[-1] == "CLOSE" and "BEGIN TRANSACTION" not in guard
+        start = statements.index("BEGIN TRANSACTION")
+        assert any("ATTACH " in statement for statement in statements[:start])
+        assert any(
+            "current_setting('temp_directory')" in statement for statement in statements[:start]
+        )
+        statements = statements[start:]
         assert statements[-2:] == ["ROLLBACK", "CLOSE"]
         assert statements[1] == statements[3] == "pragma database_list"
         assert all("information_schema.tables" in statements[i] for i in (2, 4))

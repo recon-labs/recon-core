@@ -623,6 +623,7 @@ def test_project_run_never_borrows_or_closes_supplied_connection(
     finally:
         borrowed.close()
 
+
 @pytest.mark.parametrize("missing_scratch", [False, True])
 @pytest.mark.regression_capture("duckdb-native-resource-control-readback")
 def test_project_run_applies_selected_native_policy(
