@@ -78,17 +78,17 @@ def _representable_bytes(value: int) -> int:
 class _NativeControlRequest:
     """Effective targets provided by policy; scratch ownership is external."""
 
-    memory_bytes: int
-    threads: int
-    spill_bytes: int
+    memory_bytes: int | None
+    threads: int | None
+    spill_bytes: int | None
     scratch_directory: Path = field(repr=False)
 
     def __post_init__(self) -> None:
-        if _native_integer(self.memory_bytes, minimum=1) is None:
+        if self.memory_bytes is not None and _native_integer(self.memory_bytes, minimum=1) is None:
             raise _NativeControlError("Native managed memory target is invalid.")
-        if _native_integer(self.threads, minimum=1) is None:
+        if self.threads is not None and _native_integer(self.threads, minimum=1) is None:
             raise _NativeControlError("Native thread target is invalid.")
-        if _native_integer(self.spill_bytes, minimum=0) is None:
+        if self.spill_bytes is not None and _native_integer(self.spill_bytes, minimum=0) is None:
             raise _NativeControlError("Native spill target is invalid.")
         if (
             not isinstance(self.scratch_directory, Path)
@@ -97,8 +97,10 @@ class _NativeControlRequest:
             or "\x00" in str(self.scratch_directory)
         ):
             raise _NativeControlError("Native scratch directory is invalid.")
-        object.__setattr__(self, "memory_bytes", _representable_bytes(self.memory_bytes))
-        object.__setattr__(self, "spill_bytes", _representable_bytes(self.spill_bytes))
+        if self.memory_bytes is not None:
+            object.__setattr__(self, "memory_bytes", _representable_bytes(self.memory_bytes))
+        if self.spill_bytes is not None:
+            object.__setattr__(self, "spill_bytes", _representable_bytes(self.spill_bytes))
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,9 +113,9 @@ class _NativeRecommendations:
 class _NativeControlReadback:
     """Reported settings only, never a hard cap or independent native proof."""
 
-    memory: _NativeSizeInterval
-    threads: int
-    spill: _NativeSizeInterval
+    memory: _NativeSizeInterval | None
+    threads: int | None
+    spill: _NativeSizeInterval | None
     enforcement_proven: bool = field(default=False, init=False)
 
 
@@ -145,38 +147,47 @@ def _read_native_recommendations(connection: Any) -> _NativeRecommendations:
 def _native_startup_config(request: _NativeControlRequest) -> dict[str, str]:
     """Only memory, threads and private scratch belong in connect config."""
 
-    return {
-        "memory_limit": f"{request.memory_bytes} bytes",
-        "threads": str(request.threads),
-        "temp_directory": str(request.scratch_directory),
-    }
+    config = {"temp_directory": str(request.scratch_directory)}
+    if request.memory_bytes is not None:
+        config["memory_limit"] = f"{request.memory_bytes} bytes"
+    if request.threads is not None:
+        config["threads"] = str(request.threads)
+    return config
 
 
 def _apply_native_controls(
     connection: Any, request: _NativeControlRequest
 ) -> _NativeControlReadback:
-    """Set spill before any transaction/metadata, then verify native reports.
+    """Apply requested spill control and verify reports on the owned connection.
 
-    Only the isolated owned connection may be supplied. A failed assignment
-    or unreadable/mismatched setting does not permit data work. The worker
-    must additionally establish scope, effect capability and monitored
-    protection; this collaborator does not admit or execute checks.
+    None leaves the native automatic setting unchanged. Explicit requests
+    and scratch require verification; automatic spill must be recognizable.
+    Native effect and isolation proof are the caller's separate obligations.
     """
 
-    try:
-        connection.execute(f"SET max_temp_directory_size = '{request.spill_bytes} bytes'")
-    except Exception:
-        raise _NativeControlError("Native spill control could not be applied.") from None
+    if request.spill_bytes is not None:
+        try:
+            connection.execute(f"SET max_temp_directory_size = '{request.spill_bytes} bytes'")
+        except Exception:
+            raise _NativeControlError("Native spill control could not be applied.") from None
 
     memory = _parse_native_size(_setting(connection, "memory_limit"))
-    if memory is None or not memory.contains(request.memory_bytes):
+    if request.memory_bytes is not None and (
+        memory is None or not memory.contains(request.memory_bytes)
+    ):
         raise _NativeControlError("Native managed memory setting could not be verified.")
     threads = _native_integer(_setting(connection, "threads"), minimum=1)
-    if threads is None or threads != request.threads:
+    if request.threads is not None and threads != request.threads:
         raise _NativeControlError("Native thread setting could not be verified.")
-    spill = _parse_native_size(_setting(connection, "max_temp_directory_size"))
-    if spill is None or not spill.contains(request.spill_bytes):
-        raise _NativeControlError("Native spill setting could not be verified.")
+
+    spill_report = _setting(connection, "max_temp_directory_size")
+    spill = _parse_native_size(spill_report)
+    if request.spill_bytes is not None:
+        if spill is None or not spill.contains(request.spill_bytes):
+            raise _NativeControlError("Native spill setting could not be verified.")
+    elif spill is None and spill_report != "90% of available disk space":
+        raise _NativeControlError("Native automatic spill setting could not be verified.")
+
     scratch = _setting(connection, "temp_directory")
     if not isinstance(scratch, str) or Path(scratch) != request.scratch_directory:
         raise _NativeControlError("Native scratch setting could not be verified.")
