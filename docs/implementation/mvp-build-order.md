@@ -777,13 +777,13 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 replacement design approval and separate implementation authorization pending.
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 approved native-first replacement implemented on draft PR #42; final cumulative validation and merge approval pending.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: adapter-scoped adaptive replacement design approval and implementation authorization pending. See [M8.1.2 current prework](../planning/milestone-8-1-2-prework.md). Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Candidate defaults require measured implementation proof. A10-A13 are mandatory. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: adapter-scoped adaptive replacement implemented and measured; final cumulative review pending. See [M8.1.2 current prework](../planning/milestone-8-1-2-prework.md). Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Candidate defaults require measured implementation proof. A10-A13 are mandatory. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
-Review the [approved detailed resource prework](../planning/milestone-8-1-2-prework.md) and ADR 0026. The umbrella prework is historical for resource decisions; separate implementation approval required.
+Review the [approved detailed resource prework](../planning/milestone-8-1-2-prework.md) and ADR 0026. The umbrella prework is historical for resource decisions; separate merge approval required.
 
 Build:
 
@@ -829,19 +829,16 @@ is mandatory before M8.1.2.
 
 ### Milestone 8.1.2: hardware-aware resource policy and admission
 
-**Current checkpoint (2026-11-27): implementation suspended.** Follow the
-[reopened whole-design prework](../planning/milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27).
-Prior worker, recovery and resource observation mechanisms in this build order
-are historical pending approved replacement. Preserve outcome gates, current
-runtime guard and existing milestone order; no successor implementation.
-
-Replacement design approval pending; prerequisites M8.1.1 and targeted M7.4 correction verified.
-See [M8.1.2 current prework](../planning/milestone-8-1-2-prework.md).
-Own remaining R1-R10/A1-A13, native controls, adaptive settings, advisories,
-B8 one-worker stop/confirmed exit/parent liveness, B9 owned worker/scratch
-cleanup and recovery, B10 per-check serial worker/re-observation. No blanket
-footprint default or unproven hard ceilings; implementation approval pending. M8.1 umbrella cannot close until
-both children and correction verified.
+**Current checkpoint (2026-11-27): native-first replacement implemented,
+final review and separate merge approval pending.** Follow the
+[approved detailed prework](../planning/milestone-8-1-2-prework.md).
+M8.1.1 and targeted M7.4 correction remain completed. Own remaining
+R1-R10/A1-A13, measured adapter-scoped settings, native effects, advisories,
+B8 native interrupt request versus confirmed stop, B9 confirmed native
+close/current scratch cleanup and safe abrupt residue, B10 serial per-check
+native scope and re-observation. No mandatory worker/IPC, persistent
+recovery, arbitrary default footprint cap or physical quota guarantee.
+M8.1 umbrella cannot close until both children and correction verified.
 
 Gate 4L configuration scope/precedence extension, also Gate 4I/4J/8C:
 M8.1.2 owns typed scoped configuration, reset/precedence, separation from
@@ -867,7 +864,7 @@ requires targeted reopening. No gate satisfaction or runtime authorization.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: Own remaining B8-B10 invocation deadlines, timeouts, cancellation/retry lifecycle, run-wide cleanup, cumulative resource budgeting and bounded concurrency. Reuse M8.1.2 worker stop/confirmed exit, parent liveness, native/IPC/scratch cleanup and serial per-check resource proof; no duplicate executor. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: Own remaining B8-B10 invocation deadlines, timeouts, cancellation/retry lifecycle, run-wide cleanup, cumulative resource budgeting and bounded concurrency. Reuse M8.1.2 native interrupt/confirmed release, current scratch cleanup and serial per-check resource proof; no duplicate executor. Handle invocation-level abrupt termination and residual risks separately, not by restoring retired IPC/recovery. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build:
 

@@ -43,7 +43,7 @@ blanket version refusal, unproved physical quota, or common mechanism.
 External process/container limits and operator-specific tuning are
 separate from managed native targets. No new milestone or closed gate.
 
-## Current redesign checkpoint (2026-11-27)
+## Historical redesign checkpoint (superseded by current authorization)
 
 M8.1.2 implementation is suspended. The [reopened prework](milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27)
 controls next work. R1-R10, A1-A13 and P1-P6 remain outcome obligations;
@@ -59,7 +59,7 @@ control enforcement and truthful error/cleanup outcomes. M8.2, M8.3, M9.5,
 M10.8, M29 and subsequent adapter obligations retain their owners. No coding
 or gate closure until revised prework and separate approval.
 
-## Consolidated replacement proposal (approval pending)
+## Historical consolidated replacement proposal (approved above)
 
 The [consolidated native-first replacement design](milestone-8-1-2-prework.md#consolidated-native-first-replacement-design-proposed-for-approval-2026-11-27)
 proposes the same guarded native read-only execution path for standalone
@@ -82,7 +82,7 @@ native-appropriate relative and absolute controls, not universal DuckDB syntax.
 
 
 
-## Adapter-scoped execution policy and precedence (proposed; approval pending)
+## Approved adapter-scoped execution policy and precedence
 
 The current resource configuration proposal is adapter-scoped project defaults,
 selected profile target adapter defaults, and selected target named connection
@@ -118,7 +118,7 @@ implement DuckDB fields or ratios on another engine. No new milestone/repo;
 completed milestones remain closed unless actual prerequisite regression
 requires targeted reopening. No gate satisfaction or runtime authorization.
 
-## Proposed outcome mapping (approval pending)
+## Historical proposed outcome mapping
 
 Maintainer scope decision (2026-11-27): M8.1.2 owns adaptive resource
 management for both standalone and embedded Python usage. No deferral of

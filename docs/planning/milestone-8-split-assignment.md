@@ -27,7 +27,7 @@ See the [approved M8.1.2 prework](milestone-8-1-2-prework.md) for the exact conf
 
 ## Scope and ordering
 
-M8.1.2 whole design reopened and implementation suspended (2026-11-27). See the [current redesign checkpoint](milestone-8-1-2-prework.md#current-status-whole-design-reopened-2026-11-27); previous approved mechanism assignments are historical pending revision. Existing split remains; reassess B8-B10 prerequisite allocation without orphaning outcomes. See [M8.1.2 approved prework](milestone-8-1-2-prework.md). [Resource-safety assignments](execution-resource-safety-assignments.md) extend the split: A10-A13, B8-B10 and C10 are mandatory in the owning phase matrices. Reassess the split before coding if controls cannot be delivered coherently.
+M8.1.2 native-first replacement implemented on draft PR #42; final cumulative validation and separate merge approval pending. Existing split remains. [Approved prework](milestone-8-1-2-prework.md) and [resource-safety assignments](execution-resource-safety-assignments.md) preserve A1-A13/R1-R10/P1-P6, B8-B10 and C10 outcomes without mandatory worker/IPC/recovery mechanisms.
 
 Split Decision: Required. The maintainer approved the implementation-bearing
 split and the adapter-aware advisory direction. M8 is an umbrella, not an
@@ -59,7 +59,7 @@ attribution privately.
 | BDD/workflows | Valid bounded local run, unsafe/unknown/over-limit block, larger known-scope opt-in, advisory-only risk, unsupported suggestion no execution change. | Pass/fail/mixed run, no checks, prerequisite blocked, load/setup/execution/cleanup failures, truthful timing and preserved preflight. | Successful and failed checks generate trustworthy allowed artifacts, unsafe/write-failed path does not leave misleading output, consistent exit/terminal, suppressed sensitive payload, no external sink. |
 | Required tests | Config/validation, real DuckDB scan guard and admission, service and check engine negative cases, no-scan spies, safe diagnostics, advisory invariant tests, preserve existing row-count/key/aggregate coverage. | Service/engine lifecycle and timing tests, ordering, dependency and mixed status tests, distinct connection failures, plan and scope, no generated results, preserve A tests. | Version/schema serialization, writer path and atomicity/failure/cleanup tests, privacy and CLI tests for every outcome, integration tests against real local adapter, carry forward A/B tests. |
 | Phase exit | TDD RED/GREEN and fresh cumulative review against approved matrix; prove no capability shrink or accidental production claim; record carryover, docs and validation. | Same review; prove status/timing/cleanup and preserved admission/semantics, no writes. | Same review plus final umbrella coverage/orphan check, full required branch-wide validation, compatibility/changelog review and maintainer approval. |
-| Blockers before coding | Approved M8.1.2 design and dedicated prework; validate integration and obtain separate implementation authorization. Candidate tuning, combined worker/recovery and native proof remain mandatory implementation/exit obligations. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
+| Blockers before coding | Approved M8.1.2 design and dedicated prework; validate integration and obtain separate implementation authorization. Measured tuning, native scope/effect, interruption and current scratch proof remain mandatory implementation/exit obligations. | M8.1 validated, own lifecycle design/ADR and matrix, scope/privacy/compile freshness decisions and approval. | M8.2 validated, own schema/privacy/writer/exit design and matrices, required gate proofs and approval. |
 
 ## Required acceptance row families and carryover
 
@@ -90,9 +90,9 @@ cases. No row can be silently dropped.
 | B5 | Preserve A admission, capability and advisory evidence; no execution on hard block or hidden fallback. |
 | B6 | Whole-project invocation scope with future selected-scope readiness, artifact/sink references only as allowed in memory. |
 | B7 | Privacy-safe lifecycle/plan metadata and no result/evidence/state writes. |
-| B8 | M8.1.2: one-worker stop/confirmed exit, parent liveness and interrupted outcomes. M8.2: remaining invocation deadlines/timeouts, cancellation lifecycle and safe retry. |
-| B9 | M8.1.1: native binding cleanup/L1. M8.1.2: worker/IPC/native/scratch cleanup, crash recovery and primary versus cleanup error. M8.2: remaining run-wide lifecycle/cleanup. |
-| B10 | M8.1.2: one active worker per check, re-observation, per-check resource scope. M8.2: cumulative envelopes, concurrency and fan-out. No automatic escalation. |
+| B8 | M8.1.2: native interrupt request distinct from confirmed stop and release, interrupted outcomes. M8.2: remaining invocation deadlines/timeouts, abrupt termination, cancellation lifecycle and safe retry. |
+| B9 | M8.1.1: native binding cleanup/L1. M8.1.2: native close/current scratch cleanup, retain uncertain/abrupt residue, primary versus cleanup error. M8.2: remaining run-wide lifecycle/cleanup. |
+| B10 | M8.1.2: one owned native session per check, re-observation, per-check resource scope. M8.2: cumulative envelopes, concurrency and fan-out. No automatic escalation. |
 | C1 | Versioned schema, path and invocation/timing/status/scope fields, backward/forward compatibility policy. |
 | C2 | Allowlisted placement, adapter/capability, scan evidence and advisory fields, availability/reasons, no misleading claims. |
 | C3 | Privacy matrix for every public field, diagnostic code/message/context/hint and raw values/keys/counts/diffs/SQL/plan/error text. |
@@ -286,7 +286,7 @@ No gate closed; separate implementation authorization required.
 The [Gate 4L P1-P6 subfamilies](execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) refine A2/A3/A4/A6/A7/A8/A9/A10/A12/A13 and R2/R3/R5/R8/R10 without changing the existing split. M8.1.2 owns local runtime graceful degradation, actual native platform proof, safe terminal warnings and persistent multi-version CI before exit. M8.2 retains run lifecycle and deduplication across the invocation; M8.3 owns structured publication preserving resource uncertainty and advisory meaning. M10/M10.7/M10.8, experimental PostgreSQL/Snowflake, M13.5/M18, M29 and every future adapter and relevant version/deployment expansion retain their assigned native P1-P6 obligations. No gate satisfied solely by documentation.
 
 
-## Scoped operational policy checkpoint (proposed; approval pending)
+## Approved scoped operational policy checkpoint
 
 M8.1.2 owns adapter-scoped project defaults, selected target adapter defaults
 and named connection overrides, atomic logical-setting replacement/reset,

@@ -29,8 +29,8 @@ Current state:
   plans to SQL,
 - current same-context DuckDB row-count, grain-key safety and explicit SUM
   checks use a privately owned read-only transaction on verified project-local
-  base tables; the temporary 64 MiB file cap applies only to grain-key and SUM
-  checks, not row count,
+  base tables; the unreleased M8.1.2 project policy removes the default
+  footprint cap for all nine families and enforces optional authored limits,
 - metadata fetching, materialization/staging,
   probabilistic key-diff, and result/evidence sink writes are not implemented
   yet.
@@ -777,7 +777,7 @@ collation gap remains explicitly assigned to mandatory M9.5.
 All adapter candidates and expansions must apply [Gate 4L P1-P6](../planning/execution-resource-safety-assignments.md#mandatory-platform-compatibility-and-graceful-degradation-gate-4l) before scoped experimental admission and official promotion, and upon relevant platform, engine, dependency, permission or deployment changes. Core policy uses actual verified capabilities, not an OS/version allowlist. Adapter-native observations and controls preserve scope, provenance, unknown and unsupported states; optional unavailable facts warn only when independently safe, equivalent verified mechanisms may be used at the same scope, and unproven required protection refuses affected work. Native failure is ERROR. Provide actionable privacy-safe advice through normal diagnostics; no silent downgrade or altered comparison meaning. M29 shared test kit must cover P1-P6 semantics and candidate-specific native proof; remote and distributed adapters do not inherit local DuckDB mechanisms. This planning requirement does not add public adapter signatures or certify any capability.
 
 
-## Scoped operational policy checkpoint (proposed; approval pending)
+## Scoped operational policy checkpoint (implemented; unreleased)
 
 M8.1.2 owns adapter-scoped project defaults, selected target adapter defaults
 and named connection overrides, atomic logical-setting replacement/reset,

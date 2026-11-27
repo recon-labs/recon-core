@@ -44,7 +44,7 @@ decimal milestone split rules.
 
 ## Version 0.1
 
-M8.1.2 whole design reopened, implementation suspended (2026-11-27); prior mechanism assignments below are historical pending revised prework. No successor implementation before approval; see [M8.1.2 approved prework](milestone-8-1-2-prework.md). It owns hardware-aware adapter-scoped policy, project/target/connection precedence, calibration, native execution and cleanup prerequisites; historical worker/recovery mechanisms are reopened. Remaining invocation deadlines/cancellation/retry and cumulative resource coordination belong to M8.2; safe resource metadata to M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
+M8.1.2 native-first replacement implemented on draft PR #42, final cumulative validation and separate merge approval pending. See [approved prework](milestone-8-1-2-prework.md). Own hardware-aware adapter-scoped policy, project/target/connection precedence, measured calibration, native interruption/confirmed release and current scratch cleanup prerequisites; no mandatory worker or persistent recovery. Remaining invocation lifecycle and cumulative resources belong to M8.2; safe resource metadata to M8.3. See [mandatory assignments](execution-resource-safety-assignments.md).
 
 Primary goal:
 
