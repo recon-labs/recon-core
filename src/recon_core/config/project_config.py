@@ -12,7 +12,10 @@ from recon_core._yaml import (
     yaml_error_position,
 )
 from recon_core.config._execution_policy import _parse_project_execution
-from recon_core.config._local_resource_policy import _InvalidResourcePolicyError, _LocalResourceLayer
+from recon_core.config._local_resource_policy import (
+    _InvalidResourcePolicyError,
+    _LocalResourceLayer,
+)
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
 INVALID_PROJECT_YAML = "RC_CONFIG_INVALID_PROJECT_YAML"
