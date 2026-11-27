@@ -198,25 +198,7 @@ path_surface_routing:
         - scan_safety
         - diagnostics
         - redaction
-    - path: src/recon_core/adapters/_scratch_filesystem.py
-      surfaces:
-        - adapter_runtime
-        - scan_safety
-        - diagnostics
-        - redaction
-    - path: tests/adapters/test_scratch_filesystem.py
-      surfaces:
-        - adapter_runtime
-        - scan_safety
-        - diagnostics
-        - redaction
-    - path: src/recon_core/adapters/_scratch_namespace.py
-      surfaces:
-        - adapter_runtime
-        - scan_safety
-        - diagnostics
-        - redaction
-    - path: tests/adapters/test_scratch_namespace.py
+    - path: src/recon_core/adapters/_darwin_scratch_security.py
       surfaces:
         - adapter_runtime
         - scan_safety

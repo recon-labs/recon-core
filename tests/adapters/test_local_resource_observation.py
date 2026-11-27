@@ -127,6 +127,7 @@ def test_host_memory_is_available_not_total_or_free(text: str, expected: int | N
         (PurePosixPath("/unusual/owned"), None),
     ],
 )
+@pytest.mark.regression_capture("scratch-filesystem-scope-evidence")
 def test_scratch_filesystem_evidence(path: PurePosixPath, expected: bool | None) -> None:
     mounts = _MOUNTS + (
         "31 20 0:28 / /tmp rw - tmpfs tmpfs rw\n"
@@ -143,6 +144,7 @@ def test_memory_high_is_not_a_hard_memory_limit() -> None:
     assert result.memory_headroom_bytes == 924
 
 
+@pytest.mark.regression_capture("scratch-filesystem-scope-evidence")
 def test_observe_real_scratch_without_creating_files(tmp_path: Path) -> None:
     result = _observe_local_resources(tmp_path)
     assert result.scratch_free_bytes is not None
