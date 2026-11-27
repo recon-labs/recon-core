@@ -415,6 +415,8 @@ def test_run_invocation_preserves_outcome_and_private_values(
     contracts: tuple[ContractResult, ...] = ()
     if status is not None:
         executed = status in {CheckStatus.PASS, CheckStatus.FAIL, CheckStatus.WARN}
+        source_value = 123456789 if executed else None
+        target_value = 123456788 if status is CheckStatus.FAIL else source_value
         check = CheckResult(
             check_id="check.ecommerce_recon.customer_revenue.row_count_diff",
             name="row_count_diff",
@@ -425,8 +427,8 @@ def test_run_invocation_preserves_outcome_and_private_values(
             reason_code=reason,
             message="Check did not execute." if reason is not None else None,
             blocked_by=("missing-check",) if status is CheckStatus.BLOCKED else (),
-            source_value=123456789 if executed else None,
-            target_value=123456788 if status is CheckStatus.FAIL else 123456789 if executed else None,
+            source_value=source_value,
+            target_value=target_value,
             diagnostics=(
                 Diagnostic(
                     code="RC_TEST_OUTCOME",
@@ -468,7 +470,9 @@ def test_run_invocation_preserves_outcome_and_private_values(
 
 
 @pytest.mark.regression_capture("run-invocation-identity-timing")
-def test_invocation_utc_label_preserves_subsecond_precision(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_invocation_utc_label_preserves_subsecond_precision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class FixedClock:
         @staticmethod
         def now(tz: Any) -> datetime:
