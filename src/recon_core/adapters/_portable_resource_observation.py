@@ -57,8 +57,10 @@ def _read_portable_facts(provider: Any, platform: str, scratch: PurePath | None)
     memory = _attempt(lambda: provider.virtual_memory().available)
     affinity = _attempt(lambda: provider.Process().cpu_affinity())
     affinity_count = None
-    if isinstance(affinity, tuple | list) and affinity and all(
-        type(cpu) is int and cpu >= 0 for cpu in affinity
+    if (
+        isinstance(affinity, tuple | list)
+        and affinity
+        and all(type(cpu) is int and cpu >= 0 for cpu in affinity)
     ):
         affinity_count = len(set(affinity))
 
