@@ -759,7 +759,8 @@ def test_project_run_alias_policy_uses_resolved_scratch_and_precedence(
 
 @pytest.mark.regression_capture("local-adaptive-resource-targets")
 @pytest.mark.parametrize(
-    "mode", ["auto", "reduced", "percent", "percent-spill", "zero-memory", "zero-spill", "zero-threads"]
+    "mode",
+    ["auto", "reduced", "percent", "percent-spill", "zero-memory", "zero-spill", "zero-threads"],
 )
 @pytest.mark.parametrize("different", [False, True])
 def test_project_resource_advisories_are_safe_and_do_not_change_outcome(

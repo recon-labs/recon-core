@@ -279,9 +279,23 @@ def _adaptive_native_request(
         native_threads=native.threads,
     )
     targets = _calculate_local_resource_targets(policy, inputs)
+    if targets.managed_memory_bytes == 0:
+        raise _BoundSessionError(
+            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+            "No usable managed-memory capacity for this check. Free memory or adjust tuning.",
+        )
+    if targets.threads == 0:
+        raise _BoundSessionError(
+            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+            "No usable threads capacity for this check. Inspect available CPU resources.",
+        )
     # Native zero-spill effect has not yet been independently established.
     if targets.spill_bytes == 0:
-        raise _NativeControlError("No usable verified native spill capacity.")
+        raise _BoundSessionError(
+            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+            "No usable positive spill capacity; verified no-spill execution is unavailable. "
+            "Free space or select an existing private disk-backed scratch base.",
+        )
     request = _NativeControlRequest(
         targets.managed_memory_bytes, targets.threads, targets.spill_bytes, scratch
     )
@@ -405,12 +419,15 @@ class _OwnedDuckDbSession:
                     f"Available {dimension} capacity is unknown for the selected percentage; "
                     "use auto or fixed MiB tuning.",
                 ) from None
+            except _BoundSessionError:
+                self._invalidated = True
+                raise
             except (_NativeControlError, ValueError):
                 self._invalidated = True
                 raise _BoundSessionError(
                     "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
                     "Required native resource setting could not be verified. "
-                    "Use automatic or fixed MiB tuning if capacity is unavailable.",
+                    "Inspect supported native controls and selected tuning.",
                 ) from None
             try:
                 _attach_guarded_database(self._connection, self._identity.path, catalog)
