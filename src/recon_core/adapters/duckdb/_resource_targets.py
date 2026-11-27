@@ -33,15 +33,13 @@ def _minimum_known(*values: int | None) -> int | None:
     return min((value for value in values if value is not None), default=None)
 
 
-def _percentage_request(
-    percent: int | None, available: int | None, *, setting: str
-) -> int | None:
+def _percentage_request(percent: int | None, available: int | None, *, setting: str) -> int | None:
     if percent is None:
         return None
     if type(percent) is not int or not 1 <= percent <= 100:
         raise ValueError(f"Invalid {setting} percentage.")
     if available is None:
-        raise ValueError(f"Available capacity for {setting} percentage is unknown; use auto or MiB.")
+        raise ValueError(f"Unknown capacity for {setting} percentage; use auto or fixed MiB.")
     return available * percent // 100
 
 
@@ -92,13 +90,10 @@ def _calculate_local_resource_targets(
     spill_request = _percentage_request(policy.spill_percent, free, setting="spill")
     if policy.spill_bytes is not None:
         spill_request = policy.spill_bytes
-    spill = (
-        _minimum_known(spill_request, free)
-        if spill_request is not None
-        else free * 9 // 10
-        if free is not None
-        else None
-    )
+    if spill_request is not None:
+        spill = _minimum_known(spill_request, free)
+    else:
+        spill = free * 9 // 10 if free is not None else None
     # Known memory-backed scratch shares headroom with the managed memory target.
     # Missing facts are not grounds for inventing capacity or discarding valid
     # independent observations; the execution layer must advise on uncertainty.
