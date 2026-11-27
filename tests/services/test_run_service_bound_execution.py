@@ -476,16 +476,12 @@ def test_native_failure_isolation_across_database_files(
     assert blocked.reason_code is not None and blocked.reason_code.value == "prerequisite_error"
     assert not blocked.executed
     assert opened == closed
-    if failure == "uncertain_close":
-        assert unrelated.status is CheckStatus.ERROR and not unrelated.executed
-        assert "RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE" in {d.code for d in unrelated.diagnostics}
-        assert len(opened) == 1
-        assert reads == opened
-    else:
-        assert unrelated.status is CheckStatus.PASS and unrelated.executed
-        assert unrelated.source_value == unrelated.target_value == 1
-        assert len(opened) == 2
-        assert reads == (opened[1:] if failure == "open" else opened)
+    # An uncertain close must latch only the affected file/context, not
+    # independent databases. The same-context alias test retains refusal.
+    assert unrelated.status is CheckStatus.PASS and unrelated.executed
+    assert unrelated.source_value == unrelated.target_value == 1
+    assert len(opened) == 2
+    assert reads == (opened[1:] if failure == "open" else opened)
     public = repr(engine.result.to_dict()) + repr(result.diagnostics)
     for token in ("private-first", "private-other", "private-native-query-error"):
         assert token not in public
