@@ -479,6 +479,8 @@ captures:
     severity: P2
     current_tests:
       - tests/check_engine/test_local_resource_targets.py::test_adaptive_targets_follow_effective_environment
+      - tests/check_engine/test_local_resource_targets.py::test_automatic_parallelism_uses_known_managed_memory_without_admission_floor
+      - tests/check_engine/test_local_resource_targets.py::test_memory_aware_threads_preserve_authored_memory_modes
       - tests/services/test_run_service_bound_execution.py::test_project_run_alias_policy_uses_resolved_scratch_and_precedence
       - tests/services/test_run_service_bound_execution.py::test_project_resource_advisories_are_safe_and_do_not_change_outcome
       - tests/services/test_run_service_aggregate_admission.py::test_optional_native_input_row_estimate_is_role_summed

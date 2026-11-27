@@ -329,3 +329,78 @@ def test_relative_memory_backed_spill_does_not_double_count_capacity() -> None:
     assert targets.spill_bytes is not None
     assert targets.spill_bytes == 250
     assert targets.reduced_authored_targets == ("spill",)
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize(
+    ("headroom", "native_memory", "cpu", "native_threads", "authored_threads", "expected"),
+    [
+        (499_999_998, None, 8, 8, None, 1),
+        (500_000_000, None, 8, 8, None, 2),
+        (2_000_000_000, None, 4, 8, None, 4),
+        (2_000_000_000, 124_999_999, 4, 8, None, 1),
+        (500_000_000, None, 1, 8, None, 1),
+        (500_000_000, None, 8, 1, None, 1),
+        (500_000_000, None, 8, 8, 6, 6),
+        (500_000_000, None, 2, 8, 6, 2),
+        (None, 100_000_000, 8, 8, None, 8),
+        (500_000_000, None, None, None, None, None),
+        (500_000_000, None, 0, 8, None, 0),
+        (0, None, 4, 8, None, 4),
+        (2, None, 4, 8, None, 1),
+    ],
+)
+def test_automatic_parallelism_uses_known_managed_memory_without_admission_floor(
+    headroom: int | None,
+    native_memory: int | None,
+    cpu: int | None,
+    native_threads: int | None,
+    authored_threads: int | None,
+    expected: int | None,
+) -> None:
+    targets = _calculate_local_resource_targets(
+        _LocalResourcePolicy(threads=authored_threads),
+        _LocalResourceInputs(
+            memory_headroom_bytes=headroom,
+            native_memory_bytes=native_memory,
+            cpu_capacity=Fraction(cpu) if cpu is not None else None,
+            native_threads=native_threads,
+        ),
+    )
+    expected_memory = (
+        min(headroom // 2, native_memory)
+        if headroom is not None and native_memory is not None
+        else headroom // 2 if headroom is not None else native_memory
+    )
+    assert targets.managed_memory_bytes == expected_memory
+    assert targets.threads == expected
+    assert targets.reduced_authored_targets == (
+        ("threads",) if authored_threads == 6 and expected == 2 else ()
+    )
+
+
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize(
+    ("policy", "expected_memory", "expected_threads"),
+    [
+        (_LocalResourcePolicy(managed_memory_percent=25), 250_000_000, 2),
+        (_LocalResourcePolicy(managed_memory_percent=75), 750_000_000, 6),
+        (_LocalResourcePolicy(managed_memory_bytes=100_000_000), 100_000_000, 1),
+        (_LocalResourcePolicy(managed_memory_bytes=100_000_000, threads=8), 100_000_000, 8),
+    ],
+)
+def test_memory_aware_threads_preserve_authored_memory_modes(
+    policy: _LocalResourcePolicy, expected_memory: int, expected_threads: int
+) -> None:
+    targets = _calculate_local_resource_targets(
+        policy,
+        _LocalResourceInputs(
+            memory_headroom_bytes=1_000_000_000,
+            cpu_capacity=Fraction(8),
+            native_threads=8,
+            native_memory_bytes=500_000_000,
+        ),
+    )
+    assert targets.managed_memory_bytes == expected_memory
+    assert targets.threads == expected_threads
+    assert not targets.reduced_authored_targets

@@ -1876,7 +1876,7 @@ def test_unavailable_catalog_estimate_is_advisory_only(
 
 
 @pytest.mark.regression_capture("local-adaptive-resource-targets")
-@pytest.mark.parametrize("mode", ["auto", "percent", "fixed"])
+@pytest.mark.parametrize("mode", ["auto", "percent", "fixed", "auto-threads"])
 def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
@@ -1906,14 +1906,17 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
     scratch = tmp_path / "private-scratch"
     scratch.mkdir()
     settings: dict[str, object] = {"scratch-directory": "private-scratch", "threads": 1}
+    if mode == "auto-threads":
+        settings.pop("threads")
     if mode == "percent":
         settings.update({"managed-memory": {"percent": 75}, "spill": {"percent": 75}})
     elif mode == "fixed":
         settings.update({"managed-memory": {"mib": 192}, "spill": {"mib": 192}})
     _set_project_duckdb_execution(tmp_path, settings)
-    capacities = [(256, 512), (512, 1024), (128, 128)]
+    capacities = [(256, 512), (1024 if mode == "auto-threads" else 512, 1024), (128, 128)]
     observations: list[Path] = []
     observed_targets: list[tuple[int, int]] = []
+    observed_threads: list[int] = []
 
     def observe(path: Path) -> _LocalObservation:
         memory, disk = capacities[len(observations) % len(capacities)]
@@ -1941,6 +1944,8 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
         # Deterministic native recommendation clamp; actual setting application
         # and actual project query execution are not mocked.
         actual = original_recommendations(native)
+        if mode == "auto-threads":
+            return type(actual)(memory_bytes=800 << 20, threads=4)
         return type(actual)(memory_bytes=200 << 20, threads=actual.threads)
 
     def open_session(session: binding._OwnedDuckDbSession) -> None:
@@ -1957,7 +1962,9 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
         )
         assert memory is not None and memory.contains(request.memory_bytes)
         assert spill is not None and spill.contains(request.spill_bytes)
-        assert native.execute("SELECT current_setting('threads')").fetchone() == (1,)
+        assert request.threads is not None
+        assert native.execute("SELECT current_setting('threads')").fetchone() == (request.threads,)
+        observed_threads.append(request.threads)
         observed_targets.append((request.memory_bytes, request.spill_bytes))
 
     monkeypatch.setattr(binding, "_observe_local_resources", observe)
@@ -1978,10 +1985,16 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
         assert len(checks) == 3
         assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
         assert any("controller scope is incomplete" in d.message for d in result.diagnostics)
+        parallelism = [
+            d for d in result.diagnostics if "Automatic threads reduced" in d.message
+        ]
+        assert len(parallelism) == (1 if mode == "auto-threads" else 0)
+        assert all(d.severity is DiagnosticSeverity.WARNING and d.hint for d in parallelism)
         monkeypatch.chdir(tmp_path)
         cli = CliRunner().invoke(main, ["run"])
         assert cli.exit_code == 0
         assert "controller scope is incomplete" in cli.output
+        assert ("Automatic threads reduced" in cli.output) is (mode == "auto-threads")
         assert observer.execute(query).fetchone() == before
         assert observer.execute("SELECT count(*) FROM qa.source_customers").fetchone() == (1,)
     finally:
@@ -1995,8 +2008,14 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
         ],
         "percent": [(192 * mib, 384 * mib), (384 * mib, 768 * mib), (96 * mib, 96 * mib)],
         "fixed": [(192 * mib, 192 * mib), (192 * mib, 192 * mib), (128 * mib, 128 * mib)],
+        "auto-threads": [
+            (128 * mib, 512 * mib * 9 // 10),
+            (512 * mib, 1024 * mib * 9 // 10),
+            (64 * mib, 128 * mib * 9 // 10),
+        ],
     }[mode]
     assert observed_targets == expected * 2
+    assert observed_threads == ([1, 2, 1] if mode == "auto-threads" else [1, 1, 1]) * 2
     assert len(set(observations)) == 6
     assert not list(scratch.iterdir())
     _assert_no_runtime_outputs(tmp_path)
