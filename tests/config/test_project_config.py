@@ -350,8 +350,8 @@ unexpected-setting: true
     [
         "",
         "execution: {}\n",
-        "execution:\n  scan-budget: {}\n",
-        "execution:\n  scan-budget:\n    local: {}\n",
+        "execution:\n  adapters: {}\n",
+        "execution:\n  adapters:\n    duckdb: {}\n",
     ],
 )
 def test_local_resource_policy_defaults(tmp_path: Path, settings: str) -> None:
@@ -360,15 +360,7 @@ def test_local_resource_policy_defaults(tmp_path: Path, settings: str) -> None:
     assert result.succeeded
     assert result.config == baseline.config
     assert result.config is not None
-    policy = result.config._local_resource_policy
-    assert policy.max_database_bytes is None
-    assert policy.warn_estimated_input_rows is None
-    assert policy.managed_memory_bytes is None
-    assert policy.threads is None
-    assert policy.spill_bytes is None
-    assert policy.memory_reserve_bytes is None
-    assert policy.disk_reserve_bytes is None
-    assert policy.scratch_directory is None
+    assert result.config._execution_adapter_defaults == {}
 
 
 @pytest.mark.regression_capture("local-resource-config-strict-validation")
@@ -377,30 +369,28 @@ def test_local_resource_policy_values(tmp_path: Path) -> None:
         tmp_path,
         """name: recon
 execution:
-  scan-budget:
-    local:
+  adapters:
+    duckdb:
       max-database-mib: 8796093022207
       warn-estimated-input-rows: 9223372036854775807
-      managed-memory-mib: 8192
+      managed-memory: {mib: 8192}
       threads: 8
-      spill-mib: 20480
-      memory-reserve-mib: 2048
-      disk-reserve-mib: 4096
+      spill: {mib: 20480}
       scratch-directory: private-scratch
 """,
     )
     result = load_project_config(project_file)
     assert result.succeeded
     assert result.config is not None
-    policy = result.config._local_resource_policy
+    policy = result.config._execution_adapter_defaults["duckdb"].policy
     mib = 1 << 20
     assert policy.max_database_bytes == 8796093022207 * mib
     assert policy.warn_estimated_input_rows == (1 << 63) - 1
     assert policy.managed_memory_bytes == 8192 * mib
     assert policy.threads == 8
     assert policy.spill_bytes == 20480 * mib
-    assert policy.memory_reserve_bytes == 2048 * mib
-    assert policy.disk_reserve_bytes == 4096 * mib
+    assert policy.managed_memory_percent is None
+    assert policy.spill_percent is None
     assert policy.scratch_directory == "private-scratch"
     assert not (tmp_path / "private-scratch").exists()
     assert "private-scratch" not in repr(result.config)
@@ -411,17 +401,16 @@ execution:
     [
         "max-database-mib",
         "warn-estimated-input-rows",
-        "managed-memory-mib",
+        "managed-memory",
         "threads",
-        "spill-mib",
-        "memory-reserve-mib",
-        "disk-reserve-mib",
+        "spill",
     ],
 )
 @pytest.mark.parametrize("value", ["0", "-1", "true", "1.0", "'1'", "null", "9223372036854775808"])
 def test_local_resource_policy_invalid_integer(tmp_path: Path, field: str, value: str) -> None:
+    setting = f"{{mib: {value}}}" if field in {"managed-memory", "spill"} else value
     project_file = write_project_config(
-        tmp_path, f"name: recon\nexecution:\n  scan-budget:\n    local:\n      {field}: {value}\n"
+        tmp_path, f"name: recon\nexecution:\n  adapters:\n    duckdb:\n      {field}: {setting}\n"
     )
     result = load_project_config(project_file)
     assert not result.succeeded
@@ -435,15 +424,14 @@ def test_local_resource_policy_invalid_integer(tmp_path: Path, field: str, value
         "max-database-mib",
         "managed-memory-mib",
         "spill-mib",
-        "memory-reserve-mib",
-        "disk-reserve-mib",
     ],
 )
 @pytest.mark.regression_capture("local-resource-config-strict-validation")
 def test_local_resource_policy_mib_overflow(tmp_path: Path, field: str) -> None:
+    value = "{mib: 8796093022208}" if field in {"managed-memory", "spill"} else "8796093022208"
     project_file = write_project_config(
         tmp_path,
-        f"name: recon\nexecution:\n  scan-budget:\n    local:\n      {field}: 8796093022208\n",
+        f"name: recon\nexecution:\n  adapters:\n    duckdb:\n      {field}: {value}\n",
     )
     assert not load_project_config(project_file).succeeded
 
@@ -455,19 +443,21 @@ def test_local_resource_policy_mib_overflow(tmp_path: Path, field: str) -> None:
         "execution: []\n",
         "execution: {PRIVATE_SENTINEL: true}\n",
         "execution: {1: true}\n",
-        "execution: {scan-budget: null}\n",
-        "execution: {scan-budget: []}\n",
-        "execution: {scan-budget: {PRIVATE_SENTINEL: true}}\n",
-        "execution: {scan-budget: {local: null}}\n",
-        "execution: {scan-budget: {local: []}}\n",
-        "execution: {scan-budget: {local: {PRIVATE_SENTINEL: true}}}\n",
-        "execution: {scan-budget: {local: {1: true}}}\n",
-        "execution: {scan-budget: {local: {scratch-directory: null}}}\n",
-        "execution: {scan-budget: {local: {scratch-directory: 1}}}\n",
-        "execution: {scan-budget: {local: {scratch-directory: ''}}}\n",
-        "execution: {scan-budget: {local: {scratch-directory: '   '}}}\n",
-        "execution: {scan-budget: {local: {scratch-directory: [PRIVATE_SENTINEL]}}}\n",
-        "execution: {scan-budget: {local: {threads: PRIVATE_SENTINEL}}}\n",
+        "execution: {adapters: null}\n",
+        "execution: {adapters: []}\n",
+        "execution: {adapters: {PRIVATE_SENTINEL: true}}\n",
+        "execution: {adapters: {duckdb: null}}\n",
+        "execution: {adapters: {duckdb: []}}\n",
+        "execution: {adapters: {duckdb: {PRIVATE_SENTINEL: true}}}\n",
+        "execution: {adapters: {duckdb: {1: true}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: null}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: 1}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: ''}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: '   '}}}\n",
+        "execution: {adapters: {duckdb: {scratch-directory: [PRIVATE_SENTINEL]}}}\n",
+        "execution: {adapters: {duckdb: {threads: PRIVATE_SENTINEL}}}\n",
+        "execution: {adapters: {duckdb: {memory-reserve-mib: 1}}}\n",
+        "execution: {adapters: {duckdb: {disk-reserve-mib: 1}}}\n",
     ],
 )
 @pytest.mark.regression_capture("local-resource-config-strict-validation")
@@ -484,7 +474,7 @@ def test_local_resource_policy_duplicate_key(tmp_path: Path) -> None:
     result = load_project_config(
         write_project_config(
             tmp_path,
-            "name: recon\nexecution: {scan-budget: {local: {threads: 1, threads: 2}}}\n",
+            "name: recon\nexecution: {adapters: {duckdb: {threads: 1, threads: 2}}}\n",
         )
     )
     assert not result.succeeded
