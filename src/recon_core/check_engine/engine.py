@@ -54,11 +54,15 @@ class CheckExecutionContext(RuntimeExecutionContext):
     scan_budget_decisions_by_check_id: Mapping[str, ScanBudgetDecision] = field(
         default_factory=dict
     )
+
+
+@dataclass(frozen=True, slots=True)
+class _ControlledExecutionContext(CheckExecutionContext):
     _run_control: _RunControl | None = field(default=None, repr=False, compare=False, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)
-class _AggregateExecutionContext(CheckExecutionContext):
+class _AggregateExecutionContext(_ControlledExecutionContext):
     tolerance_states_by_contract_id: Mapping[str, _ToleranceReferenceState] = field(
         default_factory=dict
     )

@@ -2,7 +2,8 @@
 
 from collections.abc import Callable
 from enum import StrEnum
-from threading import Event, Lock
+from threading import Condition, Event, Thread
+from typing import TypeVar
 
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 
@@ -27,6 +28,15 @@ class _StopCause(StrEnum):
         )
 
 
+_T = TypeVar("_T")
+
+
+class _RunStopped(RuntimeError):
+    def __init__(self, cause: _StopCause) -> None:
+        super().__init__(cause.diagnostic().message)
+        self.cause = cause
+
+
 class _RunControl:
     """Latch the first observed stop; a final seal cannot be changed."""
 
@@ -43,7 +53,11 @@ class _RunControl:
         )
         self._cancel_event = cancel_event
         self._clock = clock
-        self._lock = Lock()
+        self._lock = Condition()
+        self._active: Callable[[], bool] | None = None
+        self._borrowed = False
+        self._observer: Thread | None = None
+        self._closing = False
         self._cause: _StopCause | None = None
         self._sealed = False
 
@@ -61,7 +75,70 @@ class _RunControl:
             return self._observe_locked()
 
     def seal(self) -> _StopCause | None:
+        self.close_observer()
         with self._lock:
             cause = self._observe_locked()
             self._sealed = True
             return cause
+
+
+    def checkpoint(self) -> None:
+        if (cause := self.observe()) is not None:
+            raise _RunStopped(cause)
+
+    def native_call(self, call: Callable[[], _T], interrupt: Callable[[], bool]) -> _T:
+        """Borrow only the active call; wait for interrupt return before releasing it."""
+        with self._lock:
+            if (cause := self._observe_locked()) is not None:
+                raise _RunStopped(cause)
+            if self._active is not None or self._closing or self._sealed:
+                raise RuntimeError("Invalid invocation native call ownership.")
+            if self._observer is None:
+                observer = Thread(target=self._watch, name="recon-run-control", daemon=False)
+                observer.start()
+                self._observer = observer
+            self._active = interrupt
+            self._lock.notify_all()
+        try:
+            self.checkpoint()
+            result = call()
+        finally:
+            with self._lock:
+                self._active = None
+                self._lock.notify_all()
+                while self._borrowed:
+                    self._lock.wait()
+        self.checkpoint()
+        return result
+
+    def _watch(self) -> None:
+        while True:
+            with self._lock:
+                if self._closing:
+                    return
+                cause = self._observe_locked()
+                interrupt = self._active if cause is not None else None
+                if interrupt is None:
+                    self._lock.wait(timeout=0.01)
+                    continue
+                self._borrowed = True
+            try:
+                interrupt()
+            except Exception:
+                # An interrupt request is not proof of termination. Keep observing
+                # the same active lease, never retry the query or close its handle.
+                pass
+            finally:
+                with self._lock:
+                    self._borrowed = False
+                    self._lock.notify_all()
+                    if self._active is interrupt:
+                        self._lock.wait(timeout=0.01)
+
+    def close_observer(self) -> None:
+        with self._lock:
+            self._closing = True
+            self._lock.notify_all()
+            observer = self._observer
+        if observer is not None:
+            observer.join()

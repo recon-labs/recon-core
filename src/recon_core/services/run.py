@@ -75,7 +75,11 @@ from recon_core.check_engine.aggregate import (
     is_aggregate_check_type,
     is_supported_aggregate_plan_shape,
 )
-from recon_core.check_engine.engine import _AggregateExecutionContext, _ProjectExecutionContext
+from recon_core.check_engine.engine import (
+    _AggregateExecutionContext,
+    _ControlledExecutionContext,
+    _ProjectExecutionContext,
+)
 from recon_core.check_engine.execution_support import adapter_matches_connection
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
@@ -301,6 +305,7 @@ class RunService:
             registry=self.adapter_registry,
             environ=self.environ,
             resource_facts=invocation.resource_facts,
+            control=invocation.control,
         )
         if runtime_dependencies.diagnostics:
             return ServiceResult(
@@ -320,13 +325,10 @@ class RunService:
         execution_context: CheckExecutionContext | None,
     ) -> ServiceResult | RunResult:
         if invocation.control is not None:
-            if (
-                isinstance(execution_context, _ProjectExecutionContext)
-                and invocation.observe_stop() is None
-            ):
-                return _unsupported_run_control_result()
             if execution_context is None:
-                execution_context = CheckExecutionContext({}, {})
+                execution_context = _ControlledExecutionContext({}, {})
+            if not isinstance(execution_context, _ControlledExecutionContext):
+                return _unsupported_run_control_result()
             execution_context = replace(execution_context, _run_control=invocation.control)
         invocation.stage = _RunStage.CHECK_EXECUTION
         assert invocation.project_name is not None
@@ -366,6 +368,7 @@ def _prepare_runtime_execution_dependencies(
     registry: AdapterRegistry | None,
     environ: Mapping[str, str] | None,
     resource_facts: dict[str, _CheckResourceFacts],
+    control: _RunControl | None = None,
 ) -> _RuntimeExecutionDependencies:
     contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
     has_aggregate_checks = any(
@@ -569,6 +572,7 @@ def _prepare_runtime_execution_dependencies(
                 scan_budget_decisions.identities_by_check_id,
                 policies,
                 resource_facts,
+                control=control,
             ),
         ),
     )
@@ -609,7 +613,7 @@ def _runtime_context(
             aggregate_blockers_by_check_id=aggregate_blockers_by_check_id or {},
             aggregate_renderers_by_adapter_type=aggregate_renderers_by_adapter_type or {},
         )
-    return CheckExecutionContext(
+    return _ControlledExecutionContext(
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
         connections_by_name=connections_by_name or {},

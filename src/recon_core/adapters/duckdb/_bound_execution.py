@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import gettempdir
 from typing import Any
 
+from recon_core._run_control import _RunControl, _RunStopped
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters._local_resource_observation import (
     _LocalObservation,
@@ -115,6 +116,23 @@ class _VerifiedReadConnection:
 
     def execute(self, query: str) -> Any:
         return self._execute(query)
+
+
+class _ControlledReadCursor:
+    """Keep fetch inside its own interruptible span, never the cleanup call."""
+
+    def __init__(self, cursor: Any, control: _RunControl, interrupt: Callable[[], bool]) -> None:
+        self._cursor = cursor
+        self._control = control
+        self._interrupt = interrupt
+
+    @property
+    def description(self) -> Any:
+        self._control.checkpoint()
+        return self._cursor.description
+
+    def fetchmany(self, size: int) -> Any:
+        return self._control.native_call(lambda: self._cursor.fetchmany(size), self._interrupt)
 
 
 def _current_catalog(connection: Any) -> str:
@@ -328,6 +346,7 @@ class _OwnedDuckDbSession:
         resource_policy: _LocalResourcePolicy | None = None,
     ) -> None:
         self._identity = identity
+        self._run_control: _RunControl | None = None
         if (project_root is None) != (resource_policy is None) or sum(
             mode is not None for mode in (native_controls, scratch_base, resource_policy)
         ) > 1:
@@ -452,7 +471,17 @@ class _OwnedDuckDbSession:
     def released(self) -> bool:
         return self._released
 
+    def _set_run_control(self, control: _RunControl) -> None:
+        if self._attempted or self._run_control is not None:
+            raise _proof_error()
+        self._run_control = control
+
+    def _checkpoint(self) -> None:
+        if self._run_control is not None:
+            self._run_control.checkpoint()
+
     def _verify_file(self) -> None:
+        self._checkpoint()
         if self._invalidated or _current_file_identity(self._identity.path) != self._identity:
             self._invalidated = True
             raise _proof_error()
@@ -546,6 +575,7 @@ class _OwnedDuckDbSession:
                 raise _proof_error() from None
         self._verify_file()
         try:
+            self._checkpoint()
             self._connection.execute("BEGIN TRANSACTION")
             self._transaction = True
         except Exception:
@@ -584,6 +614,7 @@ class _OwnedDuckDbSession:
         self._binding_attempted = True
         self._verify_file()
         source_relation = self.resolve_relation(source)
+        self._checkpoint()
         target_relation = self.resolve_relation(target)
         if source_relation is None or target_relation is None:
             self._invalidated = True
@@ -597,6 +628,7 @@ class _OwnedDuckDbSession:
         if threshold is None:
             self._estimate = _EstimateAvailability.NOT_REQUESTED
         else:
+            self._checkpoint()
             estimated = _estimated_input_rows(self._connection, self._lease.scope)
             self.verify_lease(self._lease, self._lease.scope)
             if estimated is None:
@@ -659,7 +691,16 @@ class _OwnedDuckDbSession:
                 self._invalidated = True
                 raise _proof_error()
             try:
-                return self._connection.execute(statement)
+                control = self._run_control
+                if control is None:
+                    return self._connection.execute(statement)
+                cursor = control.native_call(
+                    lambda: self._connection.execute(statement), self.request_interrupt
+                )
+                return _ControlledReadCursor(cursor, control, self.request_interrupt)
+            except _RunStopped:
+                self._invalidated = True
+                raise
             except Exception:
                 self._invalidated = True
                 raise _BoundSessionError(

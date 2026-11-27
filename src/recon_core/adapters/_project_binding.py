@@ -5,6 +5,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
+from recon_core._run_control import _RunControl
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters.models import QueryResult, Relation
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
@@ -112,6 +113,8 @@ class _OwnedSession(Protocol):
 
     @property
     def released(self) -> bool: ...
+
+    def _set_run_control(self, control: _RunControl) -> None: ...
 
     def open(self) -> None: ...
 

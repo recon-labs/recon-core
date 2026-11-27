@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
+from recon_core._run_control import _RunControl, _RunStopped
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters._project_binding import (
     _BindingLease,
@@ -97,12 +98,15 @@ class _ProjectBoundRunner:
         identities: Mapping[str, _LocalFileIdentity],
         resource_policies: Mapping[str, _LocalResourcePolicy],
         resource_facts: dict[str, _CheckResourceFacts],
+        *,
+        control: _RunControl | None = None,
     ) -> None:
         self._root = project_root
         self._connections = deepcopy(dict(connections))
         self._identities = dict(identities)
         self._resource_policies = dict(resource_policies)
         self._resource_facts = resource_facts
+        self._control = control
         self._unreleased: list[tuple[_LocalFileIdentity, _OwnedSession]] = []
         self._session_count = 0
 
@@ -210,6 +214,16 @@ class _ProjectBoundRunner:
             )
         if _exceeds_authored_footprint(identity, source_policy):
             return _scope_refusal(check, contract, over_cap=True)
+        if self._control is not None and (cause := self._control.observe()) is not None:
+            diagnostic = cause.diagnostic()
+            return not_executable_result(
+                check,
+                contract,
+                reason=CheckReason(cause.value),
+                diagnostic_code=diagnostic.code,
+                message=diagnostic.message,
+                hint=diagnostic.hint or "Start a new invocation when ready.",
+            )
         self._session_count += 1
         session_number = self._session_count
         session = _new_owned_session(
@@ -217,13 +231,20 @@ class _ProjectBoundRunner:
         )
         binding_verified = False
         try:
+            if self._control is not None:
+                session._set_run_control(self._control)
+                self._control.checkpoint()
             session.open()
+            if self._control is not None:
+                self._control.checkpoint()
             lease = session.bind(
                 check_id=check.id,
                 operation=check.check_type,
                 source=contract.source.relation,
                 target=contract.target.relation,
             )
+            if self._control is not None:
+                self._control.checkpoint()
             if lease is None:
                 result = _scope_refusal(check, contract)
             else:
@@ -231,6 +252,11 @@ class _ProjectBoundRunner:
                 result = evaluate(
                     lease.scope.source, lease.scope.target, _SessionReader(session, lease)
                 )
+        except _RunStopped as exc:
+            diagnostic = exc.cause.diagnostic()
+            result = error_result(
+                check, contract, message=diagnostic.message, diagnostics=(diagnostic,)
+            )
         except _BoundSessionError as exc:
             if exc.diagnostic.code == "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE":
                 result = not_executable_result(
@@ -268,6 +294,13 @@ class _ProjectBoundRunner:
                 ),
                 native=session.resource_facts,
             )
+
+        if self._control is not None and not result.executed:
+            cause = self._control.observe()
+            if cause is not None:
+                diagnostic = cause.diagnostic()
+                if diagnostic not in result.diagnostics:
+                    result = replace(result, diagnostics=result.diagnostics + (diagnostic,))
 
         # Preserve distinct fixed, non-identifying per-session diagnostics across
         # the service's diagnostic deduplication boundary.
