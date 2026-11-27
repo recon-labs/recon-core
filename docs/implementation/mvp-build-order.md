@@ -752,11 +752,11 @@ supported check semantics.
 
 ## Milestone 8.1: scan-budget configuration and enforcement
 
-Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 detailed design approved; separate implementation authorization pending.
+Reopened next-action dependency: design and prove shared binding prerequisites before the targeted M7.4 grouped runtime correction; only then resume resource calibration. See [M8 split assignment](../planning/milestone-8-split-assignment.md#reopened-execution-dependency-and-next-action). M8.1.1 scoped exit is verified on main (PR #38); targeted correction verified and merged (PR #39); M8.1.2 replacement design approval and separate implementation authorization pending.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: adaptive design approved; implementation authorization pending. See [M8.1.2 approved prework](../planning/milestone-8-1-2-prework.md). Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Candidate defaults require measured implementation proof. A10-A13 are mandatory. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: adapter-scoped adaptive replacement design approval and implementation authorization pending. See [M8.1.2 current prework](../planning/milestone-8-1-2-prework.md). Implement hardware-aware local resource policy, calibrated defaults, optional footprint limit, non-executing evidence and native memory/thread/spill controls where proven; preserve binding and semantics. Candidate defaults require measured implementation proof. A10-A13 are mandatory. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Review the [approved detailed resource prework](../planning/milestone-8-1-2-prework.md) and ADR 0026. The umbrella prework is historical for resource decisions; separate implementation approval required.
 
@@ -1282,7 +1282,7 @@ Depends on the completed M9.5 lossless type compatibility baseline; extend it, d
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: Prove metric/group intermediate workload and native PostgreSQL operational safeguards at experimental checkpoint. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: Prove metric/group intermediate workload and native PostgreSQL operational safeguards at experimental checkpoint. Validate adapter-owned operational schema and extension boundary without adding engine branches to Core. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after Milestones 1-10 are complete and after the 0.1
 release-readiness decision. It also depends on Milestone 7.4's current
@@ -1447,7 +1447,7 @@ feat: add metadata discovery and suggestions
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
-Resource-safety checkpoint: Prove mapping/cast/width workload impacts and Snowflake warehouse-native resource, pruning and billing evidence at experimental checkpoint. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
+Resource-safety checkpoint: Prove mapping/cast/width workload impacts and Snowflake warehouse-native resource, pruning and billing evidence at experimental checkpoint. Reprove adapter-owned policy schema and extension, role/warehouse authority and no implicit resize. See [mandatory assignments](../planning/execution-resource-safety-assignments.md).
 
 Build this after the adapter metadata model, resolved column artifacts, schema
 policy behavior, run results, and evidence model are stable enough to show
