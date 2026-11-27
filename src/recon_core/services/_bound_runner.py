@@ -17,7 +17,7 @@ from recon_core.adapters._project_binding import (
     _OwnedSession,
 )
 from recon_core.adapters.base import BaseAdapter
-from recon_core.adapters.lifecycle import ADAPTER_QUERY_FAILED
+from recon_core.adapters.lifecycle import ADAPTER_CLOSE_FAILED, ADAPTER_QUERY_FAILED
 from recon_core.adapters.models import QueryResult
 from recon_core.artifacts import LoadedCompiledCheck, LoadedCompiledContractArtifact
 from recon_core.check_engine._bound_protocol import _BoundEvaluation
@@ -184,6 +184,14 @@ class _ProjectBoundRunner:
             cleanup = session.close()
             if not session.released:
                 self._unreleased.append((identity, session))
+                if not cleanup:
+                    cleanup = (
+                        Diagnostic(
+                            code=ADAPTER_CLOSE_FAILED,
+                            severity=DiagnosticSeverity.ERROR,
+                            message="Native execution cleanup could not be confirmed.",
+                        ),
+                    )
 
         # Preserve distinct fixed, non-identifying per-session diagnostics across
         # the service's diagnostic deduplication boundary.
