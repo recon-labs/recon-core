@@ -149,6 +149,43 @@ noninterference, cleanup, bounded exact results and graceful degradation
 before removing the existing guard. M8.2 retains its existing separate
 invocation lifecycle and cumulative/concurrency responsibilities.
 
+### Embedded feasibility checkpoint (2026-11-27)
+
+The guarded native alternative is distinct from the earlier unguarded ATTACH
+candidate: keep one original ordinary read-only native connection for writer
+exclusion and open a separate native memory instance with isolated settings
+and native read-only attachment to the same approved file. Use the engine's
+catalog name; a native catalog switch resolves the initial memory catalog
+collision. Close the execution instance before the original read-only handle.
+No process enumeration, custom worker or new public transport. Candidate
+test-only integration into the existing bound session passed 77 selected
+existing tests plus eight targeted filename, interrupt and concurrent-run
+tests in each of eight environment combinations (45920605605). Actual
+narrow and wide three-million-group reconciliations using disk spill with
+same-file observer and read-only mounted fixture succeeded on all four pins
+(45920361925 oldest, 45920605605 remaining). Observer unchanged, release,
+cleanup and original file unchanged. This is feasibility, not production
+proof. The previous unguarded spill failure had a test factory type error;
+do not attribute it to the native engine.
+
+Native ordinary reader refusal with incompatible same-file existing
+configuration is reproduced on three newer pins (45920495382), including
+the original connection form. No mutation of an unrelated instance.
+Ordinary compatible readers and simultaneous independent attachments
+succeeded. Existing Windows live-WAL-copy fixture fails on the unchanged
+baseline too; preserve and explicitly resolve the coverage gap. Do not
+promise arbitrary embedded configurations or remove existing capability
+without approval. Evaluate a single guarded native path for both invocation
+types to avoid mode detection and divergent implementations; compare the
+extra native connection and catalog switch against ordinary CLI direct path.
+No architecture selection or compatibility exception approved yet.
+
+Remaining targeted probes: actual headroom-dependent native tuning versus
+baseline and explicit overrides (45920824959), minimal private scratch
+creation with observed inherited ACLs and no adoption of existing paths
+(45920872979). No new numerical default, OS ownership subsystem or
+dependency approved. Both paths must meet the same outcome gates.
+
 ### Proposed settings and policy semantics
 
 Keep the existing proposed optional project mapping
