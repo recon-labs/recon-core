@@ -1422,9 +1422,7 @@ def test_shared_prerequisite_evaluated_once_across_contracts(
 
 @pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
 @pytest.mark.parametrize("self_cycle", [True, False])
-def test_dependency_cycle_does_not_dispatch_cyclic_checks(
-    tmp_path: Path, self_cycle: bool
-) -> None:
+def test_dependency_cycle_does_not_dispatch_cyclic_checks(tmp_path: Path, self_cycle: bool) -> None:
     calls: list[str] = []
     first = _check(
         check_id="first", name="first", prerequisites=("first" if self_cycle else "second",)
