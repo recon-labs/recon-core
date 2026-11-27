@@ -120,18 +120,15 @@ def _attach_guarded_database(connection: Any, path: Path, catalog: str) -> None:
     if collision:
         connection.execute("DETACH recon_seed")
 
-    if (
-        _current_catalog(connection) != catalog
-        or _local_duckdb_catalog_names(connection, path)
-        != frozenset({_duckdb_identifier_key(catalog)})
-    ):
+    if _current_catalog(connection) != catalog or _local_duckdb_catalog_names(
+        connection, path
+    ) != frozenset({_duckdb_identifier_key(catalog)}):
         raise _proof_error()
 
     # Native metadata must show the exact read-only attachment, not merely
     # a requested ATTACH option or a catalog inferred from a filename.
     rows = connection.execute(
-        "SELECT database_name, path, readonly FROM duckdb_databases() "
-        "WHERE NOT internal LIMIT 3"
+        "SELECT database_name, path, readonly FROM duckdb_databases() WHERE NOT internal LIMIT 3"
     ).fetchmany(3)
     if not isinstance(rows, list | tuple) or not 1 <= len(rows) <= 2:
         raise _proof_error()
@@ -151,10 +148,7 @@ def _attach_guarded_database(connection: Any, path: Path, catalog: str) -> None:
             if readonly is not True:
                 raise _proof_error()
             matches += 1
-        elif (
-            _duckdb_identifier_key(name) != "memory"
-            or native_path not in (None, "", ":memory:")
-        ):
+        elif _duckdb_identifier_key(name) != "memory" or native_path not in (None, "", ":memory:"):
             raise _proof_error()
     if matches != 1:
         raise _proof_error()
