@@ -36,9 +36,14 @@ jobs:
           USER_ARGS=(--user "$(id -u):$(id -g)" --network none --rm)
           docker run "${USER_ARGS[@]}" --memory 2g --cpus 2 -v "$ROOT/project:/fixture:rw" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration setup /fixture
           status=0
-          for spec in "512 large fixed scratch" "512 large auto scratch" "512 large percent scratch" "2048 large capable scratch" "512 small fixed scratch" "512 large low-disk low"; do
-            read -r ram kind mode storage <<< "$spec"
+          for spec in "512 large fixed scratch 2" "512 large auto scratch 2" "512 large percent scratch 2" "512 large auto-one-thread scratch 2" "2048 large capable scratch 4" "512 small fixed scratch 2" "512 large low-disk low 2" "512 large memory-backed tmpfs 2"; do
+            read -r ram kind mode storage cpus <<< "$spec"
             echo "CASE $spec"
-            timeout --kill-after=5s 120s docker run "${USER_ARGS[@]}" --memory "${ram}m" --memory-swap "${ram}m" --cpus 2 -v "$ROOT/project:/fixture:rw" -v "$ROOT/$storage:/scratch:rw" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration run /fixture /scratch "$kind" "$mode" || { echo "CASE_FAILED $spec"; status=1; }
+            if [ "$storage" = tmpfs ]; then
+              STORAGE=(--tmpfs "/scratch:rw,size=1g,uid=$(id -u),gid=$(id -g),mode=0700")
+            else
+              STORAGE=(-v "$ROOT/$storage:/scratch:rw")
+            fi
+            timeout --kill-after=5s 120s docker run "${USER_ARGS[@]}" --memory "${ram}m" --memory-swap "${ram}m" --cpus "$cpus" -v "$ROOT/project:/fixture:rw" "${STORAGE[@]}" recon-m812-calibration python -u -m scripts.temporary_m812_final_calibration run /fixture /scratch "$kind" "$mode" || { echo "CASE_FAILED $spec"; status=1; }
           done
           exit "$status"

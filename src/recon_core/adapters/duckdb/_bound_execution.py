@@ -244,7 +244,10 @@ def _resource_advisories(
         )
     constraints = observed.linux_constraints
     if observed.platform == "linux" and (
-        constraints is None or constraints.memory_incomplete or constraints.cpu_incomplete
+        constraints is None
+        or not constraints.full_hierarchy_proven
+        or constraints.memory_incomplete
+        or constraints.cpu_incomplete
     ):
         warn(
             "Local controller scope is incomplete; resource tuning uses available facts, "

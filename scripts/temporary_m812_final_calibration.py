@@ -54,13 +54,13 @@ def setup(root):
 def run(root,base,kind,mode):
     path=root/kind
     db=path/"warehouse.duckdb"
-    policy={"scratch-directory":str(base),"threads":1}
+    policy={"scratch-directory":str(base)}
     if mode in ("fixed","low-disk"):
-        policy.update({"managed-memory":{"mib":128},"spill":{"mib":1024}})
+        policy.update({"threads":1,"managed-memory":{"mib":128},"spill":{"mib":1024}})
     elif mode=="percent":
         policy.update({"managed-memory":{"percent":75},"spill":{"percent":90}})
-    elif mode=="capable":
-        policy["threads"]=2
+    elif mode=="auto-one-thread":
+        policy["threads"]=1
     _set_project_duckdb_execution(path,policy)
     before=db.stat()
     limit=int((CG/"memory.max").read_text().strip())
@@ -68,10 +68,18 @@ def run(root,base,kind,mode):
     if kind=="large" and mode!="capable":
         assert before.st_size>limit
     observe=binding._observe_local_resources
+    facts_seen=[]
+    recommendations=binding._read_native_recommendations
+    def measured_native(connection):
+        native=recommendations(connection)
+        log("NATIVE_RECOMMENDATION",memory=native.memory_bytes,threads=native.threads)
+        return native
+    binding._read_native_recommendations=measured_native
     def measured(scratch):
         facts=observe(scratch)
         log("OBSERVATION",headroom=facts.memory_headroom_bytes,cpu=facts.cpu_capacity,free=facts.scratch_free_bytes,memory_backed=facts.scratch_memory_backed)
         assert facts.memory_headroom_bytes is not None and 0<facts.memory_headroom_bytes<=limit
+        facts_seen.append(facts)
         return facts
     binding._observe_local_resources=measured
     original_open=binding._OwnedDuckDbSession.open
@@ -81,17 +89,25 @@ def run(root,base,kind,mode):
         request=session._native_controls
         opened.append(session)
         log("TARGET",memory=request.memory_bytes,threads=request.threads,spill=request.spill_bytes)
+        if mode=="memory-backed":
+            facts=facts_seen[-1]
+            assert facts.scratch_memory_backed is True
+            assert request.spill_bytes<=facts.memory_headroom_bytes-request.memory_bytes
     binding._OwnedDuckDbSession.open=open_session
     stop=threading.Event()
     peak=[0]
+    sample_errors=[]
+    def walk_error(error):
+        if not isinstance(error, FileNotFoundError):
+            sample_errors.append(type(error).__name__)
     def sample():
         while not stop.wait(.005):
             total=0
-            for entry in base.rglob("*"):
-                try:
-                    if entry.is_file():total+=entry.stat().st_size
-                except FileNotFoundError:
-                    pass
+            for parent,_,names in os.walk(base,onerror=walk_error):
+                for name in names:
+                    try:total+=(Path(parent)/name).stat().st_size
+                    except FileNotFoundError:pass
+                    except OSError as error:sample_errors.append(type(error).__name__)
             peak[0]=max(peak[0],total)
     sampler=threading.Thread(target=sample,daemon=True)
     observer=duckdb.connect(str(db),read_only=True)
@@ -112,6 +128,11 @@ def run(root,base,kind,mode):
         if mode=="low-disk":
             assert check.status is CheckStatus.ERROR and not check.executed
             assert "RC_ADAPTER_QUERY_FAILED" in codes
+        elif mode=="memory-backed":
+            assert any("memory-backed" in d.message for d in result.diagnostics)
+            assert check.status in (CheckStatus.PASS,CheckStatus.ERROR)
+            if check.status is CheckStatus.ERROR:
+                assert not check.executed and "RC_ADAPTER_QUERY_FAILED" in codes
         elif kind=="large":
             assert result.exit_category is ExitCategory.SUCCESS and check.status is CheckStatus.PASS
             assert check.executed
@@ -123,6 +144,7 @@ def run(root,base,kind,mode):
                 assert not check.executed and "RC_ADAPTER_QUERY_FAILED" in codes
     finally:
         stop.set();sampler.join(5);observer.close()
+    assert not sampler.is_alive() and not sample_errors, sample_errors
     assert not list(base.iterdir()),"Owned scratch residue"
     after=db.stat()
     assert (before.st_size,before.st_mtime_ns)==(after.st_size,after.st_mtime_ns)
