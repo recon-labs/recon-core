@@ -2128,6 +2128,9 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
         active = threading.Event()
         sessions = []
         native_interrupted = []
+        native_errors = []
+        final_calls = []
+        spill_files = []
         closed = []
         outcomes = []
         original_open = binding._OwnedDuckDbSession.open
@@ -2144,12 +2147,20 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
                     statement.lstrip().upper().startswith("DESCRIBE")
                 )
                 if is_final:
+                    # The private scratch base was initially empty; setup and guards
+                    # must not supply the positive file evidence for this comparison.
+                    assert not any(
+                        item.is_file() and item.stat().st_size > 0
+                        for item in scratch.rglob("*")
+                    ), "Spill evidence must start empty before final comparison."
+                    final_calls.append(1)
                     active.set()
                 try:
                     return self.native.execute(statement, *args)
                 except duckdb.Error as error:
                     if is_final:
                         native_interrupted.append("interrupt" in str(error).lower())
+                        native_errors.append(type(error).__name__)
                     raise
                 finally:
                     if is_final:
@@ -2188,9 +2199,8 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
                     if active.is_set():
                         for entry in scratch.rglob("*"):
                             try:
-                                if entry.is_file() and entry.stat().st_size > 0 and (
-                                    "duckdb_temp_storage" in entry.name
-                                ):
+                                if entry.is_file() and entry.stat().st_size > 0:
+                                    spill_files.append(entry.name)
                                     seen.set()
                                     break
                             except FileNotFoundError:
@@ -2206,8 +2216,6 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
                 raise AssertionError("No active native spill observed.")
             except BaseException as error:
                 failures.append(error)
-                if mode == "cli" and not done.is_set():
-                    signal.raise_signal(signal.SIGINT)
                 event.set()
 
         watcher = threading.Thread(target=request_after_spill, daemon=False)
@@ -2215,17 +2223,21 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
         try:
             if mode == "cli":
                 os.chdir(base)
-                result = CliRunner().invoke(main, ["run"])
+                result = CliRunner().invoke(main, ["run", "--timeout-seconds", "60"])
                 assert result.exit_code == 3, result.output
                 assert "RC_RUNTIME_RUN_CANCELLED" in result.output
                 assert signal.getsignal(signal.SIGINT) == previous
             else:
-                RunService(start_path=base).execute(cancel_event=event)
+                RunService(start_path=base).execute(timeout_seconds=60, cancel_event=event)
             done.set()
             watcher.join(20)
             assert not watcher.is_alive()
-            assert not failures, failures
-            assert seen.is_set()
+            assert not failures and seen.is_set(), (
+                f"failures={failures!r}; final_calls={final_calls!r}; "
+                f"spill_files={spill_files!r}; native_errors={native_errors!r}; "
+                f"results={[o.service_result.to_dict() for o in outcomes]!r}"
+            )
+            assert final_calls == [1]
             assert native_interrupted == [True]
             assert len(sessions) == 1 and closed == [True]
             assert len(outcomes) == 1

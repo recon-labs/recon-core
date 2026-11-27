@@ -2,7 +2,7 @@ import ast
 from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import Event, Thread, enumerate as enumerate_threads
+from threading import Event, Thread
 from typing import Any
 
 import pytest
@@ -1205,6 +1205,7 @@ def test_embedded_base_exception_joins_control_observer(
     from recon_core.services._run_lifecycle import _RunInvocation
 
     started: list[Thread] = []
+    controls: list[_RunControl] = []
 
     def evaluate(self: RunService, invocation: _RunInvocation) -> Any:
         control = invocation.control
@@ -1212,12 +1213,16 @@ def test_embedded_base_exception_joins_control_observer(
         assert control.native_call(lambda: 42, lambda: False) == 42
         assert control._observer is not None
         started.append(control._observer)
+        controls.append(control)
         raise KeyboardInterrupt
 
     monkeypatch.setattr(RunService, "_evaluate_invocation", evaluate)
-    with pytest.raises(KeyboardInterrupt):
-        RunService(start_path=tmp_path).execute(cancel_event=Event())
-    assert len(started) == 1
-    assert not started[0].is_alive()
-    assert started[0] not in enumerate_threads()
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            RunService(start_path=tmp_path).execute(cancel_event=Event())
+        assert len(started) == 1
+        assert not started[0].is_alive()
+    finally:
+        for control in controls:
+            control.close_observer()
     _assert_no_runtime_outputs(tmp_path)
