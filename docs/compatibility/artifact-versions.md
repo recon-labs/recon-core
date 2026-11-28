@@ -16,7 +16,7 @@ artifact formats.
 | Compiled contract | `target/compiled_contracts/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
 | Compiled checks | `target/compiled_checks/<contract_name>.yml` | YAML | Implemented with `artifact_version: 1` for the current compiler scope. |
 | Compiled SQL | `target/compiled_sql/<contract_name>/<check_id>/<side_or_step>.sql` | SQL | Implemented for `recon compile --render-sql`; referenced from compiled checks artifacts. |
-| Run results | `target/run_results.json` | JSON | Planned, not implemented yet. |
+| Run results | `target/run_results.json` | JSON | Version 1 planned under ADR 0028, not implemented yet. |
 | Failure details | `target/failures/` | TBD | Planned, not implemented yet. |
 | Evidence reports | `reports/` | HTML or other report formats | Planned, not implemented yet. |
 | State | `state/` and `target/sample_keys/` | TBD | Planned, not implemented yet. |
@@ -27,6 +27,15 @@ a generated artifact version. `target/run_results.json` remains future
 run-result artifact work, and failure details, evidence reports, and evidence
 links remain future evidence surfaces unless a later split explicitly changes
 those boundaries.
+
+## Planned run-result lifecycle
+
+[M8.3 prework](../planning/milestone-8-3-prework.md) defines the first
+run-result schema, safe configured target, stale invalidation, atomic
+replacement and explicit failed publication. Readers correlate invocation_id
+with the command, not file presence. Scope, status and resource evidence
+preserve unavailable versus known zero; no raw model serialization. No
+change to existing artifact versions. Implementation and proof remain pending.
 
 ## Compiled artifact lifecycle
 
