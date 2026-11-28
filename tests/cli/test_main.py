@@ -3,7 +3,7 @@ import json
 import os
 import signal
 from pathlib import Path
-from threading import Event, current_thread, main_thread
+from threading import Event, Thread, current_thread, main_thread
 from typing import Any
 
 import pytest
@@ -639,3 +639,56 @@ def test_run_cli_preserves_ignored_sigint(monkeypatch: pytest.MonkeyPatch) -> No
         assert signal.getsignal(signal.SIGINT) == signal.SIG_IGN
     finally:
         signal.signal(signal.SIGINT, previous)
+
+
+@pytest.mark.regression_capture("run-timeout-cli-contract")
+@pytest.mark.parametrize("phase", ["before_start", "before_seal", "after_seal"])
+def test_run_cli_observes_sigint_without_waiting_for_coordinator(
+    monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
+    cli = importlib.import_module("recon_core.cli.main")
+    previous = signal.getsignal(signal.SIGINT)
+    evaluating = Event()
+    proceed = Event()
+    calls: list[int] = []
+    original_evaluate = RunService._evaluate_invocation
+
+    def evaluate(self: RunService, invocation: Any) -> Any:
+        calls.append(1)
+        if phase == "before_start" and invocation.observe_stop() is not None:
+            return original_evaluate(self, invocation)
+        if phase == "before_seal":
+            evaluating.set()
+            assert proceed.wait(5)
+        return ServiceResult.success("Short run completed.")
+
+    class ScheduledThread(Thread):
+        def start(self) -> None:
+            if phase == "before_start":
+                signal.raise_signal(signal.SIGINT)
+            super().start()
+            if phase == "before_seal":
+                try:
+                    assert evaluating.wait(5)
+                    signal.raise_signal(signal.SIGINT)
+                finally:
+                    proceed.set()
+            # Deliberately finish the short invocation before the CLI coordinator
+            # gets its first opportunity to transfer a signal request.
+            self.join(5)
+            assert not self.is_alive()
+            if phase == "after_seal":
+                signal.raise_signal(signal.SIGINT)
+
+    monkeypatch.setattr(cli, "Thread", ScheduledThread)
+    monkeypatch.setattr(RunService, "_evaluate_invocation", evaluate)
+    result = CliRunner().invoke(main, ["run"])
+    assert calls == [1]
+    assert signal.getsignal(signal.SIGINT) == previous
+    if phase == "after_seal":
+        assert result.exit_code == 0
+        assert "Short run completed." in result.output
+    else:
+        assert result.exit_code == 3
+        assert "RC_RUNTIME_RUN_CANCELLED" in result.output
+        assert "Short run completed." not in result.output
