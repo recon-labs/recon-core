@@ -1,9 +1,9 @@
 # Milestone 8.3 - Run-result publication and CLI finalization
 
-Status: Maintainer-approved detailed design direction (2026-11-28); implementation
-not authorized. Synthetic cross-platform filesystem feasibility passed 9/9;
-cumulative design review completed with the corrections recorded below.
-Separate implementation approval remains required. Baseline M8.2 merged as
+Status: Maintainer-approved detailed design direction and implementation
+(2026-11-28); implementation in progress. Synthetic cross-platform filesystem
+feasibility passed 9/9; cumulative design review completed. No public result
+publication is available yet. Baseline M8.2 merged as
 fdde61ca2ae5f4784ffe520f543ac24458d9574d (PR #44, 19/19 CI).
 Split Decision: Already Split / Follow Existing Split. C1-C10 are one coherent
 publication contract; no new repository, execution strategy or infrastructure.
@@ -384,7 +384,7 @@ No generalized research or new infrastructure is needed for locked scope.
    compatibility matrix, testing/build order, user docs and README status.
    Planned behavior distinguished from implemented behavior; added Markdown
    link targets checked, current lifecycle wording aligned, C1-C10 retained.
-   Obtain separate implementation approval before source changes.
+   Separate implementation approval granted before source changes.
 5. Implement test-first C1/C3/C8 projection and owner diagnostics, then
    C5/C7 writer, then C4/C6 service/CLI handoff and C2/C10 typed evidence.
    Each dependent slice requires actual RED for critical privacy/lifecycle
