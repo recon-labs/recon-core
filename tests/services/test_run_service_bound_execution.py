@@ -227,7 +227,21 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     assert opened[-1]._identity.path == independent.resolve()
     monkeypatch.setattr(binding._OwnedDuckDbSession, "open", original_open)
     monkeypatch.setattr(binding._OwnedDuckDbSession, "close", original_close)
-    assert RunService(start_path=tmp_path).execute().exit_category is ExitCategory.SUCCESS
+    repeated = RunService(start_path=tmp_path)._execute_invocation()
+    assert repeated.run_result is not None
+    assert repeated.scope_facts.complete is True
+    repeated_checks = {
+        check.name: check for check in repeated.run_result.contract_results[0].check_results
+    }
+    assert repeated_checks["malformed"].status is CheckStatus.NOT_EXECUTABLE
+    assert all(
+        repeated_checks[name].status is CheckStatus.PASS
+        for name in ("count_first", "count_dependent", "count_unrelated")
+    )
+    assert all(
+        contract.check_results[0].status is CheckStatus.PASS
+        for contract in repeated.run_result.contract_results[1:]
+    )
 
 
 @pytest.mark.parametrize("read_only", [False, True])
