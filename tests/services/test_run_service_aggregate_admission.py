@@ -1732,6 +1732,7 @@ def test_optional_native_input_row_estimate_is_role_summed(
 
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
 @pytest.mark.regression_capture("duckdb-worker-bound-session-scope")
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
 def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
