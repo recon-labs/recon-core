@@ -250,3 +250,12 @@ independent earlier configuration or validation failure. This is cooperative
 control, not guaranteed wall-clock termination: native calls and confirmed
 cleanup may outlast the deadline. No query is automatically retried, and no
 new output files are created.
+
+### Planned M8.3 finalization
+
+[ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
+and [M8.3 prework](../planning/milestone-8-3-prework.md) define the required
+local result snapshot and terminal summary. RunService owns one execution
+and final publication result; the artifact writer owns safe atomic I/O.
+The CLI only renders the safe service outcome and existing exit mapping.
+This behavior is planned, not implemented.
