@@ -140,9 +140,9 @@ The run command uses already compiled checks and matching compiled-contract
 metadata. Current execution supports the nine admitted relation-backed
 same-context DuckDB check families on verified project-local base tables.
 No default database-size cap applies; an optional authored footprint ceiling
-is distinct from native resource controls. M8.2 provides optional cooperative
-deadline/cancellation and invocation-local lifecycle. No generated run or
-evidence artifact is written yet. M8.3 plans a versioned local result snapshot
+is distinct from native resource controls. Run lifecycle provides optional
+cooperative deadline/cancellation. No generated run or evidence artifact is
+written yet. The planned publication phase adds a versioned local result snapshot
 and final CLI summary under [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md),
 without implicit parse/compile or a new execution strategy.
 
