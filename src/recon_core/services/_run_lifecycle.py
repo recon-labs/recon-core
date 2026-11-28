@@ -131,9 +131,8 @@ class _RunScopeFacts:
 
 
 def _matches_plan(plan: _CompiledRunPlan, result: RunResult) -> bool:
-    if (
-        len(plan.contracts) != len(result.contract_results)
-        or not isinstance(result.status, RunStatus)
+    if len(plan.contracts) != len(result.contract_results) or not isinstance(
+        result.status, RunStatus
     ):
         return False
     seen_check_ids: set[str] = set()
@@ -157,7 +156,9 @@ def _matches_plan(plan: _CompiledRunPlan, result: RunResult) -> bool:
                 or type(check.executed) is not bool
                 or not isinstance(check.severity, str)
                 or check.severity not in {"error", "warn", "info"}
-                or (check.reason_code is not None and not isinstance(check.reason_code, CheckReason))
+                or (
+                    check.reason_code is not None and not isinstance(check.reason_code, CheckReason)
+                )
             ):
                 return False
             seen_check_ids.add(expected.check_id)
