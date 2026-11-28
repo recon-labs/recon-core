@@ -630,6 +630,7 @@ def test_invocation_plan_preserves_loaded_order_and_dependencies(tmp_path: Path)
     assert plan.contracts[1].checks == ()
     checks = plan.contracts[0].checks
     assert tuple(c.check_id for c in checks) == ("first", "second")
+    assert tuple(c.name for c in checks) == ("first", "second")
     assert checks[0].plan_id == "plan.ecommerce_recon.customer_revenue.first"
     assert checks[0].prerequisites == ("second",)
     assert checks[1].prerequisites == ()
@@ -934,7 +935,11 @@ def test_invalid_invocation_timeout_stops_before_preparation(
         pytest.fail("Invalid timeout must not start project preparation.")
 
     monkeypatch.setattr(run_service_module, "load_project_context", forbidden)
-    result = RunService(start_path=tmp_path).execute(timeout_seconds=timeout)
+    service = RunService(start_path=tmp_path)
+    outcome = service._execute_invocation(timeout_seconds=timeout)
+    result = service.execute(timeout_seconds=timeout)
+    assert outcome.timeout_seconds is None
+    assert outcome.service_result == result
     assert result.exit_category is ExitCategory.CONFIGURATION_ERROR
     assert result.diagnostics
     assert "private-timeout-canary" not in repr(result.to_dict())
@@ -968,8 +973,11 @@ def test_large_explicit_timeout_preserves_existing_outcome(tmp_path: Path) -> No
     service = RunService(start_path=tmp_path)
     expected = service.execute().to_dict()
     event = Event()
+    outcome = service._execute_invocation(timeout_seconds=10**100, cancel_event=event)
+    assert outcome.timeout_seconds == 10**100
     result = service.execute(timeout_seconds=10**100, cancel_event=event)
     assert result.to_dict() == expected
+    assert outcome.service_result.to_dict() == expected
     assert not event.is_set()
     _assert_no_runtime_outputs(tmp_path)
 
