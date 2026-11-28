@@ -19,6 +19,9 @@ from recon_core.services._run_lifecycle import (
 )
 
 
+_KNOWN_CHECK_TYPES = frozenset(kind.value for kind in CompiledCheckType)
+
+
 class _PublicScope(TypedDict):
     kind: Literal["whole_compiled", "unknown"]
     planned_contract_count: int | None
@@ -106,9 +109,7 @@ def _canonical_name(value: str | None) -> str | None:
     return None
 
 
-def _canonical_contract_id(
-    project_name: str | None, contract: _PlannedContract
-) -> str | None:
+def _canonical_contract_id(project_name: str | None, contract: _PlannedContract) -> str | None:
     if (
         project_name is not None
         and _canonical_name(contract.contract_name) is not None
@@ -189,10 +190,7 @@ def _project_check(
         "check_ref": check_refs[check.check_id],
         "check_id": check_id,
         "name": check.name if check_id is not None else None,
-        "check_type": (
-            check.check_type if check.check_type in {kind.value for kind in CompiledCheckType}
-            else None
-        ),
+        "check_type": check.check_type if check.check_type in _KNOWN_CHECK_TYPES else None,
         "status": result.status.value,
         "severity": result.severity,
         "executed": result.executed,
