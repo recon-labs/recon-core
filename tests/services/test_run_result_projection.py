@@ -132,7 +132,9 @@ def test_projection_uses_plan_identity_and_structural_counts() -> None:
             ),
         ),
     )
-    outcome = _outcome(_plan(first, second, third), _result(_passed(first), blocked, _passed(third)))
+    outcome = _outcome(
+        _plan(first, second, third), _result(_passed(first), blocked, _passed(third))
+    )
     projected = _project_run_scope(outcome)
 
     assert projected["project_name"] == _PROJECT
