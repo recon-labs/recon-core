@@ -1,8 +1,9 @@
 # ADR 0028: Run-result publication and CLI finalization
 
 Status: Maintainer-approved detailed design direction (2026-11-28).
-Platform feasibility, final prework review and separate implementation
-approval remain required; this record is not an implementation claim.
+Synthetic filesystem feasibility passed all nine maintained OS/Python lanes.
+Final prework review and separate implementation approval remain required;
+this record is not an implementation claim.
 
 ## Context
 
