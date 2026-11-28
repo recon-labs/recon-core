@@ -449,7 +449,8 @@ of the sealed invocation, not the internal model dictionaries. See
 [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
 and [exact schema and privacy contract](../planning/milestone-8-3-prework.md).
 Synthetic filesystem feasibility passed 9/9. Design review is complete;
-publication remains unimplemented pending separate implementation approval.
+implementation is authorized and in progress, but publication remains
+unimplemented.
 
 The first check-engine boundary may define the check result/status model and
 prerequisite or blocked-check representation without writing a generated
