@@ -18,7 +18,6 @@ from recon_core.services._run_lifecycle import (
     _PlannedContract,
 )
 
-
 _KNOWN_CHECK_TYPES = frozenset(kind.value for kind in CompiledCheckType)
 
 
