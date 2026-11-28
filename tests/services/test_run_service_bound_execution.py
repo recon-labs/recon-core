@@ -3,8 +3,9 @@
 import subprocess
 import sys
 import textwrap
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from threading import Event
+from threading import Barrier, Event
 from typing import Any
 
 import pytest
@@ -1476,3 +1477,119 @@ def test_invocation_counts_native_attempts_without_inventing_consumption(
     assert repeated.execution_facts.attempted_check_count == 2
     assert repeated.execution_facts.native_execute_attempts == 2
     assert repeated.execution_facts.native_fetch_attempts == 2
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+@pytest.mark.regression_capture("local-adaptive-resource-targets")
+@pytest.mark.parametrize("deadline", [False, True])
+def test_native_work_reobserves_capacity_and_shares_deadline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, deadline: bool
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(check_id="first", name="first", operations=row_count_plan()),
+            _compiled_check_payload(check_id="second", name="second", operations=row_count_plan()),
+        ],
+    )
+    project_path = tmp_path / "recon_project.yml"
+    project = yaml.safe_load(project_path.read_text(encoding="utf-8"))
+    project["execution"] = {
+        "adapters": {"duckdb": {"managed-memory": {"mib": 128}, "threads": 1}}
+    }
+    project_path.write_text(yaml.safe_dump(project, sort_keys=False), encoding="utf-8")
+    observed: list[int] = []
+    tick = 0
+    original_close = binding._OwnedDuckDbSession.close
+
+    def observe(scratch: Path) -> _LocalObservation:
+        available = (64 if not observed else 128) << 20
+        observed.append(available)
+        return _LocalObservation(
+            host_available_bytes=available,
+            platform_cpu_count=1,
+            affinity_count=None,
+            linux_constraints=None,
+            scratch_free_bytes=None,
+            scratch_memory_backed=False,
+            platform="synthetic",
+        )
+
+    def close(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        nonlocal tick
+        diagnostics = original_close(session)
+        assert session.released
+        tick += 1_000_000_000
+        return diagnostics
+
+    monkeypatch.setattr(binding, "_observe_local_resources", observe)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", close)
+    monkeypatch.setattr(run_service_module, "monotonic_ns", lambda: tick)
+    outcome = RunService(start_path=tmp_path)._execute_invocation(
+        timeout_seconds=1 if deadline else None
+    )
+    assert outcome.scope_facts.complete is True
+    assert outcome.run_result is not None
+    first, second = outcome.run_result.contract_results[0].check_results
+    assert first.status is CheckStatus.PASS
+    assert outcome.execution_facts.peak_active_native_checks == 1
+    assert outcome.execution_facts.attempted_check_count == len(observed)
+    native = [fact.native for fact in outcome.resource_facts if fact.native is not None]
+    assert [fact.memory.adjusted for fact in native] == observed
+    if deadline:
+        assert observed == [64 << 20]
+        assert outcome.elapsed_ns == 1_000_000_000
+        assert second.status is CheckStatus.NOT_EXECUTABLE
+        assert second.reason_code is not None
+        assert second.reason_code.value == "run_deadline_exceeded"
+        assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+    else:
+        assert observed == [64 << 20, 128 << 20]
+        assert outcome.elapsed_ns == 2_000_000_000
+        assert second.status is CheckStatus.PASS
+        assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+def test_independent_invocations_overlap_without_shared_accounting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    duckdb = _duckdb_module()
+    projects = [tmp_path / name for name in ("one", "two")]
+    for project in projects:
+        project.mkdir()
+        database = project / "warehouse.duckdb"
+        _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+        write_duckdb_row_count_run_inputs(project, database)
+        project_path = project / "recon_project.yml"
+        config = yaml.safe_load(project_path.read_text(encoding="utf-8"))
+        config["execution"] = {
+            "adapters": {"duckdb": {"managed-memory": {"mib": 64}, "threads": 1}}
+        }
+        project_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    barrier = Barrier(2, timeout=15)
+    original_open = binding._OwnedDuckDbSession.open
+
+    def open_session(session: binding._OwnedDuckDbSession) -> None:
+        original_open(session)
+        barrier.wait()
+
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(RunService(start_path=project)._execute_invocation)
+            for project in projects
+        ]
+        outcomes = [future.result(timeout=30) for future in futures]
+    assert outcomes[0].run_id != outcomes[1].run_id
+    for outcome in outcomes:
+        assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+        assert outcome.scope_facts.complete is True
+        assert outcome.execution_facts.attempted_check_count == 1
+        assert outcome.execution_facts.native_execute_attempts == 1
+        assert outcome.execution_facts.native_fetch_attempts == 1
+        assert outcome.execution_facts.peak_active_native_checks == 1

@@ -478,6 +478,7 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
+      - tests/services/test_run_service_bound_execution.py::test_native_work_reobserves_capacity_and_shares_deadline
       - tests/check_engine/test_local_resource_targets.py::test_adaptive_targets_follow_effective_environment
       - tests/check_engine/test_local_resource_targets.py::test_targets_retain_authored_requests_before_adjustment
       - tests/check_engine/test_local_resource_targets.py::test_automatic_parallelism_uses_known_managed_memory_without_admission_floor
@@ -735,6 +736,8 @@ captures:
       - tests/services/test_run_service_bound_execution.py::test_native_invocation_control_preserves_completed_checks
       - tests/services/test_run_service_bound_execution.py::test_native_stop_at_check_boundaries_preserves_cleanup
       - tests/services/test_run_service_bound_execution.py::test_invocation_counts_native_attempts_without_inventing_consumption
+      - tests/services/test_run_service_bound_execution.py::test_native_work_reobserves_capacity_and_shares_deadline
+      - tests/services/test_run_service_bound_execution.py::test_independent_invocations_overlap_without_shared_accounting
       - tests/services/test_run_service_aggregate_admission.py::test_actual_run_service_cancels_active_native_spill
       - tests/services/test_run_service_bound_execution.py::test_cleanup_failure_is_check_local_or_stops_native_execution
     carryover_gates:
