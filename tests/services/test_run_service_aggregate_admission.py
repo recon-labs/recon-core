@@ -2073,7 +2073,7 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
 
 
 @pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
-@pytest.mark.parametrize("mode", ["embedded", "cli"])
+@pytest.mark.parametrize("mode", ["embedded", "cli", "deadline"])
 def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: str) -> None:
     """Observe real spill, request caller cancellation, and prove native stop and release."""
     _duckdb_module()
@@ -2095,6 +2095,7 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
         from recon_core.cli.main import main
         from recon_core.adapters.duckdb import _bound_execution as binding
         from recon_core.services import RunService
+        import recon_core.services.run as run_service_module
         from tests.services._run_service_fixtures import (
             write_duckdb_row_count_run_inputs, write_compiled_checks, row_count_plan,
             _compiled_check_payload, _assert_no_runtime_outputs,
@@ -2105,6 +2106,11 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
 
         base = Path(sys.argv[1]).resolve()
         mode = sys.argv[2]
+        expired = threading.Event()
+        if mode == "deadline":
+            run_service_module.monotonic_ns = lambda: time.monotonic_ns() + (
+                60_000_000_000 if expired.is_set() else 0
+            )
         database = base / "private-spill.duckdb"
         writer = duckdb.connect(str(database), config={"threads": "2", "memory_limit": "768MiB"})
         try:
@@ -2223,6 +2229,8 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
                         assert active.is_set(), "Spill was no longer active."
                         if mode == "cli":
                             signal.raise_signal(signal.SIGINT)
+                        elif mode == "deadline":
+                            expired.set()
                         else:
                             event.set()
                         return
@@ -2257,12 +2265,18 @@ def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: st
             assert len(outcomes) == 1
             outcome = outcomes[0]
             assert outcome.service_result.exit_category.value == "runtime_error"
-            assert outcome.stop_cause.value == "run_cancelled"
+            expected = "run_deadline_exceeded" if mode == "deadline" else "run_cancelled"
+            assert outcome.stop_cause.value == expected
+            assert ("RC_RUNTIME_" + expected.upper()) in {
+                d.code for d in outcome.service_result.diagnostics
+            }
             assert outcome.scope_facts.complete is True
             checks = outcome.run_result.contract_results[0].check_results
             assert checks[0].status.value == "error" and not checks[0].executed
             assert checks[0].source_value is None and checks[0].target_value is None
-            assert checks[1].reason_code.value == "run_cancelled"
+            assert checks[1].reason_code.value == expected
+            if mode == "deadline":
+                assert not event.is_set() and outcome.elapsed_ns >= 60_000_000_000
             assert not checks[1].executed
             assert observer.execute(setting_sql).fetchone() == before
             assert observer.execute("SELECT 42").fetchone() == (42,)

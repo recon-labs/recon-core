@@ -562,7 +562,7 @@ release is confirmed. Uncertain cleanup blocks further eligible native work
 for the affected database, not unrelated databases; a final check error
 carries no comparison values and actual prerequisite
 blockers remain distinct. Existing configuration/setup precedence, public
-API signatures and status/reason/exit taxonomy are preserved. The runtime
+adapter API and status/exit taxonomy are preserved; invocation stop adds explicit reasons and diagnostics. The runtime
 diagnostics `RC_RUNTIME_BINDING_PROOF_FAILED` and
 `RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE` distinguish binding failure from
 execution stopped after uncertain cleanup. Existing connection/query/close
@@ -570,3 +570,11 @@ diagnostics remain sanitized. This is a local execution boundary with
 calibrated best-effort native resource policy, not a stable general
 transaction API or physical resource guarantee. See the
 [shared binding prework](../planning/milestone-8-1-1-prework.md).
+
+## Invocation control
+
+`RC_RUNTIME_RUN_CANCELLED` and `RC_RUNTIME_RUN_DEADLINE_EXCEEDED` identify the
+first observed invocation stop. `RC_RUNTIME_RUN_CONTROL_UNAVAILABLE` reports
+an injected engine that cannot honor required control. Runtime stops retain
+existing exit 3, with earlier independent configuration or validation failure
+preserving its primary exit category. Cleanup diagnostics remain separate.

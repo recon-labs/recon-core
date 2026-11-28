@@ -1579,7 +1579,7 @@ def test_independent_invocations_overlap_without_shared_accounting(
     monkeypatch.setattr(binding._OwnedDuckDbSession, "open", open_session)
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = [
-            executor.submit(RunService(start_path=project)._execute_invocation)
+            executor.submit(RunService(start_path=project)._execute_invocation, cancel_event=Event())
             for project in projects
         ]
         outcomes = [future.result(timeout=30) for future in futures]
