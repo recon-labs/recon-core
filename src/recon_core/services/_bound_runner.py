@@ -33,7 +33,11 @@ from recon_core.check_engine.scan_budget import BOUNDED_LOCAL_SCAN_REQUIRED, SCA
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
-from recon_core.services._run_lifecycle import _CheckResourceFacts, _ExecutionLedger, _NativeAdmission
+from recon_core.services._run_lifecycle import (
+    _CheckResourceFacts,
+    _ExecutionLedger,
+    _NativeAdmission,
+)
 
 
 class _SessionReader:
