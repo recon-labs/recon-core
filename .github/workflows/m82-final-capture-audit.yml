@@ -1,0 +1,22 @@
+name: M8.2 final capture audit
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: add666d4c3c4e719fc99791d32a6f40bf65d14f5
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          python -m pip install pyyaml
+          git fetch origin main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "add666d4c3c4e719fc99791d32a6f40bf65d14f5"
+          python scripts/check_regression_capture_decisions.py --base-ref origin/main --fail-on-findings
