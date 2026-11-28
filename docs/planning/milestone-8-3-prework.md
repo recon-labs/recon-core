@@ -301,6 +301,11 @@ Do not weaken preservation assertions to reach green.
 
 ## Steps, gates and Definition of Done
 
+Research decision: completed (targeted local publication primitives).
+The resulting constraints are incorporated in the snapshot lifecycle and C5;
+production path, ownership, failure and platform conformance remains mandatory.
+No generalized research or new infrastructure is needed for locked scope.
+
 1. Audit approved C1-C10, Gate 5/5E/3F2/6/4J/4L/4I, selector readiness and
    current owners; verify M8.2 baseline and no orphan. Done for direction.
 2. Lock ADR, schema/privacy/precedence/lifecycle contract and acceptance
