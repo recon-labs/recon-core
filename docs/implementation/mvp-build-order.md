@@ -896,8 +896,8 @@ no writes. Preserve admission and advisory decisions from the preceding phase.
 Approved design direction: [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
 and [detailed prework](../planning/milestone-8-3-prework.md). Synthetic
 filesystem feasibility passed 9/9; cumulative design review completed.
-Separate implementation approval remains required; publication is not
-implemented yet.
+Implementation is authorized and in progress; publication is not implemented
+yet.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
