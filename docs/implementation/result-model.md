@@ -342,6 +342,20 @@ independent database. Invocation cancellation stops further work across the
 whole plan. Abrupt process exit has no returned result or cleanup guarantee;
 new invocations do not adopt or sweep abandoned storage.
 
+## Cumulative invocation evidence
+
+The private invocation outcome retains native check attempts, comparison-reader
+execute and fetch attempts (including failed calls and generated DESCRIBE), and
+peak simultaneous active owned check work. Setup, metadata, rollback and close
+calls are not comparison-reader attempts. Refused calls before launch are not
+counted. These counters are distinct from planned, finalized and executed check
+records; an attempted check can fail without trustworthy comparison evidence.
+An injected engine without proven accounting reports unavailable counters.
+Actual scanned rows, CPU time, disk bytes, transport bytes and cost are not
+measured here and remain unavailable. Per-session settings, capacities and
+catalog estimates are not summed as consumption. Each invocation starts fresh;
+these observations neither impose a budget nor authorize retries or parallelism.
+
 ## Command result separation
 
 Command-level `ServiceResult` and check-level results are separate. The command

@@ -101,6 +101,8 @@ class _NativeResourceFacts:
     estimate: _EstimateAvailability | None
     readback_verified: bool
     advisory_codes: tuple[str, ...]
+    execute_attempts: int = 0
+    fetch_attempts: int = 0
     physical_enforcement_proven: bool = field(default=False, init=False)
 
 

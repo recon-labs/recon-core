@@ -105,6 +105,7 @@ from recon_core.services._bound_runner import _ProjectBoundRunner
 from recon_core.services._run_lifecycle import (
     _CheckResourceFacts,
     _CompiledRunPlan,
+    _ExecutionLedger,
     _InvocationOutcome,
     _RunInvocation,
     _RunStage,
@@ -307,6 +308,7 @@ class RunService:
             environ=self.environ,
             resource_facts=invocation.resource_facts,
             control=invocation.control,
+            execution_ledger=invocation.execution_ledger,
         )
         if runtime_dependencies.diagnostics:
             return ServiceResult(
@@ -336,6 +338,8 @@ class RunService:
         engine = self.engine if self.engine is not None else CheckEngine()
         if invocation.observe_stop() is not None:
             engine = CheckEngine()
+        if type(engine) is not CheckEngine:
+            invocation.execution_ledger.known = False
         return engine.run(
             artifacts,
             run_id=invocation.run_id,
@@ -370,6 +374,7 @@ def _prepare_runtime_execution_dependencies(
     environ: Mapping[str, str] | None,
     resource_facts: dict[str, _CheckResourceFacts],
     control: _RunControl | None = None,
+    execution_ledger: _ExecutionLedger | None = None,
 ) -> _RuntimeExecutionDependencies:
     def stopped() -> bool:
         return control is not None and control.observe() is not None
@@ -590,6 +595,7 @@ def _prepare_runtime_execution_dependencies(
                 policies,
                 resource_facts,
                 control=control,
+                execution_ledger=execution_ledger,
             ),
         ),
     )

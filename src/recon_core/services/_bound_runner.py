@@ -33,7 +33,7 @@ from recon_core.check_engine.scan_budget import BOUNDED_LOCAL_SCAN_REQUIRED, SCA
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
-from recon_core.services._run_lifecycle import _CheckResourceFacts, _NativeAdmission
+from recon_core.services._run_lifecycle import _CheckResourceFacts, _ExecutionLedger, _NativeAdmission
 
 
 class _SessionReader:
@@ -100,6 +100,7 @@ class _ProjectBoundRunner:
         resource_facts: dict[str, _CheckResourceFacts],
         *,
         control: _RunControl | None = None,
+        execution_ledger: _ExecutionLedger | None = None,
     ) -> None:
         self._root = project_root
         self._connections = deepcopy(dict(connections))
@@ -107,6 +108,9 @@ class _ProjectBoundRunner:
         self._resource_policies = dict(resource_policies)
         self._resource_facts = resource_facts
         self._control = control
+        self._execution_ledger = (
+            execution_ledger if execution_ledger is not None else _ExecutionLedger()
+        )
         self._unreleased: list[tuple[_LocalFileIdentity, _OwnedSession]] = []
         self._session_count = 0
 
@@ -230,10 +234,13 @@ class _ProjectBoundRunner:
             source.type, identity, project_root=self._root, resource_policy=source_policy
         )
         binding_verified = False
+        attempted = False
         try:
             if self._control is not None:
                 session._set_run_control(self._control)
                 self._control.checkpoint()
+            self._execution_ledger.begin()
+            attempted = True
             session.open()
             if self._control is not None:
                 self._control.checkpoint()
@@ -286,14 +293,20 @@ class _ProjectBoundRunner:
                 "Native execution failed before a trustworthy result was produced.",
             )
         finally:
-            cleanup = self._close_owned_session(session, identity)
-            self._resource_facts[check.id] = replace(
-                self._resource_facts[check.id],
-                admission=(
-                    _NativeAdmission.VERIFIED if binding_verified else _NativeAdmission.UNVERIFIED
-                ),
-                native=session.resource_facts,
-            )
+            try:
+                cleanup = self._close_owned_session(session, identity)
+                self._resource_facts[check.id] = replace(
+                    self._resource_facts[check.id],
+                    admission=(
+                        _NativeAdmission.VERIFIED
+                        if binding_verified
+                        else _NativeAdmission.UNVERIFIED
+                    ),
+                    native=session.resource_facts,
+                )
+            finally:
+                if attempted:
+                    self._execution_ledger.end()
 
         if self._control is not None and not result.executed:
             cause = self._control.observe()

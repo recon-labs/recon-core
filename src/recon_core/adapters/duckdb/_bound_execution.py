@@ -122,25 +122,40 @@ class _ControlledReadCursor:
     """Keep fetch inside its own interruptible span, never the cleanup call."""
 
     def __init__(
-        self, cursor: Any, control: _RunControl, interrupt: Callable[[], bool] | None = None
+        self,
+        cursor: Any,
+        control: _RunControl | None,
+        interrupt: Callable[[], bool] | None = None,
+        record_fetch: Callable[[], None] | None = None,
     ) -> None:
         self._cursor = cursor
         self._control = control
         self._interrupt = interrupt
+        self._record_fetch = record_fetch
 
     @property
     def description(self) -> Any:
-        self._control.checkpoint()
+        if self._control is not None:
+            self._control.checkpoint()
         return self._cursor.description
 
     def fetchmany(self, size: int) -> Any:
-        if self._interrupt is not None:
-            return self._control.native_call(lambda: self._cursor.fetchmany(size), self._interrupt)
-        self._control.checkpoint()
-        return self._cursor.fetchmany(size)
+        def fetch() -> Any:
+            if self._record_fetch is not None:
+                self._record_fetch()
+            return self._cursor.fetchmany(size)
+
+        if self._control is not None:
+            if self._interrupt is not None:
+                return self._control.native_call(fetch, self._interrupt)
+            self._control.checkpoint()
+        return fetch()
 
     def fetchall(self) -> Any:
-        self._control.checkpoint()
+        if self._control is not None:
+            self._control.checkpoint()
+        if self._record_fetch is not None:
+            self._record_fetch()
         return self._cursor.fetchall()
 
 
@@ -356,6 +371,8 @@ class _OwnedDuckDbSession:
     ) -> None:
         self._identity = identity
         self._run_control: _RunControl | None = None
+        self._execute_attempts = 0
+        self._fetch_attempts = 0
         if (project_root is None) != (resource_policy is None) or sum(
             mode is not None for mode in (native_controls, scratch_base, resource_policy)
         ) > 1:
@@ -429,6 +446,8 @@ class _OwnedDuckDbSession:
             estimate=self._estimate,
             readback_verified=report is not None,
             advisory_codes=tuple(dict.fromkeys(d.code for d in self._advisories)),
+            execute_attempts=self._execute_attempts,
+            fetch_attempts=self._fetch_attempts,
         )
 
     def _adaptive_native_request(
@@ -714,6 +733,9 @@ class _OwnedDuckDbSession:
             raise _proof_error()
         self._verify_file()
 
+    def _record_fetch(self) -> None:
+        self._fetch_attempts += 1
+
     def _verified_reader(
         self, lease: _BindingLease, scope: _BindingScope, query: str, *, describe: bool = False
     ) -> _VerifiedReadConnection:
@@ -732,12 +754,19 @@ class _OwnedDuckDbSession:
                 raise _proof_error()
             try:
                 control = self._run_control
-                if control is None:
+
+                def native_execute() -> Any:
+                    self._execute_attempts += 1
                     return self._connection.execute(statement)
-                cursor = control.native_call(
-                    lambda: self._connection.execute(statement), self.request_interrupt
+
+                cursor = (
+                    native_execute()
+                    if control is None
+                    else control.native_call(native_execute, self.request_interrupt)
                 )
-                return _ControlledReadCursor(cursor, control, self.request_interrupt)
+                return _ControlledReadCursor(
+                    cursor, control, self.request_interrupt, self._record_fetch
+                )
             except _RunStoppedError:
                 self._invalidated = True
                 raise

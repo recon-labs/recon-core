@@ -157,6 +157,49 @@ class _CheckResourceFacts:
 
 
 @dataclass(frozen=True, slots=True)
+class _ExecutionFacts:
+    """Observed native check work, not a measure of physical resource use."""
+
+    attempted_check_count: int | None
+    native_execute_attempts: int | None
+    native_fetch_attempts: int | None
+    peak_active_native_checks: int | None
+    actual_scanned_rows: int | None = field(default=None, init=False)
+    actual_cpu_ns: int | None = field(default=None, init=False)
+    actual_disk_bytes: int | None = field(default=None, init=False)
+    actual_transport_bytes: int | None = field(default=None, init=False)
+    actual_cost: int | None = field(default=None, init=False)
+
+
+@dataclass(slots=True)
+class _ExecutionLedger:
+    """Invocation-local observation at the owned native check boundary."""
+
+    attempted: int = 0
+    active: int = 0
+    peak: int = 0
+    known: bool = True
+
+    def begin(self) -> None:
+        self.attempted += 1
+        self.active += 1
+        self.peak = max(self.peak, self.active)
+
+    def end(self) -> None:
+        self.active -= 1
+
+    def snapshot(self, facts: tuple[_CheckResourceFacts, ...]) -> _ExecutionFacts:
+        if not self.known:
+            return _ExecutionFacts(None, None, None, None)
+        return _ExecutionFacts(
+            self.attempted,
+            sum(f.native.execute_attempts for f in facts if f.native is not None),
+            sum(f.native.fetch_attempts for f in facts if f.native is not None),
+            self.peak,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class _InvocationOutcome:
     run_id: str
     project_name: str | None
@@ -170,6 +213,7 @@ class _InvocationOutcome:
     run_result: RunResult | None = field(repr=False)
     resource_facts: tuple[_CheckResourceFacts, ...] = field(repr=False)
     scope_facts: _RunScopeFacts
+    execution_facts: _ExecutionFacts
     stop_cause: _StopCause | None = None
 
 
@@ -185,6 +229,7 @@ class _RunInvocation:
     known_empty_scope: bool = False
     scope_facts: _RunScopeFacts | None = None
     control: _RunControl | None = field(default=None, repr=False)
+    execution_ledger: _ExecutionLedger = field(default_factory=_ExecutionLedger, repr=False)
 
     def observe_stop(self) -> _StopCause | None:
         return self.control.observe() if self.control is not None else None
@@ -219,6 +264,7 @@ class _RunInvocation:
             and service_result.exit_category in {ExitCategory.SUCCESS, ExitCategory.CHECK_FAILURE}
             else _InvocationStatus.FAILED
         )
+        resource_facts = tuple(self.resource_facts.values())
         return _InvocationOutcome(
             run_id=self.run_id,
             project_name=self.project_name,
@@ -230,7 +276,8 @@ class _RunInvocation:
             service_result=service_result,
             plan=self.plan,
             run_result=run_result,
-            resource_facts=tuple(self.resource_facts.values()),
+            resource_facts=resource_facts,
+            execution_facts=self.execution_ledger.snapshot(resource_facts),
             scope_facts=self.scope_facts or self.inspect_scope(run_result),
             stop_cause=stop_cause,
         )

@@ -53,6 +53,8 @@ This project follows semantic versioning once public package releases begin.
   and primary diagnostics; uncertain cleanup isolates only the affected database.
   Retain private policy origin, actual admission, requested and adjusted native
   targets and verified reported settings without changing execution policy.
+  Retain observed native check and comparison-call attempts separately from
+  finalized results, with unavailable actual resource-consumption evidence.
   Add optional invocation timeout and caller cancellation, with explicit stop
   reasons and safe diagnostics, existing exit categories and no default
   deadline. Delivered CLI SIGINT requests cooperative cancellation; native
