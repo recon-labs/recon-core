@@ -197,3 +197,11 @@ for persistent pinned and rolling coverage, periodic/on-demand checks and
 regression triage. Future PostgreSQL, Snowflake, distributed or other adapters
 must record their own applicable client/driver/server/cluster scope and
 native evidence; no DuckDB platform mechanisms imposed.
+
+### M8.3 publication checkpoint (planned)
+
+Version 1 local run-result snapshot and CLI finalization follow
+[ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
+and [C1-C10](../planning/milestone-8-3-prework.md). No new adapter or execution
+capability is authorized. Actual platform, privacy, artifact lifecycle and
+existing A/B preservation proofs remain required; no support claim yet.
