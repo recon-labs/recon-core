@@ -862,8 +862,7 @@ requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Milestone 8.2: execution planning and run lifecycle
 
-Approved design integrated and B1-B10 implemented on the M8.2 candidate.
-Final cumulative verification and maintainer merge approval remain separate.
+B1-B10 implemented, cumulatively validated and merged (PR #44, 19/19 CI).
 M8.3 publication and final CLI projection remain gated.
 See [execution lifecycle prework](../planning/milestone-8-2-prework.md) and
 [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
@@ -893,6 +892,11 @@ distinct cleanup errors, privacy-safe plan metadata, no hidden fallback and
 no writes. Preserve admission and advisory decisions from the preceding phase.
 
 ## Milestone 8.3: run-result publication and CLI finalization
+
+Approved design direction: [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
+and [detailed prework](../planning/milestone-8-3-prework.md). Platform
+feasibility, final design review and separate implementation approval remain
+required; publication is not implemented yet.
 
 Type-compatibility checkpoint: Apply Gate 4P and [mandatory type compatibility assignments](../planning/type-compatibility-assignments.md); expand the assigned operation-specific families into prework and exit proof.
 
