@@ -1,0 +1,165 @@
+name: M8.3 publication feasibility
+on:
+  push:
+    branches:
+      - audit/m83-publication-feasibility
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ${{ matrix.image }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {image: ubuntu-22.04, python: "3.11"}
+          - {image: ubuntu-24.04, python: "3.12"}
+          - {image: ubuntu-latest, python: "3.13"}
+          - {image: macos-15, python: "3.11"}
+          - {image: macos-26, python: "3.12"}
+          - {image: macos-latest, python: "3.13"}
+          - {image: windows-2022, python: "3.11"}
+          - {image: windows-2025, python: "3.12"}
+          - {image: windows-latest, python: "3.13"}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Probe local publication primitives (synthetic only)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import platform
+          import stat
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+          from threading import Barrier, Thread
+          from concurrent.futures import ThreadPoolExecutor
+
+          def identity(path):
+              s = path.lstat()
+              return s.st_dev, s.st_ino
+
+          def is_redirect(path):
+              s = path.lstat()
+              return stat.S_ISLNK(s.st_mode) or bool(
+                  getattr(s, "st_file_attributes", 0)
+                  & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+              )
+
+          def stage(directory, value):
+              fd, name = tempfile.mkstemp(prefix=".run-results-", suffix=".tmp", dir=directory)
+              with os.fdopen(fd, "w", encoding="utf-8") as file:
+                  json.dump(value, file, allow_nan=False)
+                  file.flush()
+              return Path(name)
+
+          def publish(path, value):
+              temp = stage(path.parent, value)
+              try:
+                  os.replace(temp, path)
+              finally:
+                  temp.unlink(missing_ok=True)
+
+          with tempfile.TemporaryDirectory() as root:
+              root = Path(root)
+              output = root / "run_results.json"
+              assert root.lstat().st_ino != 0
+              root_id = identity(root)
+              first = {"invocation_id": "A", "checks": [0] * 20000}
+              second = {"invocation_id": "B", "checks": [1] * 20000}
+              publish(output, first)
+              assert json.loads(output.read_text(encoding="utf-8")) == first
+              temp = stage(root, second)
+              assert identity(temp) != identity(output)
+              assert temp.lstat().st_nlink == 1
+              if os.name != "nt":
+                  assert temp.stat().st_mode & 0o077 == 0
+              assert json.loads(output.read_text(encoding="utf-8")) == first
+              os.replace(temp, output)
+              assert not temp.exists()
+              assert json.loads(output.read_text(encoding="utf-8")) == second
+
+              # Two independent publishers stage simultaneously. A failing
+              # publisher owns only its temp and must not delete B's commit.
+              barrier = Barrier(2)
+              def failing():
+                  temp = stage(root, first)
+                  barrier.wait(timeout=10)
+                  barrier.wait(timeout=10)
+                  temp.unlink()
+              def succeeding():
+                  temp = stage(root, second)
+                  barrier.wait(timeout=10)
+                  os.replace(temp, output)
+                  barrier.wait(timeout=10)
+              with ThreadPoolExecutor(max_workers=2) as pool:
+                  a, b = pool.submit(failing), pool.submit(succeeding)
+                  a.result(timeout=20)
+                  b.result(timeout=20)
+              assert json.loads(output.read_text(encoding="utf-8")) == second
+              assert not list(root.glob(".run-results-*.tmp"))
+
+              # Abrupt exit before commit cannot produce partial final JSON.
+              output.unlink()
+              code = (
+                  "import os,sys,tempfile;"
+                  "fd,p=tempfile.mkstemp(prefix='.run-results-',suffix='.tmp',dir=sys.argv[1]);"
+                  "os.write(fd,b'{partial');os.close(fd);os._exit(73)"
+              )
+              child = subprocess.run([sys.executable, "-c", code, str(root)], check=False)
+              assert child.returncode == 73 and not output.exists()
+              residue, = root.glob(".run-results-*.tmp")
+              publish(output, first)
+              assert residue.read_bytes() == b"{partial"
+              assert json.loads(output.read_text(encoding="utf-8")) == first
+              residue.unlink()
+
+              # Replacement failure with directory destination: no overwrite,
+              # temp remains owned and can be discarded.
+              blocked = root / "blocked"
+              blocked.mkdir()
+              temp = stage(root, second)
+              try:
+                  os.replace(temp, blocked)
+              except OSError:
+                  assert temp.is_file() and blocked.is_dir()
+              else:
+                  raise AssertionError("directory replaced")
+              temp.unlink()
+
+              alias = root / "hardlink"
+              os.link(output, alias)
+              assert output.lstat().st_nlink >= 2
+              assert identity(alias) == identity(output)
+              alias.unlink()
+              assert output.lstat().st_nlink == 1
+              directory = root / "real-directory"
+              directory.mkdir()
+              redirect = root / "redirect"
+              if os.name == "nt":
+                  subprocess.run(
+                      ["cmd", "/d", "/c", "mklink", "/J", str(redirect), str(directory)],
+                      check=True, capture_output=True
+                  )
+                  assert is_redirect(redirect)
+                  redirect.rmdir()
+              else:
+                  redirect.symlink_to(directory, target_is_directory=True)
+                  assert is_redirect(redirect)
+                  redirect.unlink()
+              assert directory.is_dir()
+              assert identity(root) == root_id
+              assert not list(root.glob(".run-results-*.tmp"))
+
+          print(json.dumps({"python": platform.python_version(), "os": platform.system(),
+                            "replacement": "passed", "overlap": "passed",
+                            "abrupt_exit": "passed", "directory_refusal": "passed",
+                            "hardlink_detection": "passed", "redirect_detection": "passed",
+                            "identity": "passed"}))
+          PY
