@@ -1,8 +1,9 @@
 # Milestone 8.3 - Run-result publication and CLI finalization
 
 Status: Maintainer-approved detailed design direction (2026-11-28); implementation
-not authorized. Synthetic cross-platform filesystem feasibility passed 9/9; cumulative
-prework review and implementation approval remain required. Baseline M8.2 merged as
+not authorized. Synthetic cross-platform filesystem feasibility passed 9/9;
+cumulative design review completed with the corrections recorded below.
+Separate implementation approval remains required. Baseline M8.2 merged as
 fdde61ca2ae5f4784ffe520f543ac24458d9574d (PR #44, 19/19 CI).
 Split Decision: Already Split / Follow Existing Split. C1-C10 are one coherent
 publication contract; no new repository, execution strategy or infrastructure.
@@ -370,7 +371,8 @@ No generalized research or new infrastructure is needed for locked scope.
    current owners; verify M8.2 baseline and no orphan. Done for direction.
 2. Lock ADR, schema/privacy/precedence/lifecycle contract and acceptance
    matrix. Targeted atomicity research converted to portable primitive
-   constraints; platform feasibility required before lock. Review-fix ongoing.
+   constraints; platform feasibility passed. Cumulative design review-fix
+   completed; production proofs remain pending.
 3. Synthetic feasibility passed 9/9 maintained OS/Python lanes in isolated
    CI: exclusive sibling stage, replacement, deterministic overlap and failed
    temp-only cleanup, abrupt precommit exit, directory refusal, hardlink and
@@ -380,8 +382,9 @@ No generalized research or new infrastructure is needed for locked scope.
    Require production conformance at C5 and C9.
 4. Integrate public ADR, prework, architecture, artifact versions, inventory,
    compatibility matrix, testing/build order, user docs and README status.
-   Planned behavior distinguished from implemented behavior; validate links
-   and drift. Obtain separate implementation approval before source changes.
+   Planned behavior distinguished from implemented behavior; added Markdown
+   link targets checked, current lifecycle wording aligned, C1-C10 retained.
+   Obtain separate implementation approval before source changes.
 5. Implement test-first C1/C3/C8 projection and owner diagnostics, then
    C5/C7 writer, then C4/C6 service/CLI handoff and C2/C10 typed evidence.
    Each dependent slice requires actual RED for critical privacy/lifecycle
