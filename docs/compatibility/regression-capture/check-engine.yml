@@ -515,6 +515,10 @@ captures:
     severity: P2
     current_tests:
       - tests/services/test_run_service.py::test_invocation_plan_preserves_loaded_order_and_dependencies
+      - tests/services/test_run_result_projection.py::test_projection_uses_plan_identity_and_structural_counts
+      - tests/services/test_run_result_projection.py::test_projection_redacts_noncanonical_identity_without_losing_ordinal
+      - tests/services/test_run_result_projection.py::test_projection_suppresses_untrustworthy_records
+      - tests/services/test_run_result_projection.py::test_projection_distinguishes_known_empty_from_unavailable_scope
       - tests/services/test_run_service.py::test_invocation_rejects_results_outside_loaded_scope
       - tests/services/test_run_service.py::test_invalid_compiled_scope_never_reaches_runtime_setup
       - tests/services/test_run_service.py::test_invocation_plan_does_not_claim_authored_freshness
@@ -545,7 +549,9 @@ captures:
       mixed scopes, and evaluate the loaded artifacts without a second read or
       implicit compile. Reject incomplete or mismatched result scope before success;
       retain actual returned results and distinguish known zero from unknown plan.
-      No claim of authored-source freshness or atomic snapshot.
+      The private publication projection retains canonical loaded names, suppresses
+      untrustworthy record counts and statuses, and uses invocation-local ordinals
+      for prerequisite references. No claim of authored-source freshness or atomic snapshot.
   - id: run-aggregate-status-precedence
     title: Mixed and empty outcomes preserve check and contract aggregation
     area: check-engine

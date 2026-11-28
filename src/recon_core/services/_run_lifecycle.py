@@ -6,7 +6,14 @@ from enum import StrEnum
 from recon_core._run_control import _RunControl, _StopCause
 from recon_core.adapters._project_binding import _NativeResourceFacts
 from recon_core.artifacts import LoadedCompiledChecksArtifact
-from recon_core.check_engine.models import CheckReason, RunResult
+from recon_core.check_engine.models import (
+    CheckReason,
+    CheckStatus,
+    RunResult,
+    RunStatus,
+    aggregate_check_status,
+    aggregate_contract_status,
+)
 from recon_core.config._local_resource_policy import _ResourceSettingFact
 from recon_core.services.results import ExitCategory, ServiceResult
 
@@ -33,6 +40,7 @@ class _PlanScope(StrEnum):
 class _PlannedCheck:
     check_id: str
     plan_id: str
+    name: str
     check_type: str
     prerequisites: tuple[str, ...]
 
@@ -68,6 +76,7 @@ class _CompiledRunPlan:
                         _PlannedCheck(
                             check_id=check.id,
                             plan_id=check.plan.id,
+                            name=check.name,
                             check_type=check.check_type,
                             prerequisites=check.prerequisites,
                         )
@@ -100,9 +109,17 @@ class _RunScopeFacts:
     ) -> "_RunScopeFacts":
         contracts = result.contract_results if result is not None else ()
         finalized = sum(len(contract.check_results) for contract in contracts)
-        executed = sum(check.executed for contract in contracts for check in contract.check_results)
+        executed = sum(
+            check.executed is True for contract in contracts for check in contract.check_results
+        )
         if plan is None:
-            return cls(None, 0 if known_empty else None, finalized, executed, None)
+            return cls(
+                None,
+                0 if known_empty else None,
+                finalized,
+                executed,
+                False if result is not None else None,
+            )
 
         complete = (
             result is not None
@@ -120,21 +137,40 @@ class _RunScopeFacts:
 
 
 def _matches_plan(plan: _CompiledRunPlan, result: RunResult) -> bool:
-    if len(plan.contracts) != len(result.contract_results):
+    if len(plan.contracts) != len(result.contract_results) or not isinstance(
+        result.status, RunStatus
+    ):
         return False
+    seen_check_ids: set[str] = set()
+    seen_contract_names: set[str] = set()
     for planned, actual in zip(plan.contracts, result.contract_results, strict=True):
-        if planned.contract_name != actual.contract_name:
+        if (
+            planned.contract_name != actual.contract_name
+            or planned.contract_name in seen_contract_names
+            or not isinstance(actual.status, RunStatus)
+            or len(planned.checks) != len(actual.check_results)
+        ):
             return False
-        if len(planned.checks) != len(actual.check_results):
-            return False
+        seen_contract_names.add(planned.contract_name)
         for expected, check in zip(planned.checks, actual.check_results, strict=True):
             if (
                 expected.check_id != check.check_id
                 or expected.check_type != check.check_type
                 or planned.contract_name != check.contract_name
+                or expected.check_id in seen_check_ids
+                or not isinstance(check.status, CheckStatus)
+                or type(check.executed) is not bool
+                or not isinstance(check.severity, str)
+                or check.severity not in {"error", "warn", "info"}
+                or (
+                    check.reason_code is not None and not isinstance(check.reason_code, CheckReason)
+                )
             ):
                 return False
-    return True
+            seen_check_ids.add(expected.check_id)
+        if actual.status is not aggregate_check_status(actual.check_results):
+            return False
+    return result.status is aggregate_contract_status(result.contract_results)
 
 
 class _NativeAdmission(StrEnum):
@@ -215,6 +251,7 @@ class _InvocationOutcome:
     scope_facts: _RunScopeFacts
     execution_facts: _ExecutionFacts
     stop_cause: _StopCause | None = None
+    timeout_seconds: int | None = None
 
 
 @dataclass(slots=True)
@@ -229,6 +266,7 @@ class _RunInvocation:
     known_empty_scope: bool = False
     scope_facts: _RunScopeFacts | None = None
     control: _RunControl | None = field(default=None, repr=False)
+    timeout_seconds: int | None = None
     execution_ledger: _ExecutionLedger = field(default_factory=_ExecutionLedger, repr=False)
 
     def observe_stop(self) -> _StopCause | None:
@@ -280,4 +318,5 @@ class _RunInvocation:
             execution_facts=self.execution_ledger.snapshot(resource_facts),
             scope_facts=self.scope_facts or self.inspect_scope(run_result),
             stop_cause=stop_cause,
+            timeout_seconds=self.timeout_seconds,
         )

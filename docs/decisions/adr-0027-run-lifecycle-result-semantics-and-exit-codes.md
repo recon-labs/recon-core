@@ -1,6 +1,6 @@
 # ADR 0027: Run Lifecycle, Result Semantics And Exit Codes
 
-Status: Design direction approved by maintainer (2026-11-27). Detailed interface recorded; scoped native feasibility demonstrated on representative Linux, macOS and Windows lanes. Design integrated and scoped runtime implemented on the M8.2 candidate; final cumulative validation and maintainer merge approval remain separate.
+Status: Design direction approved by maintainer (2026-11-27). Detailed interface recorded; scoped native feasibility demonstrated on representative Linux, macOS and Windows lanes. M8.2 merged and validated (PR #44, 19/19 CI). Publication remains separate under [ADR 0028](adr-0028-run-result-publication-and-cli-finalization.md).
 
 ## Context
 

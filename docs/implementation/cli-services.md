@@ -141,8 +141,9 @@ open/read/cleanup errors are check-local; uncertain cleanup blocks later
 native work for the affected database, not unrelated databases. Owned scratch
 is removed only after confirmed native closure; abrupt termination can leave
 residue. Managed settings do not guarantee total process memory or physical
-storage limits. Invocation-wide cancellation, deadlines, cumulative budgets and publication
-remain separate gated work.
+storage limits. Optional invocation-wide cancellation and deadlines, sealed
+outcomes and private native attempt accounting are implemented; additional
+budget mechanisms are not implied. Durable publication remains gated.
 
 Later runner and evidence phases may expand `RunService` responsibilities to:
 
@@ -250,3 +251,12 @@ independent earlier configuration or validation failure. This is cooperative
 control, not guaranteed wall-clock termination: native calls and confirmed
 cleanup may outlast the deadline. No query is automatically retried, and no
 new output files are created.
+
+### Planned run-result finalization
+
+[ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
+and [publication prework](../planning/milestone-8-3-prework.md) define the required
+local result snapshot and terminal summary. RunService owns one execution
+and final publication result; the artifact writer owns safe atomic I/O.
+The CLI only renders the safe service outcome and existing exit mapping.
+This behavior is planned, not implemented.

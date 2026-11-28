@@ -197,6 +197,7 @@ class RunService:
             ) or (cancel_event is not None and not isinstance(cancel_event, Event)):
                 result: ServiceResult | RunResult = _invalid_run_control_result()
             else:
+                invocation.timeout_seconds = timeout_seconds
                 if timeout_seconds is not None or cancel_event is not None:
                     invocation.control = _RunControl(
                         started_ns=invocation.started_ns,
