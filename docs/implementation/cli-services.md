@@ -239,8 +239,11 @@ including preparation, checks and cleanup. Omission adds no deadline. Embedded
 callers may use `RunService.execute(timeout_seconds=60, cancel_event=event)`
 with a caller-owned `threading.Event`; Recon never mutates that event. CLI
 SIGINT, when delivered, requests cancellation on the existing invocation and
-restores the previous signal handler. Embedded calls stay on the caller's
-thread without installing a signal handler. Invalid CLI timeout values are
+restores the previous signal handler. The handler records a simple latch;
+invocation checkpoints and the final seal can observe it directly, even before
+the coordinator wakes to notify Event waiters. A request after sealing does not
+rewrite the finalized outcome. Embedded calls stay on the caller's thread
+without installing a signal handler. Invalid CLI timeout values are
 usage errors; invalid embedded controls are configuration errors. A stopped
 run returns the existing runtime-error category (exit 3), preserving an
 independent earlier configuration or validation failure. This is cooperative

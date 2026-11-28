@@ -104,7 +104,17 @@ def _execute_cli_run(timeout_seconds: int | None) -> ServiceResult:
         return execute_without_signal_control()
 
     requested = False
-    cancel_event = Event()
+
+    class _SignalCancellationEvent(Event):
+        def is_set(self) -> bool:
+            # The run's own checkpoints and final seal must see the signal
+            # latch even before the CLI coordinator has woken up.
+            return requested or super().is_set()
+
+        def wait(self, timeout: float | None = None) -> bool:
+            return self.is_set() or super().wait(timeout)
+
+    cancel_event = _SignalCancellationEvent()
     finished = Event()
     results: list[ServiceResult] = []
     errors: list[BaseException] = []
@@ -123,12 +133,12 @@ def _execute_cli_run(timeout_seconds: int | None) -> ServiceResult:
         finally:
             finished.set()
 
+    worker = Thread(target=execute, name="recon-cli-run", daemon=False)
     try:
         signal.signal(signal.SIGINT, request_stop)
     except (OSError, ValueError):
         return execute_without_signal_control()
 
-    worker = Thread(target=execute, name="recon-cli-run", daemon=False)
     try:
         worker.start()
         try:
