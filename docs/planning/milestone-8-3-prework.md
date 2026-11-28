@@ -32,8 +32,8 @@ by loading again. Before compiled/native work, validate the reserved target
 and invalidate its previous regular snapshot. A stop observed after trusted
 context acquisition does not bypass destination preflight; after successful
 preflight it is eligible for a stopped artifact without native work. Failed
-preflight is runtime exit 3, no native work. Invalid CLI arguments create no invocation; invalid
-embedded controls, preset cancellation or configuration failure before a
+preflight is runtime exit 3, no native work. Invalid CLI arguments create
+no invocation; invalid embedded controls, preset cancellation or configuration failure before a
 trusted destination exists cannot publish or invalidate guessed paths.
 Explicitly report no current result written. After destination preflight,
 early compiled, configuration, runtime and stop outcomes are eligible for a
@@ -151,7 +151,8 @@ contract_id and contract_name (each canonical authored identity or null), status
 (existing RunStatus), check_results (ordered list), diagnostics (safe list).
 Check records: check_ref (positive invocation-wide plan ordinal), check_id
 and name (each canonical authored identity or null), check_type (known
-catalog type or null), status (existing CheckStatus), severity (validated error/warn/info),
+catalog type or null), status (existing CheckStatus), severity (validated
+error/warn/info),
 executed (boolean), reason_code (existing CheckReason or null),
 prerequisite_refs, blocked_by_refs (positive plan ordinals), and
 missing_prerequisite_count (integer for unresolved references), diagnostics
@@ -301,8 +302,8 @@ summary and current publication outcome; no added public result fields or
 second CLI status authority. Distinguish the sealed execution status and
 primary category from final command category on publication failure; a
 committed snapshot has the same category/code as the returned command.
-When a snapshot commits, ID/status/counts and final exit agree. A failed publication
-cannot be represented as written merely by finding an older or concurrent
+When a snapshot commits, ID/status/counts and final exit agree. A failed
+publication cannot be represented as written merely by finding an older or concurrent
 snapshot. Keep existing SIGINT and late-seal semantics.
 
 ## Acceptance and conformance matrix
@@ -313,7 +314,7 @@ snapshot. Keep existing SIGINT and late-seal semantics.
 | C2 | All nine native check families; actual verified and refused binding; unknown/missing capability; aliases; absent facts | Native owner trace and projected categorical metadata, no fabricated placement |
 | C3 | Canary every sensitive field, nested payload, known-code spoofing, persisted/injected diagnostics and service messages, malformed IDs, raw errors/paths/SQL/profile values, safe distinct actionable warnings and equal-sanitized distinct events | Public service/CLI/artifact privacy and diagnostic owner tests; Gates 3F2/6/4J |
 | C4 | All check/run statuses and mixed precedence, early/empty/invalid/foreign scope, setup failure, pre-start/active/late stop, cleanup and write failure combinations | Service and actual native tests; existing aggregation and primary mapping |
-| C5 | Stale regular/malformed snapshot; missing target, wrong shape, symlink/dangling link/junction/hardlink/case collision, external target; permission/disk/close/replace/cleanup failure, abrupt exit, overlapping preflight/replace (both orderings, observed replacement, disappearance and final stat/unlink window), failed writer cleanup after another commit, unrelated files | Dedicated writer and real Linux/macOS/Windows filesystem tests; no native work on failed preflight; no partial or other-run deletion |
+| C5 | Stale regular/malformed snapshot; missing target, wrong shape, symlink/dangling link/junction/hardlink/case collision, external target; permission/disk/close/replace/cleanup failure, abrupt exit, overlapping preflight/replace (both orderings, observed replacement, disappearance and final stat/unlink window), failed writer cleanup after another commit, unrelated files | Dedicated writer and real Linux/macOS/Windows filesystem tests; no native work on failed preflight; no partial final JSON, unrelated deletion or post-preflight deletion of another run's output |
 | C6 | All status/counts, exit 0-4, actual write/not-written, unknown vs zero, safe warnings, matching artifact; delivered/ignored SIGINT and sealed outcome | CLI/service end-to-end and native regression, no extra execution |
 | C7 | Only reserved local snapshot and owned staging touched; no other refs, report/evidence/state/sink/table/external writes | Filesystem and adapter trace, ADR 0022 |
 | C8 | Whole compiled plan vs unknown/empty/incomplete coverage; no selectors/implicit compile/freshness claim | Scope tests and selector-readiness |
@@ -326,8 +327,9 @@ publishes current error; unknown destination leaves no current artifact and
 does not guess cleanup; invalid output path blocks native work; deadline
 preserves finalized checks and explicit unstarted reasons; disk-full after
 mismatch preserves mismatch while command fails 3; independent validation
-retains 2 on write failure; overlapping successful and failing publishers
-preserve the successful snapshot; abrupt stage exit leaves no partial final
+retains 2 on write failure; failed post-preflight publication cleanup preserves
+another successful commit, whereas later preflight invalidation may remove it;
+abrupt stage exit leaves no partial final
 file; hostile strings never leak through service, CLI or JSON.
 
 ## Source and responsibility map
