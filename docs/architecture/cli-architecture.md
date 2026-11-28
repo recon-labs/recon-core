@@ -137,13 +137,14 @@ compiled SQL artifacts for current DuckDB relation-backed typed plans.
 Runs compiled checks.
 
 The run command uses already compiled checks and matching compiled-contract
-metadata. Current execution is limited to relation-backed same-context DuckDB
-`row_count_diff` checks plus grain-key safety checks that pass the internal
-bounded local/dev scan guard, which requires a project-local DuckDB file under
-the size cap and relation endpoints that resolve to local base tables. The
-command does not write generated run or evidence artifacts.
-Later runner/result and evidence phases may parse or compile automatically when
-artifact freshness semantics are locked.
+metadata. Current execution supports the nine admitted relation-backed
+same-context DuckDB check families on verified project-local base tables.
+No default database-size cap applies; an optional authored footprint ceiling
+is distinct from native resource controls. M8.2 provides optional cooperative
+deadline/cancellation and invocation-local lifecycle. No generated run or
+evidence artifact is written yet. M8.3 plans a versioned local result snapshot
+and final CLI summary under [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md),
+without implicit parse/compile or a new execution strategy.
 
 Later runner/result and evidence phase outputs:
 
