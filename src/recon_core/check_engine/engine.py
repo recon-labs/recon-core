@@ -193,7 +193,7 @@ class CheckEngine:
         try:
             dispatch_result = self._dispatcher.dispatch(check)
             if (cause := _observe_stop(execution_context)) is not None:
-                if dispatch_result.executed:
+                if dispatch_result.executed or dispatch_result.status is CheckStatus.ERROR:
                     return dispatch_result
                 return _stopped_check_result(check, cause)
             return (
