@@ -1,8 +1,8 @@
 # Milestone 8.3 - Run-result publication and CLI finalization
 
 Status: Maintainer-approved detailed design direction (2026-11-28); implementation
-not authorized. Cross-platform feasibility and cumulative prework review are
-required before implementation approval. Baseline M8.2 merged as
+not authorized. Synthetic cross-platform filesystem feasibility passed 9/9; cumulative
+prework review and implementation approval remain required. Baseline M8.2 merged as
 fdde61ca2ae5f4784ffe520f543ac24458d9574d (PR #44, 19/19 CI).
 Split Decision: Already Split / Follow Existing Split. C1-C10 are one coherent
 publication contract; no new repository, execution strategy or infrastructure.
@@ -204,24 +204,31 @@ capability_admitted, preliminary_allowed (boolean/null), preliminary_reason
 attempted, native_released, scratch_release (boolean/null), cleanup_status
 (not_started/completed/failed/unconfirmed/null), native_execute_attempts,
 native_fetch_attempts (integer/null), native_controls (object/null).
-Typed interruption evidence distinguishes requested from observed native
-interruption/confirmed returned work; do not equate request to stop proof.
+Additional fields native_interrupt_requested and native_calls_returned
+(boolean/null) record actual interrupt request delivery to the native call
+boundary and confirmed return of owned executing/borrowed interrupt calls,
+respectively. Neither proves the interrupt caused termination. Null means
+unavailable/not applicable; no inferred confirmation from a stop cause.
 Retain at actual owners; null absent proof. Release may be confirmed despite
 rollback failure; failed cleanup is not necessarily an unreleased handle.
 No diagnostic parsing, native re-query or repeated engine evaluation.
 
-Native controls: source_policy and target_policy (arrays/null), each setting
+Native controls is available when either policy or native evidence exists;
+missing observation fields remain null. Its source_policy and target_policy
+are arrays/null, each setting
 fact has setting (managed-memory/threads/spill/max-database-mib/
 warn-estimated-input-rows/scratch-directory), scope
 (default/project/target/connection), mode (auto/none/fixed/percent/path),
 requested_value (integer/null), unit (bytes/threads/rows/percent/null).
 Scratch path never emitted. For each of memory, threads, spill retain
 requested, adjusted, assignment, reported_lower, reported_upper
-(integer/null) with explicit bytes or thread count units. Capacities only
+(integer/null), plus unit (bytes or threads); each control object is null
+when its observation is unavailable. Capacities only
 memory_capacity_known, cpu_capacity_known, spill_capacity_known
 (boolean/null); estimate not_requested/unknown/within_advisory/
 exceeds_advisory/null; readback_verified boolean/null;
-physical_enforcement_proven=false; advisory_codes list of known safe codes.
+physical_enforcement_proven=false; advisory_codes list of known safe codes
+or null if unavailable.
 Threshold rows are configured limits, not measured rows. No actual host
 capacity, estimate number, raw path, physical use or guarantee. Policy
 evidence and observed controls never replace actual resource consumption.
@@ -299,9 +306,13 @@ Do not weaken preservation assertions to reach green.
 2. Lock ADR, schema/privacy/precedence/lifecycle contract and acceptance
    matrix. Targeted atomicity research converted to portable primitive
    constraints; platform feasibility required before lock. Review-fix ongoing.
-3. Verify synthetic filesystem feasibility across maintained nine lanes;
-   record limitations, fix/reassess before public design exit. No production
-   claim from synthetic proof.
+3. Synthetic feasibility passed 9/9 maintained OS/Python lanes in isolated
+   CI: exclusive sibling stage, replacement, deterministic overlap and failed
+   temp-only cleanup, abrupt precommit exit, directory refusal, hardlink and
+   symlink/junction detection, stable directory identity. This proves the
+   primitives in those environments, not the production writer, all path
+   guards, reader-sharing behavior, crash durability or all filesystems.
+   Require production conformance at C5 and C9.
 4. Integrate public ADR, prework, architecture, artifact versions, inventory,
    compatibility matrix, testing/build order, user docs and README status.
    Planned behavior distinguished from implemented behavior; validate links
