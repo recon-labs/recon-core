@@ -2,8 +2,8 @@
 
 Status: Maintainer-approved detailed design direction (2026-11-28).
 Synthetic filesystem feasibility passed all nine maintained OS/Python lanes.
-Final prework review and separate implementation approval remain required;
-this record is not an implementation claim.
+Cumulative design review completed; separate implementation approval remains
+required. This record is not an implementation claim.
 
 ## Context
 
