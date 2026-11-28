@@ -447,7 +447,8 @@ The approved M8.3 design direction is a separate public version 1 projection
 of the sealed invocation, not the internal model dictionaries. See
 [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
 and [exact schema and privacy contract](../planning/milestone-8-3-prework.md).
-Publication remains unimplemented pending feasibility, review and approval.
+Synthetic filesystem feasibility passed 9/9. Publication remains unimplemented
+pending final design review and approval.
 
 The first check-engine boundary may define the check result/status model and
 prerequisite or blocked-check representation without writing a generated
