@@ -84,8 +84,9 @@ executed counts describe retained records (including untrusted records if scope
 is incomplete), not native attempts or distinct verified planned checks.
 Execution means the existing result-model `executed` flag, not an attempted
 native call. Scope completeness is independent of comparison status; no result
-is invented for an unprepared check. Invocation-wide attempts and publication
-remain separate responsibilities.
+is invented for an unprepared check. Invocation-wide native attempt accounting
+is private lifecycle evidence, distinct from result-record counts. Publication
+remains a separate, planned responsibility.
 The optional invocation deadline uses monotonic time shared across preparation
 and evaluation. Caller cancellation and deadline expiry latch the first observed
 stop, with cancellation winning a simultaneous observation. The invocation
@@ -443,7 +444,7 @@ performed.
 
 ## JSON artifact
 
-The approved M8.3 design direction is a separate public version 1 projection
+The approved run-result design direction is a separate public version 1 projection
 of the sealed invocation, not the internal model dictionaries. See
 [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
 and [exact schema and privacy contract](../planning/milestone-8-3-prework.md).
@@ -461,24 +462,18 @@ backend, or sink writer ran. No path, table, object-store location, or sink
 destination should be recorded as written unless that output was actually
 created by an owning writer phase.
 
-`target/run_results.json` should include:
-
-- artifact type,
-- artifact version,
-- run metadata,
-- contract results,
-- check results,
-- diagnostics,
-- artifact references.
-- identity used by key-dependent checks,
-- prerequisite and blocked-check information.
-- placement and capability metadata when execution phases define it,
-- sink-write metadata when sink phases define it.
+The planned version 1 snapshot contains artifact identity and version, safe
+invocation/scope metadata, structural check counts, allowlisted contract/check
+records, prerequisite ordinals, safe diagnostics, verified execution/resource
+facts, and a local self-reference. The exact field and nullability contract is
+in the publication prework linked above. Source/target identities, comparison
+values and sink writes are excluded; sink references are empty.
 
 ## Avoid large embedded data
 
-Failure rows should not be embedded directly into `run_results.json` except for
-small summaries allowed by the source/target data privacy policy.
+The planned version 1 snapshot excludes failure rows and data-derived failure
+counts, including small summaries. Any later value/detail exposure requires its
+own approved privacy and compatibility contract.
 
 Large details belong in separate bounded files, configured sinks, or future
 external stores. Large failure-detail export, JSONL, streaming, pagination,
