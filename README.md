@@ -44,13 +44,15 @@ Implemented today:
 - DuckDB SQL rendering for currently emitted typed check plans,
 - compiled SQL artifacts under `target/compiled_sql/`,
 - structured service results and diagnostics,
-- first `recon run` check-engine boundary for already compiled checks,
+- `recon run` over validated compiled checks, with invocation-local timing,
+  dependency ordering, optional timeout, cooperative cancellation and safe
+  failure/cleanup handling,
 - relation-backed same-context DuckDB `row_count_diff` execution through
   `recon run` on verified project-local base tables,
 - relation-backed same-context DuckDB grain-key safety execution for compiled
   null-key, duplicate-key, missing-key, and extra-key checks through `recon run`
   when the internal local/dev scan guard verifies a project-local DuckDB file
-  under the size cap and both relation endpoints resolve to local base tables,
+  and both relation endpoints resolve to local base tables,
 - bounded same-context DuckDB execution of compiled explicit `sum_diff` and
   `grouped_aggregate_diff` checks with absolute numeric tolerance and private
   bounded results.
@@ -153,16 +155,24 @@ adapter and resolve to the same adapter connection config. If you use the
 generated profile example, set `RECON_DUCKDB_PATH` or edit
 `connections/profiles.yml` before running `recon compile --render-sql`.
 `recon run` loads already compiled check artifacts and routes them through the
-first check-engine boundary. It can execute relation-backed same-context DuckDB row-count, grain-key
-safety and explicit SUM checks when matching compiled-contract artifacts and
+check-engine boundary. It can execute relation-backed same-context DuckDB
+row-count, grain-key safety and explicit SUM checks when matching compiled-contract artifacts and
 runtime profiles are available. All three families require an existing regular
 project-local DuckDB file without retained sidecars and verified local base
 tables, not views or externally backed relations. Each eligible check owns a
 fresh read-only transaction. No default database-size cap applies; an optional
 authored footprint ceiling applies to all supported check types and is not a
-physical resource bound. Recon uses adaptive native resource settings. It reports missing, invalid, empty,
-unsupported, blocked, or not-executable compiled checks with structured runtime
-diagnostics.
+physical resource bound. Recon uses adaptive native resource settings and
+fresh per-check observations. It reports missing, invalid, empty, unsupported,
+blocked, or not-executable compiled checks with structured runtime diagnostics.
+Use `recon run --timeout-seconds 60` for an optional invocation-wide deadline.
+Without the option, there is no deadline. Delivered Ctrl+C requests cooperative
+cancellation. Embedded callers can use
+`RunService.execute(timeout_seconds=60, cancel_event=event)` with a caller-owned
+`threading.Event`. A stopped run waits for native work and cleanup to return,
+so it can outlast the deadline. Runtime stops return exit 3 unless an earlier
+independent configuration or validation failure takes precedence. There are
+no automatic retries or hard physical resource guarantees.
 It does not execute query endpoints, other aggregate metric types, or row-level
 value checks, or write run-result, evidence, report, failure-detail, state, or sink artifacts yet.
 
@@ -268,11 +278,15 @@ recompile contracts. It loads runtime profiles for supported relation-backed sam
 checks and verifies local file scope before opening a private read-only
 transaction per eligible check. Catalog proof and data queries use that same
 transaction. Views and externally backed relations fail closed before data
-queries. The temporary file cap applies only to grain-key and SUM checks.
-Use an existing database inside the project; close conflicting writable
-connections before running. Broader safe execution contexts remain planned. Unsupported execution surfaces
-remain blocked or not executable. It does not write generated run/evidence
-outputs.
+queries. No default database-size cap applies; an optional authored footprint
+ceiling applies to all nine supported check families. Use an existing database
+inside the project; close conflicting writable connections before running.
+An invocation uses one active owned native check at a time; independent
+invocations are not globally serialized. Recon retains earlier finalized checks
+and explicit stop reasons for unstarted checks in memory, without publishing a
+run-result artifact. Broader safe execution contexts remain planned. Unsupported
+execution surfaces remain blocked or not executable. It does not write generated
+run/evidence outputs.
 
 Current generated artifacts:
 

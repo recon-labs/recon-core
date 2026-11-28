@@ -59,6 +59,8 @@ def test_status_and_reason_values_match_locked_taxonomy() -> None:
         "not_implemented_in_current_phase",
         "skipped_by_policy",
         "selected_out",
+        "run_cancelled",
+        "run_deadline_exceeded",
     ]
 
 
@@ -337,3 +339,66 @@ def test_contract_and_run_results_serialize_without_command_result_fields() -> N
     assert payload["sink_refs"] == []
     assert "exit_category" not in payload
     assert "exit_code" not in payload
+
+
+# Independent expectation order, rather than reusing the implementation table.
+_STATUS_ORDER = (
+    RunStatus.ERROR,
+    RunStatus.FAIL,
+    RunStatus.BLOCKED,
+    RunStatus.NOT_EXECUTABLE,
+    RunStatus.WARN,
+    RunStatus.PASS,
+    RunStatus.SKIPPED,
+    RunStatus.NO_CHECKS,
+)
+
+
+def _contract_for_status(status: RunStatus, name: str) -> ContractResult:
+    if status is RunStatus.NO_CHECKS:
+        return ContractResult.from_check_results(contract_name=name, check_results=())
+    check_status = CheckStatus(status.value)
+    reason = {
+        CheckStatus.BLOCKED: CheckReason.PREREQUISITE_FAILED,
+        CheckStatus.NOT_EXECUTABLE: CheckReason.MISSING_ENGINE_CAPABILITY,
+        CheckStatus.SKIPPED: CheckReason.SKIPPED_BY_POLICY,
+    }.get(check_status)
+    check = CheckResult(
+        check_id=f"check.{name}",
+        name=name,
+        check_type="row_count_diff",
+        contract_name=name,
+        status=check_status,
+        executed=check_status in {CheckStatus.PASS, CheckStatus.FAIL, CheckStatus.WARN},
+        reason_code=reason,
+        blocked_by=("prerequisite",) if check_status is CheckStatus.BLOCKED else (),
+        message="Non-executed check." if reason is not None else None,
+        diagnostics=(_diagnostic("Non-executed check."),) if reason is not None else (),
+    )
+    return ContractResult.from_check_results(contract_name=name, check_results=(check,))
+
+
+@pytest.mark.regression_capture("run-aggregate-status-precedence")
+@pytest.mark.parametrize("left", _STATUS_ORDER)
+@pytest.mark.parametrize("right", _STATUS_ORDER)
+def test_pairwise_status_precedence_across_checks_and_contracts(
+    left: RunStatus, right: RunStatus
+) -> None:
+    expected = min((left, right), key=_STATUS_ORDER.index)
+    first = _contract_for_status(left, "first")
+    second = _contract_for_status(right, "second")
+    assert first.status is left
+    assert second.status is right
+    combined = ContractResult.from_check_results(
+        contract_name="combined", check_results=first.check_results + second.check_results
+    )
+    assert combined.status is expected
+    run = RunResult.from_contract_results(
+        run_id="run-001",
+        project_name="ecommerce_recon",
+        started_at="start",
+        finished_at="finish",
+        contract_results=(first, second),
+    )
+    assert run.status is expected
+    assert run.contract_results == (first, second)

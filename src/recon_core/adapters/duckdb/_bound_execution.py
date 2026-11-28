@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import gettempdir
 from typing import Any
 
+from recon_core._run_control import _RunControl, _RunStoppedError
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters._local_resource_observation import (
     _LocalObservation,
@@ -17,7 +18,10 @@ from recon_core.adapters._project_binding import (
     _BindingScope,
     _BoundSessionError,
     _diagnostic,
+    _EstimateAvailability,
     _LocalFileIdentity,
+    _NativeControlFact,
+    _NativeResourceFacts,
     _proof_error,
 )
 from recon_core.adapters._resource_scratch import (
@@ -29,7 +33,9 @@ from recon_core.adapters.duckdb._native_resource_controls import (
     _apply_native_controls,
     _native_startup_config,
     _NativeControlError,
+    _NativeControlReadback,
     _NativeControlRequest,
+    _NativeSizeInterval,
     _read_native_recommendations,
 )
 from recon_core.adapters.duckdb._resource_targets import (
@@ -105,11 +111,52 @@ def _read_bound_count_result(connection: Any, query: str, *, max_columns: int) -
 class _VerifiedReadConnection:
     """Only the execute seam needed by the existing result transport readers."""
 
-    def __init__(self, execute: Callable[[str], Any]) -> None:
+    def __init__(self, execute: Callable[..., Any]) -> None:
         self._execute = execute
 
-    def execute(self, query: str) -> Any:
-        return self._execute(query)
+    def execute(self, query: str, *args: Any) -> Any:
+        return self._execute(query, *args)
+
+
+class _ControlledReadCursor:
+    """Keep fetch inside its own interruptible span, never the cleanup call."""
+
+    def __init__(
+        self,
+        cursor: Any,
+        control: _RunControl | None,
+        interrupt: Callable[[], bool] | None = None,
+        record_fetch: Callable[[], None] | None = None,
+    ) -> None:
+        self._cursor = cursor
+        self._control = control
+        self._interrupt = interrupt
+        self._record_fetch = record_fetch
+
+    @property
+    def description(self) -> Any:
+        if self._control is not None:
+            self._control.checkpoint()
+        return self._cursor.description
+
+    def fetchmany(self, size: int) -> Any:
+        def fetch() -> Any:
+            if self._record_fetch is not None:
+                self._record_fetch()
+            return self._cursor.fetchmany(size)
+
+        if self._control is not None:
+            if self._interrupt is not None:
+                return self._control.native_call(fetch, self._interrupt)
+            self._control.checkpoint()
+        return fetch()
+
+    def fetchall(self) -> Any:
+        if self._control is not None:
+            self._control.checkpoint()
+        if self._record_fetch is not None:
+            self._record_fetch()
+        return self._cursor.fetchall()
 
 
 def _current_catalog(connection: Any) -> str:
@@ -274,43 +321,6 @@ def _resource_advisories(
     return tuple(advisories)
 
 
-def _adaptive_native_request(
-    connection: Any, scratch: Path, policy: _LocalResourcePolicy
-) -> tuple[_NativeControlRequest, tuple[Diagnostic, ...]]:
-    observed = _observe_local_resources(scratch)
-    native = _read_native_recommendations(connection)
-    inputs = _LocalResourceInputs(
-        memory_headroom_bytes=observed.memory_headroom_bytes,
-        cpu_capacity=observed.cpu_capacity,
-        scratch_free_bytes=observed.scratch_free_bytes,
-        scratch_memory_backed=observed.scratch_memory_backed,
-        native_memory_bytes=native.memory_bytes,
-        native_threads=native.threads,
-    )
-    targets = _calculate_local_resource_targets(policy, inputs)
-    if targets.managed_memory_bytes == 0:
-        raise _BoundSessionError(
-            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
-            "No usable managed-memory capacity for this check. Free memory or adjust tuning.",
-        )
-    if targets.threads == 0:
-        raise _BoundSessionError(
-            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
-            "No usable threads capacity for this check. Inspect available CPU resources.",
-        )
-    # Native zero-spill effect has not yet been independently established.
-    if targets.spill_bytes == 0:
-        raise _BoundSessionError(
-            "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
-            "No usable positive spill capacity; verified no-spill execution is unavailable. "
-            "Free space or select an existing private disk-backed scratch base.",
-        )
-    request = _NativeControlRequest(
-        targets.managed_memory_bytes, targets.threads, targets.spill_bytes, scratch
-    )
-    return request, _resource_advisories(observed, inputs, targets, policy)
-
-
 def _catalog_estimated_rows(connection: Any, relation: Relation) -> int | None:
     """Optional native catalog evidence, never execute a data query to estimate."""
     try:
@@ -360,6 +370,9 @@ class _OwnedDuckDbSession:
         resource_policy: _LocalResourcePolicy | None = None,
     ) -> None:
         self._identity = identity
+        self._run_control: _RunControl | None = None
+        self._execute_attempts = 0
+        self._fetch_attempts = 0
         if (project_root is None) != (resource_policy is None) or sum(
             mode is not None for mode in (native_controls, scratch_base, resource_policy)
         ) > 1:
@@ -379,6 +392,107 @@ class _OwnedDuckDbSession:
         self._released = True
         self._cleanup: tuple[Diagnostic, ...] | None = None
         self._advisories: tuple[Diagnostic, ...] = ()
+        self._resource_targets: _LocalResourceTargets | None = None
+        self._control_readback: _NativeControlReadback | None = None
+        self._control_assignment: _NativeControlRequest | None = None
+        self._memory_capacity_known: bool | None = None
+        self._cpu_capacity_known: bool | None = None
+        self._spill_capacity_known: bool | None = None
+        self._estimate: _EstimateAvailability | None = None
+
+    @property
+    def resource_facts(self) -> _NativeResourceFacts:
+        targets = self._resource_targets
+        assignment = self._control_assignment
+        report = self._control_readback
+
+        def size_fact(
+            requested: int | None,
+            adjusted: int | None,
+            assigned: int | None,
+            reported: _NativeSizeInterval | None,
+        ) -> _NativeControlFact:
+            return _NativeControlFact(
+                requested,
+                adjusted,
+                assigned,
+                reported.lower_bytes if reported is not None else None,
+                reported.upper_bytes if reported is not None else None,
+            )
+
+        return _NativeResourceFacts(
+            memory=size_fact(
+                targets.requested_memory_bytes if targets is not None else None,
+                targets.managed_memory_bytes if targets is not None else None,
+                assignment.memory_bytes if assignment is not None else None,
+                report.memory if report is not None else None,
+            ),
+            threads=_NativeControlFact(
+                targets.requested_threads if targets is not None else None,
+                targets.threads if targets is not None else None,
+                assignment.threads if assignment is not None else None,
+                report.threads if report is not None else None,
+                report.threads if report is not None else None,
+            ),
+            spill=size_fact(
+                targets.requested_spill_bytes if targets is not None else None,
+                targets.spill_bytes if targets is not None else None,
+                assignment.spill_bytes if assignment is not None else None,
+                report.spill if report is not None else None,
+            ),
+            memory_capacity_known=self._memory_capacity_known,
+            cpu_capacity_known=self._cpu_capacity_known,
+            spill_capacity_known=self._spill_capacity_known,
+            estimate=self._estimate,
+            readback_verified=report is not None,
+            advisory_codes=tuple(dict.fromkeys(d.code for d in self._advisories)),
+            execute_attempts=self._execute_attempts,
+            fetch_attempts=self._fetch_attempts,
+        )
+
+    def _adaptive_native_request(
+        self, connection: Any, scratch: Path, policy: _LocalResourcePolicy
+    ) -> _NativeControlRequest:
+        self._checkpoint()
+        observed = _observe_local_resources(scratch)
+        self._checkpoint()
+        native = _read_native_recommendations(self._setup_reader(connection))
+        self._checkpoint()
+        inputs = _LocalResourceInputs(
+            memory_headroom_bytes=observed.memory_headroom_bytes,
+            cpu_capacity=observed.cpu_capacity,
+            scratch_free_bytes=observed.scratch_free_bytes,
+            scratch_memory_backed=observed.scratch_memory_backed,
+            native_memory_bytes=native.memory_bytes,
+            native_threads=native.threads,
+        )
+        self._memory_capacity_known = inputs.memory_headroom_bytes is not None
+        self._cpu_capacity_known = inputs.cpu_capacity is not None
+        self._spill_capacity_known = inputs.scratch_free_bytes is not None
+        targets = _calculate_local_resource_targets(policy, inputs)
+        self._resource_targets = targets
+        if targets.managed_memory_bytes == 0:
+            raise _BoundSessionError(
+                "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                "No usable managed-memory capacity for this check. Free memory or adjust tuning.",
+            )
+        if targets.threads == 0:
+            raise _BoundSessionError(
+                "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                "No usable threads capacity for this check. Inspect available CPU resources.",
+            )
+        # Native zero-spill effect has not yet been independently established.
+        if targets.spill_bytes == 0:
+            raise _BoundSessionError(
+                "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
+                "No usable positive spill capacity; verified no-spill execution is unavailable. "
+                "Free space or select an existing private disk-backed scratch base.",
+            )
+        request = _NativeControlRequest(
+            targets.managed_memory_bytes, targets.threads, targets.spill_bytes, scratch
+        )
+        self._advisories = _resource_advisories(observed, inputs, targets, policy)
+        return request
 
     @property
     def advisories(self) -> tuple[Diagnostic, ...]:
@@ -388,7 +502,29 @@ class _OwnedDuckDbSession:
     def released(self) -> bool:
         return self._released
 
+    def _set_run_control(self, control: _RunControl) -> None:
+        if self._attempted or self._run_control is not None:
+            raise _proof_error()
+        self._run_control = control
+
+    def _checkpoint(self) -> None:
+        if self._run_control is not None:
+            self._run_control.checkpoint()
+
+    def _setup_reader(self, connection: Any) -> Any:
+        control = self._run_control
+        if control is None:
+            return connection
+
+        def execute(statement: str, *args: Any) -> Any:
+            control.checkpoint()
+            cursor = connection.execute(statement, *args)
+            return _ControlledReadCursor(cursor, control)
+
+        return _VerifiedReadConnection(execute)
+
     def _verify_file(self) -> None:
+        self._checkpoint()
         if self._invalidated or _current_file_identity(self._identity.path) != self._identity:
             self._invalidated = True
             raise _proof_error()
@@ -417,7 +553,9 @@ class _OwnedDuckDbSession:
                 ) from None
         catalog = ""
         try:
+            self._checkpoint()
             duckdb = import_module("duckdb")
+            self._checkpoint()
             if self._native_controls is None:
                 self._connection = duckdb.connect(str(self._identity.path), read_only=True)
                 self._released = False
@@ -425,15 +563,17 @@ class _OwnedDuckDbSession:
                 self._guard = duckdb.connect(str(self._identity.path), read_only=True)
                 self._released = False
                 self._verify_file()
-                catalog = _current_catalog(self._guard)
-                if _local_duckdb_catalog_names(self._guard, self._identity.path) != frozenset(
+                guard_reader = self._setup_reader(self._guard)
+                catalog = _current_catalog(guard_reader)
+                if _local_duckdb_catalog_names(guard_reader, self._identity.path) != frozenset(
                     {_duckdb_identifier_key(catalog)}
                 ):
                     raise _proof_error()
+                self._checkpoint()
                 self._connection = duckdb.connect(
                     ":memory:", config=_native_startup_config(self._native_controls)
                 )
-        except _BoundSessionError:
+        except (_BoundSessionError, _RunStoppedError):
             self._invalidated = True
             raise
         except Exception:
@@ -448,11 +588,12 @@ class _OwnedDuckDbSession:
             try:
                 if self._resource_policy is not None:
                     assert self._scratch is not None
-                    self._native_controls, self._advisories = _adaptive_native_request(
+                    self._native_controls = self._adaptive_native_request(
                         self._connection, self._scratch.path, self._resource_policy
                     )
-                _apply_native_controls(
-                    self._connection,
+                self._control_assignment = self._native_controls
+                self._control_readback = _apply_native_controls(
+                    self._setup_reader(self._connection),
                     self._native_controls,
                     assign_memory_threads=self._resource_policy is not None,
                 )
@@ -468,6 +609,7 @@ class _OwnedDuckDbSession:
                 self._invalidated = True
                 raise
             except (_NativeControlError, ValueError):
+                self._checkpoint()
                 self._invalidated = True
                 raise _BoundSessionError(
                     "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE",
@@ -475,14 +617,22 @@ class _OwnedDuckDbSession:
                     "Inspect supported native controls and selected tuning.",
                 ) from None
             try:
-                _attach_guarded_database(self._connection, self._identity.path, catalog)
+                _attach_guarded_database(
+                    self._setup_reader(self._connection), self._identity.path, catalog
+                )
+            except _RunStoppedError:
+                self._invalidated = True
+                raise
             except Exception:
                 self._invalidated = True
                 raise _proof_error() from None
         self._verify_file()
         try:
+            self._checkpoint()
             self._connection.execute("BEGIN TRANSACTION")
             self._transaction = True
+        except _RunStoppedError:
+            raise
         except Exception:
             raise _BoundSessionError(
                 ADAPTER_CONNECTION_FAILED,
@@ -497,15 +647,17 @@ class _OwnedDuckDbSession:
         if relation is None:
             return None
         try:
-            catalogs = _local_duckdb_catalog_names(self._connection, self._identity.path)
+            reader = self._setup_reader(self._connection)
+            catalogs = _local_duckdb_catalog_names(reader, self._identity.path)
             self._verify_file()
             if not catalogs:
                 return None
-            resolved = _resolve_local_base_table(
-                self._connection, relation, local_catalog_names=catalogs
-            )
+            resolved = _resolve_local_base_table(reader, relation, local_catalog_names=catalogs)
             self._verify_file()
             return resolved
+        except _RunStoppedError:
+            self._invalidated = True
+            raise
         except Exception:
             self._invalidated = True
             raise _proof_error() from None
@@ -519,6 +671,7 @@ class _OwnedDuckDbSession:
         self._binding_attempted = True
         self._verify_file()
         source_relation = self.resolve_relation(source)
+        self._checkpoint()
         target_relation = self.resolve_relation(target)
         if source_relation is None or target_relation is None:
             self._invalidated = True
@@ -529,10 +682,16 @@ class _OwnedDuckDbSession:
         )
         policy = self._resource_policy
         threshold = policy.warn_estimated_input_rows if policy is not None else None
-        if threshold is not None:
-            estimated = _estimated_input_rows(self._connection, self._lease.scope)
+        if threshold is None:
+            self._estimate = _EstimateAvailability.NOT_REQUESTED
+        else:
+            self._checkpoint()
+            estimated = _estimated_input_rows(
+                self._setup_reader(self._connection), self._lease.scope
+            )
             self.verify_lease(self._lease, self._lease.scope)
             if estimated is None:
+                self._estimate = _EstimateAvailability.UNKNOWN
                 self._advisories += (
                     Diagnostic(
                         code="RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN",
@@ -546,6 +705,7 @@ class _OwnedDuckDbSession:
                     ),
                 )
             elif estimated > threshold:
+                self._estimate = _EstimateAvailability.EXCEEDS_ADVISORY
                 self._advisories += (
                     Diagnostic(
                         code="RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY",
@@ -558,6 +718,8 @@ class _OwnedDuckDbSession:
                         hint="Review workload scope or adjust warn-estimated-input-rows.",
                     ),
                 )
+            else:
+                self._estimate = _EstimateAvailability.WITHIN_ADVISORY
         return self._lease
 
     def verify_lease(self, lease: _BindingLease, scope: _BindingScope) -> None:
@@ -570,6 +732,9 @@ class _OwnedDuckDbSession:
             self._invalidated = True
             raise _proof_error()
         self._verify_file()
+
+    def _record_fetch(self) -> None:
+        self._fetch_attempts += 1
 
     def _verified_reader(
         self, lease: _BindingLease, scope: _BindingScope, query: str, *, describe: bool = False
@@ -588,7 +753,23 @@ class _OwnedDuckDbSession:
                 self._invalidated = True
                 raise _proof_error()
             try:
-                return self._connection.execute(statement)
+                control = self._run_control
+
+                def native_execute() -> Any:
+                    self._execute_attempts += 1
+                    return self._connection.execute(statement)
+
+                cursor = (
+                    native_execute()
+                    if control is None
+                    else control.native_call(native_execute, self.request_interrupt)
+                )
+                return _ControlledReadCursor(
+                    cursor, control, self.request_interrupt, self._record_fetch
+                )
+            except _RunStoppedError:
+                self._invalidated = True
+                raise
             except Exception:
                 self._invalidated = True
                 raise _BoundSessionError(

@@ -112,6 +112,10 @@ captures:
     current_tests:
       - tests/check_engine/test_engine.py::test_engine_blocks_dependent_check_when_key_safety_prerequisite_fails
       - tests/check_engine/test_engine.py::test_engine_blocks_check_when_prerequisite_is_not_executable
+      - tests/check_engine/test_engine.py::test_engine_reports_multiple_missing_prerequisites_once
+      - tests/check_engine/test_engine.py::test_shared_prerequisite_evaluated_once_across_contracts
+      - tests/check_engine/test_engine.py::test_dependency_cycle_does_not_dispatch_cyclic_checks
+      - tests/check_engine/test_engine.py::test_deep_dependency_chain_keeps_every_planned_result
     carryover_gates:
       - gate: check_engine_semantics_carryover
         status: covered
@@ -121,8 +125,12 @@ captures:
       - docs/compatibility/public-contract-inventory.md: Grain-key safety execution
     notes: >
       Dependent row-level checks must remain blocked when key-safety
-      prerequisites fail, error, are blocked, or are not executable so later
-      execution phases cannot produce misleading comparison evidence.
+      prerequisites fail, error, are blocked, are skipped or are not executable.
+      Shared prerequisites evaluate once per invocation across contracts. Cycles
+      cannot dispatch cyclic checks; repeated blockers appear once in diagnostics.
+      Deep valid or blocked chains retain every result without relying on
+      interpreter recursion depth. Pass and warning outcomes retain existing
+      prerequisite satisfaction.
   - id: aggregate-admission-typed-plan-boundary
     title: Aggregate plan admission rejects unsupported payload and placement
     area: check-engine
@@ -437,4 +445,164 @@ captures:
     requirement_refs:
       - docs/planning/milestone-8-1-1-prework.md: Acceptance matrix and planned test nodes
     notes: >
-      Cleanup failure removes comparison values, actual dependents are blocked, and unrelated eligible checks continue only after confirmed release. No writes or writable fallback.
+      Cleanup failure removes comparison values and retains primary failure evidence.
+      Unexpected cleanup exceptions are sanitized and latch the affected file;
+      actual dependents remain blocked while unrelated databases can continue.
+      No forced close, retry, writes or writable fallback.
+  - id: run-invocation-identity-timing
+    title: Invocation identity and timing surround preparation and native cleanup
+    area: check-engine
+    bug_class: invocation_timing
+    owner_surface: run_results
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_run_service_clock_surrounds_preparation_and_evaluation
+      - tests/services/test_run_service.py::test_run_invocation_retains_identity_on_early_failure
+      - tests/services/test_run_service.py::test_run_invocation_elapsed_survives_wall_clock_rollback
+      - tests/services/test_run_service.py::test_run_invocation_preserves_outcome_and_private_values
+      - tests/services/test_run_service.py::test_invocation_utc_label_preserves_subsecond_precision
+      - tests/services/test_run_service.py::test_invalid_invocation_timeout_stops_before_preparation
+      - tests/services/test_run_service.py::test_preset_cancel_event_stops_before_preparation
+      - tests/services/test_run_service.py::test_large_explicit_timeout_preserves_existing_outcome
+      - tests/services/test_run_service.py::test_cancellation_before_projection_seal_cannot_return_success
+      - tests/services/test_run_service.py::test_cancelled_run_never_dispatches_later_checks
+      - tests/services/test_run_service.py::test_run_control_latches_observation_and_seal
+      - tests/services/test_run_service.py::test_deadline_consumed_in_preparation_prevents_artifact_load
+      - tests/services/test_run_service.py::test_native_control_joins_borrowed_interrupt_before_return
+      - tests/services/test_run_service.py::test_native_control_repeats_failed_interrupt_without_retrying_call
+      - tests/services/test_run_service.py::test_embedded_base_exception_joins_control_observer
+      - tests/services/test_run_service.py::test_stop_after_prerequisite_preserves_result_and_finalizes_dependents
+      - tests/services/test_run_service.py::test_explicit_control_rejects_unproven_injected_engine
+      - tests/services/test_run_service.py::test_native_attempt_accounting_distinguishes_zero_from_unavailable
+      - tests/services/test_run_service_bound_execution.py::test_invocation_elapsed_includes_native_cleanup_outcome
+      - tests/services/test_run_service_bound_execution.py::test_native_run_finish_is_recorded_after_confirmed_cleanup
+      - tests/check_engine/test_engine.py::test_engine_computes_finish_when_no_label_is_supplied
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: invocation_lifecycle
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: invocation_lifecycle
+        rationale: Native Core proof is retained; external adapters must prove their own cleanup timing.
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: invocation_lifecycle
+        rationale: Future run-result publication must use the finalized invocation, not guessed timestamps.
+      - gate: diagnostics_privacy_carryover
+        status: deferred
+        expected_suite: invocation_lifecycle
+        rationale: Existing command diagnostics remain safe; generated metadata must pass its publication privacy gate.
+      - gate: cli_behavior_carryover
+        status: deferred
+        expected_suite: invocation_lifecycle
+        rationale: Existing exit mapping is preserved; final terminal projection remains separate.
+    requirement_refs:
+      - docs/planning/milestone-8-2-prework.md: B1
+      - docs/planning/milestone-8-2-prework.md: B7
+      - docs/planning/milestone-8-2-prework.md: B8
+      - docs/decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md: Decision direction
+    notes: >
+      Allocate a new invocation before preparation, preserve structured early
+      failure identity and unknown project state, compute elapsed time monotonically,
+      and finalize only after native evaluation and cleanup. Never guess the finish
+      timestamp before running the engine or change the existing command dictionary.
+  - id: run-loaded-compiled-scope
+    title: Run planning preserves loaded scope and refuses invalid compiled inputs
+    area: check-engine
+    bug_class: artifact_lifecycle
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_invocation_plan_preserves_loaded_order_and_dependencies
+      - tests/services/test_run_service.py::test_invocation_rejects_results_outside_loaded_scope
+      - tests/services/test_run_service.py::test_invalid_compiled_scope_never_reaches_runtime_setup
+      - tests/services/test_run_service.py::test_invocation_plan_does_not_claim_authored_freshness
+      - tests/services/test_run_service_bound_execution.py::test_native_run_uses_loaded_artifacts_after_files_change
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: compiled_scope
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: compiled_scope
+        rationale: Publication must use loaded scope and cannot imply authored freshness.
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: compiled_scope
+        rationale: Future adapter execution must preserve validated input and binding ownership.
+      - gate: parser_compiler_contract_carryover
+        status: deferred
+        expected_suite: compiled_scope
+        rationale: Future artifact format and semantic freshness changes must retain explicit scope.
+    requirement_refs:
+      - docs/planning/milestone-8-2-prework.md: B2
+      - docs/planning/milestone-8-2-prework.md: B6
+      - docs/architecture/parse-compile-run.md: Freshness of artifacts
+    notes: >
+      Validate loaded inputs before setup; never relabel foreign project artifacts.
+      Freeze only identity, order and prerequisites, retain empty contracts in
+      mixed scopes, and evaluate the loaded artifacts without a second read or
+      implicit compile. Reject incomplete or mismatched result scope before success;
+      retain actual returned results and distinguish known zero from unknown plan.
+      No claim of authored-source freshness or atomic snapshot.
+  - id: run-aggregate-status-precedence
+    title: Mixed and empty outcomes preserve check and contract aggregation
+    area: check-engine
+    bug_class: result_shape
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/check_engine/test_models.py::test_pairwise_status_precedence_across_checks_and_contracts
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: aggregate_status_precedence
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: aggregate_status_precedence
+        rationale: Durable run results must preserve mixed outcomes and the existing aggregate status.
+    requirement_refs:
+      - docs/planning/milestone-8-2-prework.md: B3
+      - docs/implementation/result-model.md: Aggregate status rules
+    notes: >
+      All ordered pairs of the eight aggregate states preserve the locked
+      precedence at check and contract boundaries; empty scopes never imply
+      a pass, and individual outcomes remain visible.
+  - id: run-preparation-and-diagnostic-identity
+    title: Unexpected preparation failures finalize safely and setup events remain distinct
+    area: check-engine
+    bug_class: diagnostics
+    owner_surface: execution_result
+    severity: P2
+    current_tests:
+      - tests/services/test_run_service.py::test_unexpected_invocation_failure_is_finalized_without_private_payload
+      - tests/services/test_run_service_bound_execution.py::test_legacy_setup_preserves_distinct_connection_failures
+    carryover_gates:
+      - gate: check_engine_semantics_carryover
+        status: covered
+        expected_suite: invocation_failure
+      - gate: diagnostics_privacy_carryover
+        status: covered
+        expected_suite: invocation_failure
+      - gate: adapter_testkit_regression_carryover
+        status: deferred
+        expected_suite: invocation_failure
+        rationale: Shared adapter suites must retain separate safe setup failure events.
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: invocation_failure
+        rationale: Publication must preserve finalized stage and diagnostic identity.
+    requirement_refs:
+      - docs/planning/milestone-8-2-prework.md: B4
+      - docs/planning/milestone-8-2-prework.md: B7
+      - docs/implementation/errors-and-diagnostics.md: Owned runtime binding and cleanup
+    notes: >
+      Unexpected preparation or result-projection faults finalize the invocation
+      at the actual stage with sanitized runtime failure rather than pretending
+      authored input is invalid. Completed results survive a projection failure.
+      Expected configuration outcomes keep their categories. Repeated
+      diagnostics for the same setup are deduplicated, while distinct connection
+      setup events have safe invocation-local identity. Embedded and CLI
+      failure paths preserve safe code, severity, message and hint without
+      exposing exception payloads or private invocation identity.

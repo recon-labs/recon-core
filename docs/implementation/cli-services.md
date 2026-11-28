@@ -101,9 +101,13 @@ compiled-check rendering metadata.
 
 Current run-service responsibilities:
 
-- locate the project root,
+- allocate invocation identity and start timing before locating the project root,
 - load already compiled check artifacts from the generated target path,
-- load matching compiled-contract artifacts for runtime metadata,
+- load matching compiled-contract artifacts for runtime metadata and refuse
+  compiled-check inputs belonging to a different project identity,
+- record a private immutable plan of the validated loaded contracts/checks,
+  their presentation order and prerequisite IDs, without reloading artifacts
+  or duplicating the engine's prerequisite evaluation,
 - prepare runtime profile and adapter dependencies only for executable
   relation-backed row-count, grain-key and SUM candidates,
 - invoke the check engine over compiled checks only,
@@ -111,6 +115,8 @@ Current run-service responsibilities:
   structural, prerequisite, placement, capability and preliminary scope checks,
 - resolve exact local base tables and verify the binding before native reads,
 - roll back and close each owned session before finalizing its result,
+- finalize invocation timing after evaluation and native cleanup, including
+  structured early failures, using monotonic elapsed time,
 - map command-level outcomes and diagnostics to `ServiceResult`,
 - return a concise command message and exit category.
 
@@ -135,12 +141,13 @@ open/read/cleanup errors are check-local; uncertain cleanup blocks later
 native work for the affected database, not unrelated databases. Owned scratch
 is removed only after confirmed native closure; abrupt termination can leave
 residue. Managed settings do not guarantee total process memory or physical
-storage limits. Invocation-wide lifecycle, cumulative budgets and publication
+storage limits. Invocation-wide cancellation, deadlines, cumulative budgets and publication
 remain separate gated work.
 
 Later runner and evidence phases may expand `RunService` responsibilities to:
 
-- parse and compile automatically when artifact freshness semantics are locked,
+- evaluate artifact freshness under a separately approved policy, without
+  silently recompiling current authored inputs,
 - build execution plans,
 - run additional checks through supported adapter execution paths,
 - write run results,
@@ -224,3 +231,22 @@ configuration error -> 4
 ## Design principle
 
 CLI commands should be thin wrappers around testable application services.
+
+### Optional run cancellation
+
+`recon run --timeout-seconds 60` requests one cooperative invocation deadline,
+including preparation, checks and cleanup. Omission adds no deadline. Embedded
+callers may use `RunService.execute(timeout_seconds=60, cancel_event=event)`
+with a caller-owned `threading.Event`; Recon never mutates that event. CLI
+SIGINT, when delivered, requests cancellation on the existing invocation and
+restores the previous signal handler. The handler records a simple latch;
+invocation checkpoints and the final seal can observe it directly, even before
+the coordinator wakes to notify Event waiters. A request after sealing does not
+rewrite the finalized outcome. Embedded calls stay on the caller's thread
+without installing a signal handler. Invalid CLI timeout values are
+usage errors; invalid embedded controls are configuration errors. A stopped
+run returns the existing runtime-error category (exit 3), preserving an
+independent earlier configuration or validation failure. This is cooperative
+control, not guaranteed wall-clock termination: native calls and confirmed
+cleanup may outlast the deadline. No query is automatically retried, and no
+new output files are created.

@@ -478,7 +478,9 @@ captures:
     owner_surface: core_runtime_policy
     severity: P2
     current_tests:
+      - tests/services/test_run_service_bound_execution.py::test_native_work_reobserves_capacity_and_shares_deadline
       - tests/check_engine/test_local_resource_targets.py::test_adaptive_targets_follow_effective_environment
+      - tests/check_engine/test_local_resource_targets.py::test_targets_retain_authored_requests_before_adjustment
       - tests/check_engine/test_local_resource_targets.py::test_automatic_parallelism_uses_known_managed_memory_without_admission_floor
       - tests/check_engine/test_local_resource_targets.py::test_memory_aware_threads_preserve_authored_memory_modes
       - tests/services/test_run_service_bound_execution.py::test_project_run_alias_policy_uses_resolved_scratch_and_precedence
@@ -514,6 +516,10 @@ captures:
       Preserve known zero versus unavailable evidence, independently bounded
       hardware headroom, adapter-specific tuning, and memory-backed scratch
       accounting. Native automatic settings do not prove effective limits.
+      Preserve winning policy provenance, requested/adjusted/assigned targets
+      and verified report intervals without paths or host facts. Preliminary
+      scan allowance never implies verified binding; actual refusal and
+      unavailable estimates remain distinct.
       Additional measured fraction comparison CI 46021219113 retains 50% over
       25% with memory-aware threads; lower memory did not improve outcomes.
       Focused measured reassessment CI 46020054117 and actual implementation
@@ -727,6 +733,13 @@ captures:
       - tests/adapters/test_duckdb_bound_execution.py::test_native_interrupt_request_is_not_release
       - tests/adapters/test_duckdb_bound_execution.py::test_native_interrupt_after_close_is_not_accepted
       - tests/adapters/test_duckdb_bound_execution.py::test_actual_guarded_native_interrupt_during_spill
+      - tests/services/test_run_service_bound_execution.py::test_native_invocation_control_preserves_completed_checks
+      - tests/services/test_run_service_bound_execution.py::test_native_stop_at_check_boundaries_preserves_cleanup
+      - tests/services/test_run_service_bound_execution.py::test_invocation_counts_native_attempts_without_inventing_consumption
+      - tests/services/test_run_service_aggregate_admission.py::test_all_nine_checks_use_owned_transaction_and_qualified_queries
+      - tests/services/test_run_service_bound_execution.py::test_native_work_reobserves_capacity_and_shares_deadline
+      - tests/services/test_run_service_bound_execution.py::test_independent_invocations_overlap_without_shared_accounting
+      - tests/services/test_run_service_aggregate_admission.py::test_actual_run_service_cancels_active_native_spill
       - tests/services/test_run_service_bound_execution.py::test_cleanup_failure_is_check_local_or_stops_native_execution
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
@@ -735,6 +748,8 @@ captures:
         rationale: Future adapters require actual active native interruption, confirmed cleanup and affected-context isolation; broader invocation lifecycle belongs to M8.2.
     requirement_refs:
       - docs/planning/milestone-8-1-2-prework.md: B8 and B9 native stop and cleanup
+      - docs/planning/milestone-8-2-prework.md: B8 and B9
+      - docs/planning/milestone-8-2-prework.md: B10
     notes: >
       The parked subprocess stop, reaping and parent EOF watchdog were retired. Native interrupt requests do not prove completion or release. Retain actual spill interruption, observer noninterference, confirmed native release and affected-context cleanup latch.
 
@@ -759,6 +774,7 @@ captures:
         rationale: Native effect, owned scratch and cleanup must be proved by each adapter.
     requirement_refs:
       - docs/planning/milestone-8-1-2-prework.md: A13 and worker prerequisites
+      - docs/planning/milestone-8-2-prework.md: B9
     notes: >
       The controlled owned session applies and checks native settings before
       transaction work. Failed required verification is sanitized and leaves
@@ -835,6 +851,7 @@ captures:
     current_tests:
       - tests/adapters/test_resource_scratch.py::test_check_scratch_never_adopts_or_sweeps_existing_storage
       - tests/adapters/test_resource_scratch.py::test_check_scratch_abrupt_exit_leaves_residue_without_blocking_next_check
+      - tests/services/test_run_service_bound_execution.py::test_abrupt_native_run_retains_residue_and_next_run_uses_fresh_scratch
     carryover_gates:
       - gate: adapter_testkit_regression_carryover
         status: deferred
@@ -842,6 +859,7 @@ captures:
         rationale: Future adapters must prove no deletion of unrelated or unverified abandoned storage.
     requirement_refs:
       - docs/planning/milestone-8-1-2-prework.md: A10 and B9 native scratch
+      - docs/planning/milestone-8-2-prework.md: B9
     notes: >
       Retire persistent discovery, markers and recovery. Abrupt exit may leave residue; future checks create independent private storage without adopting or sweeping it.
 

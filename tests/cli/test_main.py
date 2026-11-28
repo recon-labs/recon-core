@@ -1,7 +1,9 @@
 import importlib
 import json
 import os
+import signal
 from pathlib import Path
+from threading import Event, Thread, current_thread, main_thread
 from typing import Any
 
 import pytest
@@ -64,7 +66,9 @@ def test_cli_commands_delegate_to_services(
 ) -> None:
     calls = 0
 
-    def execute(self: InitService | ParseService | CompileService | RunService) -> ServiceResult:
+    def execute(
+        self: InitService | ParseService | CompileService | RunService, **kwargs: Any
+    ) -> ServiceResult:
         nonlocal calls
         calls += 1
         return ServiceResult(exit_category=ExitCategory.RUNTIME_ERROR)
@@ -563,3 +567,128 @@ def _compiled_checks_path() -> Path:
 
 def _read_yaml(path: Path) -> object:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+@pytest.mark.regression_capture("run-timeout-cli-contract")
+@pytest.mark.parametrize("value", ["0", "-1", "1.5", "private-timeout-canary"])
+def test_run_command_rejects_invalid_timeout(value: str) -> None:
+    result = CliRunner().invoke(main, ["run", "--timeout-seconds", value])
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output
+    assert "No such option" not in result.output
+
+
+@pytest.mark.regression_capture("run-timeout-cli-contract")
+def test_run_command_accepts_large_timeout() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        _write_project()
+        expected = runner.invoke(main, ["run"])
+        actual = runner.invoke(main, ["run", "--timeout-seconds", str(10**100)])
+    assert actual.exit_code == expected.exit_code == 3
+    assert actual.output == expected.output
+
+
+@pytest.mark.regression_capture("run-timeout-cli-contract")
+def test_run_cli_delivered_sigint_joins_execution_and_restores_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous = signal.getsignal(signal.SIGINT)
+    finished = Event()
+    calls: list[int] = []
+
+    def execute(
+        self: RunService, *, timeout_seconds: int | None = None, cancel_event: Event | None = None
+    ) -> ServiceResult:
+        assert current_thread() is not main_thread()
+        assert timeout_seconds == 7
+        assert cancel_event is not None
+        calls.append(1)
+        signal.raise_signal(signal.SIGINT)
+        assert cancel_event.wait(5)
+        finished.set()
+        return ServiceResult(ExitCategory.RUNTIME_ERROR, "Run cancellation was requested.")
+
+    monkeypatch.setattr(RunService, "execute", execute)
+    result = CliRunner().invoke(main, ["run", "--timeout-seconds", "7"])
+    assert result.exit_code == 3
+    assert "Run cancellation was requested." in result.output
+    assert calls == [1]
+    assert finished.is_set()
+    assert signal.getsignal(signal.SIGINT) == previous
+
+
+@pytest.mark.regression_capture("run-timeout-cli-contract")
+def test_run_cli_preserves_ignored_sigint(monkeypatch: pytest.MonkeyPatch) -> None:
+    previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    calls: list[int] = []
+
+    def execute(
+        self: RunService, *, timeout_seconds: int | None = None, cancel_event: Event | None = None
+    ) -> ServiceResult:
+        calls.append(1)
+        assert signal.getsignal(signal.SIGINT) == signal.SIG_IGN
+        assert cancel_event is None
+        return ServiceResult.success("ok")
+
+    try:
+        monkeypatch.setattr(RunService, "execute", execute)
+        result = CliRunner().invoke(main, ["run"])
+        assert result.exit_code == 0
+        assert calls == [1]
+        assert signal.getsignal(signal.SIGINT) == signal.SIG_IGN
+    finally:
+        signal.signal(signal.SIGINT, previous)
+
+
+@pytest.mark.regression_capture("run-timeout-cli-contract")
+@pytest.mark.parametrize("phase", ["before_start", "before_seal", "after_seal"])
+def test_run_cli_observes_sigint_without_waiting_for_coordinator(
+    monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
+    cli = importlib.import_module("recon_core.cli.main")
+    previous = signal.getsignal(signal.SIGINT)
+    evaluating = Event()
+    proceed = Event()
+    calls: list[int] = []
+    original_evaluate = RunService._evaluate_invocation
+
+    def evaluate(self: RunService, invocation: Any) -> Any:
+        calls.append(1)
+        if phase == "before_start" and invocation.observe_stop() is not None:
+            return original_evaluate(self, invocation)
+        if phase == "before_seal":
+            evaluating.set()
+            assert proceed.wait(5)
+        return ServiceResult.success("Short run completed.")
+
+    class ScheduledThread(Thread):
+        def start(self) -> None:
+            if phase == "before_start":
+                signal.raise_signal(signal.SIGINT)
+            super().start()
+            if phase == "before_seal":
+                try:
+                    assert evaluating.wait(5)
+                    signal.raise_signal(signal.SIGINT)
+                finally:
+                    proceed.set()
+            # Deliberately finish the short invocation before the CLI coordinator
+            # gets its first opportunity to transfer a signal request.
+            self.join(5)
+            assert not self.is_alive()
+            if phase == "after_seal":
+                signal.raise_signal(signal.SIGINT)
+
+    monkeypatch.setattr(cli, "Thread", ScheduledThread)
+    monkeypatch.setattr(RunService, "_evaluate_invocation", evaluate)
+    result = CliRunner().invoke(main, ["run"])
+    assert calls == [1]
+    assert signal.getsignal(signal.SIGINT) == previous
+    if phase == "after_seal":
+        assert result.exit_code == 0
+        assert "Short run completed." in result.output
+    else:
+        assert result.exit_code == 3
+        assert "RC_RUNTIME_RUN_CANCELLED" in result.output
+        assert "Short run completed." not in result.output

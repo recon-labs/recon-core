@@ -655,7 +655,15 @@ def test_aggregate_capability_blocker_preserves_unrelated_row_count(
     )
     registry = AdapterRegistry()
     registry.register("duckdb", factory)
-    result = RunService(start_path=tmp_path, adapter_registry=registry).execute()
+    invocation = RunService(start_path=tmp_path, adapter_registry=registry)._execute_invocation()
+    result = invocation.service_result
+    first, second = invocation.resource_facts
+    assert first.capability_admitted is True and first.admission.value == "verified"
+    assert second.capability_admitted is None and second.admission.value == "not_reached"
+    assert second.native is None
+    assert invocation.run_result is not None
+    reason = invocation.run_result.contract_results[0].check_results[1].reason_code
+    assert reason is not None and reason.value == "missing_engine_capability"
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert result.message == "Run completed with non-executable checks."
     assert "RC_ADAPTER_CAPABILITY_UNSUPPORTED" in {d.code for d in result.diagnostics}
@@ -1583,11 +1591,16 @@ def test_explicit_footprint_policy(
     # A sparse file supplies only size evidence; no data read is possible.
     session_trace.failures[1] = "connect"
     engine = _CapturingAggregateEngine()
-    result = RunService(
+    invocation = RunService(
         start_path=tmp_path,
         engine=engine,
         adapter_registry=_tracking_registry(_TrackingAggregateFactory()),
-    ).execute()
+    )._execute_invocation()
+    result = invocation.service_result
+    facts = invocation.resource_facts[0]
+    assert facts.preliminary_allowed is (offset <= 0)
+    assert (facts.native is None) is (offset > 0)
+    assert facts.admission.value == ("not_reached" if offset > 0 else "unverified")
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
     check = engine.result.contract_results[0].check_results[0]
@@ -1633,7 +1646,16 @@ def test_large_native_database_without_default_cap(
     )
     before = database.stat()
     engine = _CapturingAggregateEngine()
-    result = RunService(start_path=tmp_path, engine=engine).execute()
+    invocation = RunService(start_path=tmp_path, engine=engine)._execute_invocation()
+    result = invocation.service_result
+    assert len(invocation.resource_facts) == 9
+    assert all(
+        fact.admission.value == "verified"
+        and fact.capability_admitted is True
+        and fact.native is not None
+        and fact.native.readback_verified
+        for fact in invocation.resource_facts
+    )
     assert result.exit_category is ExitCategory.SUCCESS
     assert engine.result is not None
     checks = engine.result.contract_results[0].check_results
@@ -1646,7 +1668,15 @@ def test_large_native_database_without_default_cap(
     assert len(session_trace.sessions) == len(session_trace.closes) == 18
 
     _set_project_duckdb_execution(tmp_path, {"max-database-mib": 64})
-    result = RunService(start_path=tmp_path, engine=engine).execute()
+    blocked = RunService(start_path=tmp_path, engine=engine)._execute_invocation()
+    result = blocked.service_result
+    assert len(blocked.resource_facts) == 9
+    assert all(
+        fact.preliminary_allowed is False
+        and fact.admission.value == "not_reached"
+        and fact.native is None
+        for fact in blocked.resource_facts
+    )
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert engine.result is not None
     checks = engine.result.contract_results[0].check_results
@@ -1680,7 +1710,11 @@ def test_optional_native_input_row_estimate_is_role_summed(
     if same_relation:
         write_compiled_contract(tmp_path, target_relation="qa.source_customers")
     _set_project_duckdb_execution(tmp_path, {"warn-estimated-input-rows": threshold})
-    result = RunService(start_path=tmp_path).execute()
+    invocation = RunService(start_path=tmp_path)._execute_invocation()
+    result = invocation.service_result
+    native = invocation.resource_facts[0].native
+    assert native is not None and native.estimate is not None
+    assert native.estimate.value == ("exceeds_advisory" if threshold < 2 else "within_advisory")
     assert result.exit_category is ExitCategory.SUCCESS
     warnings = [
         d for d in result.diagnostics if d.code == "RC_RUNTIME_ESTIMATED_INPUT_ROWS_ADVISORY"
@@ -1698,6 +1732,7 @@ def test_optional_native_input_row_estimate_is_role_summed(
 
 @pytest.mark.regression_capture("duckdb-owned-project-binding")
 @pytest.mark.regression_capture("duckdb-worker-bound-session-scope")
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
 def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1758,11 +1793,15 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         return Connection(duckdb.connect(path, read_only=read_only), actor=False)
 
     monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
-    engine = _CapturingAggregateEngine()
-    result = RunService(start_path=tmp_path, engine=engine).execute()
-    assert result.exit_category is ExitCategory.SUCCESS
-    assert engine.result is not None
-    checks = engine.result.contract_results[0].check_results
+    invocation = RunService(start_path=tmp_path)._execute_invocation()
+    assert invocation.service_result.exit_category is ExitCategory.SUCCESS
+    assert invocation.run_result is not None
+    checks = invocation.run_result.contract_results[0].check_results
+    assert invocation.scope_facts.complete is True
+    facts = invocation.execution_facts
+    assert facts.attempted_check_count == 9
+    assert facts.peak_active_native_checks == 1
+    comparison_attempts = 0
     assert len(checks) == len(sessions) == len(guards) == 9
     assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
     monkeypatch.chdir(tmp_path)
@@ -1773,7 +1812,9 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     assert all(not path.exists() for path in scratch_paths)
     assert closures == ["actor", "guard"] * 18
     assert str(database) not in cli.output and str(tmp_path) not in cli.output
-    for check, statements, guard in zip(checks * 2, sessions, guards, strict=True):
+    for index, (check, statements, guard) in enumerate(
+        zip(checks * 2, sessions, guards, strict=True)
+    ):
         assert guard[-1] == "CLOSE" and "BEGIN TRANSACTION" not in guard
         start = statements.index("BEGIN TRANSACTION")
         assert any("ATTACH " in statement for statement in statements[:start])
@@ -1784,6 +1825,12 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         assert statements[-2:] == ["ROLLBACK", "CLOSE"]
         assert statements[1] == statements[3] == "pragma database_list"
         assert all("information_schema.tables" in statements[i] for i in (2, 4))
+        if index < 9:
+            native = invocation.resource_facts[index].native
+            assert native is not None
+            assert invocation.resource_facts[index].check_id == check.check_id
+            assert native.execute_attempts == native.fetch_attempts == len(statements[5:-2])
+            comparison_attempts += len(statements[5:-2])
         queries = [query for query in statements[5:-2] if not query.startswith("DESCRIBE ")]
         assert len(queries) == {"sum_diff": 3, "grouped_aggregate_diff": 4}.get(check.check_type, 1)
         assert all(f'"{catalog}"."qa".' in query for query in queries)
@@ -1792,6 +1839,7 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
             assert "typeof(s.group_key_" not in queries[-1]
             assert "s.group_key_0 is not distinct from t.group_key_0" in queries[-1]
             assert "s.group_key_1 is not distinct from t.group_key_1" in queries[-1]
+    assert facts.native_execute_attempts == facts.native_fetch_attempts == comparison_attempts
     assert database.read_bytes() == before
     _assert_no_runtime_outputs(tmp_path)
 
@@ -1856,7 +1904,12 @@ def test_unavailable_catalog_estimate_is_advisory_only(
     _set_project_duckdb_execution(tmp_path, {"warn-estimated-input-rows": 1})
     monkeypatch.setattr(binding, "_catalog_estimated_rows", lambda connection, relation: None)
     engine = _CapturingAggregateEngine()
-    result = RunService(start_path=tmp_path, engine=engine).execute()
+    invocation = RunService(start_path=tmp_path, engine=engine)._execute_invocation()
+    result = invocation.service_result
+    native = invocation.resource_facts[0].native
+    assert native is not None and native.estimate is not None
+    assert native.estimate.value == "unknown"
+    assert "RC_RUNTIME_ESTIMATED_INPUT_ROWS_UNKNOWN" in native.advisory_codes
     assert result.exit_category is ExitCategory.SUCCESS
     assert engine.result is not None
     check = engine.result.contract_results[0].check_results[0]
@@ -2017,3 +2070,233 @@ def test_fresh_native_targets_for_each_check_and_both_invocation_paths(
     assert len(set(observations)) == 6
     assert not list(scratch.iterdir())
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+@pytest.mark.parametrize("mode", ["embedded", "cli", "deadline"])
+def test_actual_run_service_cancels_active_native_spill(tmp_path: Path, mode: str) -> None:
+    """Observe real spill, request caller cancellation, and prove native stop and release."""
+    _duckdb_module()
+    import subprocess
+    import sys
+    import textwrap
+
+    code = textwrap.dedent(
+        """
+        import os
+        import signal
+        import threading
+        import time
+        from pathlib import Path
+        import sys
+
+        import duckdb
+        from click.testing import CliRunner
+        from recon_core.cli.main import main
+        from recon_core.adapters.duckdb import _bound_execution as binding
+        from recon_core.services import RunService
+        import recon_core.services.run as run_service_module
+        from tests.services._run_service_fixtures import (
+            write_duckdb_row_count_run_inputs, write_compiled_checks, row_count_plan,
+            _compiled_check_payload, _assert_no_runtime_outputs,
+        )
+        from tests.services.test_run_service_aggregate_admission import (
+            _aggregate_check, _set_project_duckdb_execution,
+        )
+
+        base = Path(sys.argv[1]).resolve()
+        mode = sys.argv[2]
+        expired = threading.Event()
+        if mode == "deadline":
+            run_service_module.monotonic_ns = lambda: time.monotonic_ns() + (
+                60_000_000_000 if expired.is_set() else 0
+            )
+        database = base / "private-spill.duckdb"
+        writer = duckdb.connect(str(database), config={"threads": "2", "memory_limit": "768MiB"})
+        try:
+            writer.execute("CREATE SCHEMA qa")
+            writer.execute(
+                "CREATE TABLE qa.source_customers AS "
+                "SELECT i customer_id, 5::bigint revenue FROM range(3000000) t(i)"
+            )
+            writer.execute("CREATE TABLE qa.target_customers AS SELECT * FROM qa.source_customers")
+        finally:
+            writer.close()
+        write_duckdb_row_count_run_inputs(base, database)
+        grouped = _aggregate_check(grouped=True)
+        grouped["metric"]["group_by"] = ["customer_id"]
+        grouped["requirements"]["required_columns"] = ["revenue", "customer_id"]
+        for op in grouped["plan"]["operations"]:
+            if "group_by" in op:
+                op["group_by"] = ["customer_id"]
+        write_compiled_checks(base, checks=[grouped, _compiled_check_payload(
+            operations=row_count_plan()
+        )])
+        scratch = base / "scratch"
+        scratch.mkdir()
+        _set_project_duckdb_execution(base, {
+            "managed-memory": {"mib": 128}, "threads": 1,
+            "spill": {"mib": 1024}, "scratch-directory": "scratch",
+        })
+        observer = duckdb.connect(str(database), read_only=True)
+        setting_sql = (
+            "SELECT current_setting('memory_limit'), current_setting('threads'), "
+            "current_setting('temp_directory'), current_setting('max_temp_directory_size')"
+        )
+        before = observer.execute(setting_sql).fetchone()
+        event = threading.Event()
+        active = threading.Event()
+        sessions = []
+        native_interrupted = []
+        native_errors = []
+        final_calls = []
+        spill_files = []
+        closed = []
+        outcomes = []
+        original_open = binding._OwnedDuckDbSession.open
+        original_close = binding._OwnedDuckDbSession.close
+
+        class ObservedActor:
+            def __init__(self, native):
+                self.native = native
+            def __getattr__(self, name):
+                return getattr(self.native, name)
+            def execute(self, statement, *args):
+                # The final comparison (not setup, type guard or DESCRIBE).
+                is_final = "total_group_count" in statement.lower() and not (
+                    statement.lstrip().upper().startswith("DESCRIBE")
+                )
+                if is_final:
+                    # The private scratch base was initially empty; setup and guards
+                    # must not supply the positive file evidence for this comparison.
+                    assert not any(
+                        item.is_file() and item.stat().st_size > 0
+                        for item in scratch.rglob("*")
+                    ), "Spill evidence must start empty before final comparison."
+                    final_calls.append(1)
+                    active.set()
+                try:
+                    return self.native.execute(statement, *args)
+                except duckdb.Error as error:
+                    if is_final:
+                        native_interrupted.append("interrupt" in str(error).lower())
+                        native_errors.append(type(error).__name__)
+                    raise
+                finally:
+                    if is_final:
+                        active.clear()
+
+        def open_session(session):
+            original_open(session)
+            sessions.append(session)
+            session._connection = ObservedActor(session._connection)
+
+        def close_session(session):
+            diagnostics = original_close(session)
+            closed.append(session.released)
+            return diagnostics
+
+        binding._OwnedDuckDbSession.open = open_session
+        binding._OwnedDuckDbSession.close = close_session
+
+        original_execute = RunService._execute_invocation
+
+        def capture_invocation(self, **kwargs):
+            outcome = original_execute(self, **kwargs)
+            outcomes.append(outcome)
+            return outcome
+
+        RunService._execute_invocation = capture_invocation
+        seen = threading.Event()
+        done = threading.Event()
+        failures = []
+        previous = signal.getsignal(signal.SIGINT)
+
+        def request_after_spill():
+            try:
+                deadline = time.monotonic() + 45
+                while not done.is_set() and time.monotonic() < deadline:
+                    if active.is_set():
+                        for entry in scratch.rglob("*"):
+                            try:
+                                if entry.is_file() and entry.stat().st_size > 0:
+                                    spill_files.append(entry.name)
+                                    seen.set()
+                                    break
+                            except FileNotFoundError:
+                                continue
+                    if seen.is_set():
+                        assert active.is_set(), "Spill was no longer active."
+                        if mode == "cli":
+                            signal.raise_signal(signal.SIGINT)
+                        elif mode == "deadline":
+                            expired.set()
+                        else:
+                            event.set()
+                        return
+                    time.sleep(0.005)
+                raise AssertionError("No active native spill observed.")
+            except BaseException as error:
+                failures.append(error)
+                event.set()
+
+        watcher = threading.Thread(target=request_after_spill, daemon=False)
+        watcher.start()
+        try:
+            if mode == "cli":
+                os.chdir(base)
+                result = CliRunner().invoke(main, ["run", "--timeout-seconds", "60"])
+                assert result.exit_code == 3, result.output
+                assert "RC_RUNTIME_RUN_CANCELLED" in result.output
+                assert signal.getsignal(signal.SIGINT) == previous
+            else:
+                RunService(start_path=base).execute(timeout_seconds=60, cancel_event=event)
+            done.set()
+            watcher.join(20)
+            assert not watcher.is_alive()
+            assert not failures and seen.is_set(), (
+                f"failures={failures!r}; final_calls={final_calls!r}; "
+                f"spill_files={spill_files!r}; native_errors={native_errors!r}; "
+                f"results={[o.service_result.to_dict() for o in outcomes]!r}"
+            )
+            assert final_calls == [1]
+            assert native_interrupted == [True]
+            assert len(sessions) == 1 and closed == [True]
+            assert len(outcomes) == 1
+            outcome = outcomes[0]
+            assert outcome.service_result.exit_category.value == "runtime_error"
+            expected = "run_deadline_exceeded" if mode == "deadline" else "run_cancelled"
+            assert outcome.stop_cause.value == expected
+            assert ("RC_RUNTIME_" + expected.upper()) in {
+                d.code for d in outcome.service_result.diagnostics
+            }
+            assert outcome.scope_facts.complete is True
+            checks = outcome.run_result.contract_results[0].check_results
+            assert checks[0].status.value == "error" and not checks[0].executed
+            assert checks[0].source_value is None and checks[0].target_value is None
+            assert checks[1].reason_code.value == expected
+            if mode == "deadline":
+                assert not event.is_set() and outcome.elapsed_ns >= 60_000_000_000
+            assert not checks[1].executed
+            assert observer.execute(setting_sql).fetchone() == before
+            assert observer.execute("SELECT 42").fetchone() == (42,)
+            assert not list(scratch.iterdir())
+            assert not any(
+                t.name in ("recon-run-control", "recon-cli-run") for t in threading.enumerate()
+            )
+            _assert_no_runtime_outputs(base)
+        finally:
+            event.set()
+            done.set()
+            watcher.join(20)
+            observer.close()
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(tmp_path.resolve()), mode],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

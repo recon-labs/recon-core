@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
+from recon_core._run_control import _RunControl, _RunStoppedError
 from recon_core.adapters._aggregate_runtime import _AggregateQueryResult
 from recon_core.adapters._project_binding import (
     _BindingLease,
@@ -32,6 +33,11 @@ from recon_core.check_engine.scan_budget import BOUNDED_LOCAL_SCAN_REQUIRED, SCA
 from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.diagnostics import Diagnostic, DiagnosticSeverity
 from recon_core.profiles import ConnectionConfig
+from recon_core.services._run_lifecycle import (
+    _CheckResourceFacts,
+    _ExecutionLedger,
+    _NativeAdmission,
+)
 
 
 class _SessionReader:
@@ -95,15 +101,46 @@ class _ProjectBoundRunner:
         connections: Mapping[str, ConnectionConfig],
         identities: Mapping[str, _LocalFileIdentity],
         resource_policies: Mapping[str, _LocalResourcePolicy],
+        resource_facts: dict[str, _CheckResourceFacts],
+        *,
+        control: _RunControl | None = None,
+        execution_ledger: _ExecutionLedger | None = None,
     ) -> None:
         self._root = project_root
         self._connections = deepcopy(dict(connections))
         self._identities = dict(identities)
         self._resource_policies = dict(resource_policies)
+        self._resource_facts = resource_facts
+        self._control = control
+        self._execution_ledger = (
+            execution_ledger if execution_ledger is not None else _ExecutionLedger()
+        )
         self._unreleased: list[tuple[_LocalFileIdentity, _OwnedSession]] = []
         self._session_count = 0
 
     def run(
+        self,
+        check: LoadedCompiledCheck,
+        contract: LoadedCompiledContractArtifact,
+        adapter: BaseAdapter,
+        evaluate: _BoundEvaluation,
+    ) -> CheckResult:
+        facts = self._resource_facts.get(check.id)
+        if facts is None:
+            facts = _CheckResourceFacts(check.id, None, None, None, None)
+        self._resource_facts[check.id] = replace(
+            facts, admission=_NativeAdmission.UNVERIFIED, capability_admitted=True
+        )
+        result = self._run_bound_check(check, contract, adapter, evaluate)
+        facts = self._resource_facts[check.id]
+        if (
+            result.status is CheckStatus.NOT_EXECUTABLE
+            and facts.admission is not _NativeAdmission.VERIFIED
+        ):
+            self._resource_facts[check.id] = replace(facts, admission=_NativeAdmission.REFUSED)
+        return result
+
+    def _run_bound_check(
         self,
         check: LoadedCompiledCheck,
         contract: LoadedCompiledContractArtifact,
@@ -185,25 +222,52 @@ class _ProjectBoundRunner:
             )
         if _exceeds_authored_footprint(identity, source_policy):
             return _scope_refusal(check, contract, over_cap=True)
+        if self._control is not None and (cause := self._control.observe()) is not None:
+            diagnostic = cause.diagnostic()
+            return not_executable_result(
+                check,
+                contract,
+                reason=CheckReason(cause.value),
+                diagnostic_code=diagnostic.code,
+                message=diagnostic.message,
+                hint=diagnostic.hint or "Start a new invocation when ready.",
+            )
         self._session_count += 1
         session_number = self._session_count
         session = _new_owned_session(
             source.type, identity, project_root=self._root, resource_policy=source_policy
         )
+        binding_verified = False
+        attempted = False
         try:
+            if self._control is not None:
+                session._set_run_control(self._control)
+                self._control.checkpoint()
+            self._execution_ledger.begin()
+            attempted = True
             session.open()
+            if self._control is not None:
+                self._control.checkpoint()
             lease = session.bind(
                 check_id=check.id,
                 operation=check.check_type,
                 source=contract.source.relation,
                 target=contract.target.relation,
             )
+            if self._control is not None:
+                self._control.checkpoint()
             if lease is None:
                 result = _scope_refusal(check, contract)
             else:
+                binding_verified = True
                 result = evaluate(
                     lease.scope.source, lease.scope.target, _SessionReader(session, lease)
                 )
+        except _RunStoppedError as exc:
+            diagnostic = exc.cause.diagnostic()
+            result = error_result(
+                check, contract, message=diagnostic.message, diagnostics=(diagnostic,)
+            )
         except _BoundSessionError as exc:
             if exc.diagnostic.code == "RC_RUNTIME_RESOURCE_CONTROL_UNAVAILABLE":
                 result = not_executable_result(
@@ -233,17 +297,27 @@ class _ProjectBoundRunner:
                 "Native execution failed before a trustworthy result was produced.",
             )
         finally:
-            cleanup = session.close()
-            if not session.released:
-                self._unreleased.append((identity, session))
-                if not cleanup:
-                    cleanup = (
-                        Diagnostic(
-                            code=ADAPTER_CLOSE_FAILED,
-                            severity=DiagnosticSeverity.ERROR,
-                            message="Native execution cleanup could not be confirmed.",
-                        ),
-                    )
+            try:
+                cleanup = self._close_owned_session(session, identity)
+                self._resource_facts[check.id] = replace(
+                    self._resource_facts[check.id],
+                    admission=(
+                        _NativeAdmission.VERIFIED
+                        if binding_verified
+                        else _NativeAdmission.UNVERIFIED
+                    ),
+                    native=session.resource_facts,
+                )
+            finally:
+                if attempted:
+                    self._execution_ledger.end()
+
+        if self._control is not None and not result.executed:
+            cause = self._control.observe()
+            if cause is not None:
+                diagnostic = cause.diagnostic()
+                if diagnostic not in result.diagnostics:
+                    result = replace(result, diagnostics=result.diagnostics + (diagnostic,))
 
         # Preserve distinct fixed, non-identifying per-session diagnostics across
         # the service's diagnostic deduplication boundary.
@@ -273,10 +347,12 @@ class _ProjectBoundRunner:
         primary = result.diagnostics
         if result.status is CheckStatus.FAIL:
             primary += (
-                Diagnostic(
-                    code=ADAPTER_QUERY_FAILED,
-                    severity=DiagnosticSeverity.ERROR,
-                    message="Check evaluated to a failing outcome before cleanup failed.",
+                attribute(
+                    Diagnostic(
+                        code="RC_RUNTIME_CHECK_FAILURE_BEFORE_CLEANUP",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Check evaluated to a failing outcome before cleanup failed.",
+                    )
                 ),
             )
         return CheckResult(
@@ -289,3 +365,27 @@ class _ProjectBoundRunner:
             message="Check failed during read-only execution cleanup.",
             diagnostics=primary + cleanup,
         )
+
+    def _close_owned_session(
+        self, session: _OwnedSession, identity: _LocalFileIdentity
+    ) -> tuple[Diagnostic, ...]:
+        cleanup: tuple[Diagnostic, ...] = ()
+        cleanup_raised = False
+        try:
+            cleanup = session.close()
+            released = session.released
+        except Exception:
+            # A close/release exception is not proof that native resources were released.
+            released = False
+            cleanup_raised = True
+        if not released:
+            self._unreleased.append((identity, session))
+            if cleanup_raised or not cleanup:
+                cleanup += (
+                    Diagnostic(
+                        code=ADAPTER_CLOSE_FAILED,
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Native execution cleanup could not be confirmed.",
+                    ),
+                )
+        return cleanup

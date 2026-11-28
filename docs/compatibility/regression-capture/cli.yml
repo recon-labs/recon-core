@@ -1,6 +1,31 @@
 schema_version: 1
 area: cli
 captures:
+  - id: run-timeout-cli-contract
+    title: Optional timeout validates before execution and accepts unbounded integer duration
+    area: cli
+    bug_class: terminal_output
+    owner_surface: exit_codes
+    severity: P2
+    current_tests:
+      - tests/cli/test_main.py::test_run_command_rejects_invalid_timeout
+      - tests/cli/test_main.py::test_run_command_accepts_large_timeout
+      - tests/cli/test_main.py::test_run_cli_delivered_sigint_joins_execution_and_restores_handler
+      - tests/cli/test_main.py::test_run_cli_preserves_ignored_sigint
+      - tests/cli/test_main.py::test_run_cli_observes_sigint_without_waiting_for_coordinator
+    carryover_gates:
+      - gate: cli_behavior_carryover
+        status: covered
+        expected_suite: run_timeout_cli
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: run_timeout_cli
+        rationale: Publication must preserve the final invocation stop outcome and safe exit category.
+    requirement_refs:
+      - docs/planning/milestone-8-2-prework.md: B8
+    notes: >
+      Optional positive integer seconds; invalid arguments fail before runtime,
+      no arbitrary maximum, no default deadline and no new serialized fields.
   - id: compile-command-terminal-contract
     title: Compile command preserves render-sql flag wiring and terminal outcomes
     area: cli

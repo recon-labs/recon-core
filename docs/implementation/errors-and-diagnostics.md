@@ -427,8 +427,10 @@ results. Locked codes:
 | `RC_RUNTIME_MISSING_KEYS` | run | error | A missing-key coverage check executed and found distinct fully non-null source keys missing from target. |
 | `RC_RUNTIME_EXTRA_KEYS` | run | error | An extra-key coverage check executed and found distinct fully non-null target keys absent from source. |
 | `RC_RUNTIME_KEY_SAFETY_RESULT_INVALID` | run | error | A key-safety adapter query returned an invalid bounded count result. |
-| `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, was not executable, or is missing. |
+| `RC_RUNTIME_CHECK_BLOCKED_BY_PREREQUISITE` | run | error | A check did not run because a prerequisite failed, errored, was skipped, was not executable, or is missing. |
 | `RC_RUNTIME_CHECK_ENGINE_INTERNAL_ERROR` | run | error | An unexpected check-engine error occurred after sanitization. |
+| `RC_RUNTIME_RUN_INTERNAL_ERROR` | run | error | An unexpected failure occurred at the recorded invocation preparation or result-projection stage. |
+| `RC_RUNTIME_CHECK_FAILURE_BEFORE_CLEANUP` | run | error | A check reached a reconciliation mismatch before cleanup invalidated its comparison result. |
 
 Runtime adapter execution adds adapter-family diagnostics for connection,
 execution, and close failures. `RC_ADAPTER_CONNECTION_FAILED`,
@@ -439,8 +441,14 @@ fragments, tracebacks, relation data, and source/target values. Close failures
 must not hide a primary execution failure. Each eligible DuckDB check owns a
 read-only transaction; native failures are check-local errors. Cleanup failure
 invalidates any comparison result. Actual dependents remain blocked; unrelated
-eligible native work can continue only after release is confirmed. Fixed safe
-session ordinals distinguish otherwise identical failures.
+eligible work on the affected database can continue only after release is
+confirmed; independent databases remain eligible. An unexpected close or
+release-proof exception is an uncertain cleanup failure, not a new query
+failure. Fixed safe connection/session ordinals distinguish otherwise
+identical events. Unexpected preparation or result-projection faults produce
+a finalized runtime failure with the actual stage and no raw exception payload.
+A projection failure retains completed internal check results; expected input
+and setup diagnostics keep their existing categories.
 
 Future runtime, state, and evidence phases may add or retain additional
 runtime-family codes for check execution errors, artifact writes, state writes,
@@ -554,7 +562,7 @@ release is confirmed. Uncertain cleanup blocks further eligible native work
 for the affected database, not unrelated databases; a final check error
 carries no comparison values and actual prerequisite
 blockers remain distinct. Existing configuration/setup precedence, public
-API signatures and status/reason/exit taxonomy are preserved. The runtime
+adapter API and status/exit taxonomy are preserved; invocation stop adds explicit reasons and diagnostics. The runtime
 diagnostics `RC_RUNTIME_BINDING_PROOF_FAILED` and
 `RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE` distinguish binding failure from
 execution stopped after uncertain cleanup. Existing connection/query/close
@@ -562,3 +570,11 @@ diagnostics remain sanitized. This is a local execution boundary with
 calibrated best-effort native resource policy, not a stable general
 transaction API or physical resource guarantee. See the
 [shared binding prework](../planning/milestone-8-1-1-prework.md).
+
+## Invocation control
+
+`RC_RUNTIME_RUN_CANCELLED` and `RC_RUNTIME_RUN_DEADLINE_EXCEEDED` identify the
+first observed invocation stop. `RC_RUNTIME_RUN_CONTROL_UNAVAILABLE` reports
+an injected engine that cannot honor required control. Runtime stops retain
+existing exit 3, with earlier independent configuration or validation failure
+preserving its primary exit category. Cleanup diagnostics remain separate.

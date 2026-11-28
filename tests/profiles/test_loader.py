@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from recon_core.artifacts import LoadedCompiledContractArtifact, LoadedCompiledEndpoint
+from recon_core.config._local_resource_policy import _LocalResourcePolicy
 from recon_core.parser.contracts import AuthoredContract, AuthoredEndpoint
 from recon_core.parser.models import SourceLocation
 from recon_core.profiles import (
@@ -1083,3 +1084,25 @@ profiles:
     assert other.spill_bytes is None
     assert other.spill_percent == 80
     assert other.threads == 8
+
+    def facts(policy: _LocalResourcePolicy) -> dict[str, tuple[str, str, int | None]]:
+        return {
+            fact.setting: (fact.scope.value, fact.mode.value, fact.requested_value)
+            for fact in policy._setting_facts
+        }
+
+    assert facts(legacy) == {
+        "managed-memory": ("connection", "auto", None),
+        "threads": ("connection", "auto", None),
+        "spill": ("target", "percent", 80),
+        "max-database-mib": ("connection", "none", None),
+        "warn-estimated-input-rows": ("connection", "none", None),
+        "scratch-directory": ("default", "auto", None),
+    }
+    assert facts(warehouse)["managed-memory"] == ("connection", "percent", 60)
+    assert facts(warehouse)["spill"] == ("connection", "auto", None)
+    assert facts(warehouse)["threads"] == ("project", "fixed", 8)
+    assert facts(other)["managed-memory"] == ("target", "fixed", 2048 * (1 << 20))
+    assert facts(other)["max-database-mib"] == ("project", "fixed", 1024 * (1 << 20))
+    assert "private.duckdb" not in repr(legacy._setting_facts)
+    assert legacy == _LocalResourcePolicy(spill_percent=80)

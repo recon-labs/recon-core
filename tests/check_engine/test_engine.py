@@ -1,4 +1,6 @@
 import ast
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -54,6 +56,8 @@ def test_engine_assembles_run_and_contract_results_without_execution(tmp_path: P
     )
 
     assert result.project_name == "ecommerce_recon"
+    assert result.started_at == "2026-06-11T10:00:00Z"
+    assert result.finished_at == "2026-06-11T10:00:01Z"
     assert result.status is RunStatus.NOT_EXECUTABLE
     assert result.artifact_refs == ()
     assert result.sink_refs == ()
@@ -993,6 +997,7 @@ def test_engine_blocks_check_when_prerequisite_is_not_executable(tmp_path: Path)
     assert dependent_result.blocked_by == (prerequisite.id,)
 
 
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
 def test_engine_reports_multiple_missing_prerequisites_once(tmp_path: Path) -> None:
     dependent = _check(
         check_id="check.ecommerce_recon.customer_revenue.value_match",
@@ -1020,6 +1025,9 @@ def test_engine_reports_multiple_missing_prerequisites_once(tmp_path: Path) -> N
         "check.ecommerce_recon.customer_revenue.null_source_keys",
         "check.ecommerce_recon.customer_revenue.duplicate_source_keys",
     )
+    assert dependent_result.message is not None
+    for blocker in dependent_result.blocked_by:
+        assert dependent_result.message.count(blocker) == 1
 
 
 def test_engine_sanitizes_unexpected_dispatch_error(tmp_path: Path) -> None:
@@ -1279,3 +1287,224 @@ class _RecordingDuckDbAdapter(BaseAdapter):
 
 class _OtherAdapter(_RecordingDuckDbAdapter):
     adapter_type = "otherdb"
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_engine_computes_finish_when_no_label_is_supplied(tmp_path: Path) -> None:
+    artifact = _artifact(tmp_path, checks=(_check(),))
+    before = datetime.now(UTC)
+
+    result = CheckEngine().run(
+        (artifact,),
+        run_id="run-001",
+        started_at=before.isoformat(),
+        finished_at=None,
+    )
+
+    assert result.finished_at is not None
+    assert before <= datetime.fromisoformat(result.finished_at) <= datetime.now(UTC)
+    assert result.status is RunStatus.NOT_EXECUTABLE
+
+
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
+@pytest.mark.parametrize(
+    ("status", "reason", "expected_blocker"),
+    [
+        (CheckStatus.PASS, None, None),
+        (CheckStatus.WARN, None, None),
+        (CheckStatus.FAIL, None, CheckReason.PREREQUISITE_FAILED),
+        (CheckStatus.ERROR, None, CheckReason.PREREQUISITE_ERROR),
+        (
+            CheckStatus.NOT_EXECUTABLE,
+            CheckReason.MISSING_ENGINE_CAPABILITY,
+            CheckReason.PREREQUISITE_NOT_EXECUTABLE,
+        ),
+        (
+            CheckStatus.SKIPPED,
+            CheckReason.SKIPPED_BY_POLICY,
+            CheckReason.PREREQUISITE_NOT_EXECUTABLE,
+        ),
+        (
+            CheckStatus.SKIPPED,
+            CheckReason.SELECTED_OUT,
+            CheckReason.PREREQUISITE_NOT_EXECUTABLE,
+        ),
+        (
+            CheckStatus.BLOCKED,
+            CheckReason.PREREQUISITE_MISSING,
+            CheckReason.PREREQUISITE_MISSING,
+        ),
+    ],
+)
+def test_shared_prerequisite_evaluated_once_across_contracts(
+    tmp_path: Path,
+    status: CheckStatus,
+    reason: CheckReason | None,
+    expected_blocker: CheckReason | None,
+) -> None:
+    calls: list[str] = []
+    shared = _check(check_id="shared", name="shared")
+    first = _check(check_id="first", name="first", prerequisites=("shared", "shared"))
+    second = replace(
+        _check(check_id="second", name="second", prerequisites=("shared",)),
+        contract_name="other",
+    )
+    unrelated = replace(_check(check_id="unrelated", name="unrelated"), contract_name="other")
+
+    class RecordingDispatcher:
+        def dispatch(self, check: LoadedCompiledCheck) -> CheckResult:
+            calls.append(check.id)
+            actual_status = status if check.id == shared.id else CheckStatus.PASS
+            actual_reason = reason if check.id == shared.id else None
+            return CheckResult(
+                check_id=check.id,
+                name=check.name,
+                check_type=check.check_type,
+                contract_name=check.contract_name,
+                status=actual_status,
+                executed=actual_status in {CheckStatus.PASS, CheckStatus.FAIL, CheckStatus.WARN},
+                reason_code=actual_reason,
+                message="Prerequisite outcome." if actual_reason is not None else None,
+                blocked_by=("missing",) if actual_status is CheckStatus.BLOCKED else (),
+                diagnostics=(
+                    Diagnostic(
+                        code="RC_TEST_OUTCOME",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Prerequisite outcome.",
+                    ),
+                )
+                if actual_reason is not None
+                else (),
+            )
+
+    artifacts = (
+        _artifact(tmp_path, checks=(first, shared)),
+        replace(
+            _artifact(tmp_path, checks=(second, unrelated)),
+            contract_id="contract.other",
+            contract_name="other",
+        ),
+    )
+    engine = CheckEngine(dispatcher=RecordingDispatcher())
+    for _ in range(2):
+        calls.clear()
+        result = engine.run(
+            artifacts,
+            run_id="run-001",
+            started_at="start",
+            finished_at="finish",
+        )
+        assert tuple(c.contract_name for c in result.contract_results) == (
+            "customer_revenue",
+            "other",
+        )
+        first_result, shared_result = result.contract_results[0].check_results
+        second_result, unrelated_result = result.contract_results[1].check_results
+        assert tuple(r.check_id for r in (first_result, shared_result, second_result)) == (
+            "first",
+            "shared",
+            "second",
+        )
+        assert shared_result.status is status
+        assert unrelated_result.status is CheckStatus.PASS
+        if expected_blocker is None:
+            assert calls == ["shared", "first", "second", "unrelated"]
+            assert first_result.status is second_result.status is CheckStatus.PASS
+        else:
+            assert calls == ["shared", "unrelated"]
+            for blocked in (first_result, second_result):
+                assert blocked.status is CheckStatus.BLOCKED
+                assert blocked.reason_code is expected_blocker
+                assert blocked.blocked_by == ("shared",)
+                assert not blocked.executed
+                assert blocked.source_value is blocked.target_value is blocked.diff_value is None
+
+
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
+@pytest.mark.parametrize("self_cycle", [True, False])
+def test_dependency_cycle_does_not_dispatch_cyclic_checks(tmp_path: Path, self_cycle: bool) -> None:
+    calls: list[str] = []
+    first = _check(
+        check_id="first", name="first", prerequisites=("first" if self_cycle else "second",)
+    )
+    second = _check(check_id="second", name="second", prerequisites=("first",))
+    independent = _check(check_id="independent", name="independent")
+
+    class RecordingDispatcher:
+        def dispatch(self, check: LoadedCompiledCheck) -> CheckResult:
+            calls.append(check.id)
+            return CheckResult(
+                check_id=check.id,
+                name=check.name,
+                check_type=check.check_type,
+                contract_name=check.contract_name,
+                status=CheckStatus.PASS,
+                executed=True,
+            )
+
+    outcome = CheckEngine(dispatcher=RecordingDispatcher()).run(
+        (_artifact(tmp_path, checks=(first, second, independent)),),
+        run_id="run-001",
+        started_at="start",
+        finished_at="finish",
+    )
+    assert calls == ["independent"]
+    assert outcome.status is RunStatus.ERROR
+    first_result, second_result, independent_result = outcome.contract_results[0].check_results
+    assert {first_result.status, second_result.status} == {CheckStatus.ERROR, CheckStatus.BLOCKED}
+    for result in (first_result, second_result):
+        assert not result.executed
+        assert result.source_value is result.target_value is result.diff_value is None
+    assert independent_result.status is CheckStatus.PASS
+
+
+@pytest.mark.regression_capture("key-safety-prerequisites-block-dependent-checks")
+@pytest.mark.parametrize("missing_leaf", [False, True])
+def test_deep_dependency_chain_keeps_every_planned_result(
+    tmp_path: Path, missing_leaf: bool
+) -> None:
+    # Above the ordinary interpreter recursion depth, not a runtime check limit.
+    count = 1500
+    checks = tuple(
+        _check(
+            check_id=f"check-{index}",
+            name=f"check-{index}",
+            prerequisites=(f"check-{index + 1}",) if index + 1 < count or missing_leaf else (),
+        )
+        for index in range(count)
+    )
+    independent = _check(check_id="independent", name="independent")
+    calls: list[str] = []
+
+    class RecordingDispatcher:
+        def dispatch(self, check: LoadedCompiledCheck) -> CheckResult:
+            calls.append(check.id)
+            return CheckResult(
+                check_id=check.id,
+                name=check.name,
+                check_type=check.check_type,
+                contract_name=check.contract_name,
+                status=CheckStatus.PASS,
+                executed=True,
+            )
+
+    result = CheckEngine(dispatcher=RecordingDispatcher()).run(
+        (_artifact(tmp_path, checks=checks + (independent,)),),
+        run_id="run-deep",
+        started_at="start",
+        finished_at="finish",
+    )
+    actual = result.contract_results[0].check_results
+    assert tuple(check.check_id for check in actual) == tuple(
+        check.id for check in checks + (independent,)
+    )
+    assert actual[-1].status is CheckStatus.PASS
+    if missing_leaf:
+        assert result.status is RunStatus.BLOCKED
+        assert calls == ["independent"]
+        assert all(check.status is CheckStatus.BLOCKED for check in actual[:-1])
+        assert all(check.reason_code is CheckReason.PREREQUISITE_MISSING for check in actual[:-1])
+    else:
+        assert result.status is RunStatus.PASS
+        assert calls == [check.id for check in reversed(checks)] + ["independent"]
+        assert all(check.executed for check in actual)

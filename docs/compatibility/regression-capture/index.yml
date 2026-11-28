@@ -381,6 +381,18 @@ path_surface_routing:
       surfaces:
         - adapter_runtime
         - scan_safety
+        - execution_result
+        - run_results
+    - path: src/recon_core/_run_control.py
+      surfaces:
+        - execution_result
+        - run_results
+        - diagnostics
+    - path: src/recon_core/services/_run_lifecycle.py
+      surfaces:
+        - execution_result
+        - run_results
+        - diagnostics
     - path: tests/services/_run_service_fixtures.py
       surfaces:
         - adapter_runtime
@@ -388,6 +400,8 @@ path_surface_routing:
     - path: tests/services/test_run_service.py
       surfaces:
         - adapter_runtime
+        - execution_result
+        - run_results
     - path: tests/services/test_run_service_adapter_lifecycle.py
       surfaces:
         - adapter_runtime

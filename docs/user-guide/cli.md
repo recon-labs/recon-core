@@ -208,6 +208,15 @@ Current limitations:
 
 ## `recon run`
 
+Use `recon run --timeout-seconds 60` for an optional shared invocation deadline.
+Without this option there is no deadline. Ctrl+C, when delivered, requests
+cooperative cancellation. Recon waits for native execution to stop and cleanup
+to finish; it may take longer than the timeout. Stopped runs return runtime
+exit 3 unless an independent configuration or validation failure takes
+precedence. Earlier finalized checks are retained in memory; no run-result
+artifact is written yet. A new invocation is an explicit retry, not an automatic
+retry.
+
 Loads compiled checks and routes them through the check-engine boundary. The
 current command executes supported same-context DuckDB row-count, grain-key
 safety and explicit SUM checks only when both relations are bound to local

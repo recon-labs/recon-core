@@ -1,10 +1,39 @@
 """Private DuckDB resource-policy schema and normalized authored values."""
 
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 from typing import Final
 
 _MIB: Final = 1 << 20
 _MAX_INTEGER: Final = (1 << 63) - 1
+
+
+class _SettingScope(StrEnum):
+    DEFAULT = "default"
+    PROJECT = "project"
+    TARGET = "target"
+    CONNECTION = "connection"
+
+
+class _SettingMode(StrEnum):
+    AUTO = "auto"
+    NONE = "none"
+    FIXED = "fixed"
+    PERCENT = "percent"
+    PATH = "path"
+
+
+@dataclass(frozen=True, slots=True)
+class _ResourceSettingFact:
+    """Winning scope and mode; numeric values use bytes, counts or percent.
+
+    Scratch path values are never retained here.
+    """
+
+    setting: str
+    scope: _SettingScope
+    mode: _SettingMode
+    requested_value: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +48,7 @@ class _LocalResourcePolicy:
     scratch_directory: str | None = field(default=None, repr=False)
     managed_memory_percent: int | None = None
     spill_percent: int | None = None
+    _setting_facts: tuple[_ResourceSettingFact, ...] = field(default=(), compare=False, repr=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,13 +149,77 @@ def _parse_duckdb_resource_layer(value: object) -> _LocalResourceLayer:
     )
 
 
-def _merge_local_resource_layers(*layers: _LocalResourceLayer) -> _LocalResourcePolicy:
-    """Resolve whole logical settings without retaining inherited mode members."""
+def _merge_local_resource_layers(
+    project: _LocalResourceLayer,
+    target: _LocalResourceLayer,
+    connection: _LocalResourceLayer,
+) -> _LocalResourcePolicy:
+    """Resolve whole logical settings, retaining winning scope and reset provenance."""
 
     result = _LocalResourcePolicy()
-    for layer in layers:
+    origins: dict[str, _SettingScope] = {}
+    for scope, layer in (
+        (_SettingScope.PROJECT, project),
+        (_SettingScope.TARGET, target),
+        (_SettingScope.CONNECTION, connection),
+    ):
         result = replace(
             result,
             **{name: getattr(layer.policy, name) for name in layer.authored_fields},
         )
-    return result
+        origins.update(dict.fromkeys(layer.authored_fields, scope))
+
+    def fact(
+        setting: str, attribute: str, mode: _SettingMode, value: int | None
+    ) -> _ResourceSettingFact:
+        return _ResourceSettingFact(
+            setting, origins.get(attribute, _SettingScope.DEFAULT), mode, value
+        )
+
+    def managed(
+        setting: str, attribute: str, fixed: int | None, percent: int | None
+    ) -> _ResourceSettingFact:
+        if percent is not None:
+            return fact(setting, attribute, _SettingMode.PERCENT, percent)
+        return fact(
+            setting, attribute, _SettingMode.AUTO if fixed is None else _SettingMode.FIXED, fixed
+        )
+
+    return replace(
+        result,
+        _setting_facts=(
+            managed(
+                "managed-memory",
+                "managed_memory_bytes",
+                result.managed_memory_bytes,
+                result.managed_memory_percent,
+            ),
+            fact(
+                "threads",
+                "threads",
+                _SettingMode.AUTO if result.threads is None else _SettingMode.FIXED,
+                result.threads,
+            ),
+            managed("spill", "spill_bytes", result.spill_bytes, result.spill_percent),
+            fact(
+                "max-database-mib",
+                "max_database_bytes",
+                _SettingMode.NONE if result.max_database_bytes is None else _SettingMode.FIXED,
+                result.max_database_bytes,
+            ),
+            fact(
+                "warn-estimated-input-rows",
+                "warn_estimated_input_rows",
+                _SettingMode.NONE
+                if result.warn_estimated_input_rows is None
+                else _SettingMode.FIXED,
+                result.warn_estimated_input_rows,
+            ),
+            fact(
+                "scratch-directory",
+                "scratch_directory",
+                _SettingMode.AUTO if result.scratch_directory is None else _SettingMode.PATH,
+                None,
+            ),
+        ),
+    )

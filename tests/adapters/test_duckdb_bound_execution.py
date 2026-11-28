@@ -829,6 +829,13 @@ def test_owned_controls_precede_transaction_and_cleanup(
     assert session.close() == ()
     assert calls[-3:] == ["ROLLBACK", "close actor", "close guard"]
     assert session.released
+    readback = session._control_readback
+    assert readback is not None
+    assert readback.memory is not None and readback.memory.contains(128 << 20)
+    assert readback.threads == 1
+    assert readback.spill is not None and readback.spill.contains(32 << 20)
+    assert not readback.enforcement_proven
+    assert str(scratch) not in repr(readback)
 
 
 @pytest.mark.regression_capture("duckdb-controlled-owned-session")
@@ -1296,7 +1303,16 @@ def test_actual_guarded_native_interrupt_during_spill(
 
 @pytest.mark.parametrize(
     "failure",
-    ["none", "guard-open", "actor-open", "query-error", "actor-close", "guard-close", "scratch"],
+    [
+        "none",
+        "guard-open",
+        "actor-open",
+        "query-error",
+        "rollback",
+        "actor-close",
+        "guard-close",
+        "scratch",
+    ],
 )
 @pytest.mark.regression_capture("duckdb-controlled-owned-session")
 def test_guarded_session_owns_scratch_until_confirmed_close(
@@ -1325,6 +1341,11 @@ def test_guarded_session_owns_scratch_until_confirmed_close(
 
         def __getattr__(self, name: str) -> Any:
             return getattr(self.native, name)
+
+        def execute(self, statement: str, *args: Any) -> Any:
+            if failure == "rollback" and self.kind == "actor" and statement == "ROLLBACK":
+                raise RuntimeError("PRIVATE_SENTINEL")
+            return self.native.execute(statement, *args)
 
         def close(self) -> None:
             cleanup_calls.append(self.kind)
@@ -1392,7 +1413,12 @@ def test_guarded_session_owns_scratch_until_confirmed_close(
             }
             assert cleanup_calls == expected[failure]
         else:
-            assert diagnostics == ()
+            if failure == "rollback":
+                assert len(diagnostics) == 1
+                assert diagnostics[0].code == "RC_ADAPTER_CLOSE_FAILED"
+                assert "PRIVATE_SENTINEL" not in str(diagnostics)
+            else:
+                assert diagnostics == ()
             assert session.released
             assert not owned.path.exists()
             assert cleanup_calls == [kind for kind, _ in reversed(handles)] + ["scratch"]

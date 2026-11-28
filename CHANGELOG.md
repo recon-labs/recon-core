@@ -37,6 +37,29 @@ This project follows semantic versioning once public package releases begin.
 
 ### Changed
 
+- Record the validated loaded compiled scope in a private immutable plan;
+  refuse artifacts belonging to a different project identity before setup.
+  Preserve explicit compile/run and do not claim authored-source freshness.
+  Distinguish known empty and unknown scope, retain planned/finalized/executed
+  counts, and reject mismatched result scope before reporting success.
+- Record run invocation identity before project preparation and finalize timing
+  after evaluation and native cleanup. Internal elapsed time uses a monotonic
+  clock; structured early failures retain invocation metadata. Existing command
+  output and exit codes are unchanged; no new result artifact is written.
+  Preserve mixed outcomes and at-most-once shared prerequisite evaluation;
+  a skipped required prerequisite cannot authorize dependent execution.
+  Long dependency chains no longer exhaust the interpreter call stack.
+  Unexpected preparation or cleanup exceptions preserve safe failure identity
+  and primary diagnostics; uncertain cleanup isolates only the affected database.
+  Retain private policy origin, actual admission, requested and adjusted native
+  targets and verified reported settings without changing execution policy.
+  Retain observed native check and comparison-call attempts separately from
+  finalized results, with unavailable actual resource-consumption evidence.
+  Add optional invocation timeout and caller cancellation, with explicit stop
+  reasons and safe diagnostics, existing exit categories and no default
+  deadline. Delivered CLI SIGINT requests cooperative cancellation; native
+  cleanup is awaited rather than forcing process or session termination.
+
 - Unreleased adapter-scoped DuckDB execution policy: independent automatic,
   fixed MiB or percentage memory/spill controls, memory-aware automatic
   threads, explicit overrides, optional footprint and row-estimate settings,
@@ -55,7 +78,7 @@ This project follows semantic versioning once public package releases begin.
   unsupported. All nine project-run check families have no default database
   size cap; explicit authored footprint limits remain enforced. Native
   failures are check-local; cleanup failures invalidate the
-  result and uncertain close stops subsequent native work. Public prepared
+  result and uncertain close blocks subsequent native work for the affected database. Public prepared
   adapter helpers and compiled SQL remain unchanged.
 
 - `recon init` now scaffolds `check_packs/` and `macros/`, writes matching

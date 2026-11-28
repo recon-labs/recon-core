@@ -99,30 +99,25 @@ relevant resource kinds are parsed through that shared model.
 
 ## Run service
 
-The first run service boundary should:
-
-- load already compiled check artifacts,
-- route compiled checks through the check engine,
-- return command-level `ServiceResult` diagnostics and exit category,
-- keep reconciliation results separate from command plumbing,
-- avoid parsing authored YAML, compiling contracts, loading profiles,
-  initializing adapters, rendering SQL, executing queries, or writing generated
-  run/evidence outputs.
-
-Later runner phases may expand the run service to initialize adapters, run typed
-check plans through supported execution paths, collect results, write
-`target/run_results.json`, write evidence, and return final run summaries.
+The run service loads already compiled checks and matching compiled contracts,
+validates project identity, records their private immutable scope and prepares
+runtime dependencies only for eligible checks. It routes the loaded artifacts
+through the existing engine once, using verified native binding for supported
+checks, and returns command-level `ServiceResult` diagnostics and exit category.
+It keeps reconciliation results separate from command plumbing and does not
+parse authored contracts, compile contracts, render new SQL artifacts or write
+run/evidence outputs. Later publication phases own durable result and evidence
+artifacts and their final terminal projection.
 
 ## Freshness of artifacts
 
-`recon run` may parse and compile automatically after artifact freshness
-semantics are designed.
-
-The first check-engine boundary should not parse or compile automatically. It
-consumes compiled checks only and fails clearly when compiled-check artifacts are
-missing, invalid, or empty.
-
-A later implementation can use file hashes or timestamps to skip unchanged work.
+`recon run` consumes already compiled artifacts and fails clearly when the
+required inputs are missing, invalid, mismatched or empty. The plan describes
+loaded compiled scope, not freshness of current authored files. Once loaded,
+those artifacts remain the invocation input; later file edits do not trigger
+a reread or hidden rebuild. This does not guarantee an atomic snapshot across
+artifact files during loading. Artifact freshness and cache optimization remain
+separately gated; there is no automatic compilation or timestamp-based proof.
 
 ## Manifest
 

@@ -2,12 +2,15 @@
 
 from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Event
+from time import monotonic_ns
 from typing import Protocol
 from uuid import uuid4
 
+from recon_core._run_control import _RunControl, _StopCause
 from recon_core.adapters import (
     AdapterRegistry,
     BaseAdapter,
@@ -42,6 +45,7 @@ from recon_core.adapters.runtime_setup import (
     ADAPTER_TYPE_MISMATCH,
 )
 from recon_core.artifacts import (
+    COMPILED_CHECK_ARTIFACT_INVALID,
     NO_COMPILED_CHECKS,
     CompiledCheckLoader,
     CompiledCheckLoadResult,
@@ -71,7 +75,11 @@ from recon_core.check_engine.aggregate import (
     is_aggregate_check_type,
     is_supported_aggregate_plan_shape,
 )
-from recon_core.check_engine.engine import _AggregateExecutionContext, _ProjectExecutionContext
+from recon_core.check_engine.engine import (
+    _AggregateExecutionContext,
+    _ControlledExecutionContext,
+    _ProjectExecutionContext,
+)
 from recon_core.check_engine.execution_support import adapter_matches_connection
 from recon_core.check_engine.key_safety import (
     is_key_safety_check_type,
@@ -94,6 +102,14 @@ from recon_core.profiles.connection_references import (
 )
 from recon_core.project import ProjectContext, load_project_context
 from recon_core.services._bound_runner import _ProjectBoundRunner
+from recon_core.services._run_lifecycle import (
+    _CheckResourceFacts,
+    _CompiledRunPlan,
+    _ExecutionLedger,
+    _InvocationOutcome,
+    _RunInvocation,
+    _RunStage,
+)
 from recon_core.services.results import ExitCategory, ServiceResult
 
 
@@ -116,7 +132,7 @@ class _CheckEngine(Protocol):
         *,
         run_id: str,
         started_at: str,
-        finished_at: str,
+        finished_at: str | None,
         project_name: str | None = None,
         execution_context: CheckExecutionContext | None = None,
     ) -> RunResult: ...
@@ -154,7 +170,67 @@ class RunService:
     adapter_registry: AdapterRegistry | None = None
     environ: Mapping[str, str] | None = None
 
-    def execute(self) -> ServiceResult:
+    def execute(
+        self, *, timeout_seconds: int | None = None, cancel_event: Event | None = None
+    ) -> ServiceResult:
+        return self._execute_invocation(
+            timeout_seconds=timeout_seconds, cancel_event=cancel_event
+        ).service_result
+
+    def _execute_invocation(
+        self, *, timeout_seconds: int | None = None, cancel_event: Event | None = None
+    ) -> _InvocationOutcome:
+        invocation = _RunInvocation(
+            started_ns=monotonic_ns(),
+            run_id=f"run-{uuid4().hex}",
+            started_at=_utc_timestamp(),
+        )
+        run_result: RunResult | None = None
+        try:
+            if (
+                timeout_seconds is not None
+                and (
+                    not isinstance(timeout_seconds, int)
+                    or isinstance(timeout_seconds, bool)
+                    or timeout_seconds <= 0
+                )
+            ) or (cancel_event is not None and not isinstance(cancel_event, Event)):
+                result: ServiceResult | RunResult = _invalid_run_control_result()
+            else:
+                if timeout_seconds is not None or cancel_event is not None:
+                    invocation.control = _RunControl(
+                        started_ns=invocation.started_ns,
+                        timeout_seconds=timeout_seconds,
+                        cancel_event=cancel_event,
+                        clock=monotonic_ns,
+                    )
+                result = self._evaluate_invocation(invocation)
+            if isinstance(result, RunResult):
+                run_result = result
+                invocation.stage = _RunStage.RESULT_PROJECTION
+                if invocation.inspect_scope(result).complete is True:
+                    service_result = _run_service_result(result)
+                else:
+                    service_result = _engine_failure_result()
+            else:
+                service_result = result
+        except Exception:
+            service_result = _unexpected_invocation_failure_result(invocation.stage)
+        finally:
+            stop_cause = invocation.control.seal() if invocation.control is not None else None
+        if stop_cause is not None:
+            service_result = _with_stop_result(service_result, stop_cause)
+        return invocation.finish(
+            finished_at=_utc_timestamp(),
+            finished_ns=monotonic_ns(),
+            run_result=run_result,
+            service_result=service_result,
+            stop_cause=stop_cause,
+        )
+
+    def _evaluate_invocation(self, invocation: _RunInvocation) -> ServiceResult | RunResult:
+        if (cause := invocation.observe_stop()) is not None:
+            return _stopped_run_result(cause)
         context_result = load_project_context(self.start_path)
         if not context_result.succeeded:
             return ServiceResult(
@@ -165,11 +241,40 @@ class RunService:
 
         assert context_result.context is not None
         context = context_result.context
+        invocation.project_name = context.config.name
+        if (cause := invocation.observe_stop()) is not None:
+            return _stopped_run_result(cause)
+        invocation.stage = _RunStage.COMPILED_CHECKS
         loader = self.loader if self.loader is not None else CompiledCheckLoader()
         load_result = loader.load(context.paths.target_path)
         if not load_result.succeeded:
+            invocation.known_empty_scope = (
+                not load_result.artifacts
+                and bool(load_result.diagnostics)
+                and all(
+                    diagnostic.code == NO_COMPILED_CHECKS for diagnostic in load_result.diagnostics
+                )
+            )
             return _load_failure_result(load_result)
 
+        if any(artifact.project_name != context.config.name for artifact in load_result.artifacts):
+            return _load_failure_result(
+                CompiledCheckLoadResult(
+                    diagnostics=(
+                        Diagnostic(
+                            code=COMPILED_CHECK_ARTIFACT_INVALID,
+                            severity=DiagnosticSeverity.ERROR,
+                            message="Compiled-check project identity does not match the project.",
+                            resource_type="compiled_checks",
+                            hint="Compile the intended project before running its checks.",
+                        ),
+                    ),
+                )
+            )
+
+        if (cause := invocation.observe_stop()) is not None:
+            return _stopped_run_result(cause)
+        invocation.stage = _RunStage.COMPILED_CONTRACTS
         tolerance_states: dict[str, _ToleranceReferenceState] = {}
         if self.contract_loader is None:
             contract_load_result, tolerance_states = CompiledContractLoader()._load_for_runtime(
@@ -182,6 +287,18 @@ class RunService:
         if not contract_load_result.succeeded:
             return _compiled_contract_load_failure_result(contract_load_result)
 
+        invocation.plan = _CompiledRunPlan.from_artifacts(
+            context.config.name, load_result.artifacts
+        )
+        invocation.stage = _RunStage.RUNTIME_SETUP
+        if invocation.observe_stop() is not None:
+            return self._run_loaded(invocation, load_result.artifacts, None)
+        if (
+            invocation.control is not None
+            and self.engine is not None
+            and type(self.engine) is not CheckEngine
+        ):
+            return _unsupported_run_control_result()
         runtime_dependencies = _prepare_runtime_execution_dependencies(
             context,
             check_artifacts=load_result.artifacts,
@@ -189,6 +306,9 @@ class RunService:
             tolerance_states=tolerance_states,
             registry=self.adapter_registry,
             environ=self.environ,
+            resource_facts=invocation.resource_facts,
+            control=invocation.control,
+            execution_ledger=invocation.execution_ledger,
         )
         if runtime_dependencies.diagnostics:
             return ServiceResult(
@@ -197,19 +317,37 @@ class RunService:
                 diagnostics=runtime_dependencies.diagnostics,
             )
 
-        started_at = _utc_timestamp()
-        try:
-            run_result = (self.engine if self.engine is not None else CheckEngine()).run(
-                load_result.artifacts,
-                run_id=f"run-{uuid4().hex}",
-                started_at=started_at,
-                finished_at=_utc_timestamp(),
-                project_name=context.config.name,
-                execution_context=runtime_dependencies.execution_context,
-            )
-        except Exception:
-            return _engine_failure_result()
-        return _run_service_result(run_result)
+        return self._run_loaded(
+            invocation, load_result.artifacts, runtime_dependencies.execution_context
+        )
+
+    def _run_loaded(
+        self,
+        invocation: _RunInvocation,
+        artifacts: tuple[LoadedCompiledChecksArtifact, ...],
+        execution_context: CheckExecutionContext | None,
+    ) -> ServiceResult | RunResult:
+        if invocation.control is not None:
+            if execution_context is None:
+                execution_context = _ControlledExecutionContext({}, {})
+            if not isinstance(execution_context, _ControlledExecutionContext):
+                return _unsupported_run_control_result()
+            execution_context = replace(execution_context, _run_control=invocation.control)
+        invocation.stage = _RunStage.CHECK_EXECUTION
+        assert invocation.project_name is not None
+        engine = self.engine if self.engine is not None else CheckEngine()
+        if invocation.observe_stop() is not None:
+            engine = CheckEngine()
+        if type(engine) is not CheckEngine:
+            invocation.execution_ledger.known = False
+        return engine.run(
+            artifacts,
+            run_id=invocation.run_id,
+            started_at=invocation.started_at,
+            finished_at=None,
+            project_name=invocation.project_name,
+            execution_context=execution_context,
+        )
 
 
 _ROW_COUNT_RUNTIME_REQUIRED_CAPABILITIES = ("row_count", "cte_support")
@@ -234,7 +372,13 @@ def _prepare_runtime_execution_dependencies(
     tolerance_states: Mapping[str, _ToleranceReferenceState],
     registry: AdapterRegistry | None,
     environ: Mapping[str, str] | None,
+    resource_facts: dict[str, _CheckResourceFacts],
+    control: _RunControl | None = None,
+    execution_ledger: _ExecutionLedger | None = None,
 ) -> _RuntimeExecutionDependencies:
+    def stopped() -> bool:
+        return control is not None and control.observe() is not None
+
     contracts_by_name = {contract.contract_name: contract for contract in compiled_contracts}
     has_aggregate_checks = any(
         is_aggregate_check_type(check.check_type)
@@ -280,6 +424,8 @@ def _prepare_runtime_execution_dependencies(
         compiled_contracts=compiled_contracts,
     )
 
+    if stopped():
+        return _RuntimeExecutionDependencies()
     profile_result = load_selected_profile_for_connection_names(
         context,
         referenced_connection_names=referenced_connection_names_from_compiled_contracts(
@@ -294,6 +440,8 @@ def _prepare_runtime_execution_dependencies(
             message="Run profile configuration failed.",
         )
 
+    if stopped():
+        return _RuntimeExecutionDependencies()
     assert profile_result.profile is not None
     connections_by_name = _runtime_connections_for_project(
         profile_result.profile.connections,
@@ -307,7 +455,24 @@ def _prepare_runtime_execution_dependencies(
         project_root=context.project_root,
         runtime_safety_checks=runtime_safety_checks,
         resource_policies=profile_result.profile._execution_policies,
+        control=control,
     )
+    policies = profile_result.profile._execution_policies
+    for artifact in profile_candidates:
+        contract = contracts_by_name[artifact.contract_name]
+        source_policy = policies.get(contract.source.connection)
+        target_policy = policies.get(contract.target.connection)
+        for check in artifact.checks:
+            decision = scan_budget_decisions.decisions_by_check_id.get(check.id)
+            resource_facts[check.id] = _CheckResourceFacts(
+                check_id=check.id,
+                preliminary_allowed=decision.allowed if decision is not None else None,
+                preliminary_reason=decision.reason if decision is not None else None,
+                source_policy=source_policy._setting_facts if source_policy is not None else None,
+                target_policy=target_policy._setting_facts if target_policy is not None else None,
+            )
+    if stopped():
+        return _RuntimeExecutionDependencies()
     adapter_candidates = _adapter_required_runtime_candidates(
         profile_candidates,
         scan_budget_decisions_by_check_id=scan_budget_decisions.decisions_by_check_id,
@@ -329,18 +494,15 @@ def _prepare_runtime_execution_dependencies(
             contracts_by_name[artifact.contract_name].target.connection,
         )
     }
-    aggregate_connection_indices = {
-        name: index
-        for index, name in enumerate(sorted(required_capabilities_by_connection), start=1)
-        if name in aggregate_connections
-    }
-    for connection_name, required_capabilities in sorted(
-        required_capabilities_by_connection.items()
+    for connection_index, (connection_name, required_capabilities) in enumerate(
+        sorted(required_capabilities_by_connection.items()), start=1
     ):
-        connection_index = aggregate_connection_indices.get(connection_name)
+        if stopped():
+            break
+        aggregate_connection = connection_name in aggregate_connections
         connection = connections_by_name[connection_name]
         # Keep the scan-approved config independent of mutable factory input.
-        verify_binding = connection_index is not None or connection.type == "duckdb"
+        verify_binding = aggregate_connection or connection.type == "duckdb"
         setup_connection = deepcopy(connection) if verify_binding else connection
         setup_result = prepare_runtime_adapter(
             connection=setup_connection,
@@ -362,8 +524,11 @@ def _prepare_runtime_execution_dependencies(
                 continue
             setup_diagnostics.extend(
                 _safe_aggregate_setup_diagnostic(diagnostic, connection_index=connection_index)
-                if connection_index is not None
-                else diagnostic
+                if aggregate_connection
+                else replace(
+                    diagnostic,
+                    hint=_connection_setup_hint(connection_index, diagnostic.hint),
+                )
                 for diagnostic in setup_result.diagnostics
             )
             continue
@@ -375,11 +540,7 @@ def _prepare_runtime_execution_dependencies(
                     severity=DiagnosticSeverity.ERROR,
                     message="Adapter binding does not match the approved connection.",
                     resource_type="adapter",
-                    hint=(
-                        _aggregate_setup_hint(connection_index)
-                        if connection_index is not None
-                        else "Inspect the approved connection configuration locally."
-                    ),
+                    hint=_connection_setup_hint(connection_index),
                 )
             )
             continue
@@ -394,6 +555,8 @@ def _prepare_runtime_execution_dependencies(
             message="Run adapter configuration failed.",
         )
 
+    if stopped():
+        return _RuntimeExecutionDependencies()
     aggregate_blockers = _aggregate_capability_blockers(
         adapter_candidates,
         contracts_by_name=contracts_by_name,
@@ -404,6 +567,8 @@ def _prepare_runtime_execution_dependencies(
     for artifact in adapter_candidates:
         contract = contracts_by_name[artifact.contract_name]
         for check in artifact.checks:
+            if stopped():
+                return _RuntimeExecutionDependencies()
             if not is_aggregate_check_type(check.check_type) or check.id in aggregate_blockers:
                 continue
             adapter = adapters_by_connection[contract.source.connection]
@@ -427,7 +592,10 @@ def _prepare_runtime_execution_dependencies(
                 context.project_root,
                 connections_by_name,
                 scan_budget_decisions.identities_by_check_id,
-                profile_result.profile._execution_policies,
+                policies,
+                resource_facts,
+                control=control,
+                execution_ledger=execution_ledger,
             ),
         ),
     )
@@ -468,7 +636,7 @@ def _runtime_context(
             aggregate_blockers_by_check_id=aggregate_blockers_by_check_id or {},
             aggregate_renderers_by_adapter_type=aggregate_renderers_by_adapter_type or {},
         )
-    return CheckExecutionContext(
+    return _ControlledExecutionContext(
         contracts_by_name=contracts_by_name,
         adapters_by_connection=adapters_by_connection,
         connections_by_name=connections_by_name or {},
@@ -754,6 +922,7 @@ def _scan_budget_decisions_by_check_id(
     project_root: Path,
     runtime_safety_checks: RuntimeSafetyCheckRegistry,
     resource_policies: Mapping[str, _LocalResourcePolicy],
+    control: _RunControl | None = None,
 ) -> _RuntimeScanBudgetDecisions:
     decisions: dict[str, ScanBudgetDecision] = {}
     identities: dict[str, _LocalFileIdentity] = {}
@@ -763,6 +932,10 @@ def _scan_budget_decisions_by_check_id(
         if contract is None:
             continue
         for check in artifact.checks:
+            if control is not None and control.observe() is not None:
+                return _RuntimeScanBudgetDecisions(
+                    decisions, identities, frozenset(adapter_setup_required_check_ids)
+                )
             aggregate = is_aggregate_check_type(check.check_type)
             source = connections_by_name.get(contract.source.connection)
             target = connections_by_name.get(contract.target.connection)
@@ -864,9 +1037,10 @@ def _scan_budget_decision_for_relation(
     )
 
 
-def _aggregate_setup_hint(connection_index: int) -> str:
+def _connection_setup_hint(connection_index: int, detail: str | None = None) -> str:
     # A run-local ordinal preserves distinct setup failures without naming connections.
-    return f"Connection setup #{connection_index}: inspect configuration locally."
+    hint = f"Connection setup #{connection_index}: inspect configuration locally."
+    return f"{hint} {detail}" if detail else hint
 
 
 def _safe_aggregate_setup_diagnostic(
@@ -889,7 +1063,7 @@ def _safe_aggregate_setup_diagnostic(
         severity=DiagnosticSeverity.ERROR,
         message=messages[code],
         resource_type="adapter",
-        hint=_aggregate_setup_hint(connection_index),
+        hint=_connection_setup_hint(connection_index),
     )
 
 
@@ -953,6 +1127,74 @@ def _compiled_contract_load_failure_result(
         exit_category=ExitCategory.RUNTIME_ERROR,
         message="Compiled-contract artifacts could not be loaded.",
         diagnostics=load_result.diagnostics,
+    )
+
+
+def _invalid_run_control_result() -> ServiceResult:
+    message = "Run timeout must be a positive integer and cancellation must use an Event."
+    return ServiceResult(
+        exit_category=ExitCategory.CONFIGURATION_ERROR,
+        message=message,
+        diagnostics=(
+            Diagnostic(
+                code="RC_CONFIG_RUN_CONTROL_INVALID",
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                hint="Supply a positive integer timeout or omit it; use a caller-owned Event.",
+            ),
+        ),
+    )
+
+
+def _unsupported_run_control_result() -> ServiceResult:
+    message = "Required invocation control is unavailable for this execution path."
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message=message,
+        diagnostics=(
+            Diagnostic(
+                code="RC_RUNTIME_RUN_CONTROL_UNAVAILABLE",
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                hint="Use a supported invocation execution path.",
+            ),
+        ),
+    )
+
+
+def _stopped_run_result(cause: _StopCause) -> ServiceResult:
+    diagnostic = cause.diagnostic()
+    return ServiceResult(ExitCategory.RUNTIME_ERROR, diagnostic.message, (diagnostic,))
+
+
+def _with_stop_result(result: ServiceResult, cause: _StopCause) -> ServiceResult:
+    diagnostic = cause.diagnostic()
+    if result.exit_category in {ExitCategory.CONFIGURATION_ERROR, ExitCategory.VALIDATION_ERROR}:
+        return replace(result, diagnostics=_dedupe_diagnostics(result.diagnostics + (diagnostic,)))
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message=diagnostic.message,
+        diagnostics=_dedupe_diagnostics(result.diagnostics + (diagnostic,)),
+    )
+
+
+def _unexpected_invocation_failure_result(stage: _RunStage) -> ServiceResult:
+    if stage is _RunStage.CHECK_EXECUTION:
+        return _engine_failure_result()
+    message = f"Unexpected runtime failure during {stage.value.replace('_', ' ')}."
+    return ServiceResult(
+        exit_category=ExitCategory.RUNTIME_ERROR,
+        message=message,
+        diagnostics=(
+            Diagnostic(
+                code="RC_RUNTIME_RUN_INTERNAL_ERROR",
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+                resource_type="run_invocation",
+                resource_name=stage.value,
+                hint="Inspect the recorded invocation stage locally.",
+            ),
+        ),
     )
 
 
@@ -1038,4 +1280,4 @@ def _dedupe_diagnostics(diagnostics: tuple[Diagnostic, ...]) -> tuple[Diagnostic
 
 
 def _utc_timestamp() -> str:
-    return datetime.now(tz=UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")

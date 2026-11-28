@@ -862,8 +862,9 @@ requires targeted reopening. No gate satisfaction or runtime authorization.
 
 ## Milestone 8.2: execution planning and run lifecycle
 
-Design direction approved; detailed interfaces and native feasibility verified.
-Implementation requires validated design integration and separate authorization.
+Approved design integrated and B1-B10 implemented on the M8.2 candidate.
+Final cumulative verification and maintainer merge approval remain separate.
+M8.3 publication and final CLI projection remain gated.
 See [execution lifecycle prework](../planning/milestone-8-2-prework.md) and
 [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
 

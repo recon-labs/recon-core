@@ -38,6 +38,72 @@ Future generated `RunResult` artifacts may include sink-write metadata and
 artifact references, but the exact serialized schema belongs to the future
 run-result artifact phase or the later sink phase that first emits it.
 
+The run service owns a private invocation outcome around the existing
+check-engine result. It allocates a fresh run ID and UTC start label before
+project preparation and records the finish label after evaluation, native
+cleanup and command-result projection. Elapsed nanoseconds use a monotonic
+clock, independently of wall-clock adjustments. A structured early failure
+retains its invocation identity, timing, stage and command outcome without
+inventing a project name or check results. Unexpected preparation exceptions
+are sanitized at the invocation boundary and retain the actual failure stage.
+Known configuration and artifact failures keep their existing exit mapping.
+If command-result projection fails after check evaluation, the invocation
+retains the completed internal results and records the failed projection stage.
+A completed check evaluation may produce a reconciliation mismatch; invocation
+failure is not itself a data mismatch. The private outcome retains a plan only
+after compiled checks and matching contracts have been loaded and validated. It describes whole loaded compiled
+scope, ordered contract/check/plan identities and prerequisite references;
+empty contracts remain visible. It contains no SQL, path, relation or data
+payload. The engine evaluates the original loaded artifacts once. This is not
+an authored-source freshness or atomic multi-file snapshot guarantee.
+Policy resolution retains the winning authored scope and mode, including an
+explicit auto/none reset, without changing normalized policy equality. Native
+resource targeting retains the original authored byte/thread request before
+capacity adjustment; native sessions retain the already verified setting
+readback (not a physical enforcement guarantee). Unknown values remain absent;
+no scratch path is included in these facts. The invocation retains each
+prepared check's preliminary scan decision and source/target policy provenance,
+plus the native runner's actual binding-admission state and safe control facts.
+A preliminary allowance is not verified binding, and a verified binding is not
+proof of successful comparison or cleanup. Reaching the native runner records
+admission through the existing capability gates; otherwise capability admission
+is unknown, with typed final non-execution reasons retained by the result model. Native reported byte intervals are
+not exact physical consumption. Catalog row advisory evidence retains availability
+and threshold outcome, never estimated row totals. Unreached stages remain
+unknown. The invocation retains private planned contract/check counts, finalized
+result-record counts, executed-result counts and a scope-completeness fact.
+An authoritative empty-check diagnostic (an existing compiled-check directory
+with no artifacts, or loaded artifacts with no checks) establishes zero
+planned checks but does not establish a matching contract plan. A missing
+directory, malformed artifacts or unvalidated matching scope remains unknown.
+The service verifies returned invocation, project, contract and ordered check
+identities against the immutable loaded plan before projecting success. Missing,
+extra, duplicated, reordered or foreign results fail the invocation with a safe
+engine diagnostic while preserving returned records privately. Finalized and
+executed counts describe retained records (including untrusted records if scope
+is incomplete), not native attempts or distinct verified planned checks.
+Execution means the existing result-model `executed` flag, not an attempted
+native call. Scope completeness is independent of comparison status; no result
+is invented for an unprepared check. Invocation-wide attempts and publication
+remain separate responsibilities.
+The optional invocation deadline uses monotonic time shared across preparation
+and evaluation. Caller cancellation and deadline expiry latch the first observed
+stop, with cancellation winning a simultaneous observation. The invocation
+retains completed results and marks unstarted checks with an explicit stop
+reason; an interrupted comparison without trustworthy evidence is an error.
+Stop requests do not prove native termination. Active interrupt callers return
+before session cleanup; cleanup may exceed the deadline. The final seal cannot
+be rewritten by a later stop request. No default deadline or automatic retry.
+The private outcome is not a new serialized or stable result API. Only the
+existing four-field `ServiceResult` dictionary (exit category, exit code,
+message and safe diagnostics) is returned by the public command service.
+Existing diagnostic ownership and CLI rendering remain authoritative; do not
+serialize the invocation, plan, resource facts or retained check values into
+command output or logs. Preserve pre-existing compiled SQL, run results,
+evidence, reports and state without writes. Future publication requires its
+own field allowlist and privacy proof. The command exit mapping and no-write
+boundary remain unchanged. See [ADR 0027](../decisions/adr-0027-run-lifecycle-result-semantics-and-exit-codes.md).
+
 ## Contract result
 
 ```python
@@ -196,6 +262,16 @@ first `RunService` boundary, empty compiled-check scope is also a command-level
 runtime failure with `RC_RUNTIME_NO_COMPILED_CHECKS`; the aggregate status still
 remains `no_checks` so the result cannot look like a successful reconciliation.
 
+A required prerequisite must produce a usable pass or warning outcome to allow
+its dependent check to proceed. A skipped prerequisite does not supply that
+proof, even though an unrelated skipped check can coexist with a passing run.
+Shared prerequisites evaluate at most once per invocation; result presentation
+preserves loaded artifact order. Dependency traversal uses an explicit stack
+rather than the interpreter call stack; no fixed check-count or depth limit is
+introduced. A dependency cycle cannot execute its cyclic
+checks, and repeated blocker references appear once in the blocker explanation.
+No selector or skip-policy execution is introduced here.
+
 Counts and per-check results should preserve the full mixture when multiple
 statuses occur. For example, a run can aggregate to `fail` while still reporting
 blocked dependent checks.
@@ -212,7 +288,7 @@ Current reason codes:
 | `prerequisite_failed` | `blocked` | A prerequisite check executed and failed. |
 | `prerequisite_error` | `blocked` | A prerequisite check errored before producing a trustworthy result. |
 | `prerequisite_missing` | `blocked` | A required prerequisite result is absent. |
-| `prerequisite_not_executable` | `blocked` | A prerequisite check could not execute and therefore cannot satisfy the dependency. |
+| `prerequisite_not_executable` | `blocked` | A prerequisite check did not execute, including a skipped prerequisite, and therefore cannot satisfy the dependency. |
 | `unsupported_check_type` | `not_executable` | The compiled check type has no internal handler in the current check engine. |
 | `unsupported_typed_operation` | `not_executable` | The compiled check references a validly shaped typed operation the current runtime does not recognize or support. |
 | `missing_engine_capability` | `not_executable` | Required engine or adapter capability is unavailable or not declared. |
@@ -226,6 +302,8 @@ Current reason codes:
 | `not_implemented_in_current_phase` | `not_executable` | The check or typed operation is valid and known to Recon but belongs to a later execution phase. |
 | `skipped_by_policy` | `skipped` | Explicit user or configuration policy skipped the check. Reserved until skip policy exists. |
 | `selected_out` | `skipped` | Future selector behavior excluded the check from the run. Reserved until selectors exist. |
+| `run_cancelled` | `not_executable` | An invocation cancellation prevented the check from starting. |
+| `run_deadline_exceeded` | `not_executable` | The shared invocation deadline prevented the check from starting. |
 
 Every `blocked`, `not_executable`, or `skipped` result must carry a
 `reason_code`, a safe message, and diagnostics. `blocked` results must also
@@ -250,6 +328,33 @@ Future result status work must distinguish reconciliation outcomes from
 publication outcomes. A failed required evidence or sink write is not the same
 as a failed source-target comparison, and run metadata must make that
 distinction visible.
+
+## Invocation stop and cleanup
+
+A cooperative stop retains finalized checks and gives unstarted planned checks
+an explicit stop reason. An interrupted attempted comparison without trustworthy
+completed evidence is an error without value payload. Native interruption is
+not proof of release: the executing and borrowed interrupt calls return before
+rollback, close and scratch cleanup. Cleanup failures preserve earlier safe
+primary diagnostics and invalidate unconfirmed results. An uncertain release
+blocks the affected database and its aliases within the invocation, not an
+independent database. Invocation cancellation stops further work across the
+whole plan. Abrupt process exit has no returned result or cleanup guarantee;
+new invocations do not adopt or sweep abandoned storage.
+
+## Cumulative invocation evidence
+
+The private invocation outcome retains native check attempts, comparison-reader
+execute and fetch attempts (including failed calls and generated DESCRIBE), and
+peak simultaneous active owned check work. Setup, metadata, rollback and close
+calls are not comparison-reader attempts. Refused calls before launch are not
+counted. These counters are distinct from planned, finalized and executed check
+records; an attempted check can fail without trustworthy comparison evidence.
+An injected engine without proven accounting reports unavailable counters.
+Actual scanned rows, CPU time, disk bytes, transport bytes and cost are not
+measured here and remain unavailable. Per-session settings, capacities and
+catalog estimates are not summed as consumption. Each invocation starts fresh;
+these observations neither impose a budget nor authorize retries or parallelism.
 
 ## Command result separation
 
