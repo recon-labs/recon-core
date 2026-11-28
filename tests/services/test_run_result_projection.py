@@ -241,3 +241,12 @@ def test_projection_distinguishes_known_empty_from_unavailable_scope() -> None:
     assert unknown["reconciliation_status"] is None
     assert unknown["summary"] is None
     assert unknown["contract_results"] is None
+
+    # A returned record without a validated plan is inconsistent, not merely unknown.
+    unplanned = _project_run_scope(_outcome(None, _result(_passed(_planned("first")))))
+    assert unplanned["scope"]["complete"] is False
+    assert unplanned["scope"]["finalized_check_count"] is None
+    assert unplanned["scope"]["executed_check_count"] is None
+    assert unplanned["reconciliation_status"] is None
+    assert unplanned["summary"] is None
+    assert unplanned["contract_results"] is None
