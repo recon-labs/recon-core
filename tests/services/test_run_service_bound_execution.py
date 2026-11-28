@@ -1193,3 +1193,94 @@ def test_native_invocation_control_preserves_completed_checks(
     assert database.read_bytes() == before
     writer = duckdb.connect(str(database))
     writer.close()
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+@pytest.mark.parametrize(
+    "phase", ["setup", "before_fetch", "after_fetch", "deadline_after_fetch", "cleanup_error"]
+)
+def test_native_stop_at_check_boundaries_preserves_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(check_id="first", name="first", operations=row_count_plan()),
+            _compiled_check_payload(check_id="second", name="second", operations=row_count_plan()),
+        ],
+    )
+    event = Event()
+    now = 0
+    opened: list[binding._OwnedDuckDbSession] = []
+    closed: list[bool] = []
+    fetched: list[int] = []
+    real_open = binding._OwnedDuckDbSession.open
+    real_close = binding._OwnedDuckDbSession.close
+    real_fetch = binding._ControlledReadCursor.fetchmany
+    cleanup_error = Diagnostic(
+        code="RC_ADAPTER_CLOSE_FAILED",
+        severity=DiagnosticSeverity.ERROR,
+        message="Read-only execution session cleanup failed.",
+    )
+
+    def open_session(session: binding._OwnedDuckDbSession) -> None:
+        real_open(session)
+        opened.append(session)
+        if phase == "setup":
+            event.set()
+
+    def fetch(cursor: binding._ControlledReadCursor, size: int) -> Any:
+        nonlocal now
+        if cursor._interrupt is None:
+            return real_fetch(cursor, size)
+        if phase == "before_fetch":
+            event.set()
+        result = real_fetch(cursor, size)
+        fetched.append(size)
+        if phase == "after_fetch":
+            event.set()
+        elif phase == "deadline_after_fetch":
+            now = 1_000_000_000
+        return result
+
+    def close(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        if phase == "cleanup_error":
+            event.set()
+        diagnostics = real_close(session)
+        closed.append(session.released)
+        return diagnostics + (cleanup_error,) if phase == "cleanup_error" else diagnostics
+
+    before = database.read_bytes()
+    with monkeypatch.context() as patch:
+        patch.setattr(run_service_module, "monotonic_ns", lambda: now)
+        patch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+        patch.setattr(binding._OwnedDuckDbSession, "close", close)
+        patch.setattr(binding._ControlledReadCursor, "fetchmany", fetch)
+        outcome = RunService(start_path=tmp_path)._execute_invocation(
+            timeout_seconds=1, cancel_event=event
+        )
+    assert len(opened) == 1 and closed == [True]
+    assert outcome.run_result is not None
+    first, second = outcome.run_result.contract_results[0].check_results
+    assert first.status is CheckStatus.ERROR and not first.executed
+    assert first.source_value is first.target_value is first.diff_value is None
+    assert second.status is CheckStatus.NOT_EXECUTABLE and not second.executed
+    assert second.reason_code is not None
+    reason = "run_deadline_exceeded" if phase == "deadline_after_fetch" else "run_cancelled"
+    assert second.reason_code.value == reason
+    assert outcome.stop_cause is not None and outcome.stop_cause.value == reason
+    assert outcome.scope_facts.complete is True
+    assert outcome.service_result.exit_category is ExitCategory.RUNTIME_ERROR
+    assert "RC_RUNTIME_" + reason.upper() in {d.code for d in outcome.service_result.diagnostics}
+    if phase in {"setup", "before_fetch"}:
+        assert fetched == []
+    else:
+        assert fetched == [2]
+    if phase == "cleanup_error":
+        assert cleanup_error.code in {d.code for d in first.diagnostics}
+    assert database.read_bytes() == before
+    assert RunService(start_path=tmp_path).execute().exit_category is ExitCategory.SUCCESS
