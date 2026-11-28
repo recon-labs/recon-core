@@ -42,21 +42,28 @@ diagnostics; exit 3 for prior 0/1/3, retain independent primary 2/4.
 No false current artifact reference. Atomic visibility is not power-loss
 durability or hostile-filesystem immunity.
 
-Independent invocations may overlap. At a shared destination each preflight
-invalidates the snapshot present then; the latest successful replacement
-wins thereafter. Failed cleanup never removes another invocation's final
-file or staging data. File existence alone is not proof of current results:
-correlate invocation identity with the command. Separate configured targets
-or external collection can retain distinct concurrent results. No run
-history, shared scheduler or lock.
+Independent invocations may overlap. At a shared destination the actual
+invalidation (unlink or observed absence) and atomic replacement operations
+order the snapshots, not invocation start or first inspection. Later
+preflight invalidation can legitimately remove an earlier publication.
+Reject an observed identity change before unlink; portable stat/unlink is
+not atomic compare-and-delete, and an overlapping replacement in the final
+check/unlink window follows operation ordering. Failed post-preflight
+cleanup never removes the final name or another invocation's staging data.
+Written means this invocation committed, not continued file existence.
+Correlate invocation identity with the command; use separate configured
+targets for per-run retention. No run history, shared scheduler or lock.
 
 Only canonical authored identifiers, approved status/diagnostic metadata,
 structural counts and verified typed evidence are public. No source/target
 row counts, values, keys, differences, raw policy payloads, relation or
 connection names, private paths, SQL, profile data or raw errors. Resource
 limits and readbacks are not actual consumption; unknown is not zero.
-Preserve actionable safe diagnostics, explicit missing facts, distinct
-cleanup and stop evidence, and existing status precedence. No estimate
+Preserve actionable safe diagnostics from proven owner-authored templates,
+not trusted merely by diagnostic code; canonical identities come from
+validated plan metadata, not engine text. Missing per-attempt accounting
+must not become partial cumulative totals. Preserve explicit missing facts,
+distinct cleanup and stop evidence, and existing status precedence. No estimate
 re-execution or inference from diagnostic text. Publication follows the
 execution seal and cannot retrospectively change a stop cause; the command
 waits for publication and has no hard wall-clock guarantee.
