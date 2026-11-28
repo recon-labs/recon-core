@@ -30,10 +30,13 @@ those boundaries.
 
 ## Planned run-result lifecycle
 
-[M8.3 prework](../planning/milestone-8-3-prework.md) defines the first
+[Publication prework](../planning/milestone-8-3-prework.md) defines the first
 run-result schema, safe configured target, stale invalidation, atomic
 replacement and explicit failed publication. Readers correlate invocation_id
-with the command, not file presence. Scope, status and resource evidence
+with the command, not file presence. Shared-target invalidation and replacement
+follow operation ordering; a written result need not remain present after a
+later overlapping run. Use separate targets for per-run retention. Scope,
+status and resource evidence
 preserve unavailable versus known zero; no raw model serialization. No
 change to existing artifact versions. Implementation and proof remain pending.
 
