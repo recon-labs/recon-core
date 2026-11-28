@@ -1,8 +1,8 @@
 name: M8.3 publication feasibility
 on:
-  push:
-    branches:
-      - audit/m83-publication-feasibility
+  pull_request:
+    paths:
+      - .github/workflows/m83-publication-feasibility.yml
 permissions:
   contents: read
 jobs:
