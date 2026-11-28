@@ -1303,7 +1303,16 @@ def test_actual_guarded_native_interrupt_during_spill(
 
 @pytest.mark.parametrize(
     "failure",
-    ["none", "guard-open", "actor-open", "query-error", "actor-close", "guard-close", "scratch"],
+    [
+        "none",
+        "guard-open",
+        "actor-open",
+        "query-error",
+        "rollback",
+        "actor-close",
+        "guard-close",
+        "scratch",
+    ],
 )
 @pytest.mark.regression_capture("duckdb-controlled-owned-session")
 def test_guarded_session_owns_scratch_until_confirmed_close(
@@ -1332,6 +1341,11 @@ def test_guarded_session_owns_scratch_until_confirmed_close(
 
         def __getattr__(self, name: str) -> Any:
             return getattr(self.native, name)
+
+        def execute(self, statement: str, *args: Any) -> Any:
+            if failure == "rollback" and self.kind == "actor" and statement == "ROLLBACK":
+                raise RuntimeError("PRIVATE_SENTINEL")
+            return self.native.execute(statement, *args)
 
         def close(self) -> None:
             cleanup_calls.append(self.kind)
@@ -1399,7 +1413,12 @@ def test_guarded_session_owns_scratch_until_confirmed_close(
             }
             assert cleanup_calls == expected[failure]
         else:
-            assert diagnostics == ()
+            if failure == "rollback":
+                assert len(diagnostics) == 1
+                assert diagnostics[0].code == "RC_ADAPTER_CLOSE_FAILED"
+                assert "PRIVATE_SENTINEL" not in str(diagnostics)
+            else:
+                assert diagnostics == ()
             assert session.released
             assert not owned.path.exists()
             assert cleanup_calls == [kind for kind, _ in reversed(handles)] + ["scratch"]

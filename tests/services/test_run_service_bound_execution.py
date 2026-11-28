@@ -108,6 +108,8 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     database = tmp_path / "warehouse.duckdb"
     duckdb = _duckdb_module()
     _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    independent = tmp_path / "independent.duckdb"
+    _write_duckdb_row_count_tables(duckdb, independent, source_rows=((3,),), target_rows=((4,),))
     write_duckdb_row_count_run_inputs(tmp_path, database)
     checks = [
         _compiled_check_payload(
@@ -130,6 +132,7 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
     connections = profile["profiles"]["local"]["outputs"]["dev"]["connections"]
     connections["alias"] = dict(connections["warehouse"])
+    connections["independent"] = dict(connections["warehouse"], database=str(independent))
     profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
     alias = _compiled_check_payload(
         check_id="check.ecommerce_recon.other_revenue.row_count_diff",
@@ -146,6 +149,22 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
         contract_name="other_revenue",
         source_connection="alias",
         target_connection="alias",
+    )
+    separate = _compiled_check_payload(
+        check_id="check.ecommerce_recon.zeta_revenue.row_count_diff",
+        operations=row_count_plan(),
+    )
+    separate["plan"] = {
+        "id": "plan.ecommerce_recon.zeta_revenue.row_count_diff",
+        "operations": row_count_plan(),
+        "required_capabilities": ["row_count"],
+    }
+    write_compiled_checks(tmp_path, contract_name="zeta_revenue", checks=[separate])
+    write_compiled_contract(
+        tmp_path,
+        contract_name="zeta_revenue",
+        source_connection="independent",
+        target_connection="independent",
     )
     original_open = binding._OwnedDuckDbSession.open
     original_close = binding._OwnedDuckDbSession.close
@@ -183,6 +202,8 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
     contracts = {contract.contract_name: contract for contract in engine.result.contract_results}
     first, dependent, unrelated, malformed = contracts["customer_revenue"].check_results
     aliased = contracts["other_revenue"].check_results[0]
+    separate_result = contracts["zeta_revenue"].check_results[0]
+    assert separate_result.status is CheckStatus.PASS and separate_result.executed
     assert malformed.status is CheckStatus.NOT_EXECUTABLE and not malformed.executed
     assert first.status is CheckStatus.ERROR
     assert "RC_ADAPTER_CLOSE_FAILED" in {d.code for d in first.diagnostics}
@@ -198,11 +219,15 @@ def test_cleanup_failure_is_check_local_or_stops_native_execution(
         }
         assert aliased.status is CheckStatus.ERROR and not aliased.executed
         assert "RC_RUNTIME_EXECUTION_CONTEXT_UNAVAILABLE" in {d.code for d in aliased.diagnostics}
-        assert len(opened) == 1
+        assert len(opened) == 2
     else:
         assert unrelated.status is CheckStatus.PASS
         assert aliased.status is CheckStatus.PASS and aliased.executed
-        assert len(opened) == 3
+        assert len(opened) == 4
+    assert opened[-1]._identity.path == independent.resolve()
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "open", original_open)
+    monkeypatch.setattr(binding._OwnedDuckDbSession, "close", original_close)
+    assert RunService(start_path=tmp_path).execute().exit_category is ExitCategory.SUCCESS
 
 
 @pytest.mark.parametrize("read_only", [False, True])
