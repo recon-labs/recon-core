@@ -29,8 +29,10 @@ publication. Preserve keyword-only controls and ServiceResult's four fields.
 Keep the private execution-only seam for existing execution/no-write tests.
 Capture destination at the existing successful project-context load, not
 by loading again. Before compiled/native work, validate the reserved target
-and invalidate its previous regular snapshot. Failed preflight is runtime
-exit 3, no native work. Invalid CLI arguments create no invocation; invalid
+and invalidate its previous regular snapshot. A stop observed after trusted
+context acquisition does not bypass destination preflight; after successful
+preflight it is eligible for a stopped artifact without native work. Failed
+preflight is runtime exit 3, no native work. Invalid CLI arguments create no invocation; invalid
 embedded controls, preset cancellation or configuration failure before a
 trusted destination exists cannot publish or invalidate guessed paths.
 Explicitly report no current result written. After destination preflight,
@@ -72,15 +74,26 @@ when cleanup fails. Never sweep unknown abandoned staging files. No promise
 of power-loss durability. Abrupt exit before commit can leave an owned
 temporary file but cannot publish partial final JSON.
 
-Same-target overlap is allowed without global serialization. Each invocation
-invalidates the snapshot present at its own safe preflight, then the last
-successful atomic replacement wins among subsequent commits. A later
-preflight can invalidate a prior commit. A failed writer must never delete
-another invocation's final output or staging file. File existence alone is
-not evidence of this invocation: correlate invocation_id with command
-output, use separate destinations or external collection for per-run
-retention. No historical store, shared lock or new directory policy.
-Concurrent mutation of the compiled inputs is not a freshness guarantee.
+Same-target overlap is allowed without global serialization. Define ordering
+by the actual filesystem operations, not invocation start or the first stat:
+preflight invalidation is the successful unlink of the reserved regular
+snapshot (or observed absence); publication is successful atomic replacement.
+A later invalidation can legitimately remove a prior successful publication,
+even if its preflight began earlier. If a different identity is observed
+before unlink, fail preflight safely rather than retrying or deleting that
+observed replacement. Concurrent disappearance of the reserved name is
+acceptable only with the destination still verified. Portable stat/unlink
+is not an atomic compare-and-delete; a replacement in the final check/unlink
+window is governed by operation ordering within the cooperative boundary,
+not a guarantee of preserving the initially inspected inode. Never claim
+stronger conditional deletion or hostile-mutation safety. After preflight,
+failed staging/publication cleanup must never unlink the final name or
+another invocation's staging file. Separate targets are needed if each run
+must retain its snapshot. Correlate invocation_id with command output; a
+written result means this invocation committed, not that its file necessarily
+still exists when the command returns. No historical store, shared lock or
+new directory policy. Concurrent mutation of compiled inputs is not a
+freshness guarantee.
 
 ## Version 1 schema
 
@@ -134,20 +147,28 @@ records only; sum matches trustworthy finalized count. Null when unavailable,
 zero when proven empty. No authored freshness claim.
 
 Contract records: contract_ref (positive invocation-local plan ordinal),
-contract_id, contract_name (canonical authored identity or null), status
+contract_id and contract_name (each canonical authored identity or null), status
 (existing RunStatus), check_results (ordered list), diagnostics (safe list).
-Check records: check_ref (positive invocation-wide plan ordinal), check_id,
-name (canonical authored identity or null), check_type (known catalog type
-or null), status (existing CheckStatus), severity (validated error/warn/info),
+Check records: check_ref (positive invocation-wide plan ordinal), check_id
+and name (each canonical authored identity or null), check_type (known
+catalog type or null), status (existing CheckStatus), severity (validated error/warn/info),
 executed (boolean), reason_code (existing CheckReason or null),
 prerequisite_refs, blocked_by_refs (positive plan ordinals), and
 missing_prerequisite_count (integer for unresolved references), diagnostics
 (safe list), execution (object), artifact_refs=[], sink_refs=[].
 Use actual validated plan order and existing stable ID conventions. Validate
-canonical ID composition and names at projection; arbitrary loader/result
-strings are not proof of safe identity. Suppress noncanonical strings but
-preserve ordinals and outcomes, not a new execution admission restriction.
-Never invent absent prerequisite links or echo unknown identifiers.
+canonical ID composition and names at projection against the existing
+compiler/config naming authority, not a new naming rule. Retain the check
+name from the validated loaded plan at its existing owner; never use the
+engine's name or identity as public identity authority. Plan membership alone
+is not proof of canonical naming; arbitrary injected/loaded strings, even
+matching the result, must pass the canonical checks. An identifier is public
+metadata only in its allowed authored field, not a license to publish it in
+arbitrary diagnostics. Suppress noncanonical strings but preserve ordinals
+and outcomes, not a new execution admission restriction. Resolve prerequisite
+and blocked-by refs only to verified plan identities; unresolved prerequisite
+count is structural and no unknown identifier is echoed. Do not invent absent
+links. No new parse/compile or freshness check.
 
 Publication object: mode=local_artifacts, required=true, status=written,
 artifact_type=run_results, path=run_results.json (relative to configured
@@ -176,10 +197,22 @@ resource_name canonical safe identity or null, path approved fixed relative
 reference or null, line/column positive integer or null when safe, hint safe
 action or null. Context via nesting and safe ordinal attribution. Audit
 run-path producers, correct unsafe interpolation at its owner, preserve
-actionable diagnostics and distinct failure events. Unknown/injected
-diagnostic text is not trusted by code prefix; use fixed safe fallback and
-inspect-locally action. No duplicated diagnostic catalog or regex-based
-privacy claim. One safe projection for artifact, service and terminal.
+actionable diagnostics and distinct failure events. A known code, prefix,
+valid severity, or Diagnostic type is not provenance. Establish safe text
+at the existing producer/boundary through fixed owner-authored templates
+and explicitly validated typed arguments; audit project/config/profile,
+compiled loaders (including stored diagnostics), adapter setup, check engine,
+native runner, stop/cleanup and publication owners. Do not promote persisted
+or injected diagnostic text, hints or context to trusted text merely because
+its code matches a real one. Use a fixed safe fallback and inspect-locally
+action for unproven text/fields, retain a known safe code only when its meaning
+is trustworthy, otherwise use RC_RUNTIME_DIAGNOSTIC_UNAVAILABLE. Preserve
+separate failure events via safe plan/session ordinal attribution even when
+fallback text is identical; deduplicate only proven repeated events, not
+all equal sanitized strings. Do not duplicate the catalog or implement a
+regex-based privacy claim. One safe projection for artifact, service and
+terminal, including service message and successful-run diagnostics; preserve
+existing non-run CLI rendering.
 Existing parse/compile writer exception text is an independent privacy
 carryover to next affected writer/compatibility review, not a global rewrite.
 C3 tests use unique canaries in every potentially unsafe field, including
@@ -194,7 +227,16 @@ actual_transport_bytes, actual_cost (null in v1, unmeasured);
 actual_resource_evidence=unavailable; physical_enforcement_proven=false.
 Native comparison-reader counts exclude setup/metadata/close; attempts are
 not completed checks or scans. If attempted work lacks accounting proof,
-do not sum missing native records into an invented zero.
+do not sum missing native records into an invented zero. The existing ledger
+counts attempts at session entry, before open/bind, not only successful
+queries. Retain per-check attempt and final cleanup facts at the bound runner
+and actual native interrupt/return and scratch facts at their owners. Prove
+coverage for each attempted check; if any applicable native count is missing
+or untrusted, the affected cumulative count is null, not a partial sum.
+Zero is allowed only for observed zero or a proven no-attempt path. Do not
+infer release, scratch deletion, interrupt delivery or returned calls from
+status or diagnostic presence/absence. Invalid or absent controls and an
+unavailable plan must not manufacture timeout or execution facts.
 
 Per-check execution object: adapter_type (known duckdb/null), placement
 (same_context only on verified binding/null), required_capabilities (known
@@ -220,7 +262,10 @@ fact has setting (managed-memory/threads/spill/max-database-mib/
 warn-estimated-input-rows/scratch-directory), scope
 (default/project/target/connection), mode (auto/none/fixed/percent/path),
 requested_value (integer/null), unit (bytes/threads/rows/percent/null).
-Scratch path never emitted. For each of memory, threads, spill retain
+Use percent for percent mode; for fixed mode managed-memory, spill and
+max-database-mib are normalized bytes, threads are threads, and the advisory
+threshold is rows. Auto/none/path modes have null requested_value and unit;
+scratch path never emitted. For each of memory, threads, spill retain
 requested, adjusted, assignment, reported_lower, reported_upper
 (integer/null), plus unit (bytes or threads); each control object is null
 when its observation is unavailable. Capacities only
@@ -250,8 +295,13 @@ diagnostics without erasing primary reconciliation outcome. Failed preflight
 blocks native work. No successful exit for required write failure. Terminal
 reports invocation ID, trustworthy planned/finalized/executed/attempted
 counts, all check statuses and primary outcome, actual published/not-written
-status and actionable safe diagnostics. Unknown counts not zero. When a
-snapshot commits, ID/status/counts and final exit agree. A failed publication
+status and actionable safe diagnostics. Unknown counts not zero. Keep the
+four-field ServiceResult contract: the safe run-specific message carries the
+summary and current publication outcome; no added public result fields or
+second CLI status authority. Distinguish the sealed execution status and
+primary category from final command category on publication failure; a
+committed snapshot has the same category/code as the returned command.
+When a snapshot commits, ID/status/counts and final exit agree. A failed publication
 cannot be represented as written merely by finding an older or concurrent
 snapshot. Keep existing SIGINT and late-seal semantics.
 
@@ -259,15 +309,15 @@ snapshot. Keep existing SIGINT and late-seal semantics.
 
 | ID | Required positive, negative and edge variants | Proof / ownership |
 | --- | --- | --- |
-| C1 | Strict v1 shape/order/IDs/nullability; pass/fail/error/no_checks; canonical/noncanonical IDs; configured external target; unknown future version and additive fields | Golden schema and service projection, artifact versions, no compiled version change |
+| C1 | Strict v1 shape/order/IDs/nullability; pass/fail/error/no_checks; canonical/noncanonical IDs and matching injected strings; differing engine name; configured external target; unknown future version and additive fields | Golden schema and service projection, artifact versions, no compiled version change |
 | C2 | All nine native check families; actual verified and refused binding; unknown/missing capability; aliases; absent facts | Native owner trace and projected categorical metadata, no fabricated placement |
-| C3 | Canary every sensitive field, nested payload, untrusted diagnostics, malformed IDs, raw errors/paths/SQL/profile values, safe distinct actionable warnings | Public service/CLI/artifact privacy and diagnostic owner tests; Gates 3F2/6/4J |
+| C3 | Canary every sensitive field, nested payload, known-code spoofing, persisted/injected diagnostics and service messages, malformed IDs, raw errors/paths/SQL/profile values, safe distinct actionable warnings and equal-sanitized distinct events | Public service/CLI/artifact privacy and diagnostic owner tests; Gates 3F2/6/4J |
 | C4 | All check/run statuses and mixed precedence, early/empty/invalid/foreign scope, setup failure, pre-start/active/late stop, cleanup and write failure combinations | Service and actual native tests; existing aggregation and primary mapping |
-| C5 | Stale regular/malformed snapshot; missing target, wrong shape, symlink/dangling link/junction/hardlink/case collision, external target; permission/disk/close/replace/cleanup failure, abrupt exit, overlapping writes, unrelated files | Dedicated writer and real Linux/macOS/Windows filesystem tests; no native work on failed preflight; no partial or other-run deletion |
+| C5 | Stale regular/malformed snapshot; missing target, wrong shape, symlink/dangling link/junction/hardlink/case collision, external target; permission/disk/close/replace/cleanup failure, abrupt exit, overlapping preflight/replace (both orderings, observed replacement, disappearance and final stat/unlink window), failed writer cleanup after another commit, unrelated files | Dedicated writer and real Linux/macOS/Windows filesystem tests; no native work on failed preflight; no partial or other-run deletion |
 | C6 | All status/counts, exit 0-4, actual write/not-written, unknown vs zero, safe warnings, matching artifact; delivered/ignored SIGINT and sealed outcome | CLI/service end-to-end and native regression, no extra execution |
 | C7 | Only reserved local snapshot and owned staging touched; no other refs, report/evidence/state/sink/table/external writes | Filesystem and adapter trace, ADR 0022 |
 | C8 | Whole compiled plan vs unknown/empty/incomplete coverage; no selectors/implicit compile/freshness claim | Scope tests and selector-readiness |
-| C10 | Policy origins/resets/units, native readback, unknown actual resource use, exact attempts vs records, release/cleanup and stop evidence, independent concurrent invocations | Owner-native facts plus projection, R1-R10 and existing A/B proofs |
+| C10 | Policy origins/resets/units, native readback, unknown actual resource use, exact attempts vs records (open/bind failure, absent native fact, partial count, observed zero), release/cleanup and stop evidence (failed rollback with confirmed release, unconfirmed close, interrupt request vs return), independent concurrent invocations | Owner-native facts plus projection, R1-R10 and existing A/B proofs |
 | C9 | All C rows plus A/B regression preservation, compatibility, changelog, docs, exact final CI and cumulative review-fix | Full standard/platform CI, regression capture advisory and pre-commit |
 
 Workflow scenarios: a mixed pass/fail invocation publishes once with exit 1;
@@ -297,7 +347,15 @@ CLI and actual native suites. Update existing capture rows and route new
 modules/tests to owning run_results, artifact, diagnostics and CLI surfaces.
 Existing negative no-output tests remain true for the execution-only seam;
 public run tests change only the deliberately added publication behavior.
-Do not weaken preservation assertions to reach green.
+Do not weaken preservation assertions to reach green. Re-evaluate all matching
+capture rows via the index, including compiled-artifact-yaml-loader-diagnostics,
+aggregate-service-output-privacy, local-resource-config-strict-validation,
+compile-command-terminal-contract and run timeout/cancellation carryover, plus
+all native/engine/privacy rows assigned in the split matrix. New writer,
+projection and service paths require exact capture routing; retain existing
+markers and test intent, update deferred rows only on verified proof, and
+add reusable missed-requirement rows for privacy, accounting and publication
+regressions. No gate closure from docs-only work.
 
 ## Steps, gates and Definition of Done
 
