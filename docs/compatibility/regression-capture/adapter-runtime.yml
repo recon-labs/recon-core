@@ -734,6 +734,7 @@ captures:
       - tests/adapters/test_duckdb_bound_execution.py::test_actual_guarded_native_interrupt_during_spill
       - tests/services/test_run_service_bound_execution.py::test_native_invocation_control_preserves_completed_checks
       - tests/services/test_run_service_bound_execution.py::test_native_stop_at_check_boundaries_preserves_cleanup
+      - tests/services/test_run_service_bound_execution.py::test_invocation_counts_native_attempts_without_inventing_consumption
       - tests/services/test_run_service_aggregate_admission.py::test_actual_run_service_cancels_active_native_spill
       - tests/services/test_run_service_bound_execution.py::test_cleanup_failure_is_check_local_or_stops_native_execution
     carryover_gates:
@@ -744,6 +745,7 @@ captures:
     requirement_refs:
       - docs/planning/milestone-8-1-2-prework.md: B8 and B9 native stop and cleanup
       - docs/planning/milestone-8-2-prework.md: B8 and B9
+      - docs/planning/milestone-8-2-prework.md: B10
     notes: >
       The parked subprocess stop, reaping and parent EOF watchdog were retired. Native interrupt requests do not prove completion or release. Retain actual spill interruption, observer noninterference, confirmed native release and affected-context cleanup latch.
 

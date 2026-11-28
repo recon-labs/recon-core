@@ -1383,3 +1383,96 @@ def test_abrupt_native_run_retains_residue_and_next_run_uses_fresh_scratch(tmp_p
     assert residue.read_bytes() == b"abandoned"
     assert database.read_bytes() == before
     assert not (tmp_path / "target" / "run_results.json").exists()
+
+
+@pytest.mark.regression_capture("duckdb-worker-process-lifecycle")
+@pytest.mark.parametrize("mode", ["normal", "stop", "native_error"])
+def test_invocation_counts_native_attempts_without_inventing_consumption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    write_compiled_checks(
+        tmp_path,
+        checks=[
+            _compiled_check_payload(check_id="first", name="first", operations=row_count_plan()),
+            _compiled_check_payload(check_id="second", name="second", operations=row_count_plan()),
+        ],
+    )
+    event = Event()
+    opened: list[binding._OwnedDuckDbSession] = []
+    active = 0
+    peak = 0
+    original_open = binding._OwnedDuckDbSession.open
+    original_close = binding._OwnedDuckDbSession.close
+
+    class BrokenActor:
+        def __init__(self, native: Any) -> None:
+            self.native = native
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self.native, name)
+
+        def execute(self, statement: str, *args: Any) -> Any:
+            if statement == "ROLLBACK":
+                return self.native.execute(statement, *args)
+            if "count(" in statement.lower():
+                raise RuntimeError("private-native-error")
+            return self.native.execute(statement, *args)
+
+    def open_session(session: binding._OwnedDuckDbSession) -> None:
+        nonlocal active, peak
+        original_open(session)
+        opened.append(session)
+        active += 1
+        peak = max(peak, active)
+        if mode == "native_error" and len(opened) == 1:
+            session._connection = BrokenActor(session._connection)
+
+    def close_session(session: binding._OwnedDuckDbSession) -> tuple[Diagnostic, ...]:
+        nonlocal active
+        diagnostics = original_close(session)
+        assert session.released
+        active -= 1
+        if mode == "stop" and len(opened) == 1:
+            event.set()
+        return diagnostics
+
+    with monkeypatch.context() as patch:
+        patch.setattr(binding._OwnedDuckDbSession, "open", open_session)
+        patch.setattr(binding._OwnedDuckDbSession, "close", close_session)
+        service = RunService(start_path=tmp_path)
+        outcome = (
+            service._execute_invocation(cancel_event=event)
+            if mode == "stop"
+            else service._execute_invocation()
+        )
+    assert outcome.scope_facts.complete is True
+    assert outcome.scope_facts.planned_check_count == 2
+    assert outcome.scope_facts.finalized_check_count == 2
+    assert outcome.scope_facts.executed_check_count == (2 if mode == "normal" else 1)
+    assert active == 0 and peak == 1
+    facts = outcome.execution_facts
+    assert facts.attempted_check_count == len(opened) == (1 if mode == "stop" else 2)
+    assert facts.native_execute_attempts == (1 if mode == "stop" else 2)
+    assert facts.native_fetch_attempts == (2 if mode == "normal" else 1)
+    assert facts.peak_active_native_checks == peak
+    assert facts.actual_scanned_rows is None
+    assert facts.actual_cpu_ns is None
+    assert facts.actual_disk_bytes is None
+    assert facts.actual_transport_bytes is None
+    assert facts.actual_cost is None
+    assert "private-native-error" not in repr(outcome.service_result)
+    assert set(outcome.service_result.to_dict()) == {
+        "exit_category",
+        "exit_code",
+        "message",
+        "diagnostics",
+    }
+    repeated = RunService(start_path=tmp_path)._execute_invocation()
+    assert repeated.run_id != outcome.run_id
+    assert repeated.execution_facts.attempted_check_count == 2
+    assert repeated.execution_facts.native_execute_attempts == 2
+    assert repeated.execution_facts.native_fetch_attempts == 2
