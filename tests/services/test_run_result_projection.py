@@ -111,6 +111,7 @@ def _outcome(
 
 
 @pytest.mark.regression_capture("run-loaded-compiled-scope")
+@pytest.mark.regression_capture("run-result-projection-privacy")
 def test_projection_uses_plan_identity_and_structural_counts() -> None:
     first = _planned("first")
     second = _planned("second", prerequisites=(first.check_id, "private-missing-id"))
