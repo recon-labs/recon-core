@@ -114,7 +114,11 @@ class _RunScopeFacts:
         )
         if plan is None:
             return cls(
-                None, 0 if known_empty else None, finalized, executed, False if result is not None else None
+                None,
+                0 if known_empty else None,
+                finalized,
+                executed,
+                False if result is not None else None,
             )
 
         complete = (
