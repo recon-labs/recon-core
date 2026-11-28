@@ -113,7 +113,9 @@ class _RunScopeFacts:
             check.executed is True for contract in contracts for check in contract.check_results
         )
         if plan is None:
-            return cls(None, 0 if known_empty else None, finalized, executed, None)
+            return cls(
+                None, 0 if known_empty else None, finalized, executed, False if result is not None else None
+            )
 
         complete = (
             result is not None
