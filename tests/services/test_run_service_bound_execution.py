@@ -1,5 +1,8 @@
 """Project-run native binding and check-local lifecycle proof."""
 
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from threading import Event
 from typing import Any
@@ -1323,3 +1326,60 @@ def test_native_stop_at_check_boundaries_preserves_cleanup(
         assert cleanup_error.code in {d.code for d in first.diagnostics}
     assert database.read_bytes() == before
     assert RunService(start_path=tmp_path).execute().exit_category is ExitCategory.SUCCESS
+
+
+@pytest.mark.regression_capture("owned-scratch-discovery")
+def test_abrupt_native_run_retains_residue_and_next_run_uses_fresh_scratch(tmp_path: Path) -> None:
+    database = tmp_path / "warehouse.duckdb"
+    duckdb = _duckdb_module()
+    _write_duckdb_row_count_tables(duckdb, database, source_rows=((1,),), target_rows=((2,),))
+    write_duckdb_row_count_run_inputs(tmp_path, database)
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    project_path = tmp_path / "recon_project.yml"
+    project = yaml.safe_load(project_path.read_text(encoding="utf-8"))
+    project["execution"] = {"adapters": {"duckdb": {"scratch-directory": "scratch"}}}
+    project_path.write_text(yaml.safe_dump(project, sort_keys=False), encoding="utf-8")
+    before = database.read_bytes()
+    code = textwrap.dedent(
+        """
+        import os
+        import sys
+        from pathlib import Path
+
+        from recon_core.adapters.duckdb import _bound_execution as binding
+        from recon_core.services import RunService
+
+        original = binding._OwnedDuckDbSession.open
+
+        def open_and_exit(session):
+            original(session)
+            assert session._transaction and not session.released
+            assert session._scratch is not None
+            (session._scratch.path / "abandoned.tmp").write_bytes(b"abandoned")
+            os._exit(73)
+
+        binding._OwnedDuckDbSession.open = open_and_exit
+        RunService(start_path=Path(sys.argv[1])).execute()
+        raise AssertionError("Abrupt exit was not reached.")
+        """
+    )
+    child = subprocess.run(
+        [sys.executable, "-c", code, str(tmp_path.resolve())],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert child.returncode == 73, child.stderr
+    abandoned = list(scratch.iterdir())
+    assert len(abandoned) == 1
+    residue = abandoned[0] / "abandoned.tmp"
+    assert residue.read_bytes() == b"abandoned"
+    outcome = RunService(start_path=tmp_path)._execute_invocation()
+    assert outcome.service_result.exit_category is ExitCategory.SUCCESS
+    assert outcome.scope_facts.complete is True
+    assert list(scratch.iterdir()) == abandoned
+    assert residue.read_bytes() == b"abandoned"
+    assert database.read_bytes() == before
+    assert not (tmp_path / "target" / "run_results.json").exists()

@@ -302,6 +302,8 @@ Current reason codes:
 | `not_implemented_in_current_phase` | `not_executable` | The check or typed operation is valid and known to Recon but belongs to a later execution phase. |
 | `skipped_by_policy` | `skipped` | Explicit user or configuration policy skipped the check. Reserved until skip policy exists. |
 | `selected_out` | `skipped` | Future selector behavior excluded the check from the run. Reserved until selectors exist. |
+| `run_cancelled` | `not_executable` | An invocation cancellation prevented the check from starting. |
+| `run_deadline_exceeded` | `not_executable` | The shared invocation deadline prevented the check from starting. |
 
 Every `blocked`, `not_executable`, or `skipped` result must carry a
 `reason_code`, a safe message, and diagnostics. `blocked` results must also
@@ -326,6 +328,19 @@ Future result status work must distinguish reconciliation outcomes from
 publication outcomes. A failed required evidence or sink write is not the same
 as a failed source-target comparison, and run metadata must make that
 distinction visible.
+
+## Invocation stop and cleanup
+
+A cooperative stop retains finalized checks and gives unstarted planned checks
+an explicit stop reason. An interrupted attempted comparison without trustworthy
+completed evidence is an error without value payload. Native interruption is
+not proof of release: the executing and borrowed interrupt calls return before
+rollback, close and scratch cleanup. Cleanup failures preserve earlier safe
+primary diagnostics and invalidate unconfirmed results. An uncertain release
+blocks the affected database and its aliases within the invocation, not an
+independent database. Invocation cancellation stops further work across the
+whole plan. Abrupt process exit has no returned result or cleanup guarantee;
+new invocations do not adopt or sweep abandoned storage.
 
 ## Command result separation
 
