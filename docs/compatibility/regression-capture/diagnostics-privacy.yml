@@ -113,3 +113,30 @@ captures:
       untrusted nested keys or values. Private scratch paths are not echoed.
       Scoped replacement tests are test-first and pending GREEN; retain
       historical candidate nodes until their verified replacements are integrated.
+
+  - id: run-result-projection-privacy
+    title: Project only canonical loaded identities and structural result facts
+    area: diagnostics-privacy
+    bug_class: diagnostics
+    owner_surface: source_target_privacy
+    severity: P2
+    current_tests:
+      - tests/services/test_run_result_projection.py::test_projection_uses_plan_identity_and_structural_counts
+    carryover_gates:
+      - gate: diagnostics_privacy_carryover
+        status: deferred
+        expected_suite: run_result_projection_privacy
+        rationale: Private structural projection is tested; diagnostic provenance and public service, CLI and artifact privacy proof remain required.
+      - gate: artifact_publication_carryover
+        status: deferred
+        expected_suite: run_result_projection_privacy
+        rationale: Actual required writer and committed snapshot privacy remain pending.
+    requirement_refs:
+      - docs/planning/milestone-8-3-prework.md: C1
+      - docs/planning/milestone-8-3-prework.md: C3
+      - docs/planning/milestone-8-3-prework.md: C8
+    notes: >
+      Never serialize internal check values, messages, comparison identities,
+      policies, data counts or arbitrary references. Use the validated plan
+      and invocation-local ordinals; untrusted diagnostics require separate
+      owner-derived safe projection before public output.
