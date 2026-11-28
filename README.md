@@ -50,7 +50,7 @@ Implemented today:
 - relation-backed same-context DuckDB grain-key safety execution for compiled
   null-key, duplicate-key, missing-key, and extra-key checks through `recon run`
   when the internal local/dev scan guard verifies a project-local DuckDB file
-  under the size cap and both relation endpoints resolve to local base tables,
+  and both relation endpoints resolve to local base tables,
 - bounded same-context DuckDB execution of compiled explicit `sum_diff` and
   `grouped_aggregate_diff` checks with absolute numeric tolerance and private
   bounded results.

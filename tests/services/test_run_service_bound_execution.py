@@ -1498,9 +1498,7 @@ def test_native_work_reobserves_capacity_and_shares_deadline(
     )
     project_path = tmp_path / "recon_project.yml"
     project = yaml.safe_load(project_path.read_text(encoding="utf-8"))
-    project["execution"] = {
-        "adapters": {"duckdb": {"managed-memory": {"mib": 128}, "threads": 1}}
-    }
+    project["execution"] = {"adapters": {"duckdb": {"managed-memory": {"mib": 128}, "threads": 1}}}
     project_path.write_text(yaml.safe_dump(project, sort_keys=False), encoding="utf-8")
     observed: list[int] = []
     tick = 0

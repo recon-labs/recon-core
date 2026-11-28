@@ -1295,3 +1295,23 @@ def test_explicit_control_rejects_unproven_injected_engine(tmp_path: Path) -> No
     assert result.exit_category is ExitCategory.RUNTIME_ERROR
     assert [d.code for d in result.diagnostics] == ["RC_RUNTIME_RUN_CONTROL_UNAVAILABLE"]
     _assert_no_runtime_outputs(tmp_path)
+
+
+@pytest.mark.regression_capture("run-invocation-identity-timing")
+def test_native_attempt_accounting_distinguishes_zero_from_unavailable(tmp_path: Path) -> None:
+    event = Event()
+    event.set()
+    stopped = RunService(start_path=tmp_path)._execute_invocation(cancel_event=event)
+    assert stopped.execution_facts.attempted_check_count == 0
+    assert stopped.execution_facts.native_execute_attempts == 0
+    assert stopped.execution_facts.native_fetch_attempts == 0
+    assert stopped.execution_facts.peak_active_native_checks == 0
+    write_project(tmp_path)
+    write_compiled_checks(tmp_path)
+    write_compiled_contract(tmp_path)
+    injected = RunService(start_path=tmp_path, engine=_CapturingPassEngine())._execute_invocation()
+    assert injected.service_result.exit_category is ExitCategory.SUCCESS
+    assert injected.execution_facts.attempted_check_count is None
+    assert injected.execution_facts.native_execute_attempts is None
+    assert injected.execution_facts.native_fetch_attempts is None
+    assert injected.execution_facts.peak_active_native_checks is None

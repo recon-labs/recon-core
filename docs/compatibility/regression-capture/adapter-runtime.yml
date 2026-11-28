@@ -736,6 +736,7 @@ captures:
       - tests/services/test_run_service_bound_execution.py::test_native_invocation_control_preserves_completed_checks
       - tests/services/test_run_service_bound_execution.py::test_native_stop_at_check_boundaries_preserves_cleanup
       - tests/services/test_run_service_bound_execution.py::test_invocation_counts_native_attempts_without_inventing_consumption
+      - tests/services/test_run_service_aggregate_admission.py::test_all_nine_checks_use_owned_transaction_and_qualified_queries
       - tests/services/test_run_service_bound_execution.py::test_native_work_reobserves_capacity_and_shares_deadline
       - tests/services/test_run_service_bound_execution.py::test_independent_invocations_overlap_without_shared_accounting
       - tests/services/test_run_service_aggregate_admission.py::test_actual_run_service_cancels_active_native_spill

@@ -1792,11 +1792,15 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         return Connection(duckdb.connect(path, read_only=read_only), actor=False)
 
     monkeypatch.setattr(binding, "import_module", lambda name: SimpleNamespace(connect=connect))
-    engine = _CapturingAggregateEngine()
-    result = RunService(start_path=tmp_path, engine=engine).execute()
-    assert result.exit_category is ExitCategory.SUCCESS
-    assert engine.result is not None
-    checks = engine.result.contract_results[0].check_results
+    invocation = RunService(start_path=tmp_path)._execute_invocation()
+    assert invocation.service_result.exit_category is ExitCategory.SUCCESS
+    assert invocation.run_result is not None
+    checks = invocation.run_result.contract_results[0].check_results
+    assert invocation.scope_facts.complete is True
+    facts = invocation.execution_facts
+    assert facts.attempted_check_count == 9
+    assert facts.peak_active_native_checks == 1
+    comparison_attempts = 0
     assert len(checks) == len(sessions) == len(guards) == 9
     assert all(check.status is CheckStatus.PASS and check.executed for check in checks)
     monkeypatch.chdir(tmp_path)
@@ -1807,7 +1811,9 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
     assert all(not path.exists() for path in scratch_paths)
     assert closures == ["actor", "guard"] * 18
     assert str(database) not in cli.output and str(tmp_path) not in cli.output
-    for check, statements, guard in zip(checks * 2, sessions, guards, strict=True):
+    for index, (check, statements, guard) in enumerate(
+        zip(checks * 2, sessions, guards, strict=True)
+    ):
         assert guard[-1] == "CLOSE" and "BEGIN TRANSACTION" not in guard
         start = statements.index("BEGIN TRANSACTION")
         assert any("ATTACH " in statement for statement in statements[:start])
@@ -1818,6 +1824,12 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
         assert statements[-2:] == ["ROLLBACK", "CLOSE"]
         assert statements[1] == statements[3] == "pragma database_list"
         assert all("information_schema.tables" in statements[i] for i in (2, 4))
+        if index < 9:
+            native = invocation.resource_facts[index].native
+            assert native is not None
+            assert invocation.resource_facts[index].check_id == check.check_id
+            assert native.execute_attempts == native.fetch_attempts == len(statements[5:-2])
+            comparison_attempts += len(statements[5:-2])
         queries = [query for query in statements[5:-2] if not query.startswith("DESCRIBE ")]
         assert len(queries) == {"sum_diff": 3, "grouped_aggregate_diff": 4}.get(check.check_type, 1)
         assert all(f'"{catalog}"."qa".' in query for query in queries)
@@ -1826,6 +1838,7 @@ def test_all_nine_checks_use_owned_transaction_and_qualified_queries(
             assert "typeof(s.group_key_" not in queries[-1]
             assert "s.group_key_0 is not distinct from t.group_key_0" in queries[-1]
             assert "s.group_key_1 is not distinct from t.group_key_1" in queries[-1]
+    assert facts.native_execute_attempts == facts.native_fetch_attempts == comparison_attempts
     assert database.read_bytes() == before
     _assert_no_runtime_outputs(tmp_path)
 
