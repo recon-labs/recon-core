@@ -149,3 +149,11 @@ diagnostics remain sanitized. This is a local execution boundary with
 calibrated best-effort native resource policy, not a stable general
 transaction API or physical resource guarantee. See the
 [shared binding prework](../planning/milestone-8-1-1-prework.md).
+
+### Planned M8.3 run-result publication contract
+
+See [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
+and [M8.3 prework](../planning/milestone-8-3-prework.md) for proposed version 1
+fields, privacy, scope, local snapshot lifecycle, final CLI summary and exit
+semantics. These are design requirements, not current implementation support.
+No existing artifact or adapter API version changes.
