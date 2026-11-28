@@ -53,12 +53,13 @@ Expected uses:
 - reporting.
 
 `target/run_results.json` is planned for the future run-result artifact phase.
-The current execution boundary provides in-memory results only. M8.3's
-approved design direction is a privacy-safe version 1 local snapshot using
+The current execution boundary provides in-memory results only. The approved
+publication design is a privacy-safe version 1 local snapshot using
 one sealed invocation, preflight stale invalidation and atomic replacement.
 See [ADR 0028](../decisions/adr-0028-run-result-publication-and-cli-finalization.md)
-and [M8.3 prework](../planning/milestone-8-3-prework.md). Synthetic filesystem feasibility passed 9/9; implementation and production
-platform proof remain pending.
+and [publication prework](../planning/milestone-8-3-prework.md). Synthetic
+filesystem feasibility passed 9/9; implementation and production platform
+proof remain pending.
 
 ## Human-readable artifacts
 
