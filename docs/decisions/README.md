@@ -60,4 +60,6 @@ adr-0023-adapter-relation-metadata-interface-segregation.md
 adr-0024-staged-ecosystem-incubation.md
 adr-0025-adapter-aware-execution-advisories.md
 adr-0026-local-execution-policy-and-scan-admission.md
+adr-0027-run-lifecycle-result-semantics-and-exit-codes.md
+adr-0028-run-result-publication-and-cli-finalization.md
 ```
