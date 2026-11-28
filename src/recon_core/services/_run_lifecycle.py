@@ -33,6 +33,7 @@ class _PlanScope(StrEnum):
 class _PlannedCheck:
     check_id: str
     plan_id: str
+    name: str
     check_type: str
     prerequisites: tuple[str, ...]
 
@@ -68,6 +69,7 @@ class _CompiledRunPlan:
                         _PlannedCheck(
                             check_id=check.id,
                             plan_id=check.plan.id,
+                            name=check.name,
                             check_type=check.check_type,
                             prerequisites=check.prerequisites,
                         )
@@ -215,6 +217,7 @@ class _InvocationOutcome:
     scope_facts: _RunScopeFacts
     execution_facts: _ExecutionFacts
     stop_cause: _StopCause | None = None
+    timeout_seconds: int | None = None
 
 
 @dataclass(slots=True)
@@ -229,6 +232,7 @@ class _RunInvocation:
     known_empty_scope: bool = False
     scope_facts: _RunScopeFacts | None = None
     control: _RunControl | None = field(default=None, repr=False)
+    timeout_seconds: int | None = None
     execution_ledger: _ExecutionLedger = field(default_factory=_ExecutionLedger, repr=False)
 
     def observe_stop(self) -> _StopCause | None:
@@ -280,4 +284,5 @@ class _RunInvocation:
             execution_facts=self.execution_ledger.snapshot(resource_facts),
             scope_facts=self.scope_facts or self.inspect_scope(run_result),
             stop_cause=stop_cause,
+            timeout_seconds=self.timeout_seconds,
         )
